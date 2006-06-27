@@ -53,7 +53,9 @@ static char copyright[] =
  * Darwin-specific items
  */
 
+# if LT_VERS<800
 #undef	DO_TEST
+# endif	/* LT_VERS<800 */
 #endif	/* defined(LT_DIAL_darwin) */
 
 
@@ -98,7 +100,6 @@ main(argc, argv)
     char szbuf[32];			/* created test file size in ASCII */
     int ti;				/* temporary index */
     int xv = 0;				/* exit value */
-    char xbuf[64];			/* expected value buffer */
 /*
  * Get program name and PID, issue start message, and build space prefix.
  */
@@ -263,6 +264,7 @@ print_file_error:
  * Exit successfully.
  */
     (void) PrtMsgX("OK", Pn, cleanup, 0);
+    return(0);
 }
 
 
@@ -306,7 +308,6 @@ FindNFSfile(ff, szbuf)
     int nf;				/* number of fields */
     char nlkbuf[32];			/* link count buffer */
     LTfldo_t *nlkp;			/* nlink pointer */
-    LTfldo_t *offp;			/* offset pointer */
     char *opv[4];			/* option vector for ExecLsof() */
     char *pem = (char *)NULL;		/* previous error message pointer */
     pid_t pid;				/* PID */
@@ -316,7 +317,6 @@ FindNFSfile(ff, szbuf)
     LTfldo_t *szp;			/* size pointer */
     char *tcp;				/* temporary character pointer */
     int ti;				/* temporary integer */
-    int ts = 0;				/* test status flag */
     LTfldo_t *typ;			/* file type pointer */
 /*
  * Check the argument pointers.
@@ -413,7 +413,7 @@ FindNFSfile(ff, szbuf)
 	/*
 	 * Scan for device, inode, nlink, offset, size and type fields.
 	 */
-	    devp = inop = nlkp, offp = szp = typ = (LTfldo_t *)NULL;
+	    devp = inop = nlkp, szp = typ = (LTfldo_t *)NULL;
 	    for (fop++, ti = 1; ti < nf; fop++, ti++) {
 		switch (fop->ft) {
 		case LSOF_FID_DEVN:
@@ -426,7 +426,6 @@ FindNFSfile(ff, szbuf)
 		    nlkp = fop;
 		    break;
 		case LSOF_FID_OFFSET:
-		    offp = fop;
 		    break;
 		case LSOF_FID_SIZE:
 		    szp = fop;

@@ -759,7 +759,7 @@ void KHTMLView::viewportMousePressEvent( QMouseEvent *_mouse )
 {
     if(!m_part->xmlDocImpl()) return;
 
-    SharedPtr<KHTMLView> protector(this);
+    khtml::SharedPtr<KHTMLView> protector(this);
 
     int xm, ym;
     viewportToContents(_mouse->x(), _mouse->y(), xm, ym);
@@ -819,7 +819,7 @@ void KHTMLView::viewportMouseDoubleClickEvent( QMouseEvent *_mouse )
 {
     if(!m_part->xmlDocImpl()) return;
 
-    SharedPtr<KHTMLView> protector(this);
+    khtml::SharedPtr<KHTMLView> protector(this);
 
     int xm, ym;
     viewportToContents(_mouse->x(), _mouse->y(), xm, ym);
@@ -902,11 +902,9 @@ void KHTMLView::viewportMouseMoveEvent( QMouseEvent * _mouse )
     // was pressed, rather than updating for nodes the mouse moves over as you hold the mouse down.
     DOM::NodeImpl::MouseEvent mev( _mouse->stateAfter(), DOM::NodeImpl::MouseMove );
     m_part->xmlDocImpl()->prepareMouseEvent(d->mousePressed && m_part->mouseDownMayStartSelect(), d->mousePressed, xm, ym, &mev );
-#if APPLE_CHANGES
-    if (KWQ(m_part)->passSubframeEventToSubframe(mev))
-        return;
-#endif
 
+    KWQ(m_part)->passSubframeEventToSubframe(mev);
+        
     bool swallowEvent = dispatchMouseEvent(EventImpl::MOUSEMOVE_EVENT,mev.innerNode.handle(),false,
                                            0,_mouse,true,DOM::NodeImpl::MouseMove);
 
@@ -1051,7 +1049,7 @@ void KHTMLView::viewportMouseReleaseEvent( QMouseEvent * _mouse )
 {
     if ( !m_part->xmlDocImpl() ) return;
 
-    SharedPtr<KHTMLView> protector(this);
+    khtml::SharedPtr<KHTMLView> protector(this);
 
     int xm, ym;
     viewportToContents(_mouse->x(), _mouse->y(), xm, ym);
@@ -1902,25 +1900,8 @@ bool KHTMLView::dispatchMouseEvent(int eventId, DOM::NodeImpl *targetNode, bool 
 	// as there is no way to tell the difference between single & double clicks using DOM (only the click count is
 	// stored, which is not necessarily the same)
 	if (eventId == EventImpl::CLICK_EVENT) {
-	    me = new MouseEventImpl(EventImpl::KHTML_CLICK_EVENT,
-				    true,cancelable,m_part->xmlDocImpl()->defaultView(),
-				    detail,screenX,screenY,clientX,clientY,
-				    ctrlKey,altKey,shiftKey,metaKey,
-				    button,0);
-	    me->ref();
-	    if (defaultHandled)
-		me->setDefaultHandled();
-	    targetNode->dispatchEvent(me,exceptioncode,true);
-            if (me->defaultHandled())
-                defaultHandled = true;
-            if (me->defaultPrevented())
-                defaultPrevented = true;
-            if (me->defaultHandled() || me->defaultPrevented())
-                swallowEvent = true;
-	    me->deref();
-
             if (d->isDoubleClick) {
-                me = new MouseEventImpl(EventImpl::KHTML_DBLCLICK_EVENT,
+                me = new MouseEventImpl(EventImpl::DBLCLICK_EVENT,
                                         true,cancelable,m_part->xmlDocImpl()->defaultView(),
                                         detail,screenX,screenY,clientX,clientY,
                                         ctrlKey,altKey,shiftKey,metaKey,

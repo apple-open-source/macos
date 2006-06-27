@@ -155,10 +155,11 @@ protected:
 	*/
 	
 	typedef struct {
-		IOFireWireSBP2ORB *		orb;
-		SCSITaskIdentifier 		scsiTask;
-		SCSIServiceResponse 	serviceResponse;
-		SCSITaskStatus			taskStatus;
+		IOFireWireSBP2ORB *				orb;
+		SCSITaskIdentifier 				scsiTask;
+		SCSIServiceResponse 			serviceResponse;
+		SCSITaskStatus					taskStatus;
+		IOBufferMemoryDescriptor *		quadletAlignedBuffer;
 	} SBP2ClientOrbData;
 	
 	static const UInt32 kDefaultBusyTimeoutValue	= 0x0000000F;

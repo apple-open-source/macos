@@ -21,6 +21,8 @@
  */
 
 
+#include <IOKit/usb/IOUSBLog.h>
+
 #include "AppleUSBUHCI.h"
 
 
@@ -36,6 +38,7 @@ AppleUSBUHCI::UIMCreateInterruptTransfer(
                                          short				direction)
 {
     // deprecated
+	USBLog(1, "AppleUSBUHCI::UIMCreateInterruptTransfer - deprecated");
     return kIOReturnBadArgument;
 }
 
@@ -51,6 +54,7 @@ AppleUSBUHCI::UIMCreateBulkTransfer(
                                     short				direction)
 {
     // deprecated
+	USBLog(1, "AppleUSBUHCI::UIMCreateBulkTransfer - deprecated");
     return kIOReturnBadArgument;
 }
 
@@ -65,6 +69,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
                                        short				direction)
 {
     // deprecated
+	USBLog(1, "AppleUSBUHCI::UIMCreateControlTransfer - deprecated");
     return kIOReturnBadArgument;
 }
 
@@ -80,6 +85,7 @@ AppleUSBUHCI::UIMCreateControlTransfer(
                                        short				direction)
 {
     // deprecated
+	USBLog(1, "AppleUSBUHCI::UIMCreateControlTransfer - deprecated");
     return kIOReturnBadArgument;
 }
 

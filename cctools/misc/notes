@@ -9,6 +9,18 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
+Changes for the 5.20.1 release (the cctools-590.23.6 release):
+- Fixed a bug in the redo_prebinding code where it would call chmod(2) and
+  chown(2) unnecessarily when no output_file is specified.  The fix was in
+  unprebind() in redo_prebinding.c to remove the else clause of the
+  if(output_file != NULL && outbuf == NULL) so the chmod() and chown() are not
+  called on the file_name parameter.  Radar bug #4503724.
+- Fixed a leak in the redo_prebinding code where error_message_buffer is not
+  freed when system_error() is called.  The fix is in unprebind() in
+  redo_prebinding.c after the first call to cleanup().  It checks to see if
+  error_message_buffer is not NULL and if so calls free() on it.  Radar Bug
+  #4503576.
+
 Changes for the 5.20 release (the cctools-590.20 release):
 - Removed the warnings when building. Radar bug #4340147.
   - Added -fno-builtin-round to the Makefile.

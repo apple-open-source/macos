@@ -67,18 +67,8 @@ static CSSM_RETURN tpCrlViaNet(
 	
 	rtnCrl = NULL;
 	
-	/* verifyTime: Cook up an appropriate time string. */
-	if(vfyCtx.verifyTime != NULL) {
-		/* tolerate any incoming format */
-		int rtn = tpTimeToCssmTimestring(vfyCtx.verifyTime, strlen(vfyCtx.verifyTime),
-			cssmTime);
-		if(rtn) {
-			tpErrorLog("tpCrlLookup: Invalid VerifyTime string\n");
-			return CSSMERR_APPLETP_CRL_NOT_FOUND;
-		}
-	}
-	else {
-		/* right now */
+	/* verifyTime: we want a CRL that's valid right now. */
+	{
 		StLock<Mutex> _(tpTimeLock());
 		timeAtNowPlus(0, TIME_CSSM, cssmTime);
 	}
@@ -92,7 +82,7 @@ static CSSM_RETURN tpCrlViaNet(
 			vfyCtx.cspHand,
 			&crlData,
 			TIC_CopyData,
-			vfyCtx.verifyTime);		// cssmTimeStr FIMXE - do we need this?
+			NULL); 			// verifyTime = Now
 	}
 	catch(...) {
 		alloc.free(crlData.Data);
@@ -111,7 +101,7 @@ static CSSM_RETURN tpCrlViaNet(
 					vfyCtx.cspHand,
 					&crlData,
 					TIC_CopyData,
-					vfyCtx.verifyTime);	
+					NULL);	
 				tpDebug("   RECOVERY: good CRL obtained from net"); 
 			}
 			catch(...) {
@@ -128,8 +118,15 @@ static CSSM_RETURN tpCrlViaNet(
 	}
 	alloc.free(crlData.Data);
 	
-	/* full CRL verify */
-	crtn = crl->verifyWithContext(vfyCtx, &forCert);
+	/* 
+ 	 * Full CRL verify.
+ 	 * The verify time in the TPVerifyContext is the time at which various
+	 * entities (CRL and its own cert chain) are to be verified; that's
+	 * NULL for "right now". The current vfyCtx.verifyTime is the time at
+	 * which the cert's revocation status to be determined; this call to 
+	 * verifyWithContextNow() doesn't do that. 
+	 */
+	crtn = crl->verifyWithContextNow(vfyCtx, &forCert);
 	if(crtn == CSSM_OK) {
 		crl->uri(url);
 	}

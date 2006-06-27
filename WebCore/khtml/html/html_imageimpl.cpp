@@ -132,7 +132,7 @@ void HTMLImageLoader::notifyFinished(CachedObject* image)
 
 // -------------------------------------------------------------------------
 
-HTMLImageElementImpl::HTMLImageElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLImageElementImpl::HTMLImageElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLElementImpl(doc), m_imageLoader(this), ismap(false), m_form(f)
 {
     if (m_form)
@@ -394,7 +394,7 @@ bool HTMLImageElementImpl::isURLAttribute(AttributeImpl *attr) const
 
 // -------------------------------------------------------------------------
 
-HTMLMapElementImpl::HTMLMapElementImpl(DocumentPtr *doc)
+HTMLMapElementImpl::HTMLMapElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -473,7 +473,7 @@ void HTMLMapElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 
 // -------------------------------------------------------------------------
 
-HTMLAreaElementImpl::HTMLAreaElementImpl(DocumentPtr *doc)
+HTMLAreaElementImpl::HTMLAreaElementImpl(DocumentImpl *doc)
     : HTMLAnchorElementImpl(doc)
 {
     m_coords=0;

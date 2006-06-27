@@ -40,8 +40,8 @@
 #ifndef _ARCH_PPC_BASIC_REGS_H_
 #define _ARCH_PPC_BASIC_REGS_H_
 
-#import <architecture/ppc/reg_help.h>
-#import <architecture/ppc/macro_help.h>
+#include <architecture/ppc/reg_help.h>
+#include <architecture/ppc/macro_help.h>
 
 #if !defined(__ASSEMBLER__)
 

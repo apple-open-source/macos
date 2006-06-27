@@ -50,7 +50,7 @@
 
 - (void)refreshData:(BOOL)shouldForce;
 
-- (void)processDevice:(IOUSBDeviceRef)deviceIntf deviceNumber:(int)deviceNumber;
+- (void)processDevice:(IOUSBDeviceRef)deviceIntf deviceNumber:(int)deviceNumber usbName:(NSString*)usbName;
 
 @end
 

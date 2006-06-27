@@ -49,7 +49,7 @@
 using namespace khtml;
 using namespace DOM;
 
-HTMLTableElementImpl::HTMLTableElementImpl(DocumentPtr *doc)
+HTMLTableElementImpl::HTMLTableElementImpl(DocumentImpl *doc)
   : HTMLElementImpl(doc)
 {
     tCaption = 0;
@@ -151,7 +151,7 @@ HTMLElementImpl *HTMLTableElementImpl::createTHead(  )
     if(!head)
     {
         int exceptioncode = 0;
-        head = new HTMLTableSectionElementImpl(docPtr(), ID_THEAD, true /* implicit */);
+        head = new HTMLTableSectionElementImpl(getDocument(), ID_THEAD, true /* implicit */);
         if(foot)
             insertBefore( head, foot, exceptioncode );
         else if(firstBody)
@@ -176,7 +176,7 @@ HTMLElementImpl *HTMLTableElementImpl::createTFoot(  )
     if(!foot)
     {
         int exceptioncode = 0;
-        foot = new HTMLTableSectionElementImpl(docPtr(), ID_TFOOT, true /*implicit */);
+        foot = new HTMLTableSectionElementImpl(getDocument(), ID_TFOOT, true /*implicit */);
         if(firstBody)
             insertBefore( foot, firstBody, exceptioncode );
         else
@@ -199,7 +199,7 @@ HTMLElementImpl *HTMLTableElementImpl::createCaption(  )
     if(!tCaption)
     {
         int exceptioncode = 0;
-        tCaption = new HTMLTableCaptionElementImpl(docPtr());
+        tCaption = new HTMLTableCaptionElementImpl(getDocument());
         insertBefore( tCaption, firstChild(), exceptioncode );
     }
     return tCaption;
@@ -221,7 +221,7 @@ HTMLElementImpl *HTMLTableElementImpl::insertRow( long index, int &exceptioncode
     // (note: this is different from "if the table has no sections", since we can have
     // <TABLE><TR>)
     if(!firstBody && !head && !foot)
-        setTBody( new HTMLTableSectionElementImpl(docPtr(), ID_TBODY, true /* implicit */) );
+        setTBody( new HTMLTableSectionElementImpl(getDocument(), ID_TBODY, true /* implicit */) );
 
     //kdDebug(6030) << k_funcinfo << index << endl;
     // IE treats index=-1 as default value meaning 'append after last'
@@ -719,7 +719,7 @@ void HTMLTablePartElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 
 // -------------------------------------------------------------------------
 
-HTMLTableSectionElementImpl::HTMLTableSectionElementImpl(DocumentPtr *doc,
+HTMLTableSectionElementImpl::HTMLTableSectionElementImpl(DocumentImpl *doc,
                                                          ushort tagid, bool implicit)
     : HTMLTablePartElementImpl(doc)
 {
@@ -765,7 +765,7 @@ HTMLElementImpl *HTMLTableSectionElementImpl::insertRow( long index, int& except
     }
     else
     {
-        r = new HTMLTableRowElementImpl(docPtr());
+        r = new HTMLTableRowElementImpl(getDocument());
         if ( numRows == index || index == -1 )
             appendChild(r, exceptioncode);
         else {
@@ -890,7 +890,7 @@ HTMLElementImpl *HTMLTableRowElementImpl::insertCell( long index, int &exception
         exceptioncode = DOMException::INDEX_SIZE_ERR; // per the DOM
     else
     {
-        c = new HTMLTableCellElementImpl(docPtr(), ID_TD);
+        c = new HTMLTableCellElementImpl(getDocument(), ID_TD);
         if(numCells == index || index == -1)
             appendChild(c, exceptioncode);
         else {
@@ -920,7 +920,7 @@ void HTMLTableRowElementImpl::deleteCell( long index, int &exceptioncode )
 
 // -------------------------------------------------------------------------
 
-HTMLTableCellElementImpl::HTMLTableCellElementImpl(DocumentPtr *doc, int tag)
+HTMLTableCellElementImpl::HTMLTableCellElementImpl(DocumentImpl *doc, int tag)
   : HTMLTablePartElementImpl(doc)
 {
   _col = -1;
@@ -1024,7 +1024,7 @@ bool HTMLTableCellElementImpl::isURLAttribute(AttributeImpl *attr) const
 
 // -------------------------------------------------------------------------
 
-HTMLTableColElementImpl::HTMLTableColElementImpl(DocumentPtr *doc, ushort i)
+HTMLTableColElementImpl::HTMLTableColElementImpl(DocumentImpl *doc, ushort i)
     : HTMLTablePartElementImpl(doc)
 {
     _id = i;

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.22 2004/07/06 19:09:32 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.24 2006/03/27 23:04:25 abe Exp $";
 #endif
 
 
@@ -356,12 +356,39 @@ usage(xv, fh, version)
 
 		);
 
-	    (void) fprintf(stderr, " [+|-f%s]\n [-F [f]] [-g [s]] [-i [i]]",
+	    (void) fprintf(stderr,
+		" [+|-f%s%s%s%s%s%s]\n [-F [f]] [-g [s]] [-i [i]]",
 
 #if	defined(HASFSTRUCT)
-		"[cfgGn]"
+		"[",
+
+# if	defined(HASNOFSCOUNT)
+		"",
+# else	/* !defined(HASNOFSCOUNT) */
+		"c",
+# endif	/* defined(HASNOFSCOUNT) */
+
+# if	defined(HASNOFSADDR)
+		"",
+# else	/* !defined(HASNOFSADDR) */
+		"f",
+# endif	/* defined(HASNOFSADDR) */
+
+# if	defined(HASNOFSFLAGS)
+		"",
+# else	/* !defined(HASNOFSFLAGS) */
+		"gG",
+# endif	/* defined(HASNOFSFLAGS) */
+
+# if	defined(HASNOFSNADDR)
+		"",
+# else	/* !defined(HASNOFSNADDR) */
+		"n",
+# endif	/* defined(HASNOFSNADDR) */
+
+		"]"
 #else	/* !defined(HASFSTRUCT) */
-		""
+		"", "", "", "", "", ""
 #endif	/* defined(HASFSTRUCT) */
 
 		);
@@ -387,7 +414,7 @@ usage(xv, fh, version)
 #endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
 
 	    (void) fprintf(stderr,
-	        " [+|-M] [-o [o]]\n[-p s] [+|-r [t]] [-S [t]] [-T [t]]");
+	        " [+|-M] [-o [o]]\n [-p s] [+|-r [t]] [-S [t]] [-T [t]]");
 	    (void) fprintf(stderr, " [-u s] [+|-w] [-x [fl]]");
 
 #if	defined(HASZONES)
@@ -404,8 +431,8 @@ usage(xv, fh, version)
 	}
 	if (Fhelp) {
 	    (void) fprintf(stderr,
-		"Defaults in parentheses; comma-separate set (s) items;");
-	    (void) fprintf(stderr, " dash-separate ranges.\n");
+		"Defaults in parentheses; comma-separated set (s) items;");
+	    (void) fprintf(stderr, " dash-separated ranges.\n");
 	    (void) fprintf(stderr, "  %-23.23s", "-?|-h list help");
 	    (void) fprintf(stderr, "  %-25.25s", "-a AND selections (OR)");
 	    (void) fprintf(stderr, "  %s\n", "-b avoid kernel blocks");
@@ -502,7 +529,7 @@ usage(xv, fh, version)
 
 #if	defined(HASZONES)
 	    (void) fprintf(stderr,
-		(buf[0]) ? " %s\n" : "  %-25.25s", "-z z  zone [z]");
+		(buf[0]) ? "  %s\n" : "  %-25.25s", "-z z  zone [z]");
 #endif	/* defined(HASZONES) */
 
 	    (void) fprintf(stderr, "  %s\n", "-- end option scan");
@@ -511,7 +538,56 @@ usage(xv, fh, version)
 
 #if	defined(HASFSTRUCT)
 	    (void) fprintf(stderr,
-		"  +|-f[cfgGn] Ct,Fstr,flaGs,Node %s%s%s%s%s%s%s\n",
+		"  +|-f[%s%s%s%s]%s%s%s%s %s%s%s%s%s%s%s\n",
+
+# if	defined(HASNOFSCOUNT)
+		"",
+# else	/* !defined(HASNOFSCOUNT) */
+		"c",
+# endif	/* defined(HASNOFSCOUNT) */
+
+# if	defined(HASNOFSADDR)
+		"",
+# else	/* !defined(HASNOFSADDR) */
+		"f",
+# endif	/* defined(HASNOFSADDR) */
+
+# if	defined(HASNOFSFLAGS)
+		"",
+# else	/* !defined(HASNOFSFLAGS) */
+		"gG",
+# endif	/* defined(HASNOFSFLAGS) */
+
+# if	defined(HASNOFSNADDR)
+		"",
+# else	/* !defined(HASNOFSNADDR) */
+		"n",
+# endif	/* defined(HASNOFSNADDR) */
+
+# if	defined(HASNOFSCOUNT)
+		"",
+# else	/* !defined(HASNOFSCOUNT) */
+		" Ct",
+# endif	/* defined(HASNOFSCOUNT) */
+
+# if	defined(HASNOFSADDR)
+		"",
+# else	/* !defined(HASNOFSADDR) */
+		" Fstr",
+# endif	/* defined(HASNOFSADDR) */
+
+# if	defined(HASNOFSFLAGS)
+		"",
+# else	/* !defined(HASNOFSFLAGS) */
+		" flaGs",
+# endif	/* defined(HASNOFSFLAGS) */
+
+# if	defined(HASNOFSNADDR)
+		"",
+# else	/* !defined(HASNOFSNADDR) */
+		" Node",
+# endif	/* defined(HASNOFSNADDR) */
+
 		Fsv ? "(" : "",
 		(Fsv & FSV_CT) ? "C" : "",
 		(Fsv & FSV_FA) ? "F" : "",
@@ -574,7 +650,8 @@ usage(xv, fh, version)
 	    (void) snpf(buf, sizeof(buf), "-o o   o 0t offset digits (%d)",
 		OFFDECDIG);
 	    (void) fprintf(stderr, "  %s\n", buf);
-	    (void) fprintf(stderr, "  %-36.36s", "-p s   select by PID set");
+	    (void) fprintf(stderr, "  %-36.36s",
+		"-p s   exclude(^)|select PIDs");
 	    (void) fprintf(stderr, "  -S [t] t second stat timeout (%d)\n",
 		TMLIMIT);
 	    (void) snpf(buf, sizeof(buf),
@@ -625,8 +702,7 @@ usage(xv, fh, version)
 #endif	/* defined(HAS_AFS) && defined(HASAOPT) */
 
 	    (void) fprintf(stderr,
-		"  -g [s] select by process group ID set and print");
-	    (void) fprintf(stderr, " process group IDs\n");
+		"  -g [s] exclude(^)|select and print process group IDs\n");
 	    (void) fprintf(stderr, "  -i i   select by IPv%s address:",
 
 #if	defined(HASIPv6)
@@ -675,6 +751,26 @@ usage(xv, fh, version)
 		||  FieldSel[i].id == LSOF_FID_FG
 		||  FieldSel[i].id == LSOF_FID_NI)
 		    continue;
+#else	/* defined(HASFSTRUCT) */
+# if	defined(HASNOFSADDR)
+		if (FieldSel[i].id == LSOF_FID_FA)
+		    continue;
+# endif	/* defined(HASNOFSADDR) */
+
+# if	defined(HASNOFSCOUNT)
+		if (FieldSel[i].id == LSOF_FID_CT)
+		    continue;
+# endif	/* !defined(HASNOFSCOUNT) */
+
+# if	defined(HASNOFSFLAGS)
+		if (FieldSel[i].id == LSOF_FID_FG)
+		    continue;
+# endif	/* defined(HASNOFSFLAGS) */
+
+# if	defined(HASNOFSNADDR)
+		if (FieldSel[i].id == LSOF_FID_NI)
+		    continue;
+# endif	/* defined(HASNOFSNADDR) */
 #endif	/* !defined(HASFSTRUCT) */
 
 #if	!defined(HASZONES)

@@ -1,3 +1,1400 @@
+=== WebCore-418.19 ===
+
+2006-06-14  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by thatcher, harrison
+        
+        <rdar://problem/4585175> 10.4.7 regression: Text from end of signature unexpectedly removed
+        
+        Merged fix for:
+        <http://bugzilla.opendarwin.org/show_bug.cgi?id=8459>
+        REGRESSION: Content lost during a delete/merge of whitespace:pre text
+
+        * khtml/editing/htmlediting.cpp:
+        (khtml::hasARenderedDescendant): Added.
+        (khtml::CompositeEditCommand::prune): Don't prune a leaf, the root editable element, or a container with one or more rendered descendants.
+
+=== WebCore-418.18 ===
+
+2006-06-14  David Harrison  <harrison@apple.com>
+
+        Written by mjs, reviewed by Tim H.
+
+        <rdar://problem/4586051> 10.4.7 regression: 'Saved and recent' button on mapquest.com does not work
+
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::dispatchWindowEvent):
+        Call window capturing event handlers, not just bubbling event handlers.
+        
+
+=== WebCore-418.17 ===
+
+2006-06-13  Geoffrey Garen  <ggaren@apple.com>
+
+        Patch by Darin, tweaked by me, reviewed by Harrison.
+
+        - Fixed <rdar://problem/4584598> 10.4.7 regression: Changing location 
+        for weather on yahoo.com home page redirects to another page
+       
+        We need to keep separate caches for HTML and non-HTML event listeners
+        so that, if you add one of each to the same node, the two don't clobber 
+        each other.
+
+        * khtml/ecma/kjs_events.cpp:
+        (JSUnprotectedEventListener::JSUnprotectedEventListener):
+        (JSUnprotectedEventListener::~JSUnprotectedEventListener):
+        (JSEventListener::JSEventListener):
+        (JSEventListener::~JSEventListener):
+        (JSLazyEventListener::parseCode):
+        * khtml/ecma/kjs_window.cpp:
+        (Window::~Window):
+        (Window::getJSEventListener):
+        (Window::getJSUnprotectedEventListener):
+        * khtml/ecma/kjs_window.h:
+
+2006-06-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Harrison, landed by Tim H.
+
+        <rdar://problem/4583892> 10.4.7 regression: Hang occurs when attempting to load search results at mapquest.com
+
+        Handle window events for capture phase, except load events, this quirk is needed because
+        Mozilla used to not do the bubble or capture phase for image load events and sites mistakenly
+        put capturing load event listeners on the window
+
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::dispatchGenericEvent):
+
+=== WebCore-418.16 ===
+
+2006-06-12  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Maciej, Harrison.
+
+        Fixes <rdar://problem/4582172> frameset load events don't fire (can't login into Gmail account or see map at 511.org)
+
+        Framesets need to register their load, beforeunload and unload events with the window.
+
+        * khtml/html/html_baseimpl.cpp:
+        (HTMLFrameSetElementImpl::parseHTMLAttribute):
+
+=== WebCore-418.15 ===
+
+2006-06-09  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        This fixes the regression from <rdar://problem/4578533> REGRESSION: vbulletin search box closes when clicked
+
+    2006-02-23  Vicki Murley <vicki@apple.com>
+
+        Reviewed by Hyatt.
+
+        - fix <rdar://problem/4456004> onbeforeunload should cancel, and 
+        <rdar://problem/4453579> REGRESSION (TOT): onbeforeunload is broken (7421)
+
+        * bridge/mac/MacFrame.mm:
+        (WebCore::MacFrame::shouldClose): Onbeforeunload is a non-bubbling window
+        event, so we should be using handleWindowEvent rather than dispatching a 
+        generic event on the body. It seems this only worked before because of incorrect
+        code in other parts of the tree. 
+        * dom/dom2_eventsimpl.cpp:
+        (WebCore::BeforeUnloadEventImpl::BeforeUnloadEventImpl): for this constructor,
+        pass true for the cancel parameter
+
+=== WebCore-418.14 ===
+
+2006-06-09  Timothy Hatcher  <timothy@apple.com>
+        
+        Rolling out this fix, this caused a Mail regression.
+        <rdar://problem/4578653> Forwarding loses the attached images
+
+    2006-04-26  Tim Omernick  <timo@apple.com>
+        
+        Reviewed by Hyatt.
+        
+        <rdar://problem/4068375> Flash inserted via innerHTML Fails to Show when CSS Display
+        Style is Toggled via Javascript
+        
+        * html/html_objectimpl.cpp:
+        (WebCore::HTMLObjectElement::setComplete):
+        Set needWidgetUpdate when finished parsing, even if the object element is not in
+        a document.  That way, when the element attaches to a document, it will update its
+        widget (creating the plug-in view if necessary).  This is important when the object
+        is being inserted via setInnerHTML, since the parsed nodes are not added to the
+        document until the whole HTML string is parsed.
+
+2006-06-09  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        This fixes <rdar://problem/4578533> REGRESSION: vbulletin search box closes when clicked
+
+    2006-02-08  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Maciej.
+
+        - Fixed <rdar://problem/4325160> 
+          REGRESSION(416.12-420+): window events not stopped by stopPropagation (affects macnn forums)
+
+        Tests:
+        * fast/events/window-events-bubble.html
+        * fast/events/window-events-bubble2.html
+        * fast/events/window-events-capture.html
+
+        * khtml/xml/DocumentImpl.cpp:
+        (WebCore::DocumentImpl::handleWindowEvent): Added to send events directly to the window.  This code used to be in defaultEventHandler, but that wasn't sending them at the right time.
+        (WebCore::DocumentImpl::defaultEventHandler): Moved code to send window events to handleWindowEvent.
+        * khtml/xml/DocumentImpl.h: Added handleWindowEvent.
+        * khtml/xml/NodeImpl.cpp:
+        (WebCore::NodeImpl::dispatchGenericEvent): fire window events in capture and bubble phases.
+        (WebCore::NodeImpl::dispatchWindowEvent): call handleWindowEvent.
+
+=== WebCore-418.13 ===
+
+2006-06-06 Geoffrey Garen <ggaren@apple.com>
+
+        Fix by Maciej, reviewed by Darin. I provided desk space.
+        
+        - Fixed <rdar://problem/4573918> 10.4.7 Regression: Hang randomly occurs 
+        when attempting to load http://www.apple.com/pro/profiles/ if you use a PAC file
+
+        Because the garbage collector suspends a thread while marking its stack,
+        mark methods must not call malloc, because they may end up stuck,
+        trying to acquire the malloc lock from a suspended thread.
+
+        The fix here is:
+        (1) Use a data member rather than a dictionary to track nodes that are
+        in the process of marking their subtrees.
+        (2) Avoid the case wheter calling getDOMNodeForDocument might allocate
+        the staticDOMNodesPerDocument dictionary.
+        
+        * khtml/ecma/kjs_binding.cpp:
+        (KJS::ScriptInterpreter::domObjects):
+        (KJS::ScriptInterpreter::domNodesPerDocument):
+        (KJS::ScriptInterpreter::getDOMNodeForDocument):
+        * khtml/ecma/kjs_dom.cpp:
+        (DOMNode::mark):
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::NodeImpl):
+        * khtml/xml/dom_nodeimpl.h:
+
+=== WebCore-418.12 ===
+
+2006-06-02  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Darin and Eric.
+
+        <rdar://problem/4523402> SUTiLondon: XSL file containing <xsl:include href="../Styles/EscapeString.xsl" /> fails to load file
+
+        The decoder was returning a null string for the EscapeString stylesheet because it didn't specify an encoding.
+        If we do not find an encoding we need to assume it is UTF-8.
+
+        We also need to load DTD files in xml documents for this test to fully work like Win IE.
+        Wrapping XMLTokenizer's xmlReadMemory with setLoaderForLibXMLCallbacks to load any files XML needs through the docLoader.
+
+        However, this further exposes <rdar://problem/4292995> (libxml2 looks for file in /etc/xml/catalog, but the file is not installed)
+        This causes Safari to show an error in the activity window about file:///etc/xml/catalog. To prevent this we can set
+        the XML_CATALOG_FILES environment variable to an empty string. We will only set this env var if it hasn't been set already.
+        This allows someone to launch Safari with a custom catalog if that was ever needed.
+
+        * khtml/misc/decoder.cpp:
+        (Decoder::decode):
+        * khtml/xml/xml_tokenizer.cpp:
+        (khtml::XMLTokenizer::setTransformSource):
+
+2006-06-02  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+        
+        - Fixed <rdar://problem/4568551> Hang occurs when attempting to load 
+        links found at http://reviews.cnet.com/4531-10921_7-6534826.html?tag=cnetfd.ld2
+        if you use a PAC file
+        
+        For a synchronous XMLHttpRequest, the JavaScript interpreter initiating 
+        the request would deadlock with the JavaScript interpreter spawned by 
+        the request to execute the PAC file.
+        
+        The solution here is to temporarily drop the initiating interpreter's locks
+        before making the request, and re-acquire the locks afterwards. Because
+        the initiating interpreter waits for the request to complete before
+        continuing execution, it is free to drop its locks while the request
+        is in progress.
+
+        * khtml/ecma/xmlhttprequest.cpp:
+        (KJS::XMLHttpRequest::send):
+
+2006-06-01  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+        
+        - Fixed <rdar://problem/4569127> 10.4.7 regression: Crash occurs when 
+        clicking on the navigation tabs at http://www.businessweek.com/
+
+        The fix is to mark all DOM Nodes when collecting on an alternate thread -- 
+        not just the nodes that are still in a document.
+        
+        Previously, the DOMObjectsMarker didn't mark DOM nodes that were not in 
+        a document, since we assumed such nodes would either be (a) unreachable 
+        or (b) reachable, and therefore marked elsewhere. However, it seems that
+        heap/stack entropy allows for (c) non-deterministically reachable by the
+        conservative garbage collector. So, ironically, we need to mark
+        DOM nodes that are not in a document to avoid crashing when trying to
+        mark them later.
+
+        * khtml/ecma/kjs_binding.cpp:
+        (KJS::DOMObjectsMarker::mark):
+        (KJS::DOMObjectsMarker::markOnMainThread):
+        (KJS::DOMObjectsMarker::markOnAlternateThread):
+
+=== WebCore-418.11 ===
+
+2006-05-30  Levi Weintraub  <lweintraub@apple.com>
+
+        Reviewed by justin.
+
+        <rdar://problem/4039661> crash in ApplyStyleCommand::applyBlockStyle(DOM::CSSMutableStyleDeclarationImpl*, DOM::Position const&, DOM::Position const&) pasting contents of webpage into Mail or Blot
+        <rdar://problem/4029632> Mail crashes in DOM::NodeImpl::isBlockFlow() after pasting text with alignment style and BR element from Safari
+
+        * khtml/editing/htmlediting.cpp:
+        (khtml::ApplyStyleCommand::applyBlockStyle): Swap reversed start and
+        end selection points to avoid null dereference.
+        (khtml::ApplyStyleCommand::removeInlineStyle): Modified assert to
+        not complain about caret selections.
+
+=== WebCore-418.10 ===
+
+2006-05-27  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+        
+        - Fixed <rdar://problem/4562599> 10.4.7 regression: After closing a 
+        window that contains macworld.com, creating a new window results in 
+        crash (KJS::PropertyMap::mark() )
+
+        ScriptInterpreter used to be responsible for marking cached DOM objects.
+        That was insufficient because once all the windows are closed, there's
+        no ScriptInterpreter left to do the marking.
+        
+        The solution here is to allocate a static, protected 'DOMObjectsMarker'
+        object that takes care of marking the DOM object caches.
+        
+        * khtml/ecma/kjs_binding.cpp:
+        (KJS::DOMObjectsMarker::mark):
+        (KJS::ScriptInterpreter::domObjects):
+        (KJS::ScriptInterpreter::domNodesPerDocument):
+        * khtml/ecma/kjs_binding.h:
+
+=== WebCore-418.9 ===
+
+2006-05-24  Kevin Decker    <kdecker@apple.com>
+
+        Reviewed by Adele.
+
+        <rdar://problem/4557153> REGRESSION (10.4.7): Seed: Safari no longer blocks pop-up from macworld.com
+        
+        * khtml/ecma/kjs_binding.cpp:
+        (KJS::ScriptInterpreter::wasRunByUserGesture): Fixed typo from a previous check-in on 2006-04-27.
+
+=== WebCore-418.8 ===
+
+2006-05-19  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+
+        - Fixed <rdar://problem/4543569> 10.4.7 regression: Crash occurs
+        when attempting to view image in slideshow mode at
+        http://d.smugmug.com/gallery/581716 ( KJS::IfNode::execute
+        (KJS::ExecState*) + 312)
+
+        - Minor fix: DOMParserConstructor needed to inherit from DOMObject to
+        prevent collection on alternate threads.
+
+        - Major fix: On alternate threads, DOMObjects remain in the
+        ScriptInterpreter's cache because they're not collected. So, they
+        need an opportunity to mark their children.
+
+        * khtml/ecma/domparser.h:
+        * khtml/ecma/kjs_binding.cpp:
+        (KJS::ScriptInterpreter::mark):
+        * khtml/ecma/kjs_binding.h:
+
+2006-05-19  Levi Weintraub  <lweintraub@apple.com>
+
+        Reviewed by justin.
+
+        When the paste performance fix was merged over, uses of isCandidate
+        were changed to isRenderedContent. isRenderedContent on the branch
+        is incorrect in a few ways.
+
+        * khtml/editing/visible_position.cpp:
+        (khtml::VisiblePosition::init):
+
+=== WebCore-418.7 ===
+
+2006-05-17  David Harrison  <harrison@apple.com>
+
+        Reviewed by Justin.
+        
+        <rdar://problem/4542925> 10.4.7 regression: Mail: Using the delete key may cause application crash in DOM::NodeImpl::isBlockFlow() const from khtml::DeleteSelectionCommand::mergeParagraphs()
+    
+        * khtml/editing/htmlediting.cpp:
+        (positionBeforeContainingSpecialElement):
+        (positionAfterContainingSpecialElement):
+        (positionOutsideContainingSpecialElement):
+        (positionBeforePossibleContainingSpecialElement):
+        (positionAfterPossibleContainingSpecialElement):
+        (DeleteSelectionCommand::initializePositionData):
+        Fix special element handling to not create selection that does not completely surround the element.
+        
+        (DeleteSelectionCommand::mergeParagraphs):
+        Incorporate the remainder of the improved merge code.
+        
+        * xml/dom_position.cpp:
+        (inRenderedContent):
+        Allow br 0 unconditionally.
+
+=== WebCore-418.6 ===
+
+2006-05-16  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by levi
+        
+        <rdar://problem/4547278> 10.4.7 regression: Mail: Triple click, then drag, fails to select an empty line following a non-empty line
+        
+        Merged in the fix for: 
+        <rdar://problem/4364427> triple-click includes first item on next line (www.apple.com, but I think I've seen it elsewhere)
+
+        * khtml/editing/htmlediting.cpp:
+        (khtml::CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessary):
+        * khtml/editing/selection.cpp:
+        (khtml::Selection::validate):
+        * khtml/editing/visible_units.cpp:
+        (khtml::endOfLine):
+        (khtml::isEndOfLine):
+        (khtml::endOfParagraph):
+        (khtml::isEndOfParagraph):
+        (khtml::endOfBlock):
+        (khtml::isEndOfBlock):
+        * khtml/editing/visible_units.h:
+        (khtml::):
+
+2006-05-16  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Hyatt.
+
+        REGRESSION: revert SGML comment parsing fix (comment parsing causes most of usbank.com page to be missing)
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=5855
+
+        This also fixes:
+        <rdar://problem/4543829> -[DOMComment nodeValue] and -[DOMComment data] returning too much
+
+        * khtml/html/htmltokenizer.cpp:
+        (khtml::HTMLTokenizer::parseComment): Revert one change made for acid2, 
+        <http://weblogs.mozillazine.org/hyatt/acid6.txt>.
+
+=== WebCore-418.5 ===
+
+2006-05-12  Beth Dakin  <bdakin@apple.com>
+
+	Merged fix from TOT to Safari-2-0 branch. Fixes <rdar://problem/
+        4536941> Branch regression: : Random crash occurs when navigating 
+        site at http://abcnews.go.com/ (KHTMLParser::popOneBlock(bool) + 
+        56)
+
+        2006-01-26  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Eric.
+
+        - various leaks on "fast" LayoutTests
+        
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=6819
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=6823
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=6824
+        
+        It turns out these all had the same cause.
+        
+        * page/Frame.cpp:
+        (Frame::clear): If we have a document, make sure to cancel 
+        parsing, in case it has a tokenizer and parser that are 
+        keeping it alive. Use cancelParsing to avoid possibly 
+        accidentally firing the onload handler.
+        * khtml/xml/DocumentImpl.cpp:
+        (WebCore::DocumentImpl::cancelParsing): Factored out of
+        implicitOpen.
+        (WebCore::DocumentImpl::implicitOpen): Call cancelParsing now.
+        * khtml/xml/DocumentImpl.h:
+
+=== WebCore-418.4 ===
+
+2006-05-11  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Maciej.
+
+        Fix for <rdar://problem/4539954> 10.4.7 regression:DHTML menu 
+        closes prematurely when hovering over it at http://
+        www.shopping.hp.com/
+
+        This fix already exists on TOT, though I am not sure when it was 
+        checked in, nor am I aure what in particular caused this regression 
+        on the branch. Whatever the cause of the badness, though, we need 
+        to take borderTopExtra() and borderBottomExtra() into consideration 
+        when hitTesting the background of a RenderBlock.
+
+        * khtml/rendering/render_block.cpp:
+        (khtml::RenderBlock::nodeAtPoint):
+
+2006-05-10  David Harrison  <harrison@apple.com>
+
+        Reviewed by Justin.
+        
+        <rdar://problem/4543847> 10.4.7 regression: Mail: selecting the bottom of a message and deleting it leaves a stray newline
+        
+        Merged most of the DeleteSelectionCommand parts of r14143.
+
+        * khtml/editing/htmlediting.cpp:
+        (DeleteSelectionCommand::initializePositionData):
+        Removed erroneous check that disabled merging based on paragraph boundaries.
+        
+        (DeleteSelectionCommand::mergeParagraphs):
+        Return early if upstreamStart and downstreamEnd are flipped, or startblock == endblock.
+        
+=== WebCore-418.3 ===
+
+2006-05-09  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Justin.
+
+        <rdar://problem/4540011> Random crash occurs at when loading espn.go.com (khtml::RenderObject::PaintInfo&, int, int)
+        
+        The crash occured because the document element was cached but later replaced by a script.
+        So the render object was accessing the old document element that no longer had a renderer.
+        When the document's children change we now invalidate the document element in case it is replaced.
+
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::childrenChanged):
+        * khtml/xml/dom_docimpl.h:
+
+=== WebCore-418.2 ===
+
+2006-05-08  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by Timothy.
+
+        <rdar://problem/4538833> 10.4.7 regression: Mail crashing frequently since updating to SUTiLondon 8J110
+
+        * khtml/editing/markup.cpp:
+        (khtml::createMarkup): add an early return if the range is collapsed
+
+2006-05-05  Adele Peterson  <adele@apple.com>
+
+       Reviewed by Timothy
+
+       Merged this fix for:
+       <rdar://problem/4537287> REGRESSION: All text links are broken at yahoo.com
+
+       A recent change to dispatching click events exposed this bug in a new way.
+
+    2005-10-03  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+
+	http://bugzilla.opendarwin.org/show_bug.cgi?id=5180
+	event.stopPropagation() prevents the default action - it shouldn't
+
+        * khtml/ecma/kjs_events.cpp:
+        (KJS::DOMEventProtoFunc::callAsFunction): Don't let stopPropagation fall through
+        to preventDefault.
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::NodeImpl::dispatchGenericEvent): Don't let stopPropagation prevent calling
+        default event handlers; only preventDefault does that.
+
+=== WebCore-418.1 ===
+
+2006-05-04  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Harrison.
+
+        <rdar://problem/4523536> SUTiLondon: Dashcode removes commented code from HTML files
+
+        * khtml/editing/markup.cpp:
+        (khtml::endMarkup):
+        * khtml/html/html_documentimpl.cpp:
+        (HTMLDocumentImpl::createTokenizer):
+        * khtml/html/html_documentimpl.h:
+        (DOM::HTMLDocumentImpl::isHTMLDocument):
+        * khtml/html/htmlparser.cpp:
+        (KHTMLParser::getElement):
+        * khtml/html/htmltokenizer.cpp:
+        (khtml::HTMLTokenizer::HTMLTokenizer):
+        (khtml::HTMLTokenizer::setIncludesComments):
+        (khtml::HTMLTokenizer::includesComments):
+        * khtml/html/htmltokenizer.h:
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::removedLastRef):
+        (DocumentImpl::documentElement):
+        * khtml/xml/dom_docimpl.h:
+        * kwq/WebCoreBridge.h:
+        * kwq/WebCoreBridge.mm:
+        (+[WebCoreBridge includesCommentsInDOM]):
+        (+[WebCoreBridge setIncludesCommentsInDOM:]):
+
+2006-05-04  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by thatcher
+        
+        Used the StayInBlock variant of upstream/downstream since they behave that way in
+        tip of tree (where there is no StayInBlock parameter).
+
+2006-05-03  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-04  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by darin
+        
+        <http://bugzilla.opendarwin.org/show_bug.cgi?id=6608>
+        REGRESSION: Line disappears when deleting
+        
+        Rewrote moveNodesAfterNode to address these problems:
+        It moved nodes without preserving their style. 
+        It traversed over siblings looking for a br to know when
+        to stop merging.  If the br was burried inside a span, it 
+        wouldn't find it.  If the text is whitespace:pre, it wouldn't
+        stop.
+        In theory it would crash if the "enclosingInlineElements" of the start of the
+        selection to delete and the end of the selection to delete were the
+        same.  We think that this will fix these:
+        <rdar://problems/3950559&4498113>
+        CrashTracer: 2116 crashes in Mail at com.apple.WebCore: khtml::CompositeEditCommand::insertNodeAfter + 32
+        CrashTracer: 1569 crashes in Mail at com.apple.WebCore: khtml::DeleteSelectionCommand::moveNodesAfterNode + 340
+        But we haven't been able to construct a reproducible case.
+        
+        * editing/CompositeEditCommand.cpp:
+        (WebCore::CompositeEditCommand::removeNodeAndPruneAncestors): Moved from ReplaceSelectionCommand.
+        (WebCore::CompositeEditCommand::prune): Ditto.
+        * editing/CompositeEditCommand.h:
+        * editing/DeleteSelectionCommand.cpp:
+        (WebCore::DeleteSelectionCommand::mergeParagraphs):
+        (WebCore::DeleteSelectionCommand::doApply):
+        * editing/DeleteSelectionCommand.h:
+        * editing/ReplaceSelectionCommand.cpp:
+        (WebCore::ReplaceSelectionCommand::doApply):
+        * editing/ReplaceSelectionCommand.h:
+        (WebCore::):
+        * editing/markup.cpp:
+        (WebCore::createMarkup): 
+        Was crashing when passed a collapsed range.  I early return an empty string instead.
+
+2006-05-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-03-20  Justin Garcia  <justin.garcia@apple.com>
+
+        Reviewed by darin
+        
+        <rdar://problem/3997958> 
+        REGRESSION (Mail): Mail takes half of forever to paste >1500 lines - replaceSelectionWithNode
+
+        * dom/Position.cpp:
+        (WebCore::Position::upstream): Avoid calling previous() when we know that 
+        it will 1) end the search and 2) be expensive to compute.
+        (WebCore::Position::downstream): Removed some dead code.
+        (WebCore::Position::inRenderedText): Return false for offsets inside composed characters.
+        * dom/Position.h:
+        * editing/VisiblePosition.cpp:
+        (WebCore::VisiblePosition::init): If there are two visually equivalent candidates, we choose
+        the one that occurs first in document order.  Using upstream() to find the one that occurs first is
+        much faster than the old code.
+
+2006-05-02  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-07  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Eric, Geoff and Darin.
+
+        - fixed <rdar://problem/4118258> XML DOM trees freed prematurely unless reference held to document node (causes crash)
+    
+        I changed the design for how DOM nodes maintain their reference to
+        the document. Instead of using DocumentPtr, an indirect reference
+        which would go null in a clean way when the document is destroyed,
+        they now have a different strategy.
+    
+        Nodes that belong to the document now hold a special kind of
+        reference on the document - a "self only reference". When a
+        document has no regular references but still has self-only
+        references, it won't be destroyed, but it will drop all its
+        children. This allows detached nodees to still have a valid
+        document reference, but they won't keep the rest of the DOM alive
+        or cause circular references.
+
+        * khtml/editing/SelectionController.cpp:
+        (khtml::SelectionController::toRange):
+        * khtml/editing/visible_position.cpp:
+        (khtml::makeRange):
+        * khtml/editing/visible_text.cpp:
+        (khtml::TextIterator::range):
+        (khtml::SimplifiedBackwardsTextIterator::range):
+        * khtml/html/html_baseimpl.cpp:
+        (HTMLBodyElementImpl::HTMLBodyElementImpl):
+        (HTMLFrameElementImpl::HTMLFrameElementImpl):
+        (HTMLFrameSetElementImpl::HTMLFrameSetElementImpl):
+        (HTMLHeadElementImpl::HTMLHeadElementImpl):
+        (HTMLHtmlElementImpl::HTMLHtmlElementImpl):
+        (HTMLIFrameElementImpl::HTMLIFrameElementImpl):
+        * khtml/html/html_baseimpl.h:
+        * khtml/html/html_blockimpl.cpp:
+        (HTMLBlockquoteElementImpl::HTMLBlockquoteElementImpl):
+        (HTMLDivElementImpl::HTMLDivElementImpl):
+        (HTMLHRElementImpl::HTMLHRElementImpl):
+        (HTMLHeadingElementImpl::HTMLHeadingElementImpl):
+        (HTMLParagraphElementImpl::HTMLParagraphElementImpl):
+        (HTMLPreElementImpl::HTMLPreElementImpl):
+        (HTMLMarqueeElementImpl::HTMLMarqueeElementImpl):
+        * khtml/html/html_blockimpl.h:
+        * khtml/html/html_canvasimpl.cpp:
+        (HTMLCanvasElementImpl::HTMLCanvasElementImpl):
+        * khtml/html/html_canvasimpl.h:
+        * khtml/html/html_documentimpl.cpp:
+        (DOM::HTMLDocumentImpl::createTokenizer):
+        (DOM::HTMLDocumentImpl::determineParseMode):
+        * khtml/html/html_elementimpl.cpp:
+        (HTMLElementImpl::HTMLElementImpl):
+        (HTMLElementImpl::createContextualFragment):
+        (HTMLElementImpl::setInnerText):
+        (HTMLElementImpl::setOuterText):
+        * khtml/html/html_elementimpl.h:
+        * khtml/html/html_formimpl.cpp:
+        (DOM::HTMLFormElementImpl::HTMLFormElementImpl):
+        (DOM::HTMLGenericFormElementImpl::HTMLGenericFormElementImpl):
+        (DOM::HTMLButtonElementImpl::HTMLButtonElementImpl):
+        (DOM::HTMLFieldSetElementImpl::HTMLFieldSetElementImpl):
+        (DOM::HTMLInputElementImpl::HTMLInputElementImpl):
+        (DOM::HTMLLabelElementImpl::HTMLLabelElementImpl):
+        (DOM::HTMLLegendElementImpl::HTMLLegendElementImpl):
+        (DOM::HTMLSelectElementImpl::HTMLSelectElementImpl):
+        (DOM::HTMLKeygenElementImpl::HTMLKeygenElementImpl):
+        (DOM::HTMLOptGroupElementImpl::HTMLOptGroupElementImpl):
+        (DOM::HTMLOptionElementImpl::HTMLOptionElementImpl):
+        (DOM::HTMLOptionElementImpl::setText):
+        (DOM::HTMLTextAreaElementImpl::HTMLTextAreaElementImpl):
+        (DOM::HTMLIsIndexElementImpl::HTMLIsIndexElementImpl):
+        * khtml/html/html_formimpl.h:
+        * khtml/html/html_headimpl.cpp:
+        (HTMLBaseElementImpl::HTMLBaseElementImpl):
+        (HTMLLinkElementImpl::HTMLLinkElementImpl):
+        (HTMLMetaElementImpl::HTMLMetaElementImpl):
+        (HTMLScriptElementImpl::HTMLScriptElementImpl):
+        (HTMLStyleElementImpl::HTMLStyleElementImpl):
+        (HTMLTitleElementImpl::HTMLTitleElementImpl):
+        * khtml/html/html_headimpl.h:
+        * khtml/html/html_imageimpl.cpp:
+        (HTMLImageElementImpl::HTMLImageElementImpl):
+        (HTMLMapElementImpl::HTMLMapElementImpl):
+        (HTMLAreaElementImpl::HTMLAreaElementImpl):
+        * khtml/html/html_imageimpl.h:
+        * khtml/html/html_inlineimpl.cpp:
+        (DOM::HTMLAnchorElementImpl::HTMLAnchorElementImpl):
+        (DOM::HTMLBRElementImpl::HTMLBRElementImpl):
+        (DOM::HTMLFontElementImpl::HTMLFontElementImpl):
+        (DOM::HTMLModElementImpl::HTMLModElementImpl):
+        (DOM::HTMLQuoteElementImpl::HTMLQuoteElementImpl):
+        * khtml/html/html_inlineimpl.h:
+        * khtml/html/html_listimpl.h:
+        (DOM::HTMLUListElementImpl::HTMLUListElementImpl):
+        (DOM::HTMLDirectoryElementImpl::HTMLDirectoryElementImpl):
+        (DOM::HTMLMenuElementImpl::HTMLMenuElementImpl):
+        (DOM::HTMLOListElementImpl::HTMLOListElementImpl):
+        (DOM::HTMLLIElementImpl::HTMLLIElementImpl):
+        (DOM::HTMLDListElementImpl::HTMLDListElementImpl):
+        * khtml/html/html_miscimpl.cpp:
+        (DOM::HTMLBaseFontElementImpl::HTMLBaseFontElementImpl):
+        * khtml/html/html_miscimpl.h:
+        * khtml/html/html_objectimpl.cpp:
+        (DOM::HTMLAppletElementImpl::HTMLAppletElementImpl):
+        (DOM::HTMLEmbedElementImpl::HTMLEmbedElementImpl):
+        (DOM::HTMLObjectElementImpl::HTMLObjectElementImpl):
+        (DOM::HTMLParamElementImpl::HTMLParamElementImpl):
+        * khtml/html/html_objectimpl.h:
+        * khtml/html/html_tableimpl.cpp:
+        (DOM::HTMLTableElementImpl::HTMLTableElementImpl):
+        (DOM::HTMLTableElementImpl::createTHead):
+        (DOM::HTMLTableElementImpl::createTFoot):
+        (DOM::HTMLTableElementImpl::createCaption):
+        (DOM::HTMLTableElementImpl::insertRow):
+        (DOM::HTMLTableSectionElementImpl::HTMLTableSectionElementImpl):
+        (DOM::HTMLTableSectionElementImpl::insertRow):
+        (DOM::HTMLTableRowElementImpl::insertCell):
+        (DOM::HTMLTableCellElementImpl::HTMLTableCellElementImpl):
+        (DOM::HTMLTableColElementImpl::HTMLTableColElementImpl):
+        * khtml/html/html_tableimpl.h:
+        (DOM::HTMLTablePartElementImpl::HTMLTablePartElementImpl):
+        (DOM::HTMLTableRowElementImpl::HTMLTableRowElementImpl):
+        (DOM::HTMLTableCaptionElementImpl::HTMLTableCaptionElementImpl):
+        * khtml/html/htmlfactory.cpp:
+        (DOM::htmlConstructor):
+        (DOM::headConstructor):
+        (DOM::bodyConstructor):
+        (DOM::baseConstructor):
+        (DOM::linkConstructor):
+        (DOM::metaConstructor):
+        (DOM::styleConstructor):
+        (DOM::titleConstructor):
+        (DOM::frameConstructor):
+        (DOM::framesetConstructor):
+        (DOM::iframeConstructor):
+        (DOM::formConstructor):
+        (DOM::buttonConstructor):
+        (DOM::inputConstructor):
+        (DOM::isindexConstructor):
+        (DOM::fieldsetConstructor):
+        (DOM::labelConstructor):
+        (DOM::legendConstructor):
+        (DOM::optgroupConstructor):
+        (DOM::optionConstructor):
+        (DOM::selectConstructor):
+        (DOM::textareaConstructor):
+        (DOM::dlConstructor):
+        (DOM::ulConstructor):
+        (DOM::olConstructor):
+        (DOM::dirConstructor):
+        (DOM::menuConstructor):
+        (DOM::liConstructor):
+        (DOM::blockquoteConstructor):
+        (DOM::divConstructor):
+        (DOM::headingConstructor):
+        (DOM::hrConstructor):
+        (DOM::paragraphConstructor):
+        (DOM::preConstructor):
+        (DOM::basefontConstructor):
+        (DOM::fontConstructor):
+        (DOM::modConstructor):
+        (DOM::anchorConstructor):
+        (DOM::imageConstructor):
+        (DOM::mapConstructor):
+        (DOM::areaConstructor):
+        (DOM::canvasConstructor):
+        (DOM::appletConstructor):
+        (DOM::embedConstructor):
+        (DOM::objectConstructor):
+        (DOM::paramConstructor):
+        (DOM::scriptConstructor):
+        (DOM::tableConstructor):
+        (DOM::tableCaptionConstructor):
+        (DOM::tableColConstructor):
+        (DOM::tableRowConstructor):
+        (DOM::tableCellConstructor):
+        (DOM::tableSectionConstructor):
+        (DOM::brConstructor):
+        (DOM::quoteConstructor):
+        (DOM::marqueeConstructor):
+        (DOM::HTMLElementFactory::createHTMLElement):
+        * khtml/html/htmlparser.cpp:
+        (HTMLParser::HTMLParser):
+        (HTMLParser::~HTMLParser):
+        * khtml/html/htmlparser.h:
+        (HTMLParser::doc):
+        * khtml/html/htmltokenizer.cpp:
+        (khtml::HTMLTokenizer::HTMLTokenizer):
+        (khtml::HTMLTokenizer::parseTag):
+        (khtml::parseHTMLDocumentFragment):
+        * khtml/html/htmltokenizer.h:
+        * khtml/misc/loader.h:
+        * khtml/misc/shared.h:
+        (khtml::TreeShared::~TreeShared):
+        (khtml::TreeShared::destroy):
+        (khtml::TreeShared::deref):
+        * khtml/xbl/xbl_tokenizer.cpp:
+        (XBL::XBLTokenHandler::XBLTokenHandler):
+        * khtml/xbl/xbl_tokenizer.h:
+        (XBL::):
+        * khtml/xml/dom2_rangeimpl.cpp:
+        (DOM::RangeImpl::RangeImpl):
+        (DOM::RangeImpl::setStart):
+        (DOM::RangeImpl::setEnd):
+        (DOM::RangeImpl::processContents):
+        (DOM::RangeImpl::cloneRange):
+        (DOM::RangeImpl::setStartAfter):
+        (DOM::RangeImpl::setEndBefore):
+        (DOM::RangeImpl::setEndAfter):
+        (DOM::RangeImpl::setStartBefore):
+        (DOM::rangeOfContents):
+        * khtml/xml/dom2_rangeimpl.h:
+        * khtml/xml/dom_docimpl.cpp:
+        (DOMImplementationImpl::createDocumentType):
+        (DOMImplementationImpl::createDocument):
+        (DocumentImpl::DocumentImpl):
+        (DocumentImpl::destroy):
+        (DocumentImpl::~DocumentImpl):
+        (DocumentImpl::createDocumentFragment):
+        (DocumentImpl::createTextNode):
+        (DocumentImpl::createComment):
+        (DocumentImpl::createCDATASection):
+        (DocumentImpl::createProcessingInstruction):
+        (DocumentImpl::createEntityReference):
+        (DocumentImpl::createEditingTextNode):
+        (DocumentImpl::createElementNS):
+        (DocumentImpl::setTitle):
+        (DocumentImpl::removeTitle):
+        (DocumentImpl::createRange):
+        (DocumentImpl::createTokenizer):
+        (DocumentImpl::implicitClose):
+        (DocumentImpl::setHoverNode):
+        (DocumentImpl::setActiveNode):
+        (DocumentImpl::setFocusNode):
+        (DocumentImpl::createAttributeNS):
+        (DocumentFragmentImpl::DocumentFragmentImpl):
+        (DocumentFragmentImpl::cloneNode):
+        (DocumentTypeImpl::DocumentTypeImpl):
+        * khtml/xml/dom_docimpl.h:
+        (DOM::DocumentImpl::selfOnlyRef):
+        (DOM::DocumentImpl::selfOnlyDeref):
+        (DOM::DocumentImpl::focusNode):
+        (DOM::DocumentImpl::hoverNode):
+        (DOM::DocumentImpl::activeNode):
+        * khtml/xml/dom_elementimpl.cpp:
+        (AttributeImpl::allocateImpl):
+        (AttrImpl::AttrImpl):
+        (AttrImpl::cloneNode):
+        (ElementImpl::ElementImpl):
+        (StyledElementImpl::StyledElementImpl):
+        * khtml/xml/dom_elementimpl.h:
+        * khtml/xml/dom_nodeimpl.cpp:
+        (DOM::NodeImpl::NodeImpl):
+        (DOM::NodeImpl::setDocument):
+        (DOM::NodeImpl::~NodeImpl):
+        (DOM::NodeImpl::dispatchEvent):
+        (DOM::NodeImpl::dispatchWindowEvent):
+        (DOM::NodeImpl::dispatchMouseEvent):
+        (DOM::NodeImpl::checkAddChild):
+        (DOM::ContainerNodeImpl::ContainerNodeImpl):
+        (DOM::ContainerNodeImpl::removeAllChildren):
+        (DOM::ContainerNodeImpl::~ContainerNodeImpl):
+        * khtml/xml/dom_nodeimpl.h:
+        (DOM::NodeImpl::inDocument):
+        (DOM::NodeImpl::getDocument):
+        * khtml/xml/dom_textimpl.cpp:
+        (CharacterDataImpl::CharacterDataImpl):
+        (CommentImpl::CommentImpl):
+        (TextImpl::TextImpl):
+        (TextImpl::createNew):
+        (CDATASectionImpl::CDATASectionImpl):
+        (CDATASectionImpl::createNew):
+        (EditingTextImpl::EditingTextImpl):
+        * khtml/xml/dom_textimpl.h:
+        * khtml/xml/dom_xmlimpl.cpp:
+        (DOM::EntityImpl::EntityImpl):
+        (DOM::EntityReferenceImpl::EntityReferenceImpl):
+        (DOM::EntityReferenceImpl::cloneNode):
+        (DOM::NotationImpl::NotationImpl):
+        (DOM::ProcessingInstructionImpl::ProcessingInstructionImpl):
+        (DOM::ProcessingInstructionImpl::cloneNode):
+        * khtml/xml/dom_xmlimpl.h:
+        * khtml/xml/xml_tokenizer.cpp:
+        (khtml::XMLTokenizer::XMLTokenizer):
+        (khtml::XMLTokenizer::startElementNs):
+        (khtml::XMLTokenizer::enterText):
+        (khtml::XMLTokenizer::processingInstruction):
+        (khtml::XMLTokenizer::cdataBlock):
+        (khtml::XMLTokenizer::comment):
+        (khtml::XMLTokenizer::internalSubset):
+        (khtml::XMLTokenizer::finish):
+        (khtml::XMLTokenizer::insertErrorMessageBlock):
+        (khtml::XMLTokenizer::executeScripts):
+        (khtml::newXMLTokenizer):
+        * khtml/xml/xml_tokenizer.h:
+        * khtml/xsl/xslt_processorimpl.cpp:
+        (DOM::createFragmentFromSource):
+
+2006-05-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-01-02  Vicki Murley  <vicki@apple.com>
+
+        Reviewed by Maciej.
+ 
+        - fix for <rdar://problem/4389622> *Pan EU2* iframe swallows events for overlapping elements (part 2)
+    
+        We originally added a call to passSubframeEventToSubframe here to fix the hand cursor updating problem
+        reported in <rdar://problem/4316201> REGRESSION: cursor and text in status bar is not updated when 
+        mousing over links in a frame (5509). However, when we return early after passSubframeEventToSubframe,
+        we fail to fire onmouseout events.  Since the call to passSubframeEventToSubframe was originally added
+        to fix the hand cursor updating problem, remove the early return and make cursor updating conditional
+        on passSubframeEventToSubframe.
+
+        * khtml/khtmlview.cpp:
+        (KHTMLView::viewportMouseMoveEvent):
+
+2006-05-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-03-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin.
+
+        - WebCore side of fix for <rdar://problem/4308243> 8F36 Regression: 
+        crash in malloc_consolidate if you use a .PAC file
+
+        (1) To ensure thread-safe deallocation, set the "unsafe to destroy on 
+        non-main threads" bit in the DOMObject constructor.
+
+        (2) Made all binding objects inherit from DOMObject, because the
+        WebCore data structures they wrap are not thread-safe. "DOMObject" is
+        a slightly awkward name for things like the Window object, but the 
+        DOM spec is considering adding a Window object, and creating a whole
+        new base class for this purpose seemed like overkill.
+
+        * khtml/ecma/JSDOMParser.h:
+        * khtml/ecma/JSXMLHttpRequest.h:
+        * khtml/ecma/JSXMLSerializer.cpp:
+        (KJS::XMLSerializerConstructorImp::XMLSerializerConstructorImp):
+        * khtml/ecma/JSXMLSerializer.h:
+        * khtml/ecma/JSXSLTProcessor.h:
+        * khtml/ecma/kjs_binding.h:
+        (KJS::DOMObject::DOMObject): Unset the "safe to collect on non-main
+        threads bit" to ensure thread-safe deallocation.
+        * khtml/ecma/kjs_html.h:
+        * khtml/ecma/kjs_navigator.cpp:
+        (KJS::Navigator::Navigator):
+        (KJS::PluginBase::PluginBase):
+        * khtml/ecma/kjs_navigator.h:
+        * khtml/ecma/kjs_proxy.cpp:
+        * khtml/ecma/kjs_window.cpp:
+        (KJS::History::History):
+        (KJS::FrameArray::FrameArray):
+        (KJS::Screen::Screen):
+        (KJS::Window::Window):
+        (KJS::BarInfo::BarInfo):
+        * khtml/ecma/kjs_window.h:
+
+2006-05-01  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        Reenabled disabled code on the branch.
+        <rdar://problem/4335156> XMLHttpRequest ignores username/password passed to open()
+
+        * kwq/KWQKURL.mm:
+        (KURL::setUser):
+        (KURL::setPass):
+
+2006-05-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-24  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by mjs.
+
+        Speculative fix for our 7th worst crasher.
+        Also added ASSERTs to help us better understand the issue.
+        <rdar://problem/4153404> CrashTracer: 2412 crashes in Safari at com.apple.WebCore: khtml::RenderStyle::RenderStyle[unified] + 44
+
+        * dom/Document.cpp:
+        (WebCore::Document::recalcStyle):
+        (WebCore::Document::setInPageCache):
+        * dom/Document.h:
+        * dom/Element.cpp:
+        (WebCore::Element::recalcStyle):
+
+=== WebCore-418 ===
+
+2006-04-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-28  Eric Seidel  <eseidel@apple.com>
+
+        Fix by beth.  Reviewed by darin.  Landed by eseidel.
+
+        Make hackish fix to avoid crash in Xcode and Filemaker.
+        <rdar://problem/4059059> Crash in RenderFlow::detach (XCode Documentation Window)
+
+        * bridge/mac/WebCoreFrameBridge.mm:
+        (-[WebCoreFrameBridge didNotOpenURL:pageCache:]):
+
+2006-04-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-03-23  Darin Adler  <darin@apple.com>
+
+        Reviewed by Beth.
+
+        - fix <rdar://problem/4335038> REGRESSION: when max-height is none, height value is ignored
+
+        * css/cssstyleselector.cpp: (WebCore::CSSStyleSelector::applyProperty):
+        For max-height of none, set it to Length(undefinedLength, Fixed), which
+        is the correct value (same as the default). Also did some formatting fixes
+        to the height section.
+
+2006-04-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-26  Tim Omernick  <timo@apple.com>
+
+        Reviewed by Hyatt.
+
+        <rdar://problem/4068375> Flash inserted via innerHTML Fails to Show when CSS Display
+        Style is Toggled via Javascript
+
+        * html/html_objectimpl.cpp:
+        (WebCore::HTMLObjectElement::setComplete):
+        Set needWidgetUpdate when finished parsing, even if the object element is not in
+        a document.  That way, when the element attaches to a document, it will update its
+        widget (creating the plug-in view if necessary).  This is important when the object
+        is being inserted via setInnerHTML, since the parsed nodes are not added to the
+        document until the whole HTML string is parsed.
+
+2006-04-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-22  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Hyatt.
+
+        Fix for http://bugzilla.opendarwin.org/show_bug.cgi?id=6141 
+        DOMCSSPrimitiveValue is always returning values in pixels when 
+        using getComputedStyle:
+
+        getFloatValue() took a unit type as a parameter, ignored it, and 
+        returned m_value.num. This patch writes a second version of the 
+        function that actually converts m_value.num to the specified unites 
+        before returning it. Where a conversion is not required, I removed 
+        the unit type from the caller so that it would go directly to the 
+        inline version of the function.
+
+        * css/css_valueimpl.cpp:
+        (WebCore::CSSPrimitiveValue::computeLengthFloat): Remove type 
+        parameter since a conversion is not needed.
+        (WebCore::scaleFactorForConversion): Helper function for 
+        conversion.
+        (WebCore::CSSPrimitiveValue::getFloatValue): This version of 
+        getFloatValue() takes a unit type parameter and converts 
+        m_value.num.
+        * css/css_valueimpl.h:
+        (WebCore::CSSPrimitiveValue::getFloatValue): This version does not 
+        take a parameter and just returns m_value.num.
+        * css/cssparser.cpp:
+        (WebCore::BorderImageParseContext::commitBorderImage): Remove type 
+        parameter since a conversion is not needed.
+        * css/cssstyleselector.cpp:
+        (WebCore::convertToLength): Same.
+        (WebCore::CSSStyleSelector::applyProperty): Same.
+        (WebCore::CSSStyleSelector::mapBackgroundSize): Same.
+        (WebCore::CSSStyleSelector::mapBackgroundXPosition): Same.
+        (WebCore::CSSStyleSelector::mapBackgroundYPosition): Same.
+        * editing/ApplyStyleCommand.cpp:
+        (WebCore::ApplyStyleCommand::applyRelativeFontStyleChange): Same.
+        * ksvg2/css/SVGCSSStyleSelector.cpp:
+        (WebCore::CSSStyleSelector::applySVGProperty): Same.
+        * ksvg2/misc/KCanvasRenderingStyle.cpp:
+        (WebCore::KSVGPainterFactory::cssPrimitiveToLength): Same.
+
+2006-04-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-01-24  Tim Omernick  <timo@apple.com>
+
+        Reviewed by Dave Harrison.
+
+        <rdar://problem/4339024>
+        <http://bugzilla.opendarwin.org/show_bug.cgi?id=6785> "Fix for possible leak of applet, object, or embed
+        (and plugin view)"
+        
+        * khtml/html/html_objectimpl.cpp:
+        (WebCore::HTMLAppletElementImpl::~HTMLAppletElementImpl):
+        Assert that appletInstance has been deleted by detach().
+        (WebCore::HTMLAppletElementImpl::detach):
+        Delete appletInstance, because it references the widget owned by the renderer we're about to destroy.
+        It is assumed elsewhere (getRuntimeObject(), kjs_dom.cpp) that the instance is owned by the applet
+        element.  Therefore, it is required that the element destroy the instance in its tear-down phase.
+        (WebCore::HTMLEmbedElementImpl::~HTMLEmbedElementImpl):
+        Assert that embedInstance has been deleted by detach().
+        (WebCore::HTMLEmbedElementImpl::detach):
+        Delete embedInstance, same reason.  This is the one that fixes <rdar://problem/4339024>.
+        (WebCore::HTMLObjectElementImpl::~HTMLObjectElementImpl):
+        Assert that objectInstance has been deleted by detach().
+        (WebCore::HTMLObjectElementImpl::detach):
+        Delete embedInstance, same reason.
+        * khtml/html/html_objectimpl.h:
+        Declared HTMLAppletElementImpl::detach() and HTMLEmbedElementImpl::detach().
+
+2006-04-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-27  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by andersca.
+
+        Make WebCore accept any */*+xml type as XML.
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=5998
+        <rdar://problem/4031511> XmlHttpRequest doesn't allow responses with Content-Type: application/soap+xml
+
+        Test: http/tests/xmlhttprequest/supported-xml-content-types.html
+
+        * dom/DOMImplementation.cpp:
+        (WebCore::DOMImplementation::isXMLMIMEType):
+
+2006-04-27  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-27  Mitz Pettel  <opendarwin.org@mitzpettel.com>
+
+        Reviewed by Darin.
+
+        - added test case for http://bugzilla.opendarwin.org/show_bug.cgi?id=7338
+          Incorrect selectorText for multiple subselectors
+
+        * fast/dom/css-selectorText-expected.checksum: Updated.
+        * fast/dom/css-selectorText-expected.png: Updated.
+        * fast/dom/css-selectorText-expected.txt: Updated.
+        * fast/dom/css-selectorText.html: Added a case with multiple subselectors.
+
+2006-04-27  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-12-12  Timothy Hatcher  <timothy@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        Test: fast/dom/css-selectorText.html
+
+        Fixes selecotrText serialization to only print "*"
+        when it is stand alone. Fixes the attribute set selector,
+        along with general cleanup. Also print chained selectors.
+
+        * khtml/css/css_base.cpp:
+        (CSSSelector::extractPseudoType):
+        (CSSSelector::selectorText):
+        * khtml/css/css_ruleimpl.cpp:
+        (DOM::CSSStyleRuleImpl::selectorText):
+
+2006-04-27  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-25  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Maciej.
+
+        Fix for <rdar://problem/4518632> getComputedStyle returns 'auto' 
+        for dimensions like 'margin-left'
+
+        * css/CSSComputedStyleDeclaration.cpp:
+        (WebCore::CSSComputedStyleDeclaration::getPropertyCSSValue): For 
+        margin and padding, to match Firefox we now go to the renderer to 
+        get the property value instead of calling valueForLength() on the 
+        style attribute. valueForLength() will return the string 'auto' if 
+        that was what was specified in the CSS, or a percentage if it was 
+        specified as a percent. But to match Firefox, we always want to 
+        return a pixel value for margin and padding.
+
+2006-04-27  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-10  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by hyatt.
+
+        Adding support for external entity declarations in XSLT.
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=7184
+        <rdar://problem/4271696> support external DTD references in XSLT
+
+        * dom/xml_tokenizer.cpp:
+        (WebCore::OffsetBuffer::OffsetBuffer): new support class
+        (WebCore::OffsetBuffer::readOutBytes): read method
+        (WebCore::shouldAllowExternalLoad): for preventing common urls
+        (WebCore::openFunc): now does a synchronous data load
+        (WebCore::readFunc): returns data from the offset buffer
+        (WebCore::closeFunc): deletes offset buffer
+        (WebCore::setLoaderForLibXMLCallbacks): helper function
+        (WebCore::createQStringParser): cleanup
+        (WebCore::XMLTokenizer::finish): 
+        * dom/xml_tokenizer.h:
+        * khtml/xsl/xsl_stylesheetimpl.cpp:
+        (WebCore::XSLStyleSheetImpl::parseString):
+        * khtml/xsl/xsl_stylesheetimpl.h:
+
+2006-04-27  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-20  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by darin.
+
+        <rdar://problem/4449442> GMAIL: XMLHttpRequest does not correctly report "Interactive" state on receipt of load data
+        Also cleaned up spacing a little.
+
+        No layout test possible (local loads are non incremental).
+
+        * xml/xmlhttprequest.cpp:
+        (WebCore::XMLHttpRequest::changeState):
+        (WebCore::XMLHttpRequest::slotData):
+
+2006-04-27  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Beth.
+
+        Fix for <rdar://problem/4073701> click event not sent with dispatchEvent
+
+        Removed KHTML_CLICK_EVENT and KHTML_DBLCLICK_EVENT.  Just use CLICK_EVENT and DBLCLICK_EVENT.
+
+        * khtml/ecma/kjs_binding.cpp: (KJS::ScriptInterpreter::wasRunByUserGesture):
+        * khtml/ecma/kjs_dom.cpp:
+        (DOMNode::getValueProperty):
+        (DOMNode::putValue):
+        * khtml/ecma/kjs_window.cpp:
+        (Window::get):
+        (Window::put):
+        * khtml/html/html_elementimpl.cpp:
+        (HTMLElementImpl::parseHTMLAttribute):
+        (HTMLElementImpl::click):
+        * khtml/html/html_formimpl.cpp: (DOM::HTMLInputElementImpl::defaultEventHandler):
+        * khtml/html/html_inlineimpl.cpp: (HTMLAnchorElementImpl::defaultEventHandler):
+        * khtml/html/html_objectimpl.h:
+        * khtml/khtmlview.cpp: (KHTMLView::dispatchMouseEvent):
+        * khtml/rendering/render_form.cpp: (RenderFormElement::slotClicked):
+        * khtml/xml/dom2_eventsimpl.cpp: (EventImpl::idToType):
+        * khtml/xml/dom2_eventsimpl.h: (DOM::EventImpl::):
+        * khtml/xml/dom_nodeimpl.cpp: (NodeImpl::dispatchMouseEvent):
+        * kwq/KWQAccObject.mm: (-[KWQAccObject mouseButtonListener]):
+
+2006-04-26  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-23  Vicki Murley <vicki@apple.com>
+
+        Reviewed by Tim Omernick.
+ 
+        - fix <rdar://problem/4394910> calling Javascript window.close() does not trigger onbeforeunload event
+
+        Check shouldClose() before actually scheduling a close.
+
+        shouldClose() checks for the onbeforeunload handler, displays the onbeforeunload dialog, and returns a 
+        result based on whether the user clicks "OK" or "Cancel".  In cases where the window is closed with cmd-w 
+        or by clicking the red globe, shouldClose() is checked in the windowShouldClose delegate method.  Since 
+        windowShouldClose isn't invoked when a window is closed with Javascript, it makes sense to add a check 
+        for shouldClose() in scheduleClose(), returning early when appropriate before the chain of events that 
+        closes a window even gets started.  
+
+        * bridge/mac/MacFrame.mm:
+        (WebCore::MacFrame::scheduleClose): add a check for shouldClose()
+
+2006-04-26  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej, Eric.
+
+        - WebCore half of fix for <rdar://problem/4176077> CrashTracer: 6569 
+        crashes in DashboardClient at com.apple.JavaScriptCore: 
+        KJS::Bindings::ObjcFallbackObjectImp::type() 
+
+        WebCore and JavaScriptCore weren't sharing Instance objects very
+        nicely. I made them use SharedPtrs, and sent them to bed without dessert.
+
+        * khtml/html/html_objectimpl.cpp: 
+        (WebCore::HTMLAppletElementImpl::HTMLAppletElementImpl): Made 
+        appletInstance a SharedPtr
+        (WebCore::HTMLAppletElementImpl::getAppletInstance):
+        (WebCore::HTMLAppletElementImpl::detach):
+        (WebCore::HTMLEmbedElementImpl::HTMLEmbedElementImpl): Made
+        embedInstance a SharedPtr
+        (WebCore::HTMLEmbedElementImpl::getEmbedInstance):
+        (WebCore::HTMLEmbedElementImpl::detach):
+        (WebCore::HTMLObjectElementImpl::HTMLObjectElementImpl): Made
+        m_objectInstance a SharedPtr
+        (WebCore::HTMLObjectElementImpl::getObjectInstance): 
+        (WebCore::HTMLObjectElementImpl::detach):
+        * bindings/js/JSDOMCore.cpp:
+        * khtml/ecma/kjs_dom.cpp:
+        (KJS::getRuntimeObject):
+        * khtml/html/html_objectimpl.h:
+
+2006-04-25  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-03-31  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Tim Hatcher.
+        
+        - fixed <rdar://problem/4372842> 10.4.4 Regression: control-clicking on a misspelled word 
+        doesn't select it or offer corrections (first click only)
+
+        * bridge/mac/FrameMac.mm:
+        (WebCore::FrameMac::sendContextMenuEvent):
+        Rolled in this one-line change that Hyatt wrote ages ago.
+
+2006-04-25  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by ggaren.
+
+        Fixes for our 3rd and 5th most common crashtracers:
+        <rdar://problem/4233435> CrashTracer: 2698 crashes in Safari at com.apple.WebCore: khtml::RenderBlock::addChildToFlow + 156
+        <rdar://problem/4129744> [REGRESSION]CrashTracer: ..400 crashes at com.apple.WebCore: DOM::NodeImpl::createRendererIfNeeded + 44
+
+        Test case landed on trunk but not on branch.
+
+        * khtml/xml/dom_docimpl.cpp:
+        (DocumentImpl::setFocusNode): use m_inDetach bool copied from trunk
+        * khtml/xml/dom_nodeimpl.cpp:
+        (NodeImpl::NodeImpl):
+        (NodeImpl::detach): set m_inDetach
+        (NodeImpl::createRendererIfNeeded):
+        (NodeBaseImpl::removeChildren): remove node from tree before calling detach.
+        * khtml/xml/dom_nodeimpl.h:
+
+2006-04-25  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-03-13  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by ggaren & TimH.
+
+        <rdar://problem/4473288> XSL file containing <xsl:include href="../Styles/EscapeString.xsl" /> fails to load file
+        XML_DTD_NODE objects in the tree were causing loadChildSheets to 
+        fail to preload child stylesheets, this patch causes us to 
+        correctly ignore all nodes besides the first XML_ELEMENT_NODE at 
+        the root level when searching the tree for xsl:include statements 
+        to pre-load.
+
+        Test: fast/xsl/xslt-second-level-import.xml
+
+        * khtml/xsl/xsl_stylesheetimpl.cpp:
+        (WebCore::XSLStyleSheetImpl::loadChildSheets):
+
+2006-04-25  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-03-20  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin.
+        
+        <rdar://problem/4458568> WebCore should not disclose https referrers
+
+        * bridge/mac/WebCoreFrameBridge.mm:
+        (-[WebCoreFrameBridge canLoadURL:fromReferrer:hideReferrer:]):
+        Don't send https URLs as referrers to non-secure http sites.
+
 === WebCore-417.24 ===
 
 2006-03-13  Timothy Hatcher  <timothy@apple.com>

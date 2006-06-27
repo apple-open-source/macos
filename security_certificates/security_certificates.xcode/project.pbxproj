@@ -139,7 +139,7 @@
 			buildPhases = (
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24977;
+				CURRENT_PROJECT_VERSION = 27797;
 				PRODUCT_NAME = security_certificates;
 			};
 			buildToolPath = /usr/bin/make;
@@ -824,7 +824,7 @@
 				C2F9CFAA07BB049D000111FE,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 24977;
+				CURRENT_PROJECT_VERSION = 27797;
 				PRODUCT_NAME = "copy certs";
 			};
 			dependencies = (
@@ -1086,6 +1086,8 @@
 		};
 		4CFDFC4E06309AFB00519F96 = {
 			children = (
+				5239FF650A0C15D3002CAC44,
+				5239FF660A0C15D3002CAC44,
 				52AADF1808ABC76900654A97,
 				52AADF0F08ABC6B700654A97,
 				52AADEFF08ABBECB00654A97,
@@ -1650,6 +1652,8 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Keychains/Anchors";
 			dstSubfolderSpec = 0;
 			files = (
+				5239FF670A0C15D3002CAC44,
+				5239FF680A0C15D3002CAC44,
 				52AADF1908ABC76900654A97,
 				52AADF1008ABC6B700654A97,
 				52AADF0208ABBECB00654A97,
@@ -1936,6 +1940,34 @@
 //522
 //523
 //524
+		5239FF650A0C15D3002CAC44 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "GD-Class2-root.crt";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5239FF660A0C15D3002CAC44 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = "SF-Class2-root.crt";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		5239FF670A0C15D3002CAC44 = {
+			fileRef = 5239FF650A0C15D3002CAC44;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		5239FF680A0C15D3002CAC44 = {
+			fileRef = 5239FF660A0C15D3002CAC44;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		523B509207BC3E28004F47BA = {
 			isa = PBXFileReference;
 			lastKnownFileType = file;

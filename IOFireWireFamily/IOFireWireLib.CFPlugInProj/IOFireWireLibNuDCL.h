@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFireWireLibNuDCL.h,v $
+ *	Revision 1.6.24.1  2006/04/19 17:48:20  ayanowit
+ *	Merged in changes for Leopard
+ *	
  *	Revision 1.6  2003/08/25 08:39:17  niels
  *	*** empty log message ***
  *	
@@ -248,7 +251,7 @@ namespace IOFireWireLib {
 
 		public:
 		
-			void					SetUserHeaderPtr ( UInt32 * userHeaderPtr, UInt32 * mask )	{ fSendData.userHeader.ptr = userHeaderPtr ;  }
+			void					SetUserHeaderPtr ( UInt32 * userHeaderPtr, UInt32 * mask )	{ fSendData.userHeader.ptr = userHeaderPtr ; fSendData.userHeaderMask.ptr = mask ;  }
 			UInt32 *				GetUserHeaderPtr ()	const									{ return fSendData.userHeader.ptr ; }
 			UInt32 *				GetUserHeaderMask () const									{ return fSendData.userHeaderMask.ptr ; }
 

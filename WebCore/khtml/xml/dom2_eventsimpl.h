@@ -48,13 +48,14 @@ class EventImpl : public khtml::Shared<EventImpl>
 {
 public:
     enum EventId {
-	UNKNOWN_EVENT = 0,
-	// UI events
+        UNKNOWN_EVENT = 0,
+        // UI events
         DOMFOCUSIN_EVENT,
         DOMFOCUSOUT_EVENT,
         DOMACTIVATE_EVENT,
         // Mouse events
         CLICK_EVENT,
+        DBLCLICK_EVENT,
         MOUSEDOWN_EVENT,
         MOUSEUP_EVENT,
         MOUSEOVER_EVENT,
@@ -75,8 +76,8 @@ public:
         DRAGSTART_EVENT,
         DRAG_EVENT,
         DRAGEND_EVENT,
-	// IE selection events
-	SELECTSTART_EVENT,
+        // IE selection events
+        SELECTSTART_EVENT,
         // Mutation events
         DOMSUBTREEMODIFIED_EVENT,
         DOMNODEINSERTED_EVENT,
@@ -85,40 +86,38 @@ public:
         DOMNODEINSERTEDINTODOCUMENT_EVENT,
         DOMATTRMODIFIED_EVENT,
         DOMCHARACTERDATAMODIFIED_EVENT,
-	// HTML events
-	LOAD_EVENT,
-	BEFOREUNLOAD_EVENT,
-	UNLOAD_EVENT,
-	ABORT_EVENT,
-	ERROR_EVENT,
-	SELECT_EVENT,
-	CHANGE_EVENT,
-	SUBMIT_EVENT,
-	RESET_EVENT,
-	FOCUS_EVENT,
-	BLUR_EVENT,
-	RESIZE_EVENT,
-	SCROLL_EVENT,
+        // HTML events
+        LOAD_EVENT,
+        BEFOREUNLOAD_EVENT,
+        UNLOAD_EVENT,
+        ABORT_EVENT,
+        ERROR_EVENT,
+        SELECT_EVENT,
+        CHANGE_EVENT,
+        SUBMIT_EVENT,
+        RESET_EVENT,
+        FOCUS_EVENT,
+        BLUR_EVENT,
+        RESIZE_EVENT,
+        SCROLL_EVENT,
         CONTEXTMENU_EVENT,
 #if APPLE_CHANGES
         SEARCH_EVENT,
 #endif
         INPUT_EVENT,
         // Keyboard events
-	KEYDOWN_EVENT,
-	KEYUP_EVENT,
+        KEYDOWN_EVENT,
+        KEYUP_EVENT,
         // Text events
         TEXTINPUT_EVENT,
-	// khtml events (not part of DOM)
-	KHTML_DBLCLICK_EVENT, // for html ondblclick
-	KHTML_CLICK_EVENT, // for html onclick
-	KHTML_DRAGDROP_EVENT,
-	KHTML_ERROR_EVENT,
-	KEYPRESS_EVENT,
-	KHTML_MOVE_EVENT,
-	KHTML_ORIGCLICK_MOUSEUP_EVENT,
-	// XMLHttpRequest events
-	KHTML_READYSTATECHANGE_EVENT,
+        // khtml events (not part of DOM)
+        KHTML_DRAGDROP_EVENT,
+        KHTML_ERROR_EVENT,
+        KEYPRESS_EVENT,
+        KHTML_MOVE_EVENT,
+        KHTML_ORIGCLICK_MOUSEUP_EVENT,
+        // XMLHttpRequest events
+        KHTML_READYSTATECHANGE_EVENT,
         // extensions
         MOUSEWHEEL_EVENT,
         HORIZONTALMOUSEWHEEL_EVENT,
@@ -195,18 +194,18 @@ class UIEventImpl : public EventImpl
 public:
     UIEventImpl();
     UIEventImpl(EventId _id,
-		bool canBubbleArg,
-		bool cancelableArg,
-		AbstractViewImpl *viewArg,
-		long detailArg);
+                bool canBubbleArg,
+                bool cancelableArg,
+                AbstractViewImpl *viewArg,
+                long detailArg);
     virtual ~UIEventImpl();
     AbstractViewImpl *view() const { return m_view; }
     long detail() const { return m_detail; }
     void initUIEvent(const DOMString &typeArg,
-		     bool canBubbleArg,
-		     bool cancelableArg,
-		     const AbstractView &viewArg,
-		     long detailArg);
+                     bool canBubbleArg,
+                     bool cancelableArg,
+                     const AbstractView &viewArg,
+                     long detailArg);
     virtual bool isUIEvent() const;
 
 protected:
@@ -277,20 +276,20 @@ class MouseEventImpl : public MouseRelatedEventImpl {
 public:
     MouseEventImpl();
     MouseEventImpl(EventId _id,
-		   bool canBubbleArg,
-		   bool cancelableArg,
-		   AbstractViewImpl *viewArg,
-		   long detailArg,
-		   long screenXArg,
-		   long screenYArg,
-		   long clientXArg,
-		   long clientYArg,
-		   bool ctrlKeyArg,
-		   bool altKeyArg,
-		   bool shiftKeyArg,
-		   bool metaKeyArg,
-		   unsigned short buttonArg,
-		   NodeImpl *relatedTargetArg,
+                   bool canBubbleArg,
+                   bool cancelableArg,
+                   AbstractViewImpl *viewArg,
+                   long detailArg,
+                   long screenXArg,
+                   long screenYArg,
+                   long clientXArg,
+                   long clientYArg,
+                   bool ctrlKeyArg,
+                   bool altKeyArg,
+                   bool shiftKeyArg,
+                   bool metaKeyArg,
+                   unsigned short buttonArg,
+                   NodeImpl *relatedTargetArg,
                    ClipboardImpl *clipboardArg=0,
                    bool isSimulated = false);
     virtual ~MouseEventImpl();
@@ -299,20 +298,20 @@ public:
     ClipboardImpl *clipboard() const { return m_clipboard; }
     bool isSimulated() const { return m_isSimulated; }
     void initMouseEvent(const DOMString &typeArg,
-			bool canBubbleArg,
-			bool cancelableArg,
-			const AbstractView &viewArg,
-			long detailArg,
-			long screenXArg,
-			long screenYArg,
-			long clientXArg,
-			long clientYArg,
-			bool ctrlKeyArg,
-			bool altKeyArg,
-			bool shiftKeyArg,
-			bool metaKeyArg,
-			unsigned short buttonArg,
-			const Node &relatedTargetArg);
+                        bool canBubbleArg,
+                        bool cancelableArg,
+                        const AbstractView &viewArg,
+                        long detailArg,
+                        long screenXArg,
+                        long screenYArg,
+                        long clientXArg,
+                        long clientYArg,
+                        bool ctrlKeyArg,
+                        bool altKeyArg,
+                        bool shiftKeyArg,
+                        bool metaKeyArg,
+                        unsigned short buttonArg,
+                        const Node &relatedTargetArg);
     virtual bool isMouseEvent() const;
     virtual bool isDragEvent() const;
 private:
@@ -377,13 +376,13 @@ class MutationEventImpl : public EventImpl {
 public:
     MutationEventImpl();
     MutationEventImpl(EventId _id,
-		      bool canBubbleArg,
-		      bool cancelableArg,
-		      const Node &relatedNodeArg,
-		      const DOMString &prevValueArg,
-		      const DOMString &newValueArg,
-		      const DOMString &attrNameArg,
-		      unsigned short attrChangeArg);
+                      bool canBubbleArg,
+                      bool cancelableArg,
+                      const Node &relatedNodeArg,
+                      const DOMString &prevValueArg,
+                      const DOMString &newValueArg,
+                      const DOMString &attrNameArg,
+                      unsigned short attrChangeArg);
     ~MutationEventImpl();
 
     Node relatedNode() const { return m_relatedNode; }
@@ -392,13 +391,13 @@ public:
     DOMString attrName() const { return m_attrName; }
     unsigned short attrChange() const { return m_attrChange; }
     void initMutationEvent(const DOMString &typeArg,
-			   bool canBubbleArg,
-			   bool cancelableArg,
-			   const Node &relatedNodeArg,
-			   const DOMString &prevValueArg,
-			   const DOMString &newValueArg,
-			   const DOMString &attrNameArg,
-			   unsigned short attrChangeArg);
+                           bool canBubbleArg,
+                           bool cancelableArg,
+                           const Node &relatedNodeArg,
+                           const DOMString &prevValueArg,
+                           const DOMString &newValueArg,
+                           const DOMString &attrNameArg,
+                           unsigned short attrChangeArg);
     virtual bool isMutationEvent() const;
 protected:
     NodeImpl *m_relatedNode;

@@ -61,7 +61,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: isfn.c,v 1.8 2003/06/12 21:36:08 abe Exp $";
+static char *rcsid = "$Id: isfn.c,v 1.9 2005/08/08 19:40:18 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -334,7 +334,7 @@ is_file_named(p, cd)
 		 sh = sh->next)
 	    {
 		if ((s = sh->s) && (Lf->dev == s->dev)
-		&&  ((ino_t)Lf->inode == s->i)) {
+		&&  (Lf->inode == s->i)) {
 		    f = 1;
 		    break;
 		}

@@ -37,14 +37,14 @@ AppleEHCIedMemoryBlock::NewMemoryBlock(void)
     IOByteCount				len;
     
     if (!me)
-	USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock, constructor failed!");
+		USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock, constructor failed!");
 	
     // allocate exactly one physical page
     if (me && !me->initWithOptions(kIOMemorySharingTypeMask, kEHCIPageSize, kEHCIPageSize)) 
     {
-	USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock, initWithOptions failed!");
-	me->release();
-	return NULL;
+		USBError(1, "AppleEHCIedMemoryBlock::NewMemoryBlock, initWithOptions failed!");
+		me->release();
+		return NULL;
     }
     
     USBLog(7, "AppleEHCIedMemoryBlock::NewMemoryBlock, sizeof (me) = %d, sizeof (super) = %d", (int)sizeof(AppleEHCIedMemoryBlock), (int)sizeof(super)); 
@@ -72,7 +72,7 @@ AppleEHCIedMemoryBlock::GetPhysicalPtr(UInt32 index)
 {
     IOPhysicalAddress		ret = NULL;
     if (index < EDsPerBlock)
-	ret = _sharedPhysical + (index * sizeof(EHCIQueueHeadShared));
+		ret = _sharedPhysical + (index * sizeof(EHCIQueueHeadShared));
     return ret;
 }
 
@@ -82,7 +82,7 @@ AppleEHCIedMemoryBlock::GetLogicalPtr(UInt32 index)
 {
     EHCIQueueHeadSharedPtr ret = NULL;
     if (index < EDsPerBlock)
-	ret = &_sharedLogical[index];
+		ret = &_sharedLogical[index];
     return ret;
 }
 

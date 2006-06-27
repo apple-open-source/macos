@@ -49,7 +49,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: cvfs.c,v 1.4 99/11/28 06:37:11 abe Exp $";
+static char *rcsid = "$Id: cvfs.c,v 1.5 2005/08/29 10:03:45 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include	"../lsof.h"
@@ -95,6 +95,11 @@ completevfs(vfs, dev)
 # if	defined(HASFSINO)
 		vfs->fs_ino = mp->inode;
 # endif	/* defined(HASFSINO) */
+
+# if	defined(HASMNTSTAT)
+		vfs->mnt_stat = mp->stat;
+# endif	/* defined(HASMNTSTAT) */
+
 
 		return;
 	    }

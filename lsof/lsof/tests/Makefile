@@ -3,9 +3,9 @@
 # V. Abell
 # Purdue University
 #
-# $Id: Makefile,v 1.16 2004/01/14 11:28:32 abe Exp $
+# $Id: Makefile,v 1.17 2005/05/17 00:40:53 abe Exp abe $
 
-DEBUG=	-O
+DEBUG=
 CFLAGS=	${DEBUG} -I. -I..
 
 HDR=	LsofTest.h

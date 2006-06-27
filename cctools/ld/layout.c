@@ -1767,7 +1767,7 @@ layout_segments(void)
 		 * If the symbol is not found, undefined or common the
 		 * entry point can't be set.
 		 */
-		if(merged_symbol == NULL ||
+		if(merged_symbol->name_len == 0 ||
 		   merged_symbol->nlist.n_type == (N_EXT | N_UNDF))
 		    fatal("entry point symbol name: %s not defined",
 			  entry_point_name);
@@ -1809,7 +1809,7 @@ layout_segments(void)
 		 * If the symbol is not found, undefined or common the
 		 * initialization routine address can't be set.
 		 */
-		if(merged_symbol == NULL ||
+		if(merged_symbol->name_len == 0 ||
 		   merged_symbol->nlist.n_type == (N_EXT | N_UNDF))
 		    fatal("initialization routine symbol name: %s not defined",
 			  init_name);

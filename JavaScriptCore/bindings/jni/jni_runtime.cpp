@@ -382,7 +382,6 @@ JavaArray::JavaArray (jobject a, const char *t, const RootObject *r)
 
 JavaArray::~JavaArray () 
 {
-    _array->deref();
     free ((void *)_type);
 }
 
@@ -390,7 +389,6 @@ JavaArray::~JavaArray ()
 JavaArray::JavaArray (const JavaArray &other) : Array() 
 {
     _array = other._array;
-    _array->ref();
     _type = strdup(other._type);
 };
 

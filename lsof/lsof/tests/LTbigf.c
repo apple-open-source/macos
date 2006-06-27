@@ -66,7 +66,7 @@ main(argc, argv)
 	    pn = argv[0];
 	
     (void) printf("%s ... %s\n", pn, LT_DONT_DO_TEST);
-    exit(0);
+    return(0);
 }
 #else	/* defined(LT_BIGF) */
 
@@ -357,7 +357,7 @@ print_hint:
 	(void) PrtMsg("file system that has large file support enabled.\n", Pn);
 	(void) PrtMsg("Hint: try raising the process ulimit file block", Pn);
 	(void) PrtMsg("size to a value that will permit this test to", Pn);
-	(void) snprintf(szbuf, sizeof(szbuf) - 1, "%lld", sz);
+	(void) snprintf(szbuf, sizeof(szbuf) - 1, "%lld", (long long)sz);
 	szbuf[sizeof(szbuf) - 1] = '\0';
 	(void) snprintf(buf, sizeof(buf) - 1,
 	    "write a file whose size appears to be %s", szbuf);
@@ -379,7 +379,7 @@ print_hint:
     if (write(Fd, buf, sizeof(buf)) != sizeof(buf)) {
 	(void) fprintf(stderr,
 	    "ERROR!!!  can't write %d bytes to the beginning of %s\n",
-	    sizeof(buf), Path);
+	    (int)sizeof(buf), Path);
 	goto print_hint;
     }
 /*
@@ -388,15 +388,15 @@ print_hint:
  */
     if (SEEKF(Fd, (OFFSET_T)(sz - sizeof(buf)), SEEK_SET) < 0) {
 	(void) snprintf(szbuf, sizeof(szbuf) - 1, "%lld",
-	    (OFFSET_T)(sz - sizeof(buf)));
+	    (unsigned long long)(sz - sizeof(buf)));
 	(void) fprintf(stderr, "ERROR!!!  can't seek to %s in %s\n", szbuf,
 	    Path);
 	goto print_hint;
     }
     if (write(Fd, buf, sizeof(buf)) != sizeof(buf)) {
 	(void) fprintf(stderr,
-	    "ERROR!!!  can't write %d bytes near the end of %s\n", sizeof(buf),
-	    Path);
+	    "ERROR!!!  can't write %d bytes near the end of %s\n",
+	    (int)sizeof(buf), Path);
 	goto print_hint;
     }
 /*
@@ -439,6 +439,7 @@ print_hint:
 	xv = 0;
     }
     (void) PrtMsgX(tcp, Pn, cleanup, xv);
+    return(0);
 }
 
 
@@ -487,7 +488,6 @@ tstwlsof(tt, opt, sz)
     STATS sb;				/* stat(2) buffer */
     LTdev_t stdc;			/* stat(2) device components */
     LTfldo_t *szp;			/* file size pointer */
-    char *tcp, *tcp1;			/* temporary character pointers */
     LTfldo_t *tfop;			/* temporary field output pointer */
     int ti;				/* temporary index */
     LTfldo_t *typ;			/* file type pointer */
@@ -610,7 +610,8 @@ tstwlsof(tt, opt, sz)
 	    ||  (stdc.min != lsofdc.min)
 	    ||  (stdc.unit != lsofdc.unit))
 		break;
-	    (void) snprintf(buf, sizeof(buf) - 1, "%llu", (OFFSET_T)sb.st_ino);
+	    (void) snprintf(buf, sizeof(buf) - 1, "%llu",
+		(unsigned long long)sb.st_ino);
 	    buf[sizeof(buf) - 1] = '\0';
 	    if (strcmp(inop->v, buf))
 		break;
@@ -629,7 +630,7 @@ tstwlsof(tt, opt, sz)
 	     */
 		(void) snprintf(buf, sizeof(buf) - 1,
 		    (tt == TST_SZ) ? "%llu" : "0t%llu",
-		    sz);
+		    (unsigned long long)sz);
 		buf[sizeof(buf) - 1] = '\0';
 		tfop = (tt == TST_SZ) ? szp : offp;
 		if (!tfop || strcmp(tfop->v, buf)) {
@@ -649,7 +650,8 @@ tstwlsof(tt, opt, sz)
 	    /*
 	     * Test the size as an offset in hex.
 	     */
-		(void) snprintf(buf, sizeof(buf) - 1, "0x%llx", sz);
+		(void) snprintf(buf, sizeof(buf) - 1, "0x%llx",
+		    (unsigned long long)sz);
 		buf[sizeof(buf) - 1] = '\0';
 		if (!offp || strcmp(offp->v, buf)) {
 		    (void) snprintf(buf1, sizeof(buf1) - 1,

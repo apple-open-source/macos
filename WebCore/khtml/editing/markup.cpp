@@ -254,7 +254,7 @@ static QString startMarkup(const NodeImpl *node, const RangeImpl *range, EAnnota
 
 static QString endMarkup(const NodeImpl *node)
 {
-    if ((!node->isHTMLElement() || endTagRequirement(node->id()) != FORBIDDEN) && node->nodeType() != Node::TEXT_NODE && node->nodeType() != Node::DOCUMENT_NODE) {
+    if ((!node->isHTMLElement() || endTagRequirement(node->id()) != FORBIDDEN) && node->nodeType() != Node::TEXT_NODE && node->nodeType() != Node::COMMENT_NODE && node->nodeType() != Node::DOCUMENT_NODE) {
         return "</" + node->nodeName().string() + ">";
     }
     return "";
@@ -312,6 +312,9 @@ QString createMarkup(const RangeImpl *range, QPtrList<NodeImpl> *nodes, EAnnotat
     static const QString interchangeNewlineString = QString("<br class=\"") + AppleInterchangeNewline + "\">";
 
     int exceptionCode = 0;
+    if (range->collapsed(exceptionCode))
+        return "";
+    ASSERT(exceptionCode == 0);
     NodeImpl *commonAncestor = range->commonAncestorContainer(exceptionCode);
     ASSERT(exceptionCode == 0);
 

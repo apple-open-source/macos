@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -478,8 +478,7 @@ static Boolean
 __SCNetworkServiceSetInterfaceEntity(SCNetworkServiceRef     service,
 				     SCNetworkInterfaceRef   interface)
 {
-	CFMutableDictionaryRef		entity;
-	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+	CFDictionaryRef			entity;
 	Boolean				ok;
 	CFStringRef			path;
 	SCNetworkServicePrivateRef      servicePrivate		= (SCNetworkServicePrivateRef)service;
@@ -487,41 +486,7 @@ __SCNetworkServiceSetInterfaceEntity(SCNetworkServiceRef     service,
 	path = SCPreferencesPathKeyCreateNetworkServiceEntity(NULL,				// allocator
 							      servicePrivate->serviceID,	// service
 							      kSCEntNetInterface);		// entity
-	entity = CFDictionaryCreateMutable(NULL,
-					   0,
-					   &kCFTypeDictionaryKeyCallBacks,
-					   &kCFTypeDictionaryValueCallBacks);
-	if (interfacePrivate->entity_type != NULL) {
-		CFDictionarySetValue(entity,
-				     kSCPropNetInterfaceType,
-				     interfacePrivate->entity_type);
-	}
-	if (interfacePrivate->entity_subtype != NULL) {
-		CFDictionarySetValue(entity,
-				     kSCPropNetInterfaceSubType,
-				     interfacePrivate->entity_subtype);
-	}
-	if (interfacePrivate->entity_device != NULL) {
-		CFDictionarySetValue(entity,
-				     kSCPropNetInterfaceDeviceName,
-				     interfacePrivate->entity_device);
-	}
-	if (interfacePrivate->entity_hardware != NULL) {
-		CFDictionarySetValue(entity,
-				     kSCPropNetInterfaceHardware,
-				     interfacePrivate->entity_hardware);
-	}
-	if (CFEqual(interfacePrivate->interface_type, kSCNetworkInterfaceTypeModem) &&
-	    interfacePrivate->supportsDeviceOnHold) {
-		int		one     = 1;
-		CFNumberRef     num;
-
-		num = CFNumberCreate(NULL, kCFNumberIntType, &one);
-		CFDictionarySetValue(entity,
-				     kSCPropNetInterfaceSupportsModemOnHold,
-				     num);
-		CFRelease(num);
-	}
+	entity = __SCNetworkInterfaceCopyInterfaceEntity(interface);
 	ok = SCPreferencesPathSetValue(servicePrivate->prefs, path, entity);
 	CFRelease(entity);
 	CFRelease(path);
@@ -540,6 +505,20 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 	CFStringRef			prefix;
 	CFStringRef			serviceID;
 	SCNetworkServicePrivateRef	servicePrivate;
+	CFArrayRef			supported_protocols;
+
+	// only allow network interfaces which support one or more protocols
+	// to be added to a service.  The one exception is that we allow
+	// third-party interface types to be configured.
+	supported_protocols = SCNetworkInterfaceGetSupportedProtocolTypes(interface);
+	if (supported_protocols == NULL) {
+		CFStringRef	interface_type;
+
+		interface_type = SCNetworkInterfaceGetInterfaceType(interface);
+		if (CFStringFind(interface_type, CFSTR("."), 0).location == kCFNotFound) {
+			return NULL;
+		}
+	}
 
 	// establish the service
 	prefix = SCPreferencesPathKeyCreateNetworkServices(NULL);
@@ -572,13 +551,35 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 		CFStringRef		interfaceType;
 
 		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
-		childInterface = SCNetworkInterfaceGetInterface(servicePrivate->interface);
+		childInterface = SCNetworkInterfaceGetInterface(interface);
 		if (childInterface != NULL) {
 			childInterfaceType = SCNetworkInterfaceGetInterfaceType(childInterface);
 		}
 
 		config = __copyInterfaceTemplate(interfaceType, childInterfaceType);
 		if (config != NULL) {
+			if (CFEqual(interfaceType, kSCNetworkInterfaceTypeModem) ||
+			    CFEqual(interfaceType, kSCNetworkInterfaceTypeSerial)) {
+				CFStringRef	modemCCL;
+
+				modemCCL = __SCNetworkInterfaceGetModemCCL(interface);
+				if (modemCCL == NULL) {
+					if (__SCNetworkInterfaceIsModemV92(interface)) {
+						modemCCL = CFSTR("Apple Internal 56K Modem (v.92)");
+					}
+				}
+
+				if (modemCCL != NULL) {
+					CFMutableDictionaryRef	newConfig;
+
+					newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
+					CFDictionarySetValue(newConfig, kSCPropNetModemConnectionScript, modemCCL);
+
+					CFRelease(config);
+					config = newConfig;
+				}
+			}
+
 			(void) __SCNetworkInterfaceSetConfiguration(interface, config, TRUE);
 			CFRelease(config);
 		}
@@ -588,7 +589,7 @@ SCNetworkServiceCreate(SCPreferencesRef prefs, SCNetworkInterfaceRef interface)
 	(void) __SCNetworkServiceSetInterfaceEntity((SCNetworkServiceRef)servicePrivate,
 						    servicePrivate->interface);
 
-	// push the [deep] interface configuration into into the service.
+	// push the [deep] interface configuration into the service.
 	interface_config = __SCNetworkInterfaceCopyDeepConfiguration(servicePrivate->interface);
 	__SCNetworkInterfaceSetDeepConfiguration(servicePrivate->interface, interface_config);
 
@@ -698,7 +699,8 @@ SCNetworkServiceRemove(SCNetworkServiceRef service)
 			set = CFArrayGetValueAtIndex(sets, i);
 			ok = SCNetworkSetRemoveService(set, service);
 			if (!ok && (SCError() != kSCStatusNoKey)) {
-				break;
+				CFRelease(sets);
+				return ok;
 			}
 		}
 		CFRelease(sets);

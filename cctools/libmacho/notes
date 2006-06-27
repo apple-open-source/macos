@@ -1,3 +1,11 @@
+Changes for the 5.20.1 release (the cctools-590.23.5 release):
+- Changed i386_swap.c to add macros that rename structure members of the 
+  i386_thread_state_t for Unix conformance.  Radar bug #4438650.
+
+Changes for the 5.20.1 release (the cctools-590.23.4 release):
+- Changed ppc_swap.c to add macros that rename structure members of the 
+  ppc_thread_state_t for Unix conformance.  Radar bug #4340681.
+
 Changes for the 5.20 release (the cctools-590.23 release):
 - Changed swap_i386_float_state() in i386_swap.c for the current floating point
   i386 thread state (#if i386_THREAD_STATE == 1 case) so that it does swap

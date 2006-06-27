@@ -47,6 +47,7 @@
 #include "khtml_part.h"
 #include "khtml_part.h"
 #include "khtmlview.h"
+#include "markup.h"
 #include "qcolor.h"
 #include "qptrlist.h"
 #include "render_object.h"
@@ -889,6 +890,38 @@ void CompositeEditCommand::removeNodePreservingChildren(NodeImpl *removeChild)
     applyCommandToComposite(cmd);
 }
 
+void CompositeEditCommand::removeNodeAndPruneAncestors(DOM::NodeImpl* node)
+{
+    DOM::NodeImpl* parent = node->parentNode();
+    removeNode(node);
+    prune(parent);
+}
+
+bool hasARenderedDescendant(NodeImpl* node)
+{
+    NodeImpl* n = node->firstChild();
+    while (n) {
+        if (n->renderer())
+            return true;
+        n = n->traverseNextNode(node);
+    }
+    return false;
+}
+
+void CompositeEditCommand::prune(DOM::NodeImpl* node)
+{
+    while (node) {
+        DOM::NodeImpl* parent = node->parentNode();
+        // If you change this rule you may have to add an updateLayout() here.
+        RenderObject* renderer = node->renderer();
+        if (renderer && (!renderer->canHaveChildren() || hasARenderedDescendant(node) || node->rootEditableElement() == node))
+            return;
+            
+        removeNode(node);
+        node = parent;
+    }
+}
+
 void CompositeEditCommand::splitTextNode(TextImpl *text, long offset)
 {
     EditCommandPtr cmd(new SplitTextNodeCommand(document(), text, offset));
@@ -1211,9 +1244,11 @@ void CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessary(const Posi
     
     VisiblePosition visiblePos(pos, VP_DEFAULT_AFFINITY);
     VisiblePosition visibleParagraphStart(startOfParagraph(visiblePos));
-    VisiblePosition visibleParagraphEnd(endOfParagraph(visiblePos, IncludeLineBreak));
+    VisiblePosition visibleParagraphEnd(endOfParagraph(visiblePos));
+    VisiblePosition next = visibleParagraphEnd.next();
+    VisiblePosition visibleEnd = next.isNotNull() ? next : visibleParagraphEnd;
     Position paragraphStart = visibleParagraphStart.deepEquivalent().upstream(StayInBlock);
-    Position paragraphEnd = visibleParagraphEnd.deepEquivalent().upstream(StayInBlock);
+    Position paragraphEnd = visibleEnd.deepEquivalent().upstream(StayInBlock);
     Position beforeParagraphStart = paragraphStart.upstream(DoNotStayInBlock);
     
     // Perform some checks to see if we need to perform work in this function.
@@ -1231,7 +1266,7 @@ void CompositeEditCommand::moveParagraphContentsToNewBlockIfNecessary(const Posi
             ASSERT(paragraphStart.node()->isAncestor(paragraphEnd.node()->enclosingBlockFlowElement()));
             return;
         }
-        else if (isEndOfDocument(visibleParagraphEnd)) {
+        else if (isEndOfDocument(visibleEnd)) {
             // At the end of the document. We can bail here as well.
             return;
         }
@@ -1349,7 +1384,7 @@ Position positionBeforeNode(const NodeImpl *node)
     return Position(node->parentNode(), node->nodeIndex());
 }
 
-static Position positionBeforeContainingSpecialElement(const Position& pos)
+static Position positionBeforeContainingSpecialElement(const Position& pos, NodeImpl** containingSpecialElement)
 {
     ASSERT(isFirstVisiblePositionInSpecialElement(pos));
 
@@ -1367,6 +1402,8 @@ static Position positionBeforeContainingSpecialElement(const Position& pos)
     }
     
     ASSERT(outermostSpecialElement);
+    if (containingSpecialElement)
+        *containingSpecialElement = outermostSpecialElement;
 
     Position result = positionBeforeNode(outermostSpecialElement);
     if (result.isNull() || !result.node()->rootEditableElement())
@@ -1399,7 +1436,7 @@ Position positionAfterNode(const NodeImpl *node)
     return Position(node->parentNode(), node->nodeIndex() + 1);
 }
 
-static Position positionAfterContainingSpecialElement(const Position& pos)
+static Position positionAfterContainingSpecialElement(const Position& pos, NodeImpl **containingSpecialElement)
 {
     ASSERT(isLastVisiblePositionInSpecialElement(pos));
 
@@ -1420,38 +1457,40 @@ static Position positionAfterContainingSpecialElement(const Position& pos)
     }
     
     ASSERT(outermostSpecialElement);
+    if (containingSpecialElement)
+        *containingSpecialElement = outermostSpecialElement;
 
     Position result = positionAfterNode(outermostSpecialElement);
     if (result.isNull() || !result.node()->rootEditableElement())
         return pos;
-    
+
     return result;
 }
 
-static Position positionOutsideContainingSpecialElement(const Position &pos)
+static Position positionOutsideContainingSpecialElement(const Position &pos, NodeImpl **containingSpecialElement)
 {
     if (isFirstVisiblePositionInSpecialElement(pos)) {
-        return positionBeforeContainingSpecialElement(pos);
+        return positionBeforeContainingSpecialElement(pos, containingSpecialElement);
     } else if (isLastVisiblePositionInSpecialElement(pos)) {
-        return positionAfterContainingSpecialElement(pos);
+        return positionAfterContainingSpecialElement(pos, containingSpecialElement);
     }
 
     return pos;
 }
 
-static Position positionBeforePossibleContainingSpecialElement(const Position &pos)
+static Position positionBeforePossibleContainingSpecialElement(const Position &pos, NodeImpl **containingSpecialElement)
 {
     if (isFirstVisiblePositionInSpecialElement(pos)) {
-        return positionBeforeContainingSpecialElement(pos);
+        return positionBeforeContainingSpecialElement(pos, containingSpecialElement);
     } 
 
     return pos;
 }
 
-static Position positionAfterPossibleContainingSpecialElement(const Position &pos)
+static Position positionAfterPossibleContainingSpecialElement(const Position &pos, NodeImpl **containingSpecialElement)
 {
     if (isLastVisiblePositionInSpecialElement(pos)) {
-        return positionAfterContainingSpecialElement(pos);
+        return positionAfterContainingSpecialElement(pos, containingSpecialElement);
     }
 
     return pos;
@@ -1564,6 +1603,12 @@ void ApplyStyleCommand::applyBlockStyle(CSSMutableStyleDeclarationImpl *style)
     Position start(endingSelection().start());
     Position end(endingSelection().end());
     
+    if (RangeImpl::compareBoundaryPoints(end, start) <= 0) {
+        Position swap = end;
+        end = start;
+        start = swap;
+    }
+    
     // remove current values, if any, of the specified styles from the blocks
     // NOTE: tracks the previous block to avoid repeated processing
     // Also, gather up all the nodes we want to process in a QPtrList before
@@ -1619,7 +1664,7 @@ void ApplyStyleCommand::applyRelativeFontStyleChange(CSSMutableStyleDeclarationI
         if (primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_PX) {
             // Only PX handled now. If we handle more types in the future, perhaps
             // a switch statement here would be more appropriate.
-            adjustment = primitiveValue->getFloatValue(CSSPrimitiveValue::CSS_PX);
+            adjustment = primitiveValue->getFloatValue();
         }
     }
     style->removeProperty(CSS_PROP__KHTML_FONT_SIZE_DELTA);
@@ -2102,7 +2147,7 @@ void ApplyStyleCommand::removeInlineStyle(CSSMutableStyleDeclarationImpl *style,
     ASSERT(end.isNotNull());
     ASSERT(start.node()->inDocument());
     ASSERT(end.node()->inDocument());
-    ASSERT(RangeImpl::compareBoundaryPoints(start, end) < 0);
+    ASSERT(RangeImpl::compareBoundaryPoints(start, end) <= 0);
     
     CSSValueImpl *textDecorationSpecialProperty = style->getPropertyCSSValue(CSS_PROP__KHTML_TEXT_DECORATIONS_IN_EFFECT);
 
@@ -2636,15 +2681,28 @@ void DeleteSelectionCommand::initializePositionData()
     //
     // Handle setting some basic positions
     //
+    NodeImpl* startSpecialContainer = 0;
+    NodeImpl* endSpecialContainer = 0;
     Position start = m_selectionToDelete.start();
-    start = positionOutsideContainingSpecialElement(start);
+    start = positionOutsideContainingSpecialElement(start, &startSpecialContainer);
     Position end = m_selectionToDelete.end();
-    end = positionOutsideContainingSpecialElement(end);
+    end = positionOutsideContainingSpecialElement(end, &endSpecialContainer);
 
-    m_upstreamStart = positionBeforePossibleContainingSpecialElement(start.upstream(StayInBlock));
-    m_downstreamStart = positionBeforePossibleContainingSpecialElement(start.downstream(StayInBlock));
-    m_upstreamEnd = positionAfterPossibleContainingSpecialElement(end.upstream(StayInBlock));
-    m_downstreamEnd = positionAfterPossibleContainingSpecialElement(end.downstream(StayInBlock));
+    m_upstreamStart = positionBeforePossibleContainingSpecialElement(start.upstream(StayInBlock), &startSpecialContainer);
+    m_downstreamStart = positionBeforePossibleContainingSpecialElement(start.downstream(StayInBlock), 0);
+    m_upstreamEnd = positionAfterPossibleContainingSpecialElement(end.upstream(StayInBlock), 0);
+    m_downstreamEnd = positionAfterPossibleContainingSpecialElement(end.downstream(StayInBlock), &endSpecialContainer);
+
+    if (m_upstreamStart == m_selectionToDelete.start().upstream(StayInBlock) || m_downstreamEnd == m_selectionToDelete.end().downstream(StayInBlock)) {
+        if (m_downstreamEnd.node()->isAncestor(startSpecialContainer) || m_upstreamStart.node()->isAncestor(endSpecialContainer)) {
+            start = m_selectionToDelete.start();
+            end = m_selectionToDelete.end();
+            m_upstreamStart = start.upstream(StayInBlock);
+            m_downstreamStart = start.downstream(StayInBlock);
+            m_upstreamEnd = end.upstream(StayInBlock);
+            m_downstreamEnd = end.downstream(StayInBlock);
+        }
+    }
 
     //
     // Handle leading and trailing whitespace, as well as smart delete adjustments to the selection
@@ -2698,17 +2756,6 @@ void DeleteSelectionCommand::initializePositionData()
     m_endBlock->ref();
     m_startNode = m_upstreamStart.node();
     m_startNode->ref();
-
-    //
-    // Handle detecting if the line containing the selection end is itself fully selected.
-    // This is one of the tests that determines if block merging of content needs to be done.
-    //
-    VisiblePosition visibleEnd(end, m_selectionToDelete.endAffinity());
-    if (isFirstVisiblePositionInParagraph(visibleEnd) || isLastVisiblePositionInParagraph(visibleEnd)) {
-        Position previousLineStart = previousLinePosition(visibleEnd, 0).deepEquivalent();
-        if (previousLineStart.isNull() || RangeImpl::compareBoundaryPoints(previousLineStart, m_downstreamStart) >= 0)
-            m_mergeBlocksAfterDelete = false;
-    }
 
     debugPosition("m_upstreamStart      ", m_upstreamStart);
     debugPosition("m_downstreamStart    ", m_downstreamStart);
@@ -2999,86 +3046,90 @@ void DeleteSelectionCommand::fixupWhitespace()
     }
 }
 
-// This function moves nodes in the block containing startNode to dstBlock, starting
-// from startNode and proceeding to the end of the paragraph. Nodes in the block containing
-// startNode that appear in document order before startNode are not moved.
-// This function is an important helper for deleting selections that cross paragraph
-// boundaries.
-void DeleteSelectionCommand::moveNodesAfterNode()
+// If a selection ended in a different paragraph than it started in, we must merge 
+// the two paragraphs after deleting the selection.
+void DeleteSelectionCommand::mergeParagraphs()
 {
     if (!m_mergeBlocksAfterDelete)
         return;
 
+    // FIXME: Deletion should adjust selection endpoints as it removes nodes so that we never get into this state (4099839).
+    if (!m_downstreamEnd.node()->inDocument() || !m_upstreamStart.node()->inDocument())
+         return;
+         
+    // FIXME: The deletion algorithm shouldn't let this happen.
+    if (RangeImpl::compareBoundaryPoints(m_upstreamStart, m_downstreamEnd) > 0)
+        return;
+        
+    // FIXME: Merging will always be unnecessary in this case, but we really bail here because this is a case where
+    // deletion commonly fails to adjust its endpoints, which would cause the visible position comparison below to false negative.
     if (m_endBlock == m_startBlock)
         return;
-
-    NodeImpl *startNode = m_downstreamEnd.node();
-    NodeImpl *dstNode = m_upstreamStart.node();
-
-    if (!startNode->inDocument() || !dstNode->inDocument())
+         
+    // Do not move content between parts of a table or list.
+    if (isTableStructureNode(m_downstreamEnd.node()->enclosingBlockFlowElement()) || isTableStructureNode(m_upstreamStart.node()->enclosingBlockFlowElement()))
         return;
 
-    NodeImpl *startBlock = startNode->enclosingBlockFlowElement();
-    if (isTableStructureNode(startBlock) || isListStructureNode(startBlock))
-        // Do not move content between parts of a table or list.
+    if (isListStructureNode(m_downstreamEnd.node()->enclosingBlockFlowElement()) || isListStructureNode(m_upstreamStart.node()->enclosingBlockFlowElement()))
         return;
+        
+    VisiblePosition startOfParagraphToMove(m_downstreamEnd, VP_DEFAULT_AFFINITY);
+    VisiblePosition mergeDestination(m_upstreamStart, VP_DEFAULT_AFFINITY);
 
-    // Now that we are about to add content, check to see if a placeholder element
-    // can be removed.
-    removeBlockPlaceholder(startBlock);
-
-    // Move the subtree containing node
-    NodeImpl *node = startNode->enclosingInlineElement();
-
-    // Insert after the subtree containing destNode
-    NodeImpl *refNode = dstNode->enclosingInlineElement();
-
-    // Nothing to do if start is already at the beginning of dstBlock
-    NodeImpl *dstBlock = refNode->enclosingBlockFlowElement();
-    if (startBlock == dstBlock->firstChild())
-        return;
-
-    // Do the move.
-    NodeImpl *rootNode = refNode->rootEditableElement();
-    while (node && node->isAncestor(startBlock)) {
-        NodeImpl *moveNode = node;
-        node = node->nextSibling();
-        removeNode(moveNode);
-        if (moveNode->id() == ID_BR && !moveNode->renderer()) {
-            // Just remove this node, and don't put it back.
-            // If the BR was not rendered (since it was at the end of a block, for instance), 
-            // putting it back in the document might make it appear, and that is not desirable.
-            break;
-        }
-        if (refNode == rootNode)
-            insertNodeAt(moveNode, refNode, 0);
-        else
-            insertNodeAfter(moveNode, refNode);
-        refNode = moveNode;
-        if (moveNode->id() == ID_BR)
-            break;
+    // We need to merge into m_upstreamStart's block, but it's been emptied out and collapsed by deletion.
+    if (!mergeDestination.deepEquivalent().node()->isAncestor(m_upstreamStart.node()->enclosingBlockFlowElement())) {
+        insertNodeAt(createBreakElement(document()), m_upstreamStart.node(), m_upstreamStart.offset());
+        mergeDestination = VisiblePosition(m_upstreamStart, VP_DEFAULT_AFFINITY);
     }
 
-    // If the startBlock no longer has any kids, we may need to deal with adding a BR
-    // to make the layout come out right. Consider this document:
-    //
-    // One
-    // <div>Two</div>
-    // Three
-    // 
-    // Placing the insertion before before the 'T' of 'Two' and hitting delete will
-    // move the contents of the div to the block containing 'One' and delete the div.
-    // This will have the side effect of moving 'Three' on to the same line as 'One'
-    // and 'Two'. This is undesirable. We fix this up by adding a BR before the 'Three'.
-    // This may not be ideal, but it is better than nothing.
-    document()->updateLayout();
-    if (!startBlock->renderer() || !startBlock->renderer()->firstChild()) {
-        removeNode(startBlock);
-        document()->updateLayout();
-        if (refNode->renderer() && refNode->renderer()->inlineBox() && refNode->renderer()->inlineBox()->nextOnLineExists()) {
-            insertNodeAfter(createBreakElement(document()), refNode);
-        }
-    }
+    if (mergeDestination == startOfParagraphToMove)
+        return;
+        
+    VisiblePosition endOfParagraphToMove = endOfParagraph(startOfParagraphToMove);
+    
+    if (mergeDestination == endOfParagraphToMove)
+        return;
+
+    ASSERT(isStartOfParagraph(startOfParagraphToMove));
+    ASSERT(isEndOfParagraph(endOfParagraphToMove));
+    
+    VisiblePosition beforeParagraph = startOfParagraphToMove.previous();
+
+    Position start = startOfParagraphToMove.deepEquivalent().upstream(StayInBlock);
+    // We upstream() the end so that we don't include collapsed whitespace in the move.
+    // If we must later add a br after the merged paragraph, doing so would cause the moved unrendered space to become rendered.
+    Position end = endOfParagraphToMove.deepEquivalent().upstream(StayInBlock);
+    SharedPtr<DOM::RangeImpl> range = new DOM::RangeImpl(document(), start.node(), start.offset(), end.node(), end.offset());
+
+    // FIXME: This is an inefficient way to preserve style on nodes in the paragraph to move.  It 
+    // shouldn't matter though, since moved paragraphs will usually be quite small.
+    SharedPtr<DOM::DocumentFragmentImpl> fragment = createFragmentFromMarkup(document(), range->toHTML().string(), "");
+    
+    setEndingSelection(Selection(start, DOWNSTREAM, end, DOWNSTREAM));
+    deleteSelection(false, false);
+
+    ASSERT(mergeDestination.deepEquivalent().node()->inDocument());
+
+    // The above deletion leaves a placeholder (it always does when a whole paragraph is deleted).
+    // We remove it and prune it's parents since we want to remove all traces of the paragraph to move.
+    DOM::NodeImpl* placeholder = endingSelection().end().node();
+    // FIXME: Deletion has bugs and it doesn't always add a placeholder.  If it fails, still do pruning.
+    if (placeholder->id() == ID_BR)
+        removeNodeAndPruneAncestors(placeholder);
+    else
+        prune(placeholder);
+
+    // Add a br if pruning an empty block level element caused a collapse.  For example:
+    // foo
+    // <div>bar</div>
+    // baz
+    // Placing the cursor before 'bar' and hitting delete will merge 'foo' and 'bar' and prune the empty div.    
+    if (beforeParagraph.isNotNull() && !isEndOfParagraph(mergeDestination))
+        insertNodeAt(createBreakElement(document()), beforeParagraph.deepEquivalent().node(), beforeParagraph.deepEquivalent().offset());
+    
+    setEndingSelection(mergeDestination);
+    EditCommandPtr cmd(new ReplaceSelectionCommand(document(), fragment.get(), false));
+    applyCommandToComposite(cmd);
 }
 
 void DeleteSelectionCommand::calculateEndingPosition()
@@ -3242,8 +3293,7 @@ void DeleteSelectionCommand::doApply()
     insertPlaceholderForAncestorBlockContent();
     handleGeneralDelete();
     
-    // Do block merge if start and end of selection are in different blocks.
-    moveNodesAfterNode();
+    mergeParagraphs();
     
     calculateEndingPosition();
     fixupWhitespace();
@@ -3371,7 +3421,7 @@ void InsertLineBreakCommand::doApply()
     
     Position pos(selection.start().upstream(StayInBlock));
 
-    pos = positionOutsideContainingSpecialElement(pos);
+    pos = positionOutsideContainingSpecialElement(pos, 0);
 
     if (isTabSpanTextNode(pos.node())) {
         insertNodeAtTabSpanPosition(nodeToInsert, pos);
@@ -3580,7 +3630,7 @@ void InsertParagraphSeparatorCommand::doApply()
         affinity = endingSelection().startAffinity();
     }
 
-    pos = positionOutsideContainingSpecialElement(pos);
+    pos = positionOutsideContainingSpecialElement(pos, 0);
 
     calculateStyleBeforeInsertion(pos);
 
@@ -3638,7 +3688,7 @@ void InsertParagraphSeparatorCommand::doApply()
     if (upstreamInDifferentBlock || isFirstInBlock) {
         LOG(Editing, "insert paragraph separator: first in block case");
         pos = pos.downstream(StayInBlock);
-        pos = positionOutsideContainingSpecialElement(pos);
+        pos = positionOutsideContainingSpecialElement(pos, 0);
         Position refPos;
         NodeImpl *refNode;
         if (isFirstInBlock && !startBlockIsRoot) {
@@ -3989,7 +4039,7 @@ void InsertTextCommand::input(const DOMString &text, bool selectInsertedText)
         startPosition = startPosition.downstream(StayInBlock);
     else
         startPosition = startPosition.upstream(StayInBlock);
-    startPosition = positionOutsideContainingSpecialElement(startPosition);
+    startPosition = positionOutsideContainingSpecialElement(startPosition, 0);
     
     if (text == "\t") {
         endPosition = insertTab(startPosition);
@@ -4921,6 +4971,9 @@ void ReplaceSelectionCommand::doApply()
     // collect information about the current selection, prior to deleting the selection
     Selection selection = endingSelection();
     ASSERT(selection.isCaretOrRange());
+    ASSERT(selection.start().node());
+    if (selection.isNone() || !selection.start().node())
+        return;
 
     VisiblePosition visibleStart(selection.start(), selection.startAffinity());
     VisiblePosition visibleEnd(selection.end(), selection.endAffinity());
@@ -5006,7 +5059,7 @@ void ReplaceSelectionCommand::doApply()
     if (isTabSpanTextNode(startPos.node()))
         startPos = positionOutsideTabSpan(startPos);
     else
-        startPos = positionOutsideContainingSpecialElement(startPos);
+        startPos = positionOutsideContainingSpecialElement(startPos, 0);
 
     KHTMLPart *part = document()->part();
     if (m_matchStyle) {
@@ -5028,7 +5081,7 @@ void ReplaceSelectionCommand::doApply()
     NodeImpl *linePlaceholder = findBlockPlaceholder(block);
     if (!linePlaceholder) {
         Position downstream = startPos.downstream(StayInBlock);
-        downstream = positionOutsideContainingSpecialElement(downstream);
+        downstream = positionOutsideContainingSpecialElement(downstream, 0);
         if (downstream.node()->id() == ID_BR && downstream.offset() == 0 && 
             m_fragment.hasInterchangeNewlineAtEnd() &&
             isFirstVisiblePositionOnLine(VisiblePosition(downstream, VP_DEFAULT_AFFINITY)))

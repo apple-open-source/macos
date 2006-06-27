@@ -71,16 +71,6 @@ public:
     Position leadingWhitespacePosition(khtml::EAffinity affinity, bool considerNonCollapsibleWhitespace = false) const;
     Position trailingWhitespacePosition(khtml::EAffinity affinity, bool considerNonCollapsibleWhitespace = false) const;
 
-    // These functions only consider leaf nodes, and if stayInBlock is true, blocks.
-    // Hence, the results from these functions are idiosyncratic, and until you
-    // become familiar with the results, you may find using these functions confusing.
-    // I have hopes to make the results of these functions less ambiguous in the near
-    // future, and have them consider all nodes, and have the Positions that are 
-    // returned follow a simple rule: The upstream position is the position
-    // earliest in document order that will make the insertion point render in the
-    // same position as the caller's position. The same goes for downstream position
-    // except that it is the latest position for earliest position in the above 
-    // description.
     Position upstream(EStayInBlock stayInBlock = DoNotStayInBlock) const;
     Position downstream(EStayInBlock stayInBlock = DoNotStayInBlock) const;
     

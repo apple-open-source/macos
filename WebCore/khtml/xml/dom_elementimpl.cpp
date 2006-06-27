@@ -58,10 +58,10 @@ AttributeImpl* AttributeImpl::clone(bool) const
 }
 
 void AttributeImpl::allocateImpl(ElementImpl* e) {
-    _impl = new AttrImpl(e, e->docPtr(), this);
+    _impl = new AttrImpl(e, e->getDocument(), this);
 }
 
-AttrImpl::AttrImpl(ElementImpl* element, DocumentPtr* docPtr, AttributeImpl* a)
+AttrImpl::AttrImpl(ElementImpl* element, DocumentImpl* docPtr, AttributeImpl* a)
     : NodeBaseImpl(docPtr),
       m_element(element),
       m_attribute(a)
@@ -141,7 +141,7 @@ void AttrImpl::setNodeValue( const DOMString &v, int &exceptioncode )
 
 NodeImpl *AttrImpl::cloneNode ( bool /*deep*/)
 {
-    return new AttrImpl(0, docPtr(), m_attribute->clone());
+    return new AttrImpl(0, getDocument(), m_attribute->clone());
 }
 
 // DOM Section 1.1.1
@@ -190,7 +190,7 @@ DOMString AttrImpl::toString() const
 
 // -------------------------------------------------------------------------
 
-ElementImpl::ElementImpl(DocumentPtr *doc)
+ElementImpl::ElementImpl(DocumentImpl *doc)
     : NodeBaseImpl(doc)
 {
     namedAttrMap = 0;
@@ -696,13 +696,13 @@ void ElementImpl::formatForDebugger(char *buffer, unsigned length) const
 
 // -------------------------------------------------------------------------
 
-XMLElementImpl::XMLElementImpl(DocumentPtr *doc, DOMStringImpl *_tagName)
+XMLElementImpl::XMLElementImpl(DocumentImpl *doc, DOMStringImpl *_tagName)
     : ElementImpl(doc)
 {
-    m_id = doc->document()->tagId(0 /* no namespace */, _tagName,  false /* allocate */);
+    m_id = doc->tagId(0 /* no namespace */, _tagName,  false /* allocate */);
 }
 
-XMLElementImpl::XMLElementImpl(DocumentPtr *doc, DOMStringImpl *_qualifiedName, DOMStringImpl *_namespaceURI)
+XMLElementImpl::XMLElementImpl(DocumentImpl *doc, DOMStringImpl *_qualifiedName, DOMStringImpl *_namespaceURI)
     : ElementImpl(doc)
 {
     int colonpos = -1;
@@ -717,7 +717,7 @@ XMLElementImpl::XMLElementImpl(DocumentPtr *doc, DOMStringImpl *_qualifiedName, 
         DOMStringImpl* localName = _qualifiedName->copy();
         localName->ref();
         localName->remove(0,colonpos+1);
-        m_id = doc->document()->tagId(_namespaceURI, localName, false /* allocate */);
+        m_id = doc->tagId(_namespaceURI, localName, false /* allocate */);
         localName->deref();
         m_prefix = _qualifiedName->copy();
         m_prefix->ref();
@@ -725,7 +725,7 @@ XMLElementImpl::XMLElementImpl(DocumentPtr *doc, DOMStringImpl *_qualifiedName, 
     }
     else {
         // no prefix
-        m_id = doc->document()->tagId(_namespaceURI, _qualifiedName, false /* allocate */);
+        m_id = doc->tagId(_namespaceURI, _qualifiedName, false /* allocate */);
         m_prefix = 0;
     }
 }
@@ -748,7 +748,7 @@ NodeImpl *XMLElementImpl::cloneNode ( bool deep )
 {
     // ### we loose namespace here FIXME
     // should pass id around
-    XMLElementImpl *clone = new XMLElementImpl(docPtr(), getDocument()->tagName(m_id).implementation());
+    XMLElementImpl *clone = new XMLElementImpl(getDocument(), getDocument()->tagName(m_id).implementation());
     clone->m_id = m_id;
 
     // clone attributes

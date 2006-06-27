@@ -105,6 +105,9 @@ void _KXKextSetStartAddress(KXKextRef aKext, vm_address_t newAddr);
 BOMBom _BOMBomOpen(const char *bomPath, Boolean forWriting);
 #define BOMBomOpen _BOMBomOpen
 
+int _BOMBomFree(BOMBom bom);
+#define BOMBomFree _BOMBomFree
+
 off_t  _BOMFSObjectSize(BOMFSObject fsObject);
 #define BOMFSObjectSize _BOMFSObjectSize
 

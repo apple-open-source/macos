@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # sort_res.perl5 - Script to group & sort lsof output by resource
 #
-# Copyright (c) 2004 - Fabian Frederick <fabian.frederick@gmx.fr>
+# Copyright (c) 2004, 2005 - Fabian Frederick <fabian.frederick@gmx.fr>
 #
 # This program/include file is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License as published
@@ -22,16 +22,22 @@
 #	-This script uses lsof released by Victor A. Abell
 #	-lsof path recovery comes from standard perl scripts in there.
 #
+# Usage :
+#	perl sort_res.perl5 -> display used resources + size
+#	or perl sort_res.perl5 <program name>
+#
+# 12/2005 (FabF) 
+#	-size reset in loop (script was broken in 4.76)
+#	-isexec looking in .. (like other scripts)
+#	-display for one or all processes
+#	-removing unuseful line number arg.
+#	-display global size
 
 require 'getopts.pl';
 my @args = @_;
-$head_lines=20; #tail -n 20 result (default)
-if ($ARGV[0] ne ""){
-    $head_lines=$ARGV[0];
-}
 
 # Set path to lsof.
-if (($LSOF = &isexec("/usr/sbin/lsof")) eq "") {    # Some distros use lsof
+if (($LSOF = &isexec("../lsof")) eq "") {    # Some distros use lsof
 						    # out of $PATH
     if (($LSOF = &isexec("lsof")) eq "") {	    # Then try . and $PATH
 	if (($LSOF = &isexec("../lsof")) eq "") {    # Then try ..
@@ -40,10 +46,16 @@ if (($LSOF = &isexec("/usr/sbin/lsof")) eq "") {    # Some distros use lsof
     }
 }
 
+if ($ARGV[0] ne ""){
+    $cmd="$LSOF -nPl -Fcns -c".$ARGV[0]."|";
+}else{
+    $cmd="$LSOF -nPl -Fcns|";	
+}
+
 #Parse lsof output to gather command, resource name, pid and size
 #Some extradata stand to keep script genericity 
 $i=0;
-if (open(FILE, "$LSOF -nPl -Fcns|")){
+if (open(FILE, $cmd)){
     while (defined ($line=<FILE>)){
 	$cline=$line;
 	$cline =~ s"^(.)"";
@@ -61,6 +73,7 @@ if (open(FILE, "$LSOF -nPl -Fcns|")){
 			$name = $cline;
 			$data{$i} = { command => $command, name => $name,
 				      pid => $pid , size => $size};
+			$size=0;
 			$i = $i+1;
 		    }
 		}
@@ -83,20 +96,18 @@ foreach $k (@ks){
 	$i++;
     }	
 }
-$top_min = $i - $head_lines;
 
 #Size sort on resource hash
 sub bysize { $dgroup{$a}{size} <=> $dgroup{$b}{size} }
 @ks=sort bysize (keys %dgroup);
-$i=0;
+$gsize=0;
 printf("  -- KB --  -- Resource --\n", );
 foreach $k (@ks){
-    if ($i > $top_min){
 	printf("%10d  %s\n", $dgroup{$k}{size}/1024, $dgroup{$k}{name});
-    }
-    $i++;
+	$gsize+=$dgroup{$k}{size};
 }
 
+printf("Total KB : %10d\n", $gsize/1024);
 ## isexec($path) -- is $path executable
 #
 # $path   = absolute or relative path to file to test for executabiity.

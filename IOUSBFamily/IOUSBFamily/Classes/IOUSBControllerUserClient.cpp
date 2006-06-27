@@ -27,6 +27,7 @@
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/IOKitKeys.h>
 
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBControllerV2.h>
@@ -35,6 +36,14 @@
 #include "IOUSBControllerUserClient.h"
 
 #define super IOUserClient
+
+#ifndef kIOUserClientCrossEndianKey
+#define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
+#endif
+
+#ifndef kIOUserClientCrossEndianCompatibleKey
+#define kIOUserClientCrossEndianCompatibleKey "IOUserClientCrossEndianCompatible"
+#endif
 
 
 //================================================================================================
@@ -166,9 +175,12 @@ IOUSBControllerUserClient::getTargetAndMethodForIndex(IOService **target, UInt32
 bool
 IOUSBControllerUserClient::initWithTask(task_t owningTask, void *security_id, UInt32 type, OSDictionary * properties)
 {
-    IOLog("IOUSBControllerUserClient::initWithTask(type %ld)\n", type);
-
-    if (!owningTask)
+	if ( properties != NULL )
+	{
+		properties->setObject( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+	}
+		
+	if (!owningTask)
         return false;
 
     fTask = owningTask;
@@ -187,7 +199,7 @@ bool
 IOUSBControllerUserClient::start( IOService * provider )
 {
     fOwner = OSDynamicCast(IOUSBController, provider);
-    IOLog("+IOUSBControllerUserClient::start (%p)\n", fOwner);
+
     if (!fOwner)
         return false;
 
@@ -225,7 +237,6 @@ IOUSBControllerUserClient::open(bool seize)
 IOReturn
 IOUSBControllerUserClient::close()
 {
-    IOLog("+IOUSBControllerUserClient::close\n");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -238,7 +249,6 @@ IOUSBControllerUserClient::close()
 IOReturn
 IOUSBControllerUserClient::EnableKernelLogger(bool enable)
 {
-    IOLog("+IOUSBControllerUserClient::EnableKernelLogger\n");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -250,7 +260,6 @@ IOUSBControllerUserClient::EnableKernelLogger(bool enable)
 IOReturn
 IOUSBControllerUserClient::SetDebuggingLevel(KernelDebugLevel inLevel)
 {
-    IOLog("+IOUSBControllerUserClient::SetDebuggingLevel\n");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -262,7 +271,6 @@ IOUSBControllerUserClient::SetDebuggingLevel(KernelDebugLevel inLevel)
 IOReturn
 IOUSBControllerUserClient::SetDebuggingType(KernelDebuggingOutputType inType)
 {
-    IOLog("+IOUSBControllerUserClient::SetDebuggingType\n");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -274,7 +282,6 @@ IOUSBControllerUserClient::SetDebuggingType(KernelDebuggingOutputType inType)
 IOReturn
 IOUSBControllerUserClient::GetDebuggingLevel(KernelDebugLevel * inLevel)
 {
-    IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -286,7 +293,6 @@ IOUSBControllerUserClient::GetDebuggingLevel(KernelDebugLevel * inLevel)
 IOReturn
 IOUSBControllerUserClient::GetDebuggingType(KernelDebuggingOutputType * inType)
 {
-    IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -302,7 +308,6 @@ IOUSBControllerUserClient::SetTestMode(UInt32 mode, UInt32 port)
     // this method only available for v2 controllers
     IOUSBControllerV2	*v2 = OSDynamicCast(IOUSBControllerV2, fOwner);
 
-    IOLog("+IOUSBControllerUserClient::SetTestMode");
     if (!v2)
         return kIOReturnNotAttached;
 
@@ -329,19 +334,19 @@ IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
         case 8:
             bVal = *((UInt8 *)fMemMap->getVirtualAddress() + offset);
             *(UInt8*)value = bVal;
-            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got byte value %p", bVal);
+            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got byte value 0x%x", bVal);
             break;
 
         case 16:
             wVal = OSReadLittleInt16((void*)(fMemMap->getVirtualAddress()), offset);
             *(UInt16*)value = wVal;
-            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got word value %p", wVal);
+            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got word value 0x%x", wVal);
             break;
 
         case 32:
             lVal = OSReadLittleInt32((void*)(fMemMap->getVirtualAddress()), offset);
             *(UInt32*)value = lVal;
-            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got long value %p", lVal);
+            USBLog(1, "IOUSBControllerUserClient::ReadRegister - got long value 0x%lx", lVal);
             break;
 
         default:
@@ -366,9 +371,7 @@ IOUSBControllerUserClient::WriteRegister(UInt32 offset, UInt32 size, UInt32 valu
 void
 IOUSBControllerUserClient::stop( IOService * provider )
 {
-    IOLog("IOUSBControllerUserClient::stop\n");
-
-super::stop( provider );
+	super::stop( provider );
 
     if (fMemMap)
     {
@@ -383,7 +386,6 @@ IOUSBControllerUserClient::clientClose( void )
     /*
      * Kill ourselves off if the client closes or the client dies.
      */
-    IOLog("%s[%p]::clientClose isInactive = %d\n", getName(), this, isInactive());
     if( !isInactive())
         terminate();
 

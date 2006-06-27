@@ -52,6 +52,7 @@ typedef enum {
 	kTP_SMIME,			/* S/MIME */		
 	kTP_EAP,
 	kTP_CodeSign,		/* Apple Code Signing */
+	kTP_ResourceSign,	/* Apple Resource Signing */
 	kTP_IPSec,			/* IPSEC */
 	kTP_iChat			/* iChat */
 } TPPolicy;

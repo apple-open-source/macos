@@ -81,13 +81,9 @@ main(argc, argv)
     int argc;				/* argument count */
     char *argv[];			/* arguments */
 {
-    char buf[2048], buf1[2048];		/* temporary buffers */
+    char buf[2048];			/* temporary buffer */
     char cwd[MAXPATHLEN + 1];		/* CWD buffer */
     char *em;				/* error message pointer */
-    int ff[2];				/* FindUsock() file-found flags */
-    char ibuf[32];			/* inode number in ASCII */
-    int sz;				/* output size */
-    char *tcp;				/* temporary character size */
     int ti, tj;				/* temporary indexes */
     struct sockaddr_un ua;		/* UNIX socket address */
     int xv = 0;				/* exit value */
@@ -132,6 +128,12 @@ main(argc, argv)
 	em = "ERROR!!!  can't get CWD";
 	goto print_errno;
     }
+
+    cwd[sizeof(cwd) - 1] = '\0';
+    if ((strlen(cwd) + strlen("/config.LT#U9223372036854775807") + 1) > sizeof(ua.sun_path)) {
+	strlcpy(cwd, "/tmp", sizeof(cwd));
+    }
+
     for (ti = 0; ti < 2; ti++) {
 	(void) snprintf(buf, sizeof(buf) - 1, "%s/config.LT%dU%ld", cwd, ti,
 	    (long)MyPid);
@@ -184,6 +186,7 @@ print_errno:
  * Exit successfully.
  */
     (void) PrtMsgX("OK", Pn, cleanup, 0);
+    return(0);
 }
 
 
@@ -220,10 +223,8 @@ FindUsocks()
     char buf[2048];			/* temporary buffer */
     char *cem;				/* current error message pointer */
     LTfldo_t *cmdp;			/* command pointer */
-    LTfldo_t *devp;			/* device pointer */
     int ff[2];				/* file-found flags */
     LTfldo_t *fop;			/* field output pointer */
-    LTdev_t lsofdc;			/* lsof device components */
     int nf;				/* number of fields */
     int nl;				/* name length */
     LTfldo_t *nmp;			/* name pointer */
@@ -240,7 +241,7 @@ FindUsocks()
     ff[0] = ff[1] = ti = 0;
     opv[ti++] = "-aU";
     opv[ti++] = "-p";
-    (void) snprintf(buf, sizeof(buf) - 1, "%ld", MyPid);
+    (void) snprintf(buf, sizeof(buf) - 1, "%ld", (long)MyPid);
     buf[sizeof(buf) - 1] = '\0';
     opv[ti++] = MkStrCpy(buf, &tj);
 

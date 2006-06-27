@@ -32,8 +32,11 @@
  *	Created.
  */
 
-#import <architecture/i386/desc.h>
-#import <architecture/i386/tss.h>
+#ifndef _ARCH_I386_TABLE_H_
+#define _ARCH_I386_TABLE_H_
+
+#include <architecture/i386/desc.h>
+#include <architecture/i386/tss.h>
 
 /*
  * A totally generic descriptor
@@ -92,3 +95,5 @@ typedef union ldt_entry {
 } ldt_entry_t;
 
 typedef ldt_entry_t	ldt_t;
+
+#endif	/* _ARCH_I386_TABLE_H_ */

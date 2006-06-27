@@ -363,7 +363,7 @@ IOFWDCL :: importUserDCL (
 {
 	IOVirtualAddress		kernBaseAddress = bufferMap->getVirtualAddress() ;
 	NuDCLSharedData * 		sharedData = ( NuDCLSharedData * )data ;
-	dataSize = sizeof( *sharedData ) ;
+	dataSize = ( sizeof( *sharedData ) + 4 ) & ~(size_t)0x3 ;
 	data += dataSize ;
 
 	IOReturn error = kIOReturnSuccess ;
@@ -406,8 +406,6 @@ IOFWDCL :: importUserDCL (
 			setUpdateList( updateSet ) ;
 			updateSet->release() ;
 		}
-
-		setBranch( sharedData->branch.index ? (IOFWDCL*)dcls->getObject( (unsigned)sharedData->branch.index - 1 ) : NULL ) ;
 	}
 
 	if ( !error )
@@ -486,6 +484,7 @@ OSMetaClassDefineReservedUsed ( IOFWDCL, 0 ) ;
 OSMetaClassDefineReservedUnused ( IOFWDCL, 1 ) ;
 OSMetaClassDefineReservedUnused ( IOFWDCL, 2 ) ;
 OSMetaClassDefineReservedUnused ( IOFWDCL, 3 ) ;
+OSMetaClassDefineReservedUnused ( IOFWDCL, 4 ) ;		// used to be relink()
 
 #pragma mark -
 
@@ -539,7 +538,7 @@ IOFWReceiveDCL :: importUserDCL (
 	if ( !error )
 	{
 		ReceiveNuDCLSharedData * rcvData = (ReceiveNuDCLSharedData*)( data + dataSize ) ;
-		dataSize += sizeof( *rcvData ) ;
+		dataSize += ( sizeof( *rcvData ) + 4 ) & ~(size_t)0x3 ;
 	
 		error = setWaitControl( rcvData->wait ) ;
 	}
@@ -710,7 +709,7 @@ IOFWSendDCL :: importUserDCL (
 	}
 
 	SendNuDCLSharedData * sendData = (SendNuDCLSharedData*) ( data + dataSize ) ;
-	dataSize += sizeof( *sendData ) ;
+	dataSize += ( sizeof( *sendData ) + 4 ) & ~(size_t)0x3 ;
 
 	{
 		setSync( sendData->syncBits ) ;

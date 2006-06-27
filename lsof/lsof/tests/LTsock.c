@@ -52,7 +52,7 @@ static char copyright[] =
  */
 
 #define SIGHANDLER_T	void		/* signal handler function type */
-#define	SOCKLEN_T	int		/* socket length type */
+#define	LT_SOCKLEN_T	int		/* socket length type */
 
 
 #if	defined(LT_DIAL_aix)
@@ -60,9 +60,33 @@ static char copyright[] =
  * AIX-specific items
  */
 
-#undef	SOCKLEN_T
-#define	SOCKLEN_T	size_t
+#undef	LT_SOCKLEN_T
+#define	LT_SOCKLEN_T	size_t
 #endif	/* defined(LT_DIAL_aix) */
+
+
+#if	defined(LT_DIAL_darwin)
+/*
+ * Darwin-specific items
+ */
+
+# if	LT_VERS>=800
+#undef	LT_SOCKLEN_T
+#define	LT_SOCKLEN_T	socklen_t
+# endif	/* LT_VERS>=800 */
+#endif	/* defined(LT_DIAL_darwin) */
+
+
+#if	defined(LT_DIAL_hpux)
+/*
+ * HP-UX-specific items
+ */
+
+# if	LT_VERS>=1123 && defined(__GNUC__)
+#undef	LT_SOCKLEN_T
+#define	LT_SOCKLEN_T	size_t
+# endif	/* LT_VERS>=1123 && defined(__GNUC__) */
+#endif	/* defined(LT_DIAL_hpux) */
 
 
 #if	defined(LT_DIAL_ou)
@@ -70,8 +94,8 @@ static char copyright[] =
  * OpenUNIX-specific items
  */
 
-#undef	SOCKLEN_T
-#define	SOCKLEN_T	size_t
+#undef	LT_SOCKLEN_T
+#define	LT_SOCKLEN_T	size_t
 #endif	/* defined(LT_DIAL_ou) */
 
 
@@ -80,8 +104,8 @@ static char copyright[] =
  * UnixWare-specific items
  */
 
-#undef	SOCKLEN_T
-#define	SOCKLEN_T	size_t
+#undef	LT_SOCKLEN_T
+#define	LT_SOCKLEN_T	size_t
 #endif	/* defined(LT_DIAL_uw) */
 
 
@@ -149,7 +173,6 @@ int Ssock = -1;			/* server socket */
 
 _PROTOTYPE(static void CleanupClnt,(void));
 _PROTOTYPE(static void CleanupSrvr,(void));
-_PROTOTYPE(static int ClntAlarm,(int sig));
 _PROTOTYPE(static SIGHANDLER_T HandleClntAlarm,(int sig));
 _PROTOTYPE(static SIGHANDLER_T HandleSrvrAlarm,(int sig));
 _PROTOTYPE(static char *FindSock,(int fn));
@@ -178,11 +201,10 @@ main(argc, argv)
     char *ipaddr;			/* IP address */
     char *pem = (char *)NULL;		/* previous error message */
     char *port;				/* port */
-    SOCKLEN_T sal;			/* socket address length */
+    LT_SOCKLEN_T sal;			/* socket address length */
     char *tcp;				/* temporary character size */
     int ti, tj, tk;			/* temporary indexes */
     int tsfd;				/* temporary socket FD */
-    struct sockaddr_in ia;		/* UNIX socket address */
     int xv = 0;				/* exit value */
 /*
  * Get program name and PID, issue start message, and build space prefix.
@@ -313,7 +335,7 @@ print_errno:
 	ep = "bind";
 	goto print_errno_by_ti;
     }
-    sal = (SOCKLEN_T)sizeof(ca);
+    sal = (LT_SOCKLEN_T)sizeof(ca);
     if (getsockname(Ssock, (struct sockaddr *)&ca, &sal)) {
 	ep = "getsockname";
 	goto print_errno_by_ti;
@@ -364,7 +386,7 @@ print_errno:
  *
  * Replace the server's FD with the accepted one and close the original.
  */
-    sal = (SOCKLEN_T)sizeof(aa);
+    sal = (LT_SOCKLEN_T)sizeof(aa);
     (void) alarm(0);
     (void) signal(SIGALRM, HandleSrvrAlarm);
     (void) alarm(ALARMTM);
@@ -423,7 +445,7 @@ print_errno:
     }
 /*
  * Call lsof three times to find the two sockets: 1) by host name and port;
- * 2)  by IP addressand port ; and 3) by port.
+ * 2) by IP address and port; and 3) by port.
  */
     if ((cem = FindSock(LT_FBYHN)))
 	PrtMsgX(cem, Pn, CleanupSrvr, 1);
@@ -490,6 +512,7 @@ print_errno:
  * Exit successfully.
  */
     (void) PrtMsgX("OK", Pn, CleanupSrvr, 0);
+    return(0);
 }
 
 
@@ -556,9 +579,7 @@ FindSock(fn)
     int bufl = sizeof(buf);		/* size of buf[] */
     char *cem;				/* current error message pointer */
     LTfldo_t *cmdp;			/* command pointer */
-    LTfldo_t *devp;			/* device pointer */
     LTfldo_t *fop;			/* field output pointer */
-    LTdev_t lsofdc;			/* lsof device components */
     int nf;				/* number of fields */
     int nl;				/* name length */
     LTfldo_t *nmp;			/* name pointer */
@@ -807,7 +828,6 @@ StartClnt(cad)
     int cr;				/* connect() reply */
     char *em;				/* error message pointer */
     int fd = FdPara[LT_CLNT].fd;	/* client's socket FD */
-    int xv = 0;				/* exit value */
 /*
  * Close the server's sockets.
  */
@@ -852,7 +872,6 @@ client_errno:
 	sleep(1);
 	br = read(fd, buf, bufl);
     }
-    xv = 0;
     (void) CleanupClnt();
     exit(0);
 }

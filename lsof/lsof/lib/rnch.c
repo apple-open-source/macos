@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rnch.c,v 1.9 2000/08/02 12:53:53 abe Exp $";
+static char *rcsid = "$Id: rnch.c,v 1.10 2005/08/08 19:41:55 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -740,7 +740,7 @@ ncache_lookup(buf, blen, fp)
  * file system mount point, return an empty path reply.  That tells the
  * caller to print the file system mount point name only.
  */
-	if (Lf->inp_ty == 1 && Lf->fs_ino && Lf->inode == Lf->fs_ino)
+	if ((Lf->inp_ty == 1) && Lf->fs_ino && (Lf->inode == Lf->fs_ino))
 	    return(cp);
 # endif	/* defined(HASFSINO) */
 
@@ -767,7 +767,7 @@ ncache_lookup(buf, blen, fp)
 		if (!mtp->dir || !mtp->inode)
 		    continue;
 		if (Lf->dev == mtp->dev
-		&&  (unsigned long)mtp->inode == Lf->inode
+		&&  mtp->inode == Lf->inode
 		&&  strcmp(mtp->dir, Lf->fsdir) == 0)
 		    return(cp);
 	    }

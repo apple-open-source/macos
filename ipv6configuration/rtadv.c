@@ -293,37 +293,6 @@ rtadv_disable_receive(rtadv_client_t * client)
     return;
 }
 
-/* called by CFRunLoop stuff */
-static void
-rtadv_read(CFSocketRef s, CFSocketCallBackType type,
-	      CFDataRef address, const void *data, void *info)
-{
-    rtadv_callout_t *	callout = (rtadv_callout_t *)info;
-    rtadv_client_t *	client = (rtadv_client_t *)callout->arg1;
-    int			n;
-
-    /* get message */
-    n = recvmsg(client->sockfd, &rcvmhdr, 0);
-    if (n < 0) {
-	if (errno != EAGAIN) {
-	    my_log(LOG_ERR, "rtadv_read(): recvfrom %s",
-	    strerror(errno));
-	}
-    }
-    else if (n > 0) {
-	if (n < sizeof(struct nd_router_advert)) {
-            my_log(LOG_ERR, "rtadv_read(): packet size(%d) is too short", n);
-            return;
-	}
-
-	if (client->receive) {
-            (*client->receive)(client->receive_arg1, client->receive_arg2, NULL);
-	}
-    }
-
-    return;
-}
-
 static int
 rtsol_init_rcv_buffs(void)
 {
@@ -436,6 +405,43 @@ init_rtsol(int sockfd)
         return (-1);
     }
     return (0);
+}
+
+/* called by CFRunLoop stuff */
+static void
+rtadv_read(CFSocketRef s, CFSocketCallBackType type,
+	      CFDataRef address, const void *data, void *info)
+{
+    rtadv_callout_t *	callout = (rtadv_callout_t *)info;
+    rtadv_client_t *	client = (rtadv_client_t *)callout->arg1;
+    int			n;
+
+	/* initialize the receive buffer */
+	if (rtsol_init_rcv_buffs() != 0) {
+		my_log(LOG_ERR, "rtadv_read: error initializing receive buffs");
+		return;
+	}
+
+    /* get message */
+    n = recvmsg(client->sockfd, &rcvmhdr, 0);
+    if (n < 0) {
+	if (errno != EAGAIN) {
+	    my_log(LOG_ERR, "rtadv_read(): recvfrom %d: %s",
+	    errno, strerror(errno));
+	}
+    }
+    else if (n > 0) {
+	if (n < sizeof(struct nd_router_advert)) {
+            my_log(LOG_ERR, "rtadv_read(): packet size(%d) is too short", n);
+            return;
+	}
+
+	if (client->receive) {
+            (*client->receive)(client->receive_arg1, client->receive_arg2, NULL);
+	}
+    }
+
+    return;
 }
 
 static int
@@ -778,14 +784,6 @@ rtadv_start(Service_t * service_p, IFEventID_t event_id, void * event_data)
                 }
 
                 /* send packet because interface is ready */
-                if (rtsol_init_rcv_buffs() != 0) {
-                    my_log(LOG_DEBUG, "RTADV_START %s: error initializing receive buffs",
-                            if_name(if_p));
-                    rtadv_inactive(service_p);
-                    status = ip6config_status_allocation_failed_e;
-                    return;
-                }
-                    
                 rtsol_sendpacket(service_p);
             }
 

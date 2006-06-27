@@ -56,7 +56,6 @@ CFTypeID SecAccessGetTypeID(void);
 		should be allowed to access an item without triggering confirmation dialogs.
 		If NULL, defaults to (just) the application creating the item. To set no applications,
 		pass a CFArray with no elements.
-		NOTE: This argument is not yet implemented. It is currently always treated as NULL.
 	@param accessRef On return, a pointer to the new access reference.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */

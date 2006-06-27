@@ -46,7 +46,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: lkud.c,v 1.5 2000/12/04 14:05:08 abe Exp $";
+static char *rcsid = "$Id: lkud.c,v 1.6 2005/08/08 19:40:37 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -72,7 +72,7 @@ lkupbdev(dev, rdev, i, r)
 					 * and HASDCACHE is defined and
 					 * DCunsafe is one */
 {
-	ino_t inode = (ino_t)0;
+	INODETYPE inode = (INODETYPE)0;
 	int low, hi, mid;
 	struct l_dev *dp;
 	int ty = 0;
@@ -81,7 +81,7 @@ lkupbdev(dev, rdev, i, r)
 	    return((struct l_dev *)NULL);
 	readdev(0);
 	if (i) {
-	    inode = (ino_t)Lf->inode;
+	    inode = Lf->inode;
 	    ty = Lf->inp_ty;
 	}
 /*
@@ -104,7 +104,7 @@ lkupbdev_again:
 	    else if (*rdev > dp->rdev)
 		low = mid + 1;
 	    else {
-		if (i == 0 || ty != 1 || inode == dp->inode) {
+		if ((i == 0) || (ty != 1) || (inode == dp->inode)) {
 
 # if	defined(HASDCACHE)
 		    if (DCunsafe && !dp->v && !vfy_dev(dp))
@@ -147,7 +147,7 @@ lkupdev(dev, rdev, i, r)
 					 * and HASDCACHE is defined and
 					 * DCunsafe is one */
 {
-	ino_t inode = (ino_t)0;
+	INODETYPE inode = (INODETYPE)0;
 	int low, hi, mid;
 	struct l_dev *dp;
 	int ty = 0;
@@ -156,7 +156,7 @@ lkupdev(dev, rdev, i, r)
 	    return((struct l_dev *)NULL);
 	readdev(0);
 	if (i) {
-	    inode = (ino_t)Lf->inode;
+	    inode = Lf->inode;
 	    ty = Lf->inp_ty;
 	}
 /*
@@ -179,7 +179,7 @@ lkupdev_again:
 	    else if (*rdev > dp->rdev)
 		low = mid + 1;
 	    else {
-		if (i == 0 || ty != 1 || inode == dp->inode) {
+		if ((i == 0) || (ty != 1) || (inode == dp->inode)) {
 
 # if	defined(HASDCACHE)
 		    if (DCunsafe && !dp->v && !vfy_dev(dp))

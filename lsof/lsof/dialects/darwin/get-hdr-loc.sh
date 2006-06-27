@@ -5,7 +5,7 @@
 # Interactively requests the specification of the path to the host's Darwin
 # XNU kernel header files.  Checks that path and returns it to the caller.
 #
-# Usage: dir file1 file2 ... fileN
+# Usage: file1 file2 ... fileN
 #
 # Where: file1	first header file needed
 #	 file2	second header file needed
@@ -38,19 +38,19 @@ while test $FOREVER -ge 1	# {
 do
   if test $FOREVER -eq 1	# {
   then
-    echo "-------------------------------------------------------------" 1>&2
+    echo "---------------------------------------------------------------" 1>&2
     echo "" 1>&2
-    echo "Lsof makes use of Darwin XNU kernel header files.  They must" 1>&2
-    echo "have already been downloaded and installed from:" 1>&2
+    echo "Lsof cannot find some Darwin XNU kernel header files it needs." 1>&2
+    echo "They should have already been downloaded from:" 1>&2
     echo "" 1>&2
     echo "    http://www.opensource.apple.com/darwinsource/index.html" 1>&2
     echo "" 1>&2
-    echo "(See 00FAQ for download and installation instructions.)" 1>&2
+    echo "and then installed.  (See 00FAQ for download and installation" 1>&2
+    echo "instructions.)" 1>&2
     echo "" 1>&2
-    echo "Now you must specify the path to the place to which they were" 1>&2
-    echo "installed." 1>&2
+    echo "Please specify the path to the place where they were installed." 1>&2
     echo "" 1>&2
-    echo "-------------------------------------------------------------" 1>&2
+    echo "---------------------------------------------------------------" 1>&2
   fi	# }
 
   END=0
@@ -80,13 +80,13 @@ do
       echo "" 1>&2
     fi	# }
   done	# }
-
+  
   # See if the header files are available in the specified path.
 
   MH=""
   for i in $lst	# {
   do
-    if test ! -f ${HP}/bsd/$i -a ! -f ${HP}/osfmk/$i	# {
+    if test ! -f ${HP}/bsd/$i -a ! -f ${HP}/osfmk/$i    # {
     then
       if test "X$MH" = "X"	# {
       then
@@ -107,7 +107,7 @@ do
     echo "" 1>&2
     echo "ERROR: not all header files are in:" 1>&2
     echo "" 1>&2
-    echo "     ${HP}" 1>&2
+    echo "       ${HP}" 1>&2
     echo "" 1>&2
     echo " These are missing:" 1>&2
     echo "" 1>&2

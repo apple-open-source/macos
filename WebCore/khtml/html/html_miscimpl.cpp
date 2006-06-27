@@ -34,7 +34,7 @@ using namespace DOM;
 
 #include <kdebug.h>
 
-HTMLBaseFontElementImpl::HTMLBaseFontElementImpl(DocumentPtr *doc)
+HTMLBaseFontElementImpl::HTMLBaseFontElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }

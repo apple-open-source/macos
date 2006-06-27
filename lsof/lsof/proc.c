@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.37 2004/10/17 21:39:23 abe Exp $";
+static char *rcsid = "$Id: proc.c,v 1.41 2005/08/29 10:03:28 abe Exp $";
 #endif
 
 
@@ -140,6 +140,11 @@ alloc_lfile(nm, num)
 		(void) free((FREE_P *)Lf->nm);
 	    if (Lf->nma)
 		(void) free((FREE_P *)Lf->nma);
+
+#if	defined(HASLFILEADD) && defined(CLRLFILEADD)
+	    CLRLFILEADD(Lf)
+#endif	/* defined(HASLFILEADD) && defined(CLRLFILEADD) */
+
 /*
  * Othwerise, allocate a new structure.
  */
@@ -160,11 +165,16 @@ alloc_lfile(nm, num)
 	Lf->lts.type = -1;
 	Lf->nlink = 0l;
 
+#if	defined(HASMNTSTAT)
+	Lf->mnt_stat = (unsigned char)0;
+#endif	/* defined(HASMNTSTAT) */
+
 #if	defined(HASSOOPT)
 	Lf->lts.kai = Lf->lts.ltm = 0;
-	Lf->lts.opt = Lf->lts.qlen = Lf->lts.qlim = (unsigned int)0;
+	Lf->lts.opt = Lf->lts.qlen = Lf->lts.qlim = Lf->lts.pqlen
+		    = (unsigned int)0;
 	Lf->lts.rbsz = Lf->lts.sbsz = (unsigned long)0;
-	Lf->lts.qlens = Lf->lts.qlims = Lf->lts.rbszs
+	Lf->lts.qlens = Lf->lts.qlims = Lf->lts.pqlens = Lf->lts.rbszs
 		      = Lf->lts.sbszs = (unsigned char)0;
 #endif	/* defined(HASSOOPT) */
 
@@ -194,7 +204,8 @@ alloc_lfile(nm, num)
 	Lf->is_vxfs = 0;
 #endif	/* defined(HASVXFS) && defined(HASVXFSDNLC) */
 
-	Lf->inode = Lf->off = 0;
+	Lf->inode = (INODETYPE)0;
+	Lf->off = (SZOFFTYPE)0;
 	if (Lp->pss & PS_PRI)
 	    Lf->sf = Lp->sf;
 	else
@@ -519,6 +530,11 @@ free_lproc(lp)
 		(void) free((FREE_P *)lf->nma);
 		lf->nma = (char *)NULL;
 	    }
+
+#if	defined(HASLFILEADD) && defined(CLRLFILEADD)
+	    CLRLFILEADD(lf)
+#endif	/* defined(HASLFILEADD) && defined(CLRLFILEADD) */
+
 	    nf = lf->next;
 	    (void) free((FREE_P *)lf);
 	}
@@ -638,14 +654,40 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 #endif	/* defined(HASSECURITY) */
 
 /*
- * If the excluding of process listing by UID has been specified,
- * see if the owner of this process is excluded.
+ * If the excluding of process listing by UID has been specified, see if the
+ * owner of this process is excluded.
  */
 	if (Nuidexcl) {
-	    for (i = j = 0; i < Nuid && j < Nuidexcl; i++) {
+	    for (i = j = 0; (i < Nuid) && (j < Nuidexcl); i++) {
 		if (!Suid[i].excl)
 		    continue;
 		if (Suid[i].uid == (uid_t)uid)
+		    return(1);
+		j++;
+	    }
+	}
+/*
+ * If the excluding of process listing by PGID has been specified, see if this
+ * PGID is excluded.
+ */
+	if (Npgidx) {
+	    for (i = j = 0; (i < Npgid) && (j < Npgidx); i++) {
+		if (!Spgid[i].x)
+		    continue;
+		if (Spgid[i].i == pgid)
+		    return(1);
+		j++;
+	    }
+	}
+/*
+ * If the excluding of process listing by PID has been specified, see if this
+ * PID is excluded.
+ */
+	if (Npidx) {
+	    for (i = j = 0; (i < Npid) && (j < Npidx); i++) {
+		if (!Spid[i].x)
+		    continue;
+		if (Spid[i].i == pid)
 		    return(1);
 		j++;
 	    }
@@ -670,10 +712,12 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 	}
 /*
  * If the listing of processes has been specified by process group ID, see
- * if this one is specified.
+ * if this one is included or excluded.
  */
-	if (Npgid && (Selflags & SELPGID)) {
-	    for (i = 0; i < Npgid; i++) {
+	if (Npgidi && (Selflags & SELPGID)) {
+	    for (i = j = 0; (i < Npgid) && (j < Npgidi); i++) {
+		if (Spgid[i].x)
+		    continue;
 		if (Spgid[i].i == pgid) {
 		    Spgid[i].f = 1;
 		    *pss = PS_PRI;
@@ -682,16 +726,19 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 			return(0);
 		    break;
 		}
+		j++;
 	    }
-	    if (Selflags == SELPGID && ! *sf)
+	    if ((Selflags == SELPGID) && !*sf)
 		return(1);
 	}
 /*
- * If the listing of processes has been specified by PID, see
- * if this one is specified.
+ * If the listing of processes has been specified by PID, see if this one is
+ * included or excluded.
  */
-	if (Npid && (Selflags & SELPID)) {
-	    for (i = 0; i < Npid; i++) {
+	if (Npidi && (Selflags & SELPID)) {
+	    for (i = j = 0; (i < Npid) && (j < Npidi); i++) {
+		if (Spid[i].x)
+		    continue;
 		if (Spid[i].i == pid) {
 		    Spid[i].f = 1;
 		    *pss = PS_PRI;
@@ -700,16 +747,17 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 			return(0);
 		    break;
 		}
+		j++;
 	    }
-	    if (Selflags == SELPID && ! *sf)
+	    if ((Selflags == SELPID) && !*sf)
 		return(1);
 	}
 /*
- * If the listing of processes has been specified by UID, see
- * if the owner of this process has been included.
+ * If the listing of processes has been specified by UID, see if the owner of
+* this process has been included.
  */
 	if (Nuidincl && (Selflags & SELUID)) {
-	    for (i = j = 0; i < Nuid && j < Nuidincl; i++) {
+	    for (i = j = 0; (i < Nuid) && (j < Nuidincl); i++) {
 		if (Suid[i].excl)
 		    continue;
 		if (Suid[i].uid == (uid_t)uid) {
@@ -753,7 +801,7 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 	}
 /*
  * Finally, when neither the process group ID, nor the PID, nor the UID is
- * selected, and no process group ID, PIDm or UID list option has been
+ * selected, and no process group ID, PID or UID list option has been
  * specified:
  *
  *	If list option ANDing has been specified, this process is
@@ -1069,7 +1117,9 @@ print_proc()
 		lc++;
 	    }
 	    if (FieldSel[LSOF_FIX_INODE].st && Lf->inp_ty == 1) {
-		(void) printf("%c%lu%c", LSOF_FID_INODE, Lf->inode, Terminator);
+		putchar(LSOF_FID_INODE);
+		(void) printf(InodeFmt_d, Lf->inode);
+		putchar(Terminator);
 		lc++;
 	    }
 	    if (FieldSel[LSOF_FIX_NLINK].st && Lf->nlink_def) {

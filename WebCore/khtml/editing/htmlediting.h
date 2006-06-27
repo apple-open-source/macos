@@ -51,6 +51,8 @@ class EditCommand;
 class Selection;
 class VisiblePosition;
 
+enum EFragmentType { EmptyFragment, SingleTextNodeFragment, TreeFragment };
+
 //------------------------------------------------------------------------------------------
 // EditCommandPtr
 
@@ -236,6 +238,8 @@ protected:
     void removeNode(DOM::NodeImpl *removeChild);
     void removeNodePreservingChildren(DOM::NodeImpl *node);
     void replaceTextInNode(DOM::TextImpl *node, long offset, long count, const DOM::DOMString &replacementText);
+    void removeNodeAndPruneAncestors(DOM::NodeImpl* node);
+    void prune(DOM::NodeImpl* node);
     DOM::Position positionOutsideTabSpan(const DOM::Position& pos);
     void insertNodeAtTabSpanPosition(DOM::NodeImpl *node, const DOM::Position& pos);
     void setNodeAttribute(DOM::ElementImpl *, int attribute, const DOM::DOMString &);
@@ -381,7 +385,7 @@ private:
     bool handleSpecialCaseBRDelete();
     void handleGeneralDelete();
     void fixupWhitespace();
-    void moveNodesAfterNode();
+    void mergeParagraphs();
     void calculateEndingPosition();
     void calculateTypingStyleAfterDelete(DOM::NodeImpl *insertedPlaceholder);
     void clearTransientState();
@@ -704,8 +708,6 @@ class ReplacementFragment
 public:
     ReplacementFragment(DOM::DocumentImpl *, DOM::DocumentFragmentImpl *, bool matchStyle);
     ~ReplacementFragment();
-
-    enum EFragmentType { EmptyFragment, SingleTextNodeFragment, TreeFragment };
 
     DOM::DocumentFragmentImpl *root() const { return m_fragment; }
     DOM::NodeImpl *firstChild() const;

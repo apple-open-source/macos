@@ -56,7 +56,7 @@ EventImpl::EventImpl(EventId _id, bool canBubbleArg, bool cancelableArg)
     DOMString t = EventImpl::idToType(_id);
     m_type = t.implementation();
     if (m_type)
-	m_type->ref();
+        m_type->ref();
     m_canBubble = canBubbleArg;
     m_cancelable = cancelableArg;
 
@@ -143,7 +143,7 @@ void EventImpl::stopPropagation()
 void EventImpl::preventDefault()
 {
     if (m_cancelable)
-	m_defaultPrevented = true;
+        m_defaultPrevented = true;
 }
 
 void EventImpl::initEvent(const DOMString &eventTypeArg, bool canBubbleArg, bool cancelableArg)
@@ -151,11 +151,11 @@ void EventImpl::initEvent(const DOMString &eventTypeArg, bool canBubbleArg, bool
     // ### ensure this is not called after we have been dispatched (also for subclasses)
 
     if (m_type)
-	m_type->deref();
+        m_type->deref();
 
     m_type = eventTypeArg.implementation();
     if (m_type)
-	m_type->ref();
+        m_type->ref();
 
     m_id = typeToId(eventTypeArg);
 
@@ -169,6 +169,7 @@ static const char * const eventNames[EventImpl::numEventIds] = {
     "DOMFocusOut",
     "DOMActivate",
     "click",
+    "dblclick",
     "mousedown",
     "mouseup",
     "mouseover",
@@ -216,8 +217,6 @@ static const char * const eventNames[EventImpl::numEventIds] = {
     "keydown",
     "keyup",
     "textInput", // FIXME: is the capital I correct?
-    0, // KHTML_DBLCLICK_EVENT
-    0, // KHTML_CLICK_EVENT
     0, // KHTML_DRAGDROP_EVENT
     0, // KHTML_ERROR_EVENT
     "keypress",
@@ -241,15 +240,11 @@ EventImpl::EventId EventImpl::typeToId(const DOMString &type)
 DOMString EventImpl::idToType(EventId id)
 {
     switch (id) {
-	case KHTML_DBLCLICK_EVENT:
-            return "dblclick";
-	case KHTML_CLICK_EVENT:
-            return "click";
-	case KHTML_DRAGDROP_EVENT:
+        case KHTML_DRAGDROP_EVENT:
             return "khtml_dragdrop";
-	case KHTML_ERROR_EVENT:
+        case KHTML_ERROR_EVENT:
             return "khtml_error";
-	case KHTML_MOVE_EVENT:
+        case KHTML_MOVE_EVENT:
             return "khtml_move";
         case KHTML_ORIGCLICK_MOUSEUP_EVENT:
             return "khtml_origclick_mouseup_event";
@@ -314,8 +309,8 @@ UIEventImpl::UIEventImpl()
 }
 
 UIEventImpl::UIEventImpl(EventId _id, bool canBubbleArg, bool cancelableArg,
-		AbstractViewImpl *viewArg, long detailArg)
-		: EventImpl(_id,canBubbleArg,cancelableArg)
+                AbstractViewImpl *viewArg, long detailArg)
+                : EventImpl(_id,canBubbleArg,cancelableArg)
 {
     m_view = viewArg;
     if (m_view)
@@ -330,19 +325,19 @@ UIEventImpl::~UIEventImpl()
 }
 
 void UIEventImpl::initUIEvent(const DOMString &typeArg,
-			      bool canBubbleArg,
-			      bool cancelableArg,
-			      const AbstractView &viewArg,
-			      long detailArg)
+                              bool canBubbleArg,
+                              bool cancelableArg,
+                              const AbstractView &viewArg,
+                              long detailArg)
 {
     EventImpl::initEvent(typeArg,canBubbleArg,cancelableArg);
 
     if (m_view)
-	m_view->deref();
+        m_view->deref();
 
     m_view = viewArg.handle();
     if (m_view)
-	m_view->ref();
+        m_view->ref();
     m_detail = detailArg;
 }
 
@@ -361,19 +356,19 @@ MouseRelatedEventImpl::MouseRelatedEventImpl()
 }
 
 MouseRelatedEventImpl::MouseRelatedEventImpl(EventId _id,
-			       bool canBubbleArg,
-			       bool cancelableArg,
-			       AbstractViewImpl *viewArg,
-			       long detailArg,
-			       long screenXArg,
-			       long screenYArg,
-			       long clientXArg,
-			       long clientYArg,
-			       bool ctrlKeyArg,
-			       bool altKeyArg,
-			       bool shiftKeyArg,
-			       bool metaKeyArg,
-				   bool isSimulated)
+                               bool canBubbleArg,
+                               bool cancelableArg,
+                               AbstractViewImpl *viewArg,
+                               long detailArg,
+                               long screenXArg,
+                               long screenYArg,
+                               long clientXArg,
+                               long clientYArg,
+                               bool ctrlKeyArg,
+                               bool altKeyArg,
+                               bool shiftKeyArg,
+                               bool metaKeyArg,
+                                   bool isSimulated)
     : UIEventWithKeyStateImpl(_id, canBubbleArg, cancelableArg, viewArg, detailArg,
         ctrlKeyArg, altKeyArg, shiftKeyArg, metaKeyArg)
 {
@@ -392,7 +387,7 @@ void MouseRelatedEventImpl::computeLayerPos()
     DocumentImpl *doc = view()->document();
 
     if (!doc || !doc->renderer()) {
-	return;
+        return;
     }
 
     khtml::RenderObject::NodeInfo renderInfo(true, false);
@@ -400,18 +395,18 @@ void MouseRelatedEventImpl::computeLayerPos()
 
     NodeImpl *node = renderInfo.innerNonSharedNode();
     while (node && !node->renderer()) {
-	node = node->parent();
+        node = node->parent();
     }
 
     if (!node) {
-	return;
+        return;
     }
 
     node->renderer()->enclosingLayer()->updateLayerPosition();
     
     for (khtml::RenderLayer *layer = node->renderer()->enclosingLayer(); layer != NULL; layer = layer->parent()) {
-	m_layerX -= layer->xPos();
-	m_layerY -= layer->yPos();
+        m_layerX -= layer->xPos();
+        m_layerY -= layer->yPos();
     }
 }
 
@@ -425,20 +420,20 @@ MouseEventImpl::MouseEventImpl()
 }
 
 MouseEventImpl::MouseEventImpl(EventId _id,
-			       bool canBubbleArg,
-			       bool cancelableArg,
-			       AbstractViewImpl *viewArg,
-			       long detailArg,
-			       long screenXArg,
-			       long screenYArg,
-			       long clientXArg,
-			       long clientYArg,
-			       bool ctrlKeyArg,
-			       bool altKeyArg,
-			       bool shiftKeyArg,
-			       bool metaKeyArg,
-			       unsigned short buttonArg,
-			       NodeImpl *relatedTargetArg,
+                               bool canBubbleArg,
+                               bool cancelableArg,
+                               AbstractViewImpl *viewArg,
+                               long detailArg,
+                               long screenXArg,
+                               long screenYArg,
+                               long clientXArg,
+                               long clientYArg,
+                               bool ctrlKeyArg,
+                               bool altKeyArg,
+                               bool shiftKeyArg,
+                               bool metaKeyArg,
+                               unsigned short buttonArg,
+                               NodeImpl *relatedTargetArg,
                                ClipboardImpl *clipboardArg,
                                bool isSimulated)
     : MouseRelatedEventImpl(_id, canBubbleArg, cancelableArg, viewArg, detailArg,
@@ -449,18 +444,18 @@ MouseEventImpl::MouseEventImpl(EventId _id,
     m_button = buttonArg;
     m_relatedTarget = relatedTargetArg;
     if (m_relatedTarget)
-	m_relatedTarget->ref();
+        m_relatedTarget->ref();
     m_clipboard = clipboardArg;
     if (m_clipboard)
-	m_clipboard->ref();
+        m_clipboard->ref();
 }
 
 MouseEventImpl::~MouseEventImpl()
 {
     if (m_relatedTarget)
-	m_relatedTarget->deref();
+        m_relatedTarget->deref();
     if (m_clipboard)
-	m_clipboard->deref();
+        m_clipboard->deref();
 }
 
 void MouseEventImpl::initMouseEvent(const DOMString &typeArg,
@@ -482,7 +477,7 @@ void MouseEventImpl::initMouseEvent(const DOMString &typeArg,
     UIEventImpl::initUIEvent(typeArg,canBubbleArg,cancelableArg,viewArg,detailArg);
 
     if (m_relatedTarget)
-	m_relatedTarget->deref();
+        m_relatedTarget->deref();
 
     m_screenX = screenXArg;
     m_screenY = screenYArg;
@@ -495,7 +490,7 @@ void MouseEventImpl::initMouseEvent(const DOMString &typeArg,
     m_button = buttonArg;
     m_relatedTarget = relatedTargetArg.handle();
     if (m_relatedTarget)
-	m_relatedTarget->ref();
+        m_relatedTarget->ref();
     computeLayerPos();
 }
 
@@ -655,74 +650,74 @@ MutationEventImpl::MutationEventImpl()
 }
 
 MutationEventImpl::MutationEventImpl(EventId _id,
-				     bool canBubbleArg,
-				     bool cancelableArg,
-				     const Node &relatedNodeArg,
-				     const DOMString &prevValueArg,
-				     const DOMString &newValueArg,
-				     const DOMString &attrNameArg,
-				     unsigned short attrChangeArg)
-		      : EventImpl(_id,canBubbleArg,cancelableArg)
+                                     bool canBubbleArg,
+                                     bool cancelableArg,
+                                     const Node &relatedNodeArg,
+                                     const DOMString &prevValueArg,
+                                     const DOMString &newValueArg,
+                                     const DOMString &attrNameArg,
+                                     unsigned short attrChangeArg)
+                      : EventImpl(_id,canBubbleArg,cancelableArg)
 {
     m_relatedNode = relatedNodeArg.handle();
     if (m_relatedNode)
-	m_relatedNode->ref();
+        m_relatedNode->ref();
     m_prevValue = prevValueArg.implementation();
     if (m_prevValue)
-	m_prevValue->ref();
+        m_prevValue->ref();
     m_newValue = newValueArg.implementation();
     if (m_newValue)
-	m_newValue->ref();
+        m_newValue->ref();
     m_attrName = attrNameArg.implementation();
     if (m_newValue)
-	m_newValue->ref();
+        m_newValue->ref();
     m_attrChange = attrChangeArg;
 }
 
 MutationEventImpl::~MutationEventImpl()
 {
     if (m_relatedNode)
-	m_relatedNode->deref();
+        m_relatedNode->deref();
     if (m_prevValue)
-	m_prevValue->deref();
+        m_prevValue->deref();
     if (m_newValue)
-	m_newValue->deref();
+        m_newValue->deref();
     if (m_attrName)
-	m_attrName->deref();
+        m_attrName->deref();
 }
 
 void MutationEventImpl::initMutationEvent(const DOMString &typeArg,
-					  bool canBubbleArg,
-					  bool cancelableArg,
-					  const Node &relatedNodeArg,
-					  const DOMString &prevValueArg,
-					  const DOMString &newValueArg,
-					  const DOMString &attrNameArg,
-					  unsigned short attrChangeArg)
+                                          bool canBubbleArg,
+                                          bool cancelableArg,
+                                          const Node &relatedNodeArg,
+                                          const DOMString &prevValueArg,
+                                          const DOMString &newValueArg,
+                                          const DOMString &attrNameArg,
+                                          unsigned short attrChangeArg)
 {
     EventImpl::initEvent(typeArg,canBubbleArg,cancelableArg);
 
     if (m_relatedNode)
-	m_relatedNode->deref();
+        m_relatedNode->deref();
     if (m_prevValue)
-	m_prevValue->deref();
+        m_prevValue->deref();
     if (m_newValue)
-	m_newValue->deref();
+        m_newValue->deref();
     if (m_attrName)
-	m_attrName->deref();
+        m_attrName->deref();
 
     m_relatedNode = relatedNodeArg.handle();
     if (m_relatedNode)
-	m_relatedNode->ref();
+        m_relatedNode->ref();
     m_prevValue = prevValueArg.implementation();
     if (m_prevValue)
-	m_prevValue->ref();
+        m_prevValue->ref();
     m_newValue = newValueArg.implementation();
     if (m_newValue)
-	m_newValue->ref();
+        m_newValue->ref();
     m_attrName = attrNameArg.implementation();
     if (m_newValue)
-	m_newValue->ref();
+        m_newValue->ref();
     m_attrChange = attrChangeArg;
 }
 
@@ -792,8 +787,8 @@ RegisteredEventListener::~RegisteredEventListener() {
 bool RegisteredEventListener::operator==(const RegisteredEventListener &other)
 {
     return (id == other.id &&
-	    listener == other.listener &&
-	    useCapture == other.useCapture);
+            listener == other.listener &&
+            useCapture == other.useCapture);
 }
 
 // -----------------------------------------------------------------------------
@@ -805,7 +800,7 @@ ClipboardImpl::~ClipboardImpl()
 // -----------------------------------------------------------------------------
 
 BeforeUnloadEventImpl::BeforeUnloadEventImpl()
-    : EventImpl(BEFOREUNLOAD_EVENT, false, false)
+    : EventImpl(BEFOREUNLOAD_EVENT, false, true)
 {
 }
 

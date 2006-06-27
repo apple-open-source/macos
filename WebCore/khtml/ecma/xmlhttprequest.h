@@ -40,7 +40,7 @@ namespace KJS {
     Completed = 4
   };
 
-  class XMLHttpRequestConstructorImp : public ObjectImp {
+  class XMLHttpRequestConstructorImp : public DOMObject {
   public:
     XMLHttpRequestConstructorImp(ExecState *exec, const DOM::Document &d);
     virtual bool implementsConstruct() const;
@@ -98,6 +98,7 @@ namespace KJS {
     Value getResponseHeader(const QString& name) const;
 
     void changeState(XMLHttpRequestState newState);
+    void callReadyStateChangeListener();
 
 public:
     static QPtrDict< QPtrDict<XMLHttpRequest> > &requestsByDocument();

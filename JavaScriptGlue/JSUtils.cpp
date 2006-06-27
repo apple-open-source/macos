@@ -92,7 +92,7 @@ JSUserObject*		KJSValueToJSObject(const Value& inValue, ExecState *exec)
 	}
 	else
 	{
-		JSValueWrapper* wrapperValue = new JSValueWrapper(inValue, exec);
+		JSValueWrapper* wrapperValue = new JSValueWrapper(inValue);
 		if (wrapperValue)
 		{
 			JSObjectCallBacks callBacks;

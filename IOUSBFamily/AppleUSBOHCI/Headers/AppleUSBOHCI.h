@@ -97,29 +97,30 @@ struct AppleOHCIEndpointDescriptorStruct
 
 struct AppleOHCIGeneralTransferDescriptorStruct
 {
-    UInt16					pType;			// Note this must appear at the same offset in GTD & ITD structs
-    UInt16					uimFlags;		// Note this must appear at the same offset in GTD & ITD structs
-    IOPhysicalAddress				pPhysical;		// Note this must appear at the same offset in GTD & ITD structs
+    UInt16									pType;				// Note this must appear at the same offset in GTD & ITD structs
+    UInt16									uimFlags;			// Note this must appear at the same offset in GTD & ITD structs
+    IOPhysicalAddress						pPhysical;			// Note this must appear at the same offset in GTD & ITD structs
     AppleOHCIGeneralTransferDescriptorPtr	pLogicalNext;		// Note this must appear at the same offset in GTD & ITD structs
-    OHCIGeneralTransferDescriptorSharedPtr	pShared;		// pointer to the GTD shared with the controller
-    IOUSBCommand	    	  		*command;		// the command associated with this TD
-    UInt32					lastFrame;		// the lower 32 bits the last time we checked this TD
-    UInt32					lastRemaining;		// the "remaining" count the last time we checked
-    AppleOHCIEndpointDescriptorPtr		pEndpoint;		// pointer to TD's Endpoint
-    UInt32					bufferSize;		// used only by control transfers to keep track of data buffers size leftover
+    OHCIGeneralTransferDescriptorSharedPtr	pShared;			// pointer to the GTD shared with the controller
+    IOUSBCommand *							command;			// the command associated with this TD
+    UInt32									lastFrame;			// the lower 32 bits the last time we checked this TD
+    UInt32									lastRemaining;		// the "remaining" count the last time we checked
+    AppleOHCIEndpointDescriptorPtr			pEndpoint;			// pointer to TD's Endpoint
+    UInt32									bufferSize;			// used only by control transfers to keep track of data buffers size leftover
 };
 
 struct AppleOHCIIsochTransferDescriptorStruct
 {
-    UInt16					pType;		// Note this must appear at the same offset in GTD & ITD structs
-    UInt16					uimFlags;	// Note this must appear at the same offset in GTD & ITD structs
-    UInt32					pPhysical;	// Note this must appear at the same offset in GTD & ITD structs
-    AppleOHCIIsochTransferDescriptorPtr		pLogicalNext;	// Note this must appear at the same offset in GTD & ITD structs
-    OHCIIsochTransferDescriptorSharedPtr	pShared;	// pointer to the ITD shared with the controller
-    IOUSBIsocCompletion  			completion;	// callback for Isoch transactions
-    IOUSBIsocFrame *				pIsocFrame;	// ptr to USLs status and length array
-    UInt32					frameNum;	// index to pIsocFrame array
-};								// 0x40 total length
+    UInt16									pType;						// Note this must appear at the same offset in GTD & ITD structs
+    UInt16									uimFlags;					// Note this must appear at the same offset in GTD & ITD structs
+    UInt32									pPhysical;					// Note this must appear at the same offset in GTD & ITD structs
+    AppleOHCIIsochTransferDescriptorPtr		pLogicalNext;				// Note this must appear at the same offset in GTD & ITD structs
+    OHCIIsochTransferDescriptorSharedPtr	pShared;					// pointer to the ITD shared with the controller
+    IOUSBIsocCompletion						completion;					// callback for Isoch transactions
+    IOUSBIsocFrame *						pIsocFrame;					// ptr to USLs status and length array
+    UInt32									frameNum;					// index to pIsocFrame array
+	bool									requestFromRosettaClient;	// True if the request originated from a Rosetta client in user space
+};
 
 
 

@@ -225,7 +225,7 @@ namespace IOFireWireLib {
 		if ( where )
 		{
 			NuDCLSharedData * exportedData = reinterpret_cast<NuDCLSharedData *>( *where ) ;
-			*where = (IOVirtualAddress)( exportedData + 1 ) ;
+			*where += ( sizeof( *exportedData ) + 4 ) & ~(size_t)0x3 ;
 			*exportedData = fData ;
 			
 			for( unsigned index=0; index < exportedData->rangeCount; ++index )
@@ -267,7 +267,7 @@ namespace IOFireWireLib {
 			exportedData->branch.index = exportedData->branch.dcl ? exportedData->branch.dcl->GetExportIndex() : 0 ;
 		}
 		
-		return sizeof( NuDCLSharedData ) + ( fData.update.set ? ::CFSetGetCount( fData.update.set ) * sizeof( UInt32 ) : 0 ) ;
+		return  ( ( sizeof( NuDCLSharedData ) + 4 ) & ~(size_t)0x3 ) + ( fData.update.set ? ::CFSetGetCount( fData.update.set ) * sizeof( UInt32 ) : 0 ) ;
 	}
 
 #pragma mark -
@@ -312,10 +312,10 @@ namespace IOFireWireLib {
 		if ( where )
 		{
 			*reinterpret_cast<ReceiveNuDCLSharedData *>( *where ) = fReceiveData ; 
-			*where += sizeof( fReceiveData ) ;
+			*where += ( sizeof( fReceiveData ) + 4 & ~(size_t)0x3 ) ;
 		}
 			
-		return size + sizeof( fReceiveData ) ;
+		return size + ( ( sizeof( fReceiveData ) + 4 ) & ~(size_t)0x3 ) ;
 	}
 	
 
@@ -358,7 +358,7 @@ namespace IOFireWireLib {
 		if ( where )
 		{
 			SendNuDCLSharedData * exportedData = reinterpret_cast<SendNuDCLSharedData *>( *where ) ;
-			*where = (IOVirtualAddress)( exportedData + 1 ) ;
+			*where += ( sizeof( *exportedData ) + 4 ) & ~(size_t)0x3 ;
 			
 			*exportedData = fSendData ; 
 			if ( exportedData->skipBranch.dcl )
@@ -376,8 +376,8 @@ namespace IOFireWireLib {
 				exportedData->userHeaderMask.offset = findOffsetInRanges( (IOVirtualAddress)exportedData->userHeaderMask.ptr, bufferRanges, bufferRangeCount ) + 1;
 			}
 		}
-			
-		return size + sizeof( fSendData ) ;
+		
+		return size + ( ( sizeof( fSendData ) + 4 ) & ~(size_t)0x3 ) ;
 	}
 
 #pragma mark -

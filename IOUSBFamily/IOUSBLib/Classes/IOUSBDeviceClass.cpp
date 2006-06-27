@@ -29,6 +29,7 @@
 #include "IOUSBDeviceClass.h"
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBUserClient.h>
+#include <IOKit/usb/IOUSBLib.h>
 
 
 #include <stdio.h>
@@ -50,12 +51,18 @@ __END_DECLS
 
 #define connectCheck() do {	    \
     if (!fConnection)		    \
+		{						\
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::connectCheck failed\n", this); \
 	return kIOReturnNoDevice;   \
+		}						\
 } while (0)
 
 #define openCheck() do {	    \
     if (!fIsOpen)		    \
+	{						\
+		DEBUGPRINT("+IOUSBDeviceClass[%p]::openCheck failed\n", this);\
         return kIOReturnNotOpen;    \
+	}						\
 } while (0)
 
 #define allChecks() do {	    \
@@ -84,12 +91,14 @@ IOUSBDeviceClass::IOUSBDeviceClass()
   fIsOpen(false),
   fConfigurations(NULL)
 {
+	  DEBUGPRINT("+IOUSBDeviceClass[%p]::IOUSBDeviceClass\n", this);
     fUSBDevice.pseudoVTable = (IUnknownVTbl *)  &sUSBDeviceInterfaceV197;
     fUSBDevice.obj = this;
 }
 
 IOUSBDeviceClass::~IOUSBDeviceClass()
 {
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::~IOUSBDeviceClass\n", this);
     if (fConfigurations)
     {
         // release the config descriptor data
@@ -101,12 +110,14 @@ IOUSBDeviceClass::~IOUSBDeviceClass()
         fConfigurations = NULL;
     }
     
-    if (fConnection) {
+    if (fConnection) 
+	{
         IOServiceClose(fConnection);
         fConnection = MACH_PORT_NULL;
     }
         
-    if (fService) {
+    if (fService) 
+	{
         IOObjectRelease(fService);
         fService = MACH_PORT_NULL;
     }
@@ -115,20 +126,39 @@ IOUSBDeviceClass::~IOUSBDeviceClass()
 HRESULT 
 IOUSBDeviceClass::queryInterface(REFIID iid, void **ppv)
 {
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::queryInterface, fService= 0x%x\n", this, fService);
     CFUUIDRef uuid = CFUUIDCreateFromUUIDBytes(NULL, iid);
     HRESULT res = S_OK;
 
     if (CFEqual(uuid, IUnknownUUID) ||  CFEqual(uuid, kIOCFPlugInInterfaceID)) 
     {
-        *ppv = &iunknown;
+		DEBUGPRINT("IOUSBDeviceClass[%p]::queryInterface for IUnknownUUID or kIOCFPlugInInterfaceID\n", this);
+       *ppv = &iunknown;
         addRef();
     }
-    else if (CFEqual(uuid, kIOUSBDeviceInterfaceID) || CFEqual(uuid, kIOUSBDeviceInterfaceID182) ||
-             CFEqual(uuid, kIOUSBDeviceInterfaceID187) || CFEqual(uuid, kIOUSBDeviceInterfaceID197) ) 
+    else if (CFEqual(uuid, kIOUSBDeviceInterfaceID) || 
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID182) ||
+             CFEqual(uuid, kIOUSBDeviceInterfaceID187) || 
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID197) ||
+			 CFEqual(uuid, kIOUSBDeviceInterfaceID245) ) 
     {
         *ppv = &fUSBDevice;
         addRef();
-    }
+
+		// Version 245 fixes rdar://3030440.  In order to not change the behavior of previous versions, we will release the
+		// fService that we now retain in start().  
+        if ( (CFEqual(uuid, kIOUSBDeviceInterfaceID)
+			|| CFEqual(uuid, kIOUSBDeviceInterfaceID182) 
+			|| CFEqual(uuid, kIOUSBDeviceInterfaceID187) 
+			|| CFEqual(uuid, kIOUSBDeviceInterfaceID197)) ) 
+		{
+			if ( fService != IO_OBJECT_NULL )
+			{
+				DEBUGPRINT("IOUSBDeviceClass[%p]::queryInterface releasing retained fService.  See rdar://3030440\n", this);
+				IOObjectRelease(fService);
+			}
+		}
+	}
     else
         *ppv = 0;
 
@@ -144,8 +174,12 @@ IOUSBDeviceClass::queryInterface(REFIID iid, void **ppv)
 IOReturn 
 IOUSBDeviceClass::probe(CFDictionaryRef propertyTable, io_service_t inService, SInt32 *order)
 {
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::probe\n", this);
     if (!inService || !IOObjectConformsTo(inService, "IOUSBDevice"))
+	{
+		DEBUGPRINT("+IOUSBDeviceClass[%p]::probe returning kIOReturnBadArgument\n", this);
         return kIOReturnBadArgument;
+	}
 
     return kIOReturnSuccess;
 }
@@ -160,12 +194,29 @@ IOUSBDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inService)
     kern_return_t 		kr;
     
 	
-    fService = inService;
-    res = IOServiceOpen(fService, mach_task_self(), 0, &fConnection);
+    res = IOServiceOpen(inService, mach_task_self(), 0, &fConnection);
     if (res != kIOReturnSuccess)
-        return res;
+	{
+ 		DEBUGPRINT("IOUSBDeviceClass[%p]::start  IOServiceOpen returned 0x%x\n", this, res);
+       return res;
+	}
 
     connectCheck();
+    
+   // Make sure that we retain our service so that we can use it later on.  Previous to UUID245, we didn't used to do this, we just
+   // released it in the dtor!  We now retain it, but in order to not break any current apps that relied on the broken behavior, we
+   // will only retain it for UUIDs 245 or later.  However, we can only know the UUID in QueryInterface AND if we retain it there, a window
+   // exists where the caller can release the io_service between the call to IOCreatePlugInInterfaceForService() -- which calls start() and the
+   // QueryInterface().  So, we now retain it here and then release it in QueryInterface if the UUID is < 245.
+    //
+    res = IOObjectRetain(inService);
+    if (res)
+	{
+		DEBUGPRINT("IOUSBDeviceClass[%p]::start  IOObjectRetain returned 0x%x\n", this, res);
+        return res;
+	}
+    
+	fService = inService;
 
     kr = IORegistryEntryCreateCFProperties(fService, &entryProperties, NULL, 0);
     if (entryProperties) 
@@ -258,7 +309,7 @@ IOUSBDeviceClass::CacheConfigDescriptor()
     int 	i;
     IOReturn	kr = kIOReturnSuccess;
     
-	DEBUGPRINT("+IOUSBDeviceClass::CacheConfigDescriptor\n");
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::CacheConfigDescriptor\n", this);
 
     for (i = 0; i < fNumConfigurations; i++)
     {
@@ -267,7 +318,7 @@ IOUSBDeviceClass::CacheConfigDescriptor()
         mach_msg_type_number_t		size;
 
         size = sizeof(configHdr);
-		DEBUGPRINT("+IOUSBDeviceClass::CacheConfigDescriptor asking for config = 0x%x\n", i);
+		DEBUGPRINT("+IOUSBDeviceClass[%p]::CacheConfigDescriptor asking for config = 0x%x\n", this, i);
         kr = io_connect_method_scalarI_structureO(fConnection, kUSBDeviceUserClientGetConfigDescriptor, &i, 1, (char *)&configHdr, &size);
         if (kr)
             break;
@@ -286,7 +337,7 @@ IOUSBDeviceClass::CacheConfigDescriptor()
     if ( kr == kIOReturnSuccess )
        fConfigDescCacheValid = TRUE;
         
-	DEBUGPRINT("-IOUSBDeviceClass::CacheConfigDescriptor returning 0x%x\n", kr);
+	DEBUGPRINT("-IOUSBDeviceClass[%p]::CacheConfigDescriptor returning 0x%x\n", this, kr);
     return kr;
 }
 
@@ -452,7 +503,7 @@ IOUSBDeviceClass::GetConfiguration(UInt8 *config)
     int				result;
 	
     connectCheck();
-	DEBUGPRINT("+IOUSBDeviceClass::GetConfiguration\n");
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::GetConfiguration\n", this);
 	ret = io_connect_method_scalarI_scalarO(fConnection, kUSBDeviceUserClientGetConfig, NULL, 0, &result, &len);
 	DEBUGPRINT("IOUSBDeviceClass::GetConfiguration ret: 0x%x, result = 0x%x", ret, result);
 	if (ret == MACH_SEND_INVALID_DEST)
@@ -480,7 +531,7 @@ CreateDeviceAsyncEventSource(CFRunLoopSourceRef *source)
     CFMachPortContext 	context;
     Boolean 		shouldFreeInfo;
 
-	DEBUGPRINT("+IOUSBDeviceClass::CreateDeviceAsyncEventSource\n");
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::CreateDeviceAsyncEventSource\n", this);
     if (!fAsyncPort) 
     {     
         ret = CreateDeviceAsyncPort(0);
@@ -843,7 +894,7 @@ IOUSBDeviceClass::CreateInterfaceIterator(IOUSBFindInterfaceRequest *intfReq, io
     IOReturn			ret;
 
     connectCheck();
-	DEBUGPRINT("+IOUSBDeviceClass::CreateInterfaceIterator  bInterfaceClass 0x%x, bInterfaceSubClass = 0x%x, bInterfaceProtocol = 0x%x, bAlternateSetting = 0x%x\n",
+	DEBUGPRINT("+IOUSBDeviceClass[%p]::CreateInterfaceIterator  bInterfaceClass 0x%x, bInterfaceSubClass = 0x%x, bInterfaceProtocol = 0x%x, bAlternateSetting = 0x%x\n", this,
 			   intfReq->bInterfaceClass,
 			   intfReq->bInterfaceSubClass,
 			   intfReq->bInterfaceProtocol,

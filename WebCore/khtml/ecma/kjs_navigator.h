@@ -21,13 +21,14 @@
 #ifndef _KJS_NAVIGATOR_H_
 #define _KJS_NAVIGATOR_H_
 
+#include "kjs_binding.h"
 #include <kjs/object.h>
 
 class KHTMLPart;
 
 namespace KJS {
 
-  class Navigator : public ObjectImp {
+  class Navigator : public DOMObject {
   public:
     Navigator(ExecState *exec, KHTMLPart *p);
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;

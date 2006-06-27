@@ -32,7 +32,10 @@
  *	Created.
  */
 
-#import <architecture/i386/sel.h>
+#ifndef _ARCH_I386_TSS_H_
+#define _ARCH_I386_TSS_H_
+
+#include <architecture/i386/sel.h>
 
 /*
  * Task State segment.
@@ -114,3 +117,5 @@ typedef struct task_gate {
 			present	:1,
 				:0;
 } task_gate_t;
+
+#endif	/* _ARCH_I386_TSS_H_ */

@@ -27,6 +27,7 @@
 namespace KJS {
 
     class ObjectImp;
+    class ExecState;
     
     class ScopeChainNode {
     public:

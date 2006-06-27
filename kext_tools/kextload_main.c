@@ -520,9 +520,16 @@ int main(int argc, const char *argv[]) {
     argv_mod = argv + optind;
 
    /*****
-    * Check for bad combinations of options.
+    * Check for bad combinations of arguments and options.
     */
-    if (flag_l + flag_m + flag_n > 1) {
+    if (CFArrayGetCount(kextIDs) == 0 && argc_mod == 0) {
+        qerror("no kernel extension specified "
+            "(name kernel extension bundles\n"
+            "    following options, or use -b)\n\n");
+        usage(0);
+        exit_code = 1;
+        goto finish;
+    } else if (flag_l + flag_m + flag_n > 1) {
         qerror("only one of -l/-m/-n is allowed"
             " (-a and -A imply -n)\n\n");
         usage(0);
@@ -1463,7 +1470,7 @@ static const char * user_input(const char * format, ...)
     int output_length;
     char * output_string = NULL;
     unsigned index;
-    size_t size = 80;
+    size_t size = 80;  // more than enough to input a hex address
     int c;
 
     result = (char *)malloc(size);
@@ -1492,16 +1499,18 @@ static const char * user_input(const char * format, ...)
 
     c = fgetc(stdin);
     while (c != '\n' && c != EOF) {
-        if (index >= size) {
-            size += 80;
-            result = realloc(result, size);
-            if (!result) {
-                goto finish;
-            }
+        if (index >= (size - 1)) {
+            qerror("input line too long\n");
+            if (result) free(result);
+            result = NULL;
+            goto finish;
         }
         result[index++] = (char)c;
         c = fgetc(stdin);
     }
+
+    result[index] = '\0';
+
     if (c == EOF) {
         if (result) free(result);
         result = NULL;

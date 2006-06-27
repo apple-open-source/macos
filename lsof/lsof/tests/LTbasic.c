@@ -135,6 +135,7 @@ main(argc, argv)
 	    PrtMsgX("", Pn, cleanup, 1);
     }
     (void) PrtMsgX("OK", Pn, cleanup, 0);
+    return(0);
 }
 
 
@@ -186,7 +187,6 @@ tstlsof(texec, tkmem, tproc)
     int ti;				/* temporary integer */
     LTdev_t tmpdc;			/* temporary device components */
     LTfldo_t *typ;			/* file type pointer */
-    int xv = 0;				/* exit value */
     int xwhile;				/* exit while() flag */
 
 /*
@@ -331,7 +331,7 @@ tstlsof(texec, tkmem, tproc)
 	 */
 
 	    for (fdn = 0, tcp = fdp->v; *tcp; tcp++) {
-		if (!isdigit(*tcp)) {
+		if (!isdigit((unsigned char)*tcp)) {
 		    fdn = -1;
 		    break;
 		}
@@ -356,7 +356,8 @@ tstlsof(texec, tkmem, tproc)
 		    pem = cem;
 		    break;
 		}
-		(void) snprintf(ibuf, sizeof(ibuf) - 1, "%u", cwdsb.st_ino);
+		(void) snprintf(ibuf, sizeof(ibuf) - 1, "%u",
+		    (unsigned int)cwdsb.st_ino);
 		ibuf[sizeof(ibuf) - 1] = '\0';
 		if ((tmpdc.maj == cwddc.maj)
 		&&  (tmpdc.min == cwddc.min)
@@ -388,7 +389,8 @@ tstlsof(texec, tkmem, tproc)
 		    pem = cem;
 		    break;
 		}
-		(void) snprintf(ibuf, sizeof(ibuf) - 1, "%u", kmemsb.st_ino);
+		(void) snprintf(ibuf, sizeof(ibuf) - 1, "%u",
+		    (unsigned int)kmemsb.st_ino);
 		ibuf[sizeof(ibuf) - 1] = '\0';
 		if ((tmpdc.maj == kmemdc.maj)
 		&&  (tmpdc.min == kmemdc.min)
@@ -418,7 +420,8 @@ tstlsof(texec, tkmem, tproc)
 		    pem = cem;
 		    break;
 		}
-		(void) snprintf(ibuf, sizeof(ibuf) - 1, "%u", lsofsb.st_ino);
+		(void) snprintf(ibuf, sizeof(ibuf) - 1, "%u",
+		    (unsigned int)lsofsb.st_ino);
 		ibuf[sizeof(ibuf) - 1] = '\0';
 		if ((tmpdc.maj == lsofdc.maj)
 		&&  (tmpdc.min == lsofdc.min)

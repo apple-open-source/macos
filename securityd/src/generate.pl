@@ -2,20 +2,23 @@
 #
 #
 #
-use strict;
+#use strict;
 
 my $disclaimer = "Automatically generated - do not edit on penalty of futility!";
 
 
 # arguments
-my ($configfile, $out_h, $out_cpp, $types) = @ARGV;
+my ($configfile, $out_h, $out_cpp, $types, $hdrpath) = @ARGV;
 
 
 # open configuration file
 open(CFG, "$configfile") || die "$configfile: $!";
 
 # open and load cssmtypes file
-open(TYPES, "$types") || die "$types: $!";
+for my $hdrdir (split (/:/, $hdrpath)) {
+  open(TYPES, "$hdrdir/$types") and last;
+}
+TYPES or die "cannot find $types in $hdrpath: $!";
 $/=undef;
 my $types_h = <TYPES>;
 close(TYPES); $/="\n";

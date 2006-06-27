@@ -78,7 +78,7 @@ static int gEventDispatchForbidden;
 using namespace DOM;
 using namespace khtml;
 
-NodeImpl::NodeImpl(DocumentPtr *doc)
+NodeImpl::NodeImpl(DocumentImpl *doc)
     : document(doc),
       m_previous(0),
       m_next(0),
@@ -100,23 +100,17 @@ NodeImpl::NodeImpl(DocumentPtr *doc)
       m_hovered(false),
       m_inActiveChain( false ),
       m_styleElement( false ),
-      m_implicit( false )
+      m_implicit(false),
+      m_inDetach(false),
+      m_inSubtreeMark(false)
 {
-    if (document)
-        document->ref();
 }
 
-void NodeImpl::setDocument(DocumentPtr *doc)
+void NodeImpl::setDocument(DocumentImpl *doc)
 {
     if (inDocument())
 	return;
     
-    if (doc)
-	doc->ref();
-    
-    if (document)
-	document->deref();
-
     document = doc;
 }
 
@@ -128,8 +122,6 @@ NodeImpl::~NodeImpl()
         getDocument()->unregisterDisconnectedNodeWithEventListeners(this);
     delete m_regdListeners;
     delete m_nodeLists;
-    if (document)
-        document->deref();
     if (m_previous)
         m_previous->setNextSibling(0);
     if (m_next)
@@ -493,9 +485,9 @@ bool NodeImpl::dispatchEvent(EventImpl *evt, int &exceptioncode, bool tempEvent)
     KHTMLPart *part = nil;
     KHTMLView *view = nil;
     
-    if (document && document->document()) {
-        part = document->document()->part();
-        view = document->document()->view();
+    if (DocumentImpl *doc = getDocument()) {
+        part = doc->part();
+        view = doc->view();
         // Since event handling code could cause this object to be deleted, grab a reference to the view now
         if (view)
             view->ref();
@@ -535,6 +527,15 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
     // trigger any capturing event handlers on our way down
     evt->setEventPhase(Event::CAPTURING_PHASE);
     QPtrListIterator<NodeImpl> it(nodeChain);
+
+    it.toFirst();
+    // Handle window events for capture phase, except load events, this quirk is needed because
+    // Mozilla used to not do the bubble or capture phase for image load events and sites mistakenly
+    // put capturing load event listeners on the window
+    if (evt->id() != EventImpl::LOAD_EVENT && it.current()->isDocumentNode() && !evt->propagationStopped()) {
+        static_cast<DocumentImpl*>(it.current())->handleWindowEvent(evt, true);
+    }  
+
     for (; it.current() && it.current() != this && !evt->propagationStopped(); ++it) {
         evt->setCurrentTarget(it.current());
         it.current()->handleLocalEvents(evt,true);
@@ -573,7 +574,15 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
             evt->setCurrentTarget(it.current());
             it.current()->handleLocalEvents(evt,false);
         }
-    }
+        // Handle window events for bubbling phase, except load events, this quirk is needed because
+        // Mozilla used to not do the bubble or capture phase for image load events and sites mistakenly
+        // put capturing load event listeners on the window
+        it.toFirst();
+        if (evt->id() != EventImpl::LOAD_EVENT && it.current()->isDocumentNode() && !evt->propagationStopped() && !evt->getCancelBubble()) {
+            evt->setCurrentTarget(it.current());
+            static_cast<DocumentImpl*>(it.current())->handleWindowEvent(evt, false);
+        } 
+    } 
 
     evt->setCurrentTarget(0);
     evt->setEventPhase(0); // I guess this is correct, the spec does not seem to say
@@ -581,13 +590,12 @@ bool NodeImpl::dispatchGenericEvent( EventImpl *evt, int &/*exceptioncode */)
 
 
     if (evt->bubbles()) {
-	// now we call all default event handlers (this is not part of DOM - it is internal to khtml)
-
-	it.toLast();
-	for (; it.current() && !evt->propagationStopped() && !evt->defaultPrevented() && !evt->defaultHandled(); --it)
-	    it.current()->defaultEventHandler(evt);
+        // now we call all default event handlers (this is not part of DOM - it is internal to khtml)
+        it.toLast();
+        for (; it.current() && !evt->defaultPrevented() && !evt->defaultHandled(); --it)
+            it.current()->defaultEventHandler(evt);
     }
-    
+
     // deref all nodes in chain
     it.toFirst();
     for (; it.current(); ++it)
@@ -610,45 +618,35 @@ bool NodeImpl::dispatchHTMLEvent(int _id, bool canBubbleArg, bool cancelableArg)
     return dispatchEvent(evt,exceptioncode,true);
 }
 
-bool NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableArg)
+void NodeImpl::dispatchWindowEvent(int _id, bool canBubbleArg, bool cancelableArg)
 {
     assert(!eventDispatchForbidden());
-    int exceptioncode = 0;
-    EventImpl *evt = new EventImpl(static_cast<EventImpl::EventId>(_id),canBubbleArg,cancelableArg);
-    evt->setTarget( 0 );
-    evt->ref();
-    DocumentPtr *doc = document;
-    doc->ref();
-    bool r = dispatchGenericEvent( evt, exceptioncode );
-    if (!evt->defaultPrevented() && doc->document())
-	doc->document()->defaultEventHandler(evt);
-    
-    if (_id == EventImpl::LOAD_EVENT && !evt->propagationStopped() && doc->document()) {
+    khtml::SharedPtr<EventImpl> evt = new EventImpl(static_cast<EventImpl::EventId>(_id),canBubbleArg,cancelableArg);
+    khtml::SharedPtr<DocumentImpl> doc = getDocument();
+    evt->setTarget(doc.get());
+    doc->handleWindowEvent(evt.get(), true);
+    doc->handleWindowEvent(evt.get(), false);
+
+    if (_id == EventImpl::LOAD_EVENT && !evt->propagationStopped() && doc) {
         // For onload events, send them to the enclosing frame only.
         // This is a DOM extension and is independent of bubbling/capturing rules of
         // the DOM.  You send the event only to the enclosing frame.  It does not
         // bubble through the parent document.
-        ElementImpl* elt = doc->document()->ownerElement();
+        ElementImpl* elt = doc->ownerElement();
         if (elt && (elt->getDocument()->domain().isNull() ||
-                    elt->getDocument()->domain() == doc->document()->domain())) {
+                    elt->getDocument()->domain() == doc->domain())) {
             // We also do a security check, since we don't want to allow the enclosing
             // iframe to see loads of child documents in other domains.
             evt->setCurrentTarget(elt);
 
             // Capturing first.
-            elt->handleLocalEvents(evt,true);
+            elt->handleLocalEvents(evt.get(), true);
 
             // Bubbling second.
             if (!evt->propagationStopped())
-                elt->handleLocalEvents(evt,false);
-            r = !evt->defaultPrevented();
+                elt->handleLocalEvents(evt.get(), false);
         }
     }
-
-    doc->deref();
-    evt->deref();
-
-    return r;
 }
 
 bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overrideDetail, bool isSimulated)
@@ -705,7 +703,7 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
 #if APPLE_CHANGES
     int screenX;
     int screenY;
-    KHTMLView *view = document->document()->view();
+    KHTMLView *view = getDocument()->view();
     if (view) {
         // This gets us as far as NSWindow coords
         QPoint windowLoc = view->contentsToViewport(_mouse->pos());
@@ -759,45 +757,24 @@ bool NodeImpl::dispatchMouseEvent(QMouseEvent *_mouse, int overrideId, int overr
     // of the DOM specs, but is used for compatibility with the traditional onclick="" and ondblclick="" attributes,
     // as there is no way to tell the difference between single & double clicks using DOM (only the click count is
     // stored, which is not necessarily the same)
-    if (evtId == EventImpl::CLICK_EVENT) {
-        evtId = EventImpl::KHTML_CLICK_EVENT;
-
-        me = new MouseEventImpl(EventImpl::KHTML_CLICK_EVENT,
+    if (evtId == EventImpl::CLICK_EVENT && _mouse->isDoubleClick()) {
+        me = new MouseEventImpl(EventImpl::DBLCLICK_EVENT,
                                 true,cancelable,getDocument()->defaultView(),
                                 detail,screenX,screenY,clientX,clientY,
                                 ctrlKey,altKey,shiftKey,metaKey,
-                                button, 0, 0, isSimulated);
+                                button,0);
         me->ref();
         if (defaultHandled)
             me->setDefaultHandled();
         dispatchEvent(me,exceptioncode,true);
-        if (me->defaultHandled())
-            defaultHandled = true;
-        if (me->defaultPrevented())
-            defaultPrevented = true;
         if (me->defaultHandled() || me->defaultPrevented())
             swallowEvent = true;
         me->deref();
-
-        if (_mouse->isDoubleClick()) {
-            me = new MouseEventImpl(EventImpl::KHTML_DBLCLICK_EVENT,
-                                    true,cancelable,getDocument()->defaultView(),
-                                    detail,screenX,screenY,clientX,clientY,
-                                    ctrlKey,altKey,shiftKey,metaKey,
-                                    button,0);
-            me->ref();
-            if (defaultHandled)
-                me->setDefaultHandled();
-            dispatchEvent(me,exceptioncode,true);
-            if (me->defaultHandled() || me->defaultPrevented())
-                swallowEvent = true;
-            me->deref();
-        }
     }
 #endif
 
     // Also send a DOMActivate event, which causes things like form submissions to occur.
-    if (evtId == EventImpl::KHTML_CLICK_EVENT && !defaultPrevented && !disabled())
+    if (evtId == EventImpl::CLICK_EVENT && !defaultPrevented && !disabled())
         dispatchUIEvent(EventImpl::DOMACTIVATE_EVENT, detail);
 
     return swallowEvent;
@@ -1118,7 +1095,7 @@ void NodeImpl::checkAddChild(NodeImpl *newChild, int &exceptioncode)
     // only do this once we know there won't be an exception
     if (shouldAdoptChild) {
 	KJS::ScriptInterpreter::updateDOMNodeDocument(newChild, newChild->getDocument(), getDocument());
-	newChild->setDocument(getDocument()->docPtr());
+	newChild->setDocument(getDocument());
     }
 }
 
@@ -1201,6 +1178,7 @@ void NodeImpl::willRemove()
 
 void NodeImpl::detach()
 {
+    m_inDetach = true;
 //    assert(m_attached);
 
     if (m_render)
@@ -1211,6 +1189,7 @@ void NodeImpl::detach()
     if (doc)
         doc->incDOMTreeVersion();
     m_attached = false;
+    m_inDetach = false;
 }
 
 bool NodeImpl::maintainsState()
@@ -1378,7 +1357,7 @@ void NodeImpl::createRendererIfNeeded()
     assert(!attached());
     assert(!m_render);
     
-    NodeImpl *parent = parentNode();    
+    NodeImpl *parent = parentNode();
     assert(parent);
     
     RenderObject *parentRenderer = parent->renderer();
@@ -1617,14 +1596,14 @@ void NodeImpl::formatForDebugger(char *buffer, unsigned length) const
 
 //-------------------------------------------------------------------------
 
-NodeBaseImpl::NodeBaseImpl(DocumentPtr *doc)
+NodeBaseImpl::NodeBaseImpl(DocumentImpl *doc)
     : NodeImpl(doc)
 {
     _first = _last = 0;
 }
 
 
-NodeBaseImpl::~NodeBaseImpl()
+void NodeBaseImpl::removeAllChildren()
 {
     //kdDebug( 6020 ) << "NodeBaseImpl destructor" << endl;
 
@@ -1656,7 +1635,8 @@ NodeBaseImpl::~NodeBaseImpl()
             else
                 head = n;
             tail = n;
-        }
+        } else if (n->inDocument())
+            n->removedFromDocument();
     }
     
     // Only for the top level call, do the actual deleting.
@@ -1673,9 +1653,15 @@ NodeBaseImpl::~NodeBaseImpl()
         }
         
         alreadyInsideDestructor = false;
+        _first = 0;
+        _last = 0;
     }
 }
 
+NodeBaseImpl::~NodeBaseImpl()
+{
+    removeAllChildren();
+}
 
 NodeImpl *NodeBaseImpl::firstChild() const
 {
@@ -1940,21 +1926,23 @@ void NodeBaseImpl::removeChildren()
         NodeImpl *next = n->nextSibling();
         
         n->ref();
-
-        if (n->attached())
-	    n->detach();
+        
+        // Remove the node from the tree before calling detach or removedFromDocument (4427024, 4129744)
         n->setPreviousSibling(0);
         n->setNextSibling(0);
         n->setParent(0);
+        _first = next;
+        if (n == _last)
+            _last = 0;
+
+        if (n->attached())
+	    n->detach();
         
         if (n->inDocument())
             n->removedFromDocument();
 
         n->deref();
-
-        _first = next;
     }
-    _last = 0;
     allowEventDispatch();
     
     // Dispatch a single post-removal mutation event denoting a modified subtree.
@@ -2625,7 +2613,7 @@ NamedNodeMapImpl::~NamedNodeMapImpl()
 
 // ### unused
 #if 0
-GenericRONamedNodeMapImpl::GenericRONamedNodeMapImpl(DocumentPtr* doc)
+GenericRONamedNodeMapImpl::GenericRONamedNodeMapImpl(DocumentImpl* doc)
     : NamedNodeMapImpl()
 {
     m_doc = doc->document();

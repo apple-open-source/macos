@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: ptti.c,v 1.4 2004/07/06 19:15:21 abe Exp $";
+static char *rcsid = "$Id: ptti.c,v 1.5 2005/08/08 19:41:06 abe Exp $";
 # endif	/* !defined(lint) */
 
 #define	TCPSTATES			/* activate tcpstates[] */
@@ -107,7 +107,8 @@ print_tcptpi(nl)
 	    int opt;
 
 	    if ((opt = Lf->lts.opt)
-	    ||  Lf->lts.qlens || Lf->lts.qlims || Lf->lts.rbszs || Lf->lts.sbsz
+	    ||  Lf->lts.pqlens || Lf->lts.qlens || Lf->lts.qlims
+	    ||  Lf->lts.rbszs  || Lf->lts.sbsz
 	    ) {
 		char sep = ' ';
 
@@ -331,12 +332,16 @@ print_tcptpi(nl)
 		}
 # endif	/* defined(SO_ORDREL) */
 
+		if (Lf->lts.pqlens) {
+		    (void) printf("%cPQLEN=%u", sep, Lf->lts.pqlen);
+		    sep = ',';
+		}
 		if (Lf->lts.qlens) {
-		    (void) printf("%cQLEN=%d", sep, Lf->lts.qlen);
+		    (void) printf("%cQLEN=%u", sep, Lf->lts.qlen);
 		    sep = ',';
 		}
 		if (Lf->lts.qlims) {
-		    (void) printf("%cQLIM=%d", sep, Lf->lts.qlim);
+		    (void) printf("%cQLIM=%u", sep, Lf->lts.qlim);
 		    sep = ',';
 		}
 		if (Lf->lts.rbszs) {

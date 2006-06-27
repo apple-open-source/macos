@@ -30,7 +30,7 @@ namespace KJS {
 
   class JSEventListener;
 
-  class XMLSerializerConstructorImp : public ObjectImp {
+  class XMLSerializerConstructorImp : public DOMObject {
   public:
     XMLSerializerConstructorImp(ExecState *);
     virtual bool implementsConstruct() const;

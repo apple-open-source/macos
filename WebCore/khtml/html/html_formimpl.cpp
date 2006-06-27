@@ -101,7 +101,7 @@ private:
     QValueList<FormDataListItem> m_list;
 };
 
-HTMLFormElementImpl::HTMLFormElementImpl(DocumentPtr *doc)
+HTMLFormElementImpl::HTMLFormElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
     collectionInfo = 0;
@@ -151,9 +151,9 @@ void HTMLFormElementImpl::attach()
     HTMLElementImpl::attach();
 
     if (getDocument()->isHTMLDocument()) {
-	HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
-	document->addNamedImageOrForm(oldNameAttr);
-	document->addNamedImageOrForm(oldIdAttr);
+        HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
+        document->addNamedImageOrForm(oldNameAttr);
+        document->addNamedImageOrForm(oldIdAttr);
     }
 
 #if APPLE_CHANGES
@@ -167,9 +167,9 @@ void HTMLFormElementImpl::attach()
 void HTMLFormElementImpl::detach()
 {
     if (getDocument()->isHTMLDocument()) {
-	HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
-	document->removeNamedImageOrForm(oldNameAttr);
-	document->removeNamedImageOrForm(oldIdAttr);
+        HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
+        document->removeNamedImageOrForm(oldNameAttr);
+        document->removeNamedImageOrForm(oldIdAttr);
     }
 
     HTMLElementImpl::detach();
@@ -179,8 +179,8 @@ long HTMLFormElementImpl::length() const
 {
     int len = 0;
     for (unsigned i = 0; i < formElements.count(); ++i)
-	if (formElements[i]->isEnumeratable())
-	    ++len;
+        if (formElements[i]->isEnumeratable())
+            ++len;
 
     return len;
 }
@@ -536,7 +536,7 @@ void HTMLFormElementImpl::submit( bool activateSubmitButton )
 #endif
 
     HTMLGenericFormElementImpl* firstSuccessfulSubmitButton = 0;
-    bool needButtonActivation = activateSubmitButton;	// do we need to activate a submit button?
+    bool needButtonActivation = activateSubmitButton;        // do we need to activate a submit button?
     
 #if APPLE_CHANGES
     KWQ(part)->clearRecordedFormValues();
@@ -671,34 +671,34 @@ void HTMLFormElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         break;
     case ATTR_ONSUBMIT:
         setHTMLEventListener(EventImpl::SUBMIT_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONRESET:
         setHTMLEventListener(EventImpl::RESET_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_NAME:
-	{
-	    QString newNameAttr = attr->value().string();
-	    if (attached() && getDocument()->isHTMLDocument()) {
-		HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
-		document->removeNamedImageOrForm(oldNameAttr);
-		document->addNamedImageOrForm(newNameAttr);
-	    }
-	    oldNameAttr = newNameAttr;
-	}
-	break;
+        {
+            QString newNameAttr = attr->value().string();
+            if (attached() && getDocument()->isHTMLDocument()) {
+                HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
+                document->removeNamedImageOrForm(oldNameAttr);
+                document->addNamedImageOrForm(newNameAttr);
+            }
+            oldNameAttr = newNameAttr;
+        }
+        break;
     case ATTR_ID:
-	{
-	    QString newIdAttr = attr->value().string();
-	    if (attached() && getDocument()->isHTMLDocument()) {
-		HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
-		document->removeNamedImageOrForm(oldIdAttr);
-		document->addNamedImageOrForm(newIdAttr);
-	    }
-	    oldIdAttr = newIdAttr;
-	}
-	// fall through
+        {
+            QString newIdAttr = attr->value().string();
+            if (attached() && getDocument()->isHTMLDocument()) {
+                HTMLDocumentImpl *document = static_cast<HTMLDocumentImpl *>(getDocument());
+                document->removeNamedImageOrForm(oldIdAttr);
+                document->addNamedImageOrForm(newIdAttr);
+            }
+            oldIdAttr = newIdAttr;
+        }
+        // fall through
     default:
         HTMLElementImpl::parseHTMLAttribute(attr);
     }
@@ -776,7 +776,7 @@ void HTMLFormElementImpl::removeImgElement(HTMLImageElementImpl *e)
 
 // -------------------------------------------------------------------------
 
-HTMLGenericFormElementImpl::HTMLGenericFormElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLGenericFormElementImpl::HTMLGenericFormElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLElementImpl(doc)
 {
     m_disabled = m_readOnly = false;
@@ -784,9 +784,9 @@ HTMLGenericFormElementImpl::HTMLGenericFormElementImpl(DocumentPtr *doc, HTMLFor
     m_dormant = false;
 
     if (f)
-	m_form = f;
+        m_form = f;
     else
-	m_form = getForm();
+        m_form = getForm();
     if (m_form)
         m_form->registerFormElement(this);
 }
@@ -831,9 +831,9 @@ void HTMLGenericFormElementImpl::attach()
     // inside, DOM-tree-wise. If so, it's hard for us to know when we should
     // be removed from that form's element list.
     if (!m_form) {
-	m_form = getForm();
-	if (m_form)
-	    m_form->registerFormElement(this);
+        m_form = getForm();
+        if (m_form)
+            m_form->registerFormElement(this);
     }
 
     HTMLElementImpl::attach();
@@ -959,8 +959,8 @@ bool HTMLGenericFormElementImpl::isKeyboardFocusable() const
             return static_cast<RenderWidget*>(m_render)->widget() &&
                 (static_cast<RenderWidget*>(m_render)->widget()->focusPolicy() & QWidget::TabFocus);
         }
-	if (getDocument()->part())
-	    return getDocument()->part()->tabsToAllControls();
+        if (getDocument()->part())
+            return getDocument()->part()->tabsToAllControls();
     }
     return false;
 }
@@ -997,27 +997,27 @@ void HTMLGenericFormElementImpl::defaultEventHandler(EventImpl *evt)
         }
 
 #if APPLE_CHANGES
-	// We don't want this default key event handling, we'll count on
-	// Cocoa event dispatch if the event doesn't get blocked.
+        // We don't want this default key event handling, we'll count on
+        // Cocoa event dispatch if the event doesn't get blocked.
 #else
-	if (evt->id()==EventImpl::KEYDOWN_EVENT ||
-	    evt->id()==EventImpl::KEYUP_EVENT)
-	{
-	    KeyboardEventImpl * k = static_cast<KeyboardEventImpl *>(evt);
-	    if (k->keyVal() == QChar('\n').unicode() && m_render && m_render->isWidget() && k->qKeyEvent)
-		QApplication::sendEvent(static_cast<RenderWidget *>(m_render)->widget(), k->qKeyEvent);
-	}
+        if (evt->id()==EventImpl::KEYDOWN_EVENT ||
+            evt->id()==EventImpl::KEYUP_EVENT)
+        {
+            KeyboardEventImpl * k = static_cast<KeyboardEventImpl *>(evt);
+            if (k->keyVal() == QChar('\n').unicode() && m_render && m_render->isWidget() && k->qKeyEvent)
+                QApplication::sendEvent(static_cast<RenderWidget *>(m_render)->widget(), k->qKeyEvent);
+        }
 #endif
 
-	if (evt->id()==EventImpl::DOMFOCUSOUT_EVENT && isEditable() && part && m_render && m_render->isWidget()) {
-	    KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>(part->browserExtension());
-	    QWidget *widget = static_cast<RenderWidget*>(m_render)->widget();
-	    if (ext)
-		ext->editableWidgetBlurred(widget);
+        if (evt->id()==EventImpl::DOMFOCUSOUT_EVENT && isEditable() && part && m_render && m_render->isWidget()) {
+            KHTMLPartBrowserExtension *ext = static_cast<KHTMLPartBrowserExtension *>(part->browserExtension());
+            QWidget *widget = static_cast<RenderWidget*>(m_render)->widget();
+            if (ext)
+                ext->editableWidgetBlurred(widget);
 
-	    // ### Don't count popup as a valid reason for losing the focus (example: opening the options of a select
-	    // combobox shouldn't emit onblur)
-	}
+            // ### Don't count popup as a valid reason for losing the focus (example: opening the options of a select
+            // combobox shouldn't emit onblur)
+        }
     }
     HTMLElementImpl::defaultEventHandler(evt);
 }
@@ -1089,7 +1089,7 @@ QString HTMLGenericFormElementImpl::findMatchingState(QStringList &states)
 
 // -------------------------------------------------------------------------
 
-HTMLButtonElementImpl::HTMLButtonElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLButtonElementImpl::HTMLButtonElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLGenericFormElementImpl(doc, f)
 {
     m_type = SUBMIT;
@@ -1114,7 +1114,7 @@ DOMString HTMLButtonElementImpl::type() const
 void HTMLButtonElementImpl::blur()
 {
     if(getDocument()->focusNode() == this)
-	getDocument()->setFocusNode(0);
+        getDocument()->setFocusNode(0);
 }
 
 void HTMLButtonElementImpl::focus()
@@ -1206,7 +1206,7 @@ void HTMLButtonElementImpl::accessKeyAction(bool sendToAnyElement)
 
 // -------------------------------------------------------------------------
 
-HTMLFieldSetElementImpl::HTMLFieldSetElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLFieldSetElementImpl::HTMLFieldSetElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
    : HTMLGenericFormElementImpl(doc, f)
 {
 }
@@ -1237,7 +1237,7 @@ RenderObject* HTMLFieldSetElementImpl::createRenderer(RenderArena* arena, Render
 
 // -------------------------------------------------------------------------
 
-HTMLInputElementImpl::HTMLInputElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLInputElementImpl::HTMLInputElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLGenericFormElementImpl(doc, f), m_imageLoader(0), m_valueMatchesRenderer(false)
 {
     m_type = TEXT;
@@ -1370,7 +1370,7 @@ DOMString HTMLInputElementImpl::type() const
 
 QString HTMLInputElementImpl::state( )
 {
-    assert(m_type != PASSWORD);		// should never save/restore password fields
+    assert(m_type != PASSWORD);                // should never save/restore password fields
 
     QString state = HTMLGenericFormElementImpl::state();
     switch (m_type) {
@@ -1384,7 +1384,7 @@ QString HTMLInputElementImpl::state( )
 
 void HTMLInputElementImpl::restoreState(QStringList &states)
 {
-    assert(m_type != PASSWORD);		// should never save/restore password fields
+    assert(m_type != PASSWORD);                // should never save/restore password fields
     
     QString state = HTMLGenericFormElementImpl::findMatchingState(states);
     if (state.isNull()) return;
@@ -2150,7 +2150,7 @@ bool HTMLInputElementImpl::storesValueSeparateFromAttribute() const
 void HTMLInputElementImpl::blur()
 {
     if(getDocument()->focusNode() == this)
-	getDocument()->setFocusNode(0);
+        getDocument()->setFocusNode(0);
 }
 
 void HTMLInputElementImpl::focus()
@@ -2161,7 +2161,7 @@ void HTMLInputElementImpl::focus()
 void HTMLInputElementImpl::defaultEventHandler(EventImpl *evt)
 {
     if (evt->isMouseEvent() &&
-        ( evt->id() == EventImpl::KHTML_CLICK_EVENT || evt->id() == EventImpl::KHTML_DBLCLICK_EVENT ) &&
+        ( evt->id() == EventImpl::CLICK_EVENT || evt->id() == EventImpl::DBLCLICK_EVENT ) &&
         m_type == IMAGE
         && m_render) {
         // record the mouse position for when we get the DOMActivate event
@@ -2177,7 +2177,7 @@ void HTMLInputElementImpl::defaultEventHandler(EventImpl *evt)
             xPos = me->clientX() - offsetX;
             yPos = me->clientY() - offsetY;
         }
-		me->setDefaultHandled();
+                me->setDefaultHandled();
     }
 
     // DOMActivate events cause the input to be "activated" - in the case of image and submit inputs, this means
@@ -2285,7 +2285,7 @@ bool HTMLInputElementImpl::isURLAttribute(AttributeImpl *attr) const
 
 // -------------------------------------------------------------------------
 
-HTMLLabelElementImpl::HTMLLabelElementImpl(DocumentPtr *doc)
+HTMLLabelElementImpl::HTMLLabelElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -2351,7 +2351,7 @@ void HTMLLabelElementImpl::accessKeyAction(bool sendToAnyElement)
 
 // -------------------------------------------------------------------------
 
-HTMLLegendElementImpl::HTMLLegendElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLLegendElementImpl::HTMLLegendElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
 : HTMLGenericFormElementImpl(doc, f)
 {
 }
@@ -2382,7 +2382,7 @@ DOMString HTMLLegendElementImpl::type() const
 
 // -------------------------------------------------------------------------
 
-HTMLSelectElementImpl::HTMLSelectElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLSelectElementImpl::HTMLSelectElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLGenericFormElementImpl(doc, f), m_options(0)
 {
     m_multiple = false;
@@ -2493,7 +2493,7 @@ void HTMLSelectElementImpl::remove( long index )
 void HTMLSelectElementImpl::blur()
 {
     if(getDocument()->focusNode() == this)
-	getDocument()->setFocusNode(0);
+        getDocument()->setFocusNode(0);
 }
 
 void HTMLSelectElementImpl::focus()
@@ -2850,7 +2850,7 @@ void HTMLSelectElementImpl::accessKeyAction(bool sendToAnyElement)
 
 // -------------------------------------------------------------------------
 
-HTMLKeygenElementImpl::HTMLKeygenElementImpl(DocumentPtr* doc, HTMLFormElementImpl* f)
+HTMLKeygenElementImpl::HTMLKeygenElementImpl(DocumentImpl* doc, HTMLFormElementImpl* f)
     : HTMLSelectElementImpl(doc, f)
 {
     QStringList keys = KSSLKeyGen::supportedKeySizes();
@@ -2919,7 +2919,7 @@ bool HTMLKeygenElementImpl::appendFormData(FormDataList& encoded_values, bool)
 
 // -------------------------------------------------------------------------
 
-HTMLOptGroupElementImpl::HTMLOptGroupElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLOptGroupElementImpl::HTMLOptGroupElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLGenericFormElementImpl(doc, f)
 {
 }
@@ -2999,7 +2999,7 @@ void HTMLOptGroupElementImpl::recalcSelectOptions()
 
 // -------------------------------------------------------------------------
 
-HTMLOptionElementImpl::HTMLOptionElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLOptionElementImpl::HTMLOptionElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLGenericFormElementImpl(doc, f)
 {
     m_selected = false;
@@ -3120,7 +3120,7 @@ HTMLSelectElementImpl *HTMLOptionElementImpl::getSelect() const
 
 // -------------------------------------------------------------------------
 
-HTMLTextAreaElementImpl::HTMLTextAreaElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLTextAreaElementImpl::HTMLTextAreaElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLGenericFormElementImpl(doc, f), m_valueIsValid(false), m_valueMatchesRenderer(false)
 {
     // DTD requires rows & cols be specified, but we will provide reasonable defaults
@@ -3235,19 +3235,19 @@ void HTMLTextAreaElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         break;
     case ATTR_ONFOCUS:
         setHTMLEventListener(EventImpl::FOCUS_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONBLUR:
         setHTMLEventListener(EventImpl::BLUR_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONSELECT:
         setHTMLEventListener(EventImpl::SELECT_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONCHANGE:
         setHTMLEventListener(EventImpl::CHANGE_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     default:
         HTMLGenericFormElementImpl::parseHTMLAttribute(attr);
@@ -3344,7 +3344,7 @@ void HTMLTextAreaElementImpl::setDefaultValue(const DOMString &defaultValue)
 void HTMLTextAreaElementImpl::blur()
 {
     if(getDocument()->focusNode() == this)
-	getDocument()->setFocusNode(0);
+        getDocument()->setFocusNode(0);
 }
 
 void HTMLTextAreaElementImpl::focus()
@@ -3377,7 +3377,7 @@ void HTMLTextAreaElementImpl::detach()
 
 // -------------------------------------------------------------------------
 
-HTMLIsIndexElementImpl::HTMLIsIndexElementImpl(DocumentPtr *doc, HTMLFormElementImpl *f)
+HTMLIsIndexElementImpl::HTMLIsIndexElementImpl(DocumentImpl *doc, HTMLFormElementImpl *f)
     : HTMLInputElementImpl(doc, f)
 {
     m_type = TEXT;
@@ -3394,7 +3394,7 @@ void HTMLIsIndexElementImpl::parseHTMLAttribute(HTMLAttributeImpl* attr)
     switch(attr->id())
     {
     case ATTR_PROMPT:
-	setValue(attr->value());
+        setValue(attr->value());
     default:
         // don't call HTMLInputElement::parseHTMLAttribute here, as it would
         // accept attributes this element does not support

@@ -236,7 +236,7 @@ Object FunctionObjectImp::construct(ExecState *exec, const List &args, const USt
   }
 
   ScopeChain scopeChain;
-  scopeChain.push(exec->dynamicInterpreter()->globalObject().imp());
+  scopeChain.push(exec->lexicalInterpreter()->globalObject().imp());
   FunctionBodyNode *bodyNode = progNode.get();
 
   FunctionImp *fimp = new DeclaredFunctionImp(exec, Identifier::null(), bodyNode,

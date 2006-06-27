@@ -200,7 +200,6 @@ void CSSSelector::extractPseudoType() const
     else if (value == visited)
         _pseudoType = PseudoVisited;
     
-    value = nullAtom;
 }
 
 
@@ -225,90 +224,71 @@ bool CSSSelector::operator == ( const CSSSelector &other )
 
 DOMString CSSSelector::selectorText() const
 {
-    // FIXME: Support namespaces when dumping the selector text.  This requires preserving
-    // the original namespace prefix used. Ugh. -dwh
+    // FIXME: Support namespaces when dumping the selector text. -dwh
     DOMString str;
     const CSSSelector* cs = this;
-    Q_UINT16 tag = localNamePart(cs->tag);
-    if ( tag == anyLocalName && cs->attr == ATTR_ID && cs->match == CSSSelector::Exact )
-    {
-        str = "#";
-        str += cs->value.string();
-    }
-    else if ( tag == anyLocalName && cs->attr == ATTR_CLASS && cs->match == CSSSelector::Class )
-    {
-        str = ".";
-        str += cs->value.string();
-    }
-    else if ( tag == anyLocalName && cs->match == CSSSelector::Pseudo )
-    {
-        str = ":";
-        str += cs->value.string();
-    }
-    else
-    {
-        if ( tag == anyLocalName )
-            str = "*";
-        else
-            str = getTagName( cs->tag );
-        if ( cs->attr == ATTR_ID && cs->match == CSSSelector::Exact )
-        {
+    Q_UINT16 localName = localNamePart(cs->tag);
+    if (cs->match == CSSSelector::None && localName == anyLocalName)
+        str = "*";
+    else if (cs->match == CSSSelector::None || localName != anyLocalName)
+        str = getTagName(cs->tag).lower();
+    while (true) {
+        if (cs->match == CSSSelector::Id) {
             str += "#";
-            str += cs->value.string();
-        }
-        else if ( cs->attr == ATTR_CLASS && cs->match == CSSSelector::Class )
-        {
+            str += cs->value;
+        } else if (cs->match == CSSSelector::Class) {
             str += ".";
-            str += cs->value.string();
-        }
-        else if ( cs->match == CSSSelector::Pseudo )
-        {
+            str += cs->value;
+        } else if (cs->match == CSSSelector::Pseudo) {
             str += ":";
-            str += cs->value.string();
-        }
-        // optional attribute
-        if ( cs->attr ) {
-            DOMString attrName = getAttrName( cs->attr );
+            str += cs->value;
+        } else if (cs->attr) {
+            // FIXME: Add support for dumping namespaces.
+            DOMString attrName = getAttrName(cs->attr).lower();
             str += "[";
             str += attrName;
             switch (cs->match) {
-            case CSSSelector::Exact:
-                str += "=";
-                break;
-            case CSSSelector::Set:
-                str += " "; /// ## correct?
-                       break;
-            case CSSSelector::List:
-                str += "~=";
-                break;
-            case CSSSelector::Hyphen:
-                str += "|=";
-                break;
-            case CSSSelector::Begin:
-                str += "^=";
-                break;
-            case CSSSelector::End:
-                str += "$=";
-                break;
-            case CSSSelector::Contain:
-                str += "*=";
-                break;
-            default:
-                kdWarning(6080) << "Unhandled case in CSSStyleRuleImpl::selectorText : match=" << cs->match << endl;
+                case CSSSelector::Exact:
+                    str += "=";
+                    break;
+                case CSSSelector::Set:
+                    // set has no operator or value, just the attrName
+                    str += "]";
+                    break;
+                case CSSSelector::List:
+                    str += "~=";
+                    break;
+                case CSSSelector::Hyphen:
+                    str += "|=";
+                    break;
+                case CSSSelector::Begin:
+                    str += "^=";
+                    break;
+                case CSSSelector::End:
+                    str += "$=";
+                    break;
+                case CSSSelector::Contain:
+                    str += "*=";
+                    break;
+                default:
+                    break;
             }
-            str += "\"";
-            str += cs->value.string();
-            str += "\"]";
+            if (cs->match != CSSSelector::Set) {
+                str += "\"";
+                str += cs->value;
+                str += "\"]";
+            }
         }
+        if (cs->relation != SubSelector || !cs->tagHistory)
+            break;
+        cs = cs->tagHistory;
     }
-    if ( cs->tagHistory ) {
+    if (cs->tagHistory) {
         DOMString tagHistoryText = cs->tagHistory->selectorText();
-        if ( cs->relation == Sibling )
+        if (cs->relation == Sibling)
             str = tagHistoryText + " + " + str;
-        else if ( cs->relation == Child )
+        else if (cs->relation == Child)
             str = tagHistoryText + " > " + str;
-        else if ( cs->relation == SubSelector )
-            str += tagHistoryText; // the ":" is provided by selectorText()
         else // Descendant
             str = tagHistoryText + " " + str;
     }

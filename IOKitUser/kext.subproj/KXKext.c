@@ -176,6 +176,7 @@ typedef struct __KXKext {
     CFMutableDictionaryRef validationFailures;
     CFMutableDictionaryRef authenticationFailures;
     CFMutableDictionaryRef missingDependencies; // whether direct or indirect!
+    CFMutableDictionaryRef warnings;
 
 } __KXKext, * __KXKextRef;
 
@@ -206,6 +207,7 @@ static KXKextManagerError __KXKextValidateExecutable(KXKextRef aKext,
 static CFMutableDictionaryRef __KXKextGetOrCreateValidationFailures(KXKextRef aKext);
 static CFMutableDictionaryRef __KXKextGetOrCreateAuthenticationFailures(
     KXKextRef aKext);
+static CFMutableDictionaryRef __KXKextGetOrCreateWarnings(KXKextRef aKext);
 
 // validation failure array values
 static CFMutableArrayRef __KXKextGetMissingProperties(KXKextRef aKext);
@@ -1100,6 +1102,14 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
+CFMutableDictionaryRef KXKextGetWarnings(KXKextRef aKext)
+{
+    return aKext->warnings;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
 CFDictionaryRef KXKextGetMissingDependencyErrors(KXKextRef aKext)
 {
     return aKext->missingDependencies;
@@ -1175,33 +1185,63 @@ void KXKextPrintDiagnostics(KXKextRef aKext,
     CFDictionaryRef validationFailures = NULL;      // don't release
     CFDictionaryRef authenticationFailures = NULL;  // don't release
     CFDictionaryRef missingDependencies = NULL;     // don't release
+    CFDictionaryRef warnings = NULL;                // don't release
 
     if (!stream) {
-        stream = stdin;
+        stream = stdout;
     }
 
     validationFailures = KXKextGetValidationFailures(aKext);
     authenticationFailures = KXKextGetAuthenticationFailures(aKext);
     missingDependencies = KXKextGetMissingDependencyErrors(aKext);
+    warnings = KXKextGetWarnings(aKext);
 
     if (validationFailures && CFDictionaryGetCount(validationFailures)) {
-        fprintf(stream, "Validation failures\n");fflush(stdout);
+        fprintf(stream, "Validation failures:\n");
         printPList(stream, validationFailures);
     }
 
     if (authenticationFailures && CFDictionaryGetCount(authenticationFailures)) {
-        fprintf(stream, "Authentication failures\n");fflush(stdout);
+        fprintf(stream, "Authentication failures:\n");
         printPList(stream, authenticationFailures);
     }
     if (missingDependencies && CFDictionaryGetCount(missingDependencies)) {
-        fprintf(stream, "Missing dependencies\n");fflush(stdout);
+        fprintf(stream, "Missing dependencies:\n");
         printPList(stream, missingDependencies);
+    }
+
+    if (warnings && CFDictionaryGetCount(warnings)) {
+        fprintf(stream, "Warnings:\n");
+        printPList(stream, warnings);
     }
 
     fprintf(stream, "\n");
     fflush(stream);
     return;
 }
+
+/*******************************************************************************
+*
+*******************************************************************************/
+void KXKextPrintWarnings(KXKextRef aKext,FILE * stream)
+{
+    CFDictionaryRef warnings = NULL;                // don't release
+
+    if (!stream) {
+        stream = stdout;
+    }
+
+    warnings = KXKextGetWarnings(aKext);
+
+    if (warnings && CFDictionaryGetCount(warnings)) {
+        fprintf(stream, "Warnings:\n");
+        printPList(stream, warnings);
+    }
+ 
+     fprintf(stream, "\n");
+     fflush(stream);
+     return;
+ }
 
 /*******************************************************************************
 ********************************************************************************
@@ -2811,6 +2851,11 @@ static void __KXKextReleaseContents(CFTypeRef cf)
         aKext->missingDependencies = NULL;
     }
 
+    if (aKext->warnings) {
+        CFRelease(aKext->warnings);
+        aKext->warnings = NULL;
+    }
+
     return;
 }
 
@@ -3539,6 +3584,20 @@ static CFMutableDictionaryRef __KXKextGetOrCreateAuthenticationFailures(KXKextRe
             &kCFTypeDictionaryValueCallBacks);
     }
     return aKext->authenticationFailures;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+static CFMutableDictionaryRef __KXKextGetOrCreateWarnings(KXKextRef aKext)
+{
+    if (!aKext->warnings) {
+        aKext->warnings = CFDictionaryCreateMutable(
+            kCFAllocatorDefault, 0,
+            &kCFTypeDictionaryKeyCallBacks,
+            &kCFTypeDictionaryValueCallBacks);
+    }
+    return aKext->warnings;
 }
 
 /*******************************************************************************
@@ -4455,20 +4514,16 @@ static KXKextManagerError __KXKextCheckKmod(KXKextRef aKext,
     if (CFStringCompare(bundleIdentifier , kmodName, NULL) !=
         kCFCompareEqualTo) {
 
-        CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
+        CFDictionarySetValue(__KXKextGetOrCreateWarnings(aKext),
             kKXKextErrorKeyBundleIdentifierMismatch,
             kCFBooleanTrue);
-        result = kKXKextManagerErrorValidation;
-        if (!KXKextManagerPerformsFullTests(aKext->manager)) goto finish;
     }
 
     version = VERS_parse_string(kmod_info->version);
     if (version < 0 || aKext->version != version) {
-        CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
+        CFDictionarySetValue(__KXKextGetOrCreateWarnings(aKext),
             kKXKextErrorKeyBundleVersionMismatch,
             kCFBooleanTrue);
-        result = kKXKextManagerErrorValidation;
-    if (!KXKextManagerPerformsFullTests(aKext->manager)) goto finish;
     }
 
 finish:

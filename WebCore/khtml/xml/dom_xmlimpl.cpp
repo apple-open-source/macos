@@ -35,7 +35,7 @@ using khtml::parseAttributes;
 
 namespace DOM {
 
-EntityImpl::EntityImpl(DocumentPtr *doc) : NodeBaseImpl(doc)
+EntityImpl::EntityImpl(DocumentImpl *doc) : NodeBaseImpl(doc)
 {
     m_publicId = 0;
     m_systemId = 0;
@@ -43,7 +43,7 @@ EntityImpl::EntityImpl(DocumentPtr *doc) : NodeBaseImpl(doc)
     m_name = 0;
 }
 
-EntityImpl::EntityImpl(DocumentPtr *doc, DOMString _name) : NodeBaseImpl(doc)
+EntityImpl::EntityImpl(DocumentImpl *doc, DOMString _name) : NodeBaseImpl(doc)
 {
     m_publicId = 0;
     m_systemId = 0;
@@ -53,7 +53,7 @@ EntityImpl::EntityImpl(DocumentPtr *doc, DOMString _name) : NodeBaseImpl(doc)
         m_name->ref();
 }
 
-EntityImpl::EntityImpl(DocumentPtr *doc, DOMString _publicId, DOMString _systemId, DOMString _notationName) : NodeBaseImpl(doc)
+EntityImpl::EntityImpl(DocumentImpl *doc, DOMString _publicId, DOMString _systemId, DOMString _notationName) : NodeBaseImpl(doc)
 {
     m_publicId = _publicId.implementation();
     if (m_publicId)
@@ -163,12 +163,12 @@ DOMString EntityImpl::toString() const
 
 // -------------------------------------------------------------------------
 
-EntityReferenceImpl::EntityReferenceImpl(DocumentPtr *doc) : NodeBaseImpl(doc)
+EntityReferenceImpl::EntityReferenceImpl(DocumentImpl *doc) : NodeBaseImpl(doc)
 {
     m_entityName = 0;
 }
 
-EntityReferenceImpl::EntityReferenceImpl(DocumentPtr *doc, DOMStringImpl *_entityName) : NodeBaseImpl(doc)
+EntityReferenceImpl::EntityReferenceImpl(DocumentImpl *doc, DOMStringImpl *_entityName) : NodeBaseImpl(doc)
 {
     m_entityName = _entityName;
     if (m_entityName)
@@ -193,7 +193,7 @@ unsigned short EntityReferenceImpl::nodeType() const
 
 NodeImpl *EntityReferenceImpl::cloneNode ( bool deep )
 {
-    EntityReferenceImpl *clone = new EntityReferenceImpl(docPtr(),m_entityName);
+    EntityReferenceImpl *clone = new EntityReferenceImpl(getDocument(),m_entityName);
     // ### make sure children are readonly
     // ### since we are a reference, should we clone children anyway (even if not deep?)
     if (deep)
@@ -229,14 +229,14 @@ DOMString EntityReferenceImpl::toString() const
 
 // -------------------------------------------------------------------------
 
-NotationImpl::NotationImpl(DocumentPtr *doc) : NodeBaseImpl(doc)
+NotationImpl::NotationImpl(DocumentImpl *doc) : NodeBaseImpl(doc)
 {
     m_publicId = 0;
     m_systemId = 0;
     m_name = 0;
 }
 
-NotationImpl::NotationImpl(DocumentPtr *doc, DOMString _name, DOMString _publicId, DOMString _systemId) : NodeBaseImpl(doc)
+NotationImpl::NotationImpl(DocumentImpl *doc, DOMString _name, DOMString _publicId, DOMString _systemId) : NodeBaseImpl(doc)
 {
     m_name = _name.implementation();
     if (m_name)
@@ -297,7 +297,7 @@ bool NotationImpl::childTypeAllowed( unsigned short /*type*/ )
 // ### need a way of updating these properly whenever child nodes of the processing instruction
 // change or are added/removed
 
-ProcessingInstructionImpl::ProcessingInstructionImpl(DocumentPtr *doc) : NodeBaseImpl(doc)
+ProcessingInstructionImpl::ProcessingInstructionImpl(DocumentImpl *doc) : NodeBaseImpl(doc)
 {
     m_target = 0;
     m_data = 0;
@@ -310,7 +310,7 @@ ProcessingInstructionImpl::ProcessingInstructionImpl(DocumentPtr *doc) : NodeBas
 #endif
 }
 
-ProcessingInstructionImpl::ProcessingInstructionImpl(DocumentPtr *doc, DOMString _target, DOMString _data) : NodeBaseImpl(doc)
+ProcessingInstructionImpl::ProcessingInstructionImpl(DocumentImpl *doc, DOMString _target, DOMString _data) : NodeBaseImpl(doc)
 {
     m_target = _target.implementation();
     if (m_target)
@@ -387,7 +387,7 @@ void ProcessingInstructionImpl::setNodeValue( const DOMString &_nodeValue, int &
 NodeImpl *ProcessingInstructionImpl::cloneNode ( bool /*deep*/)
 {
     // ### copy m_localHref
-    return new ProcessingInstructionImpl(docPtr(),m_target,m_data);
+    return new ProcessingInstructionImpl(getDocument(),m_target,m_data);
 }
 
 DOMString ProcessingInstructionImpl::localHref() const
@@ -419,8 +419,7 @@ bool ProcessingInstructionImpl::checkStyleSheet()
         
         bool isCSS = type.isEmpty() || type == "text/css";
 #ifdef KHTML_XSLT
-        m_isXSL = (type == "text/xml" || type == "text/xsl" || type == "application/xml" ||
-                   type == "application/xhtml+xml" || type == "application/rss+xml" || type == "application/atom=xml");
+        m_isXSL = khtml::isXMLMIMEType(type);
         if (!isCSS && !m_isXSL)
 #else
         if (!isCSS)

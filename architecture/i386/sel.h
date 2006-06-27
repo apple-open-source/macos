@@ -32,6 +32,9 @@
  *	Created.
  */
 
+#ifndef	_ARCH_I386_SEL_H_
+#define	_ARCH_I386_SEL_H_
+
 /*
  * Segment selector.
  */
@@ -47,3 +50,5 @@ typedef struct sel {
 } sel_t;
 
 #define NULL_SEL	((sel_t) { 0, 0, 0 } )
+
+#endif	/* _ARCH_I386_SEL_H_ */

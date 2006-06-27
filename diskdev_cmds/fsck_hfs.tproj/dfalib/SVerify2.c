@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 1999-2003, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -52,11 +53,16 @@ Function:	Checks out a generic extent record.
 Input:		GPtr		-	pointer to scavenger global area.
 			extP		-	pointer to extent data record.
 			
-Output:		ChkExtRec	-	function result:			
+			
+Output:		lastExtentIndex - In normal case, it is set to the maximum number of 
+							extents (3 or 8) for given file system.  If the 
+							function finds bad extent, it is set to the index 
+							of the bad extent entry found.
+			ChkExtRec	-	function result:			
 								0 = no error
 								n = error
 ------------------------------------------------------------------------------*/
-OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents )
+OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents , unsigned int *lastExtentIndex )
 {
 	short		i;
 	Boolean		isHFSPlus;
@@ -69,8 +75,12 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents )
 	numABlks = 1;
 	isHFSPlus = VolumeObjectIsHFSPlus( );
 
+	/* initialize default output for extent index */
+	*lastExtentIndex = GPtr->numExtents;
+	
 	for ( i=0 ; i<GPtr->numExtents ; i++ )
 	{
+
 		if ( isHFSPlus )
 		{
 			extentBlockCount = ((HFSPlusExtentDescriptor *)extents)[i].blockCount;
@@ -84,27 +94,47 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents )
 		
 		if ( extentStartBlock >= maxNABlks )
 		{
+			*lastExtentIndex = i;
 			RcdError( GPtr, E_ExtEnt );
 			return( E_ExtEnt );
 		}
-		if ( extentBlockCount >= maxNABlks )
+		/* Check if end of extent is beyond end of disk */
+		if ( extentBlockCount >= (maxNABlks - extentStartBlock) ) 
 		{
+			*lastExtentIndex = i;
 			RcdError( GPtr, E_ExtEnt );
 			return( E_ExtEnt );
 		}			
+		/* This condition is not checked for standard HFS volumes as it is valid 
+		 * to have extent with allocation block number 0 on standard HFS. 
+		 */
+		if ( isHFSPlus && 
+		     ((extentStartBlock == 0) && (extentBlockCount != 0)))
+		{
+			*lastExtentIndex = i;
+			RcdError( GPtr, E_ExtEnt );
+			return( E_ExtEnt );
+
+		}
+		if ((extentStartBlock != 0) && (extentBlockCount == 0))
+		{
+			*lastExtentIndex = i;
+			RcdError( GPtr, E_ExtEnt );
+			return( E_ExtEnt );
+		}	
 		if ( numABlks == 0 )
 		{
 			if ( extentBlockCount != 0 )
 			{
+				*lastExtentIndex = i;
 				RcdError( GPtr, E_ExtEnt );
 				return( E_ExtEnt );
 			}
 		}
 		numABlks = extentBlockCount;
 	}
-	
+		
 	return( noErr );
-	
 }
 
 
@@ -112,11 +142,48 @@ OSErr ChkExtRec ( SGlobPtr GPtr, const void *extents )
 
 Routine:	BTCheck - (BTree Check)
 
-Function:	Checks out the internal structure of a Btree file.  The BTree 
-		structure is enunumerated top down starting from the root node.
-			
-Input:		GPtr		-	pointer to scavenger global area
-			realRefNum		-	file refnum
+Function Description:	
+	Checks out the internal structure of a Btree file.  The BTree 
+	structure is enunumerated top down starting from the root node.
+
+	A structure to store the current traversal state of each Btree level
+	is used.  The function traverses Btree top to down till it finds
+	a leaf node - where it calls checkLeafRecord function for every
+	leaf record (if specified).  The function then starts traversing
+	down from the next index node at previous BTree level.  If all
+	index nodes in given BTree level are traversed top to down,
+	it starts traversing the next index node in a previous BTree level -
+	until it hits the root node.
+
+	Btree traversal:
+	The tree is traversed in depth-first traversal - i.e. we recursively
+	traverse the children of a node before visiting its sibling.  
+	For the btree shown below, this function will traverse as follows:
+	root B C E I H D G F
+
+                     (root node)-----
+                                | B |
+                                -----
+                                  |
+                    (node B)-------------
+                            | C | D | F |
+                            -------------
+                            / (node\      \
+        (node C)-------------   D)-----    -------- (node F)
+                | E | I | H |     | G |    | leaf |
+                -------------     -----    --------
+            /        /    \         |    
+   --------  --------  --------  -------- 
+   | leaf |  | leaf |  | leaf |  | leaf |
+   --------  --------  --------  -------- 
+   (node E)  (node I)  (node H)  (node G)
+
+Input:
+	GPtr		-	pointer to scavenger global area
+	refNum		-	file refnum
+	checkLeafRecord -	pointer to function that should be
+				called for every leaf record.
+
 
 Output:		BTCheck	-	function result:			
 		0	= no error
@@ -130,13 +197,13 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	short			i;
 	short			keyLen;
 	UInt32			nodeNum;
-	short			numRecs;
-	short			index;
+	short			numRecs;	/* number of records in current node */
+	short			index;		/* index to current index record in index node */ 		
 	UInt16			recSize;
-	UInt8			parKey[ kMaxKeyLength + 2 + 2 ];
-	Boolean			hasParKey = false;	
+	UInt8			parKey[ kMaxKeyLength + 2 + 2 ]; /* parent key for comparison */
+	Boolean			hasParKey = false;
 	UInt8			*dataPtr;
-	STPR			*tprP;
+	STPR			*tprP;		/* pointer to store BTree traversal state */
 	STPR			*parentP;
 	KeyPtr			keyPtr;
 	BTHeaderRec		*header;
@@ -185,18 +252,21 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	result = AllocBTN( GPtr, refNum, 0 );
 	if (result) goto exit;	/* node already allocated */
 	
+	/* Check node kind */
 	if ( nodeDescP->kind != kBTHeaderNode )
 	{
 		RcdError( GPtr, E_BadHdrN );
 		result = E_BadHdrN;
 		goto exit;
 	}	
+	/* Check total records allowed in header node */
 	if ( nodeDescP->numRecords != Num_HRecs )
 	{
 		RcdError( GPtr, E_BadHdrN );
 		result = E_BadHdrN;
 		goto exit;
 	}	
+	/* Check node height */
 	if ( nodeDescP->height != 0 )
 	{
 		RcdError( GPtr, E_NHeight );
@@ -210,12 +280,14 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	header = (BTHeaderRec*) ((Byte*)nodeDescP + sizeof(BTNodeDescriptor));
 	recSize = GetRecordSize( (BTreeControlBlock *)calculatedBTCB, (BTNodeDescriptor *)nodeDescP, 0 );	
 	
+	/* Check header size */
 	if ( recSize != sizeof(BTHeaderRec) )
 	{
 		RcdError( GPtr, E_LenBTH );
 		result = E_LenBTH;
 		goto exit;
 	}
+	/* Check tree depth */
 	if ( header->treeDepth > BTMaxDepth )
 	{
 		RcdError( GPtr, E_BTDepth );
@@ -223,6 +295,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	}
 	calculatedBTCB->treeDepth = header->treeDepth;
 	
+	/* Check validity of root node number */
 	if ( header->rootNode >= calculatedBTCB->totalNodes ||
 		 (header->treeDepth != 0 && header->rootNode == kHeaderNodeNum) )
 	{
@@ -231,8 +304,10 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	}
 	calculatedBTCB->rootNode = header->rootNode;
 
+	/* Check if tree depth or root node are zero */
 	if ( (calculatedBTCB->treeDepth == 0) || (calculatedBTCB->rootNode == 0) )
 	{
+		/* If both are zero, empty BTree */
 		if ( calculatedBTCB->treeDepth == calculatedBTCB->rootNode )
 			goto exit;	/* empty BTree */
 
@@ -255,12 +330,16 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 	 * Set up tree path record for root level
 	 */
  	GPtr->BTLevel	= 1;
+	/* BTPTPtr is an array of structure which stores the state
+	 * of the btree traversal based on the current BTree level.
+	 * It helps to traverse to parent node from a child node.
+	 * tprP points to the correct offset to read/write.
+	 */
 	tprP		= &(*GPtr->BTPTPtr)[0];
 	tprP->TPRNodeN	= calculatedBTCB->rootNode;
-	tprP->TPRRIndx	= -1;
+	tprP->TPRRIndx	= -1;	/* last index accessed in a node */
 	tprP->TPRLtSib	= 0;
 	tprP->TPRRtSib	= 0;
-	parKey[0]	= 0;
 		
 	/*
 	 * Now enumerate the entire BTree
@@ -308,6 +387,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			}
 #endif
 
+			/* Allocate BTree node */
 			result = AllocBTN( GPtr, refNum, nodeNum );
 			if ( result ) 
 			{
@@ -317,6 +397,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				goto exit;
 			}
 				
+			/* Check keys in the node */
 			result = BTKeyChk( GPtr, nodeDescP, calculatedBTCB );
 			if ( result ) 
 			{
@@ -327,6 +408,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				goto exit;
 			}
 				
+			/* Check backward link of this node */ 
 			if ( nodeDescP->bLink != tprP->TPRLtSib )
 			{
 				result = E_SibLk;
@@ -342,6 +424,7 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			}
 			else
 			{
+				/* Check forward link for this node */
 				if ( nodeDescP->fLink != tprP->TPRRtSib )
 				{				
 					result = E_SibLk;
@@ -353,12 +436,16 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				}
 			}
 			
+			/* Check node kind - it should either be index node or leaf node */
 			if ( (nodeDescP->kind != kBTIndexNode) && (nodeDescP->kind != kBTLeafNode) )
 			{
 				result = E_NType;
 				RcdError( GPtr, E_NType );
 				goto exit;
 			}	
+			/* Check if the height of this node is correct based on calculated
+			 * tree depth and current btree level of the traversal 
+			 */
 			if ( nodeDescP->height != calculatedBTCB->treeDepth - GPtr->BTLevel + 1 )
 			{
 				result = E_NHeight;
@@ -369,10 +456,9 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 				goto exit;
 			}
 				
-			/* If we saved the first key in the parent (index) node 
-			 * in past, use it to compare with the key of the first 
-			 * record in the current node.  This check should be 
-			 * performed for all nodes except the root node.
+			/* If we saved the first key in the parent (index) node in past, use it to compare 
+			 * with the key of the first record in the current node.  This check should 
+			 * be performed for all nodes except the root node.
 			 */
 			if ( hasParKey == true )
 			{
@@ -402,25 +488,36 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			index++;	/* on to next index record */
 			if ( index >= numRecs )
 			{
+				/* We have traversed children of all index records in this index node.
+				 * Decrement the current btree level to access right sibling index record
+				 * of previous btree level 
+				 */
 				GPtr->BTLevel--;
 				continue;	/* No more records */
 			}
 			
+			/* Store current index for current Btree level */
 			tprP->TPRRIndx	= index;
+			/* Store current pointer as parent for next traversal */
 			parentP			= tprP;
+			/* Increase the current Btree level because we traverse top to down */
 			GPtr->BTLevel++;
 
+			/* Validate current btree traversal level */
 			if ( GPtr->BTLevel > BTMaxDepth )
 			{
 				RcdError( GPtr, E_BTDepth );
 				goto RebuildBTreeExit;
 			}				
+			/* Get the btree traversal state for current btree level */ 
 			tprP = &(*GPtr->BTPTPtr)[GPtr->BTLevel -1];
 			
+			/* Get index record in the current btree level at offset index in the given node */
 			GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, 
 							  index, &keyPtr, &dataPtr, &recSize );
 			
 			nodeNum = *(UInt32*)dataPtr;
+			/* Current node number should not be header node number or greater than total nodes */
 			if ( (nodeNum == kHeaderNodeNum) || (nodeNum >= calculatedBTCB->totalNodes) )
 			{
 				RcdError( GPtr, E_IndxLk );
@@ -437,20 +534,25 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			CopyMemory(keyPtr, parKey, keyLen);
 			hasParKey = true;
 				
+			/* Store current node number for the child node */
 			tprP->TPRNodeN = nodeNum;
+			/* Initialize index to records for the child node */
 			tprP->TPRRIndx = -1;
+
 			tprP->TPRLtSib = 0;	/* left sibling */
-			
 			if ( index > 0 )
 			{
+				/* Get node number for the previous index record in current index node */
 				GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, index-1, &keyPtr, &dataPtr, &recSize );
 
 				nodeNum = *(UInt32*)dataPtr;
+				/* node number should not be header node number or greater than total nodes */
 				if ( (nodeNum == kHeaderNodeNum) || (nodeNum >= calculatedBTCB->totalNodes) )
 				{
 					RcdError( GPtr, E_IndxLk );
 					goto RebuildBTreeExit;
 				}
+				/* Store this as left sibling node */
 				tprP->TPRLtSib = nodeNum;
 			}
 			else
@@ -462,13 +564,17 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 			tprP->TPRRtSib = 0;	/* right sibling */
 			if ( index < (numRecs -1) )
 			{
+				/* Get node number for the next index record in current index node */
 				GetRecordByIndex( (BTreeControlBlock *)calculatedBTCB, nodeDescP, index+1, &keyPtr, &dataPtr, &recSize );
+
 				nodeNum = *(UInt32*)dataPtr;
+				/* node number should not be header node number or greater than total nodes */
 				if ( (nodeNum == kHeaderNodeNum) || (nodeNum >= calculatedBTCB->totalNodes) )
 				{
 					RcdError( GPtr, E_IndxLk );
 					goto RebuildBTreeExit;
 				}
+				/* Store this as right sibling node */
 				tprP->TPRRtSib = nodeNum;
 			}
 			else
@@ -483,19 +589,28 @@ BTCheck(SGlobPtr GPtr, short refNum, CheckLeafRecordProcPtr checkLeafRecord)
 		 */
 		else
 		{
+			/* If left sibling link is zero, this is first leaf node */
 			if ( tprP->TPRLtSib == 0 )
 				calculatedBTCB->firstLeafNode = nodeNum;
+			/* If right sibling link is zero, this is last leaf node */
 			if ( tprP->TPRRtSib == 0 )
 				calculatedBTCB->lastLeafNode = nodeNum;
 			leafRecords	+= nodeDescP->numRecords;
 
 			if (checkLeafRecord != NULL) {
+				/* For total number of records in this leaf node, get each record sequentially 
+				 * and call function to check individual leaf record through the
+				 * function pointer passed by the caller
+				 */
 				for (i = 0; i < nodeDescP->numRecords; i++) {
 					GetRecordByIndex(calculatedBTCB, nodeDescP, i, &keyPtr, &dataPtr, &recSize);
 					result = checkLeafRecord(GPtr, keyPtr, dataPtr, recSize);
 					if (result) goto exit;
 				}
 			}
+			/* Decrement the current btree level as we want to access 
+			 * the right sibling index record, if any, of our parent.
+			 */
 			GPtr->BTLevel--;
 			continue;
 		}		

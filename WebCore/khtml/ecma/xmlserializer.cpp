@@ -45,7 +45,6 @@ IMPLEMENT_PROTOTYPE(XMLSerializerProto,XMLSerializerProtoFunc)
 namespace KJS {
 
 XMLSerializerConstructorImp::XMLSerializerConstructorImp(ExecState *)
-    : ObjectImp()
 {
 }
 

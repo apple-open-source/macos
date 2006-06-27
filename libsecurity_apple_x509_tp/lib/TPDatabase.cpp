@@ -359,7 +359,7 @@ TPCrlInfo *tpDbFindIssuerCrl(
 			CSSM_DL_FreeUniqueRecord(dlDb, record);
 			
 			/* Does it verify with specified context? */
-			crtn = issuerCrl->verifyWithContext(vfyCtx, &forCert);
+			crtn = issuerCrl->verifyWithContextNow(vfyCtx, &forCert);
 			if(crtn) {
 					
 				delete issuerCrl;
@@ -399,7 +399,7 @@ TPCrlInfo *tpDbFindIssuerCrl(
 
 					CSSM_DL_FreeUniqueRecord(dlDb, record);
 
-					crtn = issuerCrl->verifyWithContext(vfyCtx, &forCert);
+					crtn = issuerCrl->verifyWithContextNow(vfyCtx, &forCert);
 					if(crtn == CSSM_OK) {
 						/* yes! */
 						break;

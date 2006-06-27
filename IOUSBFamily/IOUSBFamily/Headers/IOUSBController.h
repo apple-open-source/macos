@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,7 +65,10 @@ enum
     kErrataAgereEHCIAsyncSched		= (1 << 8),		// needs workaround for Async Sched bug
     kErrataNECOHCIIsochWraparound	= (1 << 9),		// needs workaround for NEC isoch buffer wraparound problem
 	kErrataNECIncompleteWrite		= (1 << 10),	// needs workaround for NEC bits not sticking (errata IBB-2UE-00030 Jun 23 2005)
-	kErrataICH6PowerSequencing		= (1 << 11)		// needs special power sequencing for early Transition machines
+	kErrataICH6PowerSequencing		= (1 << 11),	// needs special power sequencing for early Transition machines
+	kErrataICH7ISTBuffer			= (1 << 12),	// buffer for Isochronous Scheduling Threshold
+	kErrataUHCISupportsOvercurrent	= (1 << 13),	// UHCI controller supports overcurrent detection
+	kErrataNeedsOvercurrentDebounce = (1 << 14)		// The overcurrent indicator should be debounced by 10ms
 };
 
 enum
@@ -165,8 +168,9 @@ protected:
         UInt32			_currentSizeOfCommandPool;
         UInt32			_currentSizeOfIsocCommandPool;
         UInt8			_controllerSpeed;	// Controller speed, passed down for splits
-        thread_call_t		_terminatePCCardThread;
+        thread_call_t	_terminatePCCardThread;
         bool			_addressPending[128];
+		SInt32			_activeIsochTransfers;				// isochronous transfers in the queue
     };
     ExpansionData *_expansionData;
 

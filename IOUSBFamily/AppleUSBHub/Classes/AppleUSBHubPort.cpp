@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -71,7 +71,7 @@ AppleUSBHubPort::init( AppleUSBHub *parent, int portNum, UInt32 powerAvailable, 
 	
     if (!_hub || !_bus || !_hubDesc || (portNum < 1) || (portNum > 64))
 	{
-		USBLog(2,"AppleUSBHubPort[%p]::init failure (Parent: %p, Bus: %ld, Desc: 0x%x, PortNum: %ld", this, parent, _bus, _hubDesc, portNum); 
+		USBLog(2,"AppleUSBHubPort[%p]::init failure (Parent: %p, Bus: %p, Desc: %p, PortNum: %d", this, parent, _bus, _hubDesc, portNum); 
         return kIOReturnBadArgument;
     }
     _runLock = IOLockAlloc();
@@ -337,9 +337,11 @@ errorExit:
 IOReturn 
 AppleUSBHubPort::AddDevice(void)
 {
-    IOReturn		err = kIOReturnSuccess;
-    bool		checkingForDeadHub = false;
+    IOReturn			err = kIOReturnSuccess;
+    bool				checkingForDeadHub = false;
     IOUSBHubPortStatus	status;
+	int					i, j;
+	bool				resetActive;
 
     USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - start", this, _portNum, _hub);
     do
@@ -351,8 +353,8 @@ AppleUSBHubPort::AddDevice(void)
             _devZero = AcquireDeviceZero();
             if (!_devZero)
             {
-           	USBLog(2, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - bus %p - unable to get devZero lock", this, _portNum, _hub, _bus);
-		FatalError(/*FIXME*/0, "acquiring device zero");
+				USBLog(2, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - bus %p - unable to get devZero lock", this, _portNum, _hub, _bus);
+				FatalError(/*FIXME*/0, "acquiring device zero");
                 break;
             }
         }
@@ -361,21 +363,51 @@ AppleUSBHubPort::AddDevice(void)
             USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - bus %p - already owned devZero lock", this, _portNum, _hub, _bus);
         }
 
-        USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d @ 0x%x - resetting port", this, _portNum, _hub->_locationID);
+        USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d @ 0x%lx - resetting port", this, _portNum, _hub->_locationID);
         SetPortVector(&AppleUSBHubPort::AddDeviceResetChangeHandler, kHubPortBeingReset);
-        err = _hub->SetPortFeature(kUSBHubPortResetFeature, _portNum);
+
+		err = _hub->SetPortFeature(kUSBHubPortResetFeature, _portNum);
         if (err)
         {
             USBLog(3, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - unable (err = %x) to reset port", this, _portNum, _hub, err);
             FatalError(err, "set feature (resetting port)");
-	    if (err == kIOUSBTransactionTimeout)
-	    {
-		_hub->CallCheckForDeadHub();			// pull the plug if it isn't already
-		checkingForDeadHub = true;
-	    }
+			if (err == kIOUSBTransactionTimeout)
+			{
+				_hub->CallCheckForDeadHub();			// pull the plug if it isn't already
+				checkingForDeadHub = true;
+			}
             break;
         }
-        USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - sleeping 100 ms", this, _portNum, _hub);
+		IOSleep(1);
+        err = _hub->GetPortStatus(&status, _portNum);
+		j=0;
+		resetActive = false;
+		
+		if ((status.statusFlags & kHubPortBeingReset) || (status.changeFlags & kHubPortBeingReset) || (_state == hpsSetAddress))
+			resetActive = true;
+		
+		while (j++ < 5 && !resetActive && !err)
+		{
+			i = 0;
+			while ((i++ < 10) && !err)
+			{
+				err = _hub->GetPortStatus(&status, _portNum);
+				if ((status.statusFlags & kHubPortBeingReset) || (status.changeFlags & kHubPortBeingReset) || (_state == hpsSetAddress))
+				{
+					resetActive = true;
+					break;						// inner loop
+				}
+				USBLog(1, "AppleUSBHubPort[%p]::AddDevice - port[%d] not in reset after %d ms", this, _portNum, i);
+				if (i == 10)
+				{
+					USBLog(1, "AppleUSBHubPort[%p]::AddDevice - retrying SetPortReset", this);
+					err = _hub->SetPortFeature(kUSBHubPortResetFeature, _portNum);
+				}
+				IOSleep(1);
+			}
+		}
+
+        USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice - port %d on hub %p - sleeping 100 ms - err[%p]", this, _portNum, _hub, (void*)err);
         IOSleep(100);
     } while(false);
 
@@ -385,22 +417,22 @@ AppleUSBHubPort::AddDevice(void)
         // Need to disable the port before releasing the lock
         //
         
-	if (!checkingForDeadHub)
-	{
-	    if ( (err = _hub->ClearPortFeature(kUSBHubPortEnableFeature, _portNum)) )
-	    {
-		// If we get an error at this point, it probably means that the hub went away.  Note the error but continue to 
-		// release the devZero lock.
-		//
-		USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice  ClearPortFeature for Port %d returned 0x%x", this, _portNum, err);
-		FatalError(err, "clearing port feature");
-		if (err == kIOUSBTransactionTimeout)
+		if (!checkingForDeadHub)
 		{
-		    _hub->CallCheckForDeadHub();			// pull the plug if it isn't already
-		    checkingForDeadHub = true;
+			if ( (err = _hub->ClearPortFeature(kUSBHubPortEnableFeature, _portNum)) )
+			{
+				// If we get an error at this point, it probably means that the hub went away.  Note the error but continue to 
+				// release the devZero lock.
+				//
+				USBLog(5, "***** AppleUSBHubPort[%p]::AddDevice  ClearPortFeature for Port %d returned 0x%x", this, _portNum, err);
+				FatalError(err, "clearing port feature");
+				if (err == kIOUSBTransactionTimeout)
+				{
+					_hub->CallCheckForDeadHub();			// pull the plug if it isn't already
+					checkingForDeadHub = true;
+				}
+			}
 		}
-	    }
-	}
         
         _bus->ReleaseDeviceZero();
         _devZero = false;
@@ -466,7 +498,7 @@ AppleUSBHubPort::SuspendPort( bool suspend)
 
         if (!suspend && !(status.statusFlags & kHubPortSuspend) )
         {
-			USBLog(3,"AppleUSBHubPort[%p]::SuspendPort Port was NOT suspended", this);
+			USBLog(5,"AppleUSBHubPort[%p]::SuspendPort Port was NOT suspended", this);
            // We were trying to resume but the port was not supended.  Just ignore the
             // request, but send a message
             if ( _portDevice )
@@ -520,12 +552,13 @@ AppleUSBHubPort::SuspendPort( bool suspend)
 IOReturn
 AppleUSBHubPort::ReEnumeratePort(UInt32 options)
 {
-    USBLog(5,"AppleUSBHubPort[%p]::ReEnumeratePort -- reenumerating port %d, options 0x%x",this, _portNum, options);
+    USBLog(5,"AppleUSBHubPort[%p]::ReEnumeratePort -- reenumerating port %d, options 0x%lx",this, _portNum, options);
 
     // Test to see if bit31 is set, and if so, set up a flag to indicate that we need to wait 100ms after a reset and before
     // talking to the device (Bluetooth workaround)
     if ( (options & kUSBAddExtraResetTimeMask) )
     {
+        USBLog(5,"AppleUSBHubPort[%p]::ReEnumeratePort -- reenumerating port %d, options 0x%lx",this, _portNum, options);
         _extraResetDelay = true;
     }
     else
@@ -597,14 +630,14 @@ IOUSBDevRequest request;
     request.wLenDone = 0;
 
     err = _hub->DoDeviceRequest(&request);
-    USBLog(5,"AppleUSBHubPort[%p]::ClearTT -- port %d, options:%lX, wValue:%X, wIndex:%X, IOReturn: %LX",this, _portNum, opts, wValue, wIndex, err);
+    USBLog(5,"AppleUSBHubPort[%p]::ClearTT -- port %d, options:%lX, wValue:%X, wIndex:%X, IOReturn: 0x%x",this, _portNum, opts, wValue, wIndex, err);
     
     if( (err == kIOReturnSuccess) && (endpointType == 0) )	// Control endpoint.
     {
 	wValue ^= (1 << 15);	// Flip direction bit and do it again.
 	request.wValue = wValue;
 	err = _hub->DoDeviceRequest(&request);
-	USBLog(5,"AppleUSBHubPort[%p]::ClearTT -- do it again for control transactions, wValue:%X, IOReturn: %LX",this, wValue, err);
+	USBLog(5,"AppleUSBHubPort[%p]::ClearTT -- do it again for control transactions, wValue:%X, IOReturn: 0x%x",this, wValue, err);
     }
     
     return err;
@@ -629,6 +662,8 @@ AppleUSBHubPort::ResetPort()
             break;
         }
 
+#if 1
+		// We should remove this in Leopard.  We can't do it earlier 'cause we need more testing
         // Check to see if the port is suspended and if so, clear that feature
         //
         err = _hub->GetPortStatus(&status, _portNum);
@@ -661,7 +696,8 @@ AppleUSBHubPort::ResetPort()
                 USBError(1, "AppleUSBHubPort[%p]::ResetPort for port %d Port is still suspended after clearing it", this, _portNum);
            }
         }
-    
+#endif
+
         // OK, set our handler for a reset to the portReset handler and call the
         // hub to actually reset the port
         //
@@ -704,12 +740,12 @@ AppleUSBHubPort::FatalError(IOReturn err, char *str)
     {
 		if (err != kIOUSBDeviceNotHighSpeed)
 		{
-			USBLog(1, "AppleUSBHubPort[%p]: Port %d of Hub at 0x%x: error 0x%x: %s",this, _portNum, _hub->_locationID, err, str);
+			USBLog(1, "AppleUSBHubPort[%p]: Port %d of Hub at 0x%lx: error 0x%x: %s",this, _portNum, _hub->_locationID, err, str);
 		}
     }
     else
     {
-		USBError(1, "AppleUSBHubPort: Port %d of Hub at 0x%x reported error 0x%x while doing %s", _portNum, _hub->_locationID, err, str);
+		USBError(1, "AppleUSBHubPort: Port %d of Hub at 0x%lx reported error 0x%x while doing %s", _portNum, _hub->_locationID, err, str);
     }
     
     if (_portDevice != 0)
@@ -768,11 +804,11 @@ IOUSBControllerV2 *v2Bus;
 IOReturn 
 AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFlags)
 {
-    IOReturn		err = kIOReturnSuccess;
-    IOReturn		err2 = kIOReturnSuccess;
-    IOUSBDevice	*	usbDevice; 
-    USBDeviceAddress 	address;
-    UInt32		delay = 10;
+    IOReturn				err = kIOReturnSuccess;
+    IOReturn				err2 = kIOReturnSuccess;
+    IOUSBDevice	*			usbDevice; 
+    USBDeviceAddress		address;
+    UInt32					delay = 10;
     const IORegistryPlane 	* usbPlane;
     
     USBLog(5, "***** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub %p - start", this, _portNum, _hub);
@@ -819,12 +855,12 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
             if (_getDeviceDescriptorFailed)
             {
                 delay = 300;
-                USBLog(3, "**1** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub %p - new delay %d", this, _portNum, _hub, delay);
+                USBLog(3, "**1** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub %p - new delay %ld", this, _portNum, _hub, delay);
             }
                 
             // Now wait 10 ms (or 300ms -- see above) after reset
             //
-            USBLog(5, "**1** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub %p - delaying %d ms", this, _portNum, _hub, delay);
+            USBLog(5, "**1** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d on hub %p - delaying %ld ms", this, _portNum, _hub, delay);
             IOSleep(delay);
             
             // Mac OS 9 state 2
@@ -900,7 +936,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
             // еее Why don't we add the -1 to setAddressFailed, as we do on 9?
             //
             delay = ((_setAddressFailed) * 30) + (_setAddressFailed * 3);
-            USBLog(3, "**4** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, previous SetAddress failed, sleeping for %d milliseconds", this, _portNum, delay);
+            USBLog(3, "**4** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, previous SetAddress failed, sleeping for %ld milliseconds", this, _portNum, delay);
             IOSleep(delay);
         }
 
@@ -992,7 +1028,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
             delay = (_setAddressFailed * 30) + (_setAddressFailed * 3);
             if ( delay )
             {
-                USBLog(3, "**8** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, sleeping for %d milliseconds", this, _portNum, delay);
+                USBLog(3, "**8** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, sleeping for %ld milliseconds", this, _portNum, delay);
                 IOSleep(delay);
             }
         }
@@ -1027,18 +1063,17 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
 
         _state = hpsNormal;
         
-       err = DoCreateDevice(_bus, usbDevice, address, _desc.bMaxPacketSize0, _speed, _portPowerAvailable,
-                                    _hub->_device->GetAddress(), _portNum);
+       err = DoCreateDevice(_bus, usbDevice, address, _desc.bMaxPacketSize0, _speed, _portPowerAvailable, _hub->_device->GetAddress(), _portNum);
         if ( !err )
         {
-	    _portDevice = usbDevice;
+			_portDevice = usbDevice;
         }
         else
         {
             USBLog(3, "**9** AppleUSBHubPort[%p]::AddDeviceResetChangeHandler -  port %d, did NOT get _portDevice", this, _portNum);
             err = err2;
-	    usbDevice->release();
-	    usbDevice = NULL;
+			usbDevice->release();
+			usbDevice = NULL;
         }
         
 	if (!_portDevice)
@@ -1095,6 +1130,7 @@ AppleUSBHubPort::AddDeviceResetChangeHandler(UInt16 changeFlags, UInt16 statusFl
             _portDevice->setProperty("non-removable","yes");
        
         // register the NUB
+		USBLog(5, "AppleUSBHubPort[%p]::AddDeviceResetChangeHandler - port %d, calling registerService on device %s", this, _portNum, _portDevice->getName() );
         _portDevice->registerService();
 
     } while(false);
@@ -1155,12 +1191,12 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
             if (_getDeviceDescriptorFailed)
             {
                 delay = 300;
-                USBLog(3, "**1** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub %p - new delay %d", this, _portNum, _hub, delay);
+                USBLog(3, "**1** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub %p - new delay %ld", this, _portNum, _hub, delay);
             }
 			
             // Now wait 10 ms (or 300ms -- see above) after reset
             //
-            USBLog(5, "**1** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub %p - delaying %d ms", this, _portNum, _hub, delay);
+            USBLog(5, "**1** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub %p - delaying %ld ms", this, _portNum, _hub, delay);
             IOSleep(delay);
             
             // Mac OS 9 state 2
@@ -1196,7 +1232,6 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
             // Now do a device request to find out what it is.  Some fast devices send back packets > 8 bytes to address 0.
             // We will attempt 5 times with a 30ms delay between each (that's  what we do on MacOS 9 )
             //
-            bzero(&_desc, sizeof(_desc));
             USBLog(5, "**3** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d on hub %p - getting dev zero desc", this, _portNum, _hub);
             err = GetDevZeroDescriptorWithRetries();
             
@@ -1217,7 +1252,7 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
             // Last time we were here, the following set address failed, so give it some more time
             //
             delay = ((_setAddressFailed) * 30) + (_setAddressFailed * 3);
-            USBLog(3, "**4** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d, previous SetAddress failed, sleeping for %d milliseconds", this, _portNum, delay);
+            USBLog(3, "**4** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d, previous SetAddress failed, sleeping for %ld milliseconds", this, _portNum, delay);
             IOSleep(delay);
         }
 		
@@ -1331,7 +1366,7 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
             delay = (_setAddressFailed * 30) + (_setAddressFailed * 3);
             if ( delay )
             {
-                USBLog(3, "**8** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d, sleeping for %d milliseconds", this, _portNum, delay);
+                USBLog(3, "**8** AppleUSBHubPort[%p]::HandleResetPortHandler - port %d, sleeping for %ld milliseconds", this, _portNum, delay);
                 IOSleep(delay);
             }
         }
@@ -1400,7 +1435,7 @@ AppleUSBHubPort::HandleResetPortHandler(UInt16 changeFlags, UInt16 statusFlags)
 IOReturn
 AppleUSBHubPort::HandleSuspendPortHandler(UInt16 changeFlags, UInt16 statusFlags)
 {
-    USBLog(3, "AppleUSBHubPort[%p]::HandleSuspendPortHandler for port %d, changeFlags: 0x%x", this, _portNum, changeFlags);
+    USBLog(5, "AppleUSBHubPort[%p]::HandleSuspendPortHandler for port %d, changeFlags: 0x%x", this, _portNum, changeFlags);
     SetPortVector(&AppleUSBHubPort::DefaultSuspendChangeHandler, kHubPortSuspend);
 
     // Send a message to the device that the port has been resumed
@@ -1633,7 +1668,7 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
 	// Need to wait until the init routine is finished
 	if ( !IOLockTryLock(_initLock) )
 	{
-        USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler: _initLock for port %d @ 0x%x held! Waiting...", this, _portNum, _hub->_locationID);
+        USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler: _initLock for port %d @ 0x%lx held! Waiting...", this, _portNum, _hub->_locationID);
 		
 		// Block while we wait for the PortInit routine to finish
 		IOLockLock(_initLock);
@@ -1689,11 +1724,11 @@ AppleUSBHubPort::PortStatusChangedHandler(void)
             if (!(_portStatus.changeFlags & _changeHandler[which].bit))
                 continue;
             
-            USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - change %d clearing %x feature.", this, _portNum, which, _changeHandler[which].clearFeature);
+            USBLog(5, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - change %d clearing %lx feature.", this, _portNum, which, _changeHandler[which].clearFeature);
             _statusChangedState = 4;
             if ((err = _hub->ClearPortFeature(_changeHandler[which].clearFeature, _portNum)))
             {
-                USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - error %x clearing %x feature.", this, _portNum, err, _changeHandler[which].clearFeature);
+                USBLog(3, "AppleUSBHubPort[%p]::PortStatusChangedHandler - port %d - error %x clearing %lx feature.", this, _portNum, err, _changeHandler[which].clearFeature);
                 FatalError(err, "clear port vector bit feature");
                 goto errorExit;
             }
@@ -1858,7 +1893,7 @@ AppleUSBHubPort::SetPortVector(ChangeHandlerFuncPtr	routine,
 IOReturn 
 AppleUSBHubPort::ReleaseDevZeroLock()
 {
-    USBLog(5, "AppleUSBHubPort[%p]::ReleaseDevZeroLock devZero = %p", this, _devZero);
+    USBLog(5, "AppleUSBHubPort[%p]::ReleaseDevZeroLock devZero = 0x%x", this, _devZero);
 
     if (_devZero)
     {
@@ -1894,7 +1929,7 @@ AppleUSBHubPort::DetachDevice()
 	//
 	if ( !_attachMessageDisplayed )
 	{
-        USBError(1,"[%p] The IOUSBFamily is having trouble enumerating a USB device that has been plugged in.  It will keep retrying.  (Port %d of hub @ location: 0x%x)", this, _portNum, _hub->_locationID);
+        USBError(1,"[%p] The IOUSBFamily is having trouble enumerating a USB device that has been plugged in.  It will keep retrying.  (Port %d of hub @ location: 0x%lx)", this, _portNum, _hub->_locationID);
 		_attachMessageDisplayed = true;
 	}
     
@@ -1910,7 +1945,7 @@ AppleUSBHubPort::DetachDevice()
         //
         delay = _attachRetry * 100;
         
-        USBLog(2, "AppleUSBHubPort[%p]::DetachDevice (Port %d), attachRetry limit reached. delaying for %d milliseconds", this, _portNum, delay);
+        USBLog(2, "AppleUSBHubPort[%p]::DetachDevice (Port %d), attachRetry limit reached. delaying for %ld milliseconds", this, _portNum, delay);
         IOSleep(delay);
         
         // Try power off and disabling the port
@@ -2004,30 +2039,43 @@ ErrorExit:
 IOReturn
 AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
 {
-    UInt32 	delay = 30;
-    UInt32 	retries = 4;
-    IOReturn	err = kIOReturnSuccess;
+    UInt32				delay = 30;
+    UInt32				retries = 4;
+    IOReturn			err = kIOReturnSuccess;
+    IOReturn			portStatusErr = kIOReturnSuccess;
     IOUSBHubPortStatus	status;
     
     do 
     {
-        err = _bus->GetDeviceZeroDescriptor(&_desc, 8); 	// get the first 8 bytes
+		bzero(&_desc, sizeof(_desc));
+		err = _bus->GetDeviceZeroDescriptor(&_desc, 8); 	// get the first 8 bytes
         
         // If the error is kIOReturnOverrun, we still received our 8 bytes, so signal no error. 
         //
         if ( err == kIOReturnOverrun )
         {
-            err = kIOReturnSuccess;
-            break;
+			USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - GetDeviceZeroDescriptor returned kIOReturnOverrun.  Checking to for valid descripor", this, _portNum);
+           
+			// We need to check that _desc looks like a valiad one
+			if ( (_desc.bDescriptorType == kUSBDeviceDesc) && (_desc.bLength == 18) )
+			{
+				// OK, let's assume that the rest of the descriptor is OK
+				USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - GetDeviceZeroDescriptor returned kIOReturnOverrun.  Descriptor looks valid", this, _portNum);
+				err = kIOReturnSuccess;
+				break;
+			}
         }
         
         if ( err )
         {
+			USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - GetDeviceZeroDescriptor returned 0x%x", this, _portNum, err);
+
             // Let's make sure that the device is still here.  Maybe it has gone away and we won't process the notification 'cause we're in PSCH
             // Get the PortStatus to see if the device is still there.
-            err = _hub->GetPortStatus(&status, _portNum);
-            if (err != kIOReturnSuccess)
+            portStatusErr = _hub->GetPortStatus(&status, _portNum);
+            if (portStatusErr != kIOReturnSuccess)
             {
+				USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - GetPortStatus returned 0x%x", this, _portNum, err);
                 FatalError(err, "getting port status (4)");
                 break;
             }
@@ -2036,18 +2084,32 @@ AppleUSBHubPort::GetDevZeroDescriptorWithRetries()
             {
                 // We don't have a connection on this port anymore.
                 //
-                USBLog(5, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - device has gone away", this, _portNum);
+                USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - device has gone away", this, _portNum);
                 _state = hpsDeadDeviceZero;
                 err = kIOReturnNoDevice;
                 break;
             }
             
+			// If the port is suspended, we should unsuspend it and try again
+			// ееее
+			if ( status.statusFlags & kHubPortSuspend)
+			{
+                USBLog(1, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d - port is suspended", this, _portNum);
+
+				portStatusErr = _hub->ClearPortFeature(kUSBHubPortSuspendFeature, _portNum);
+				if (kIOReturnSuccess != portStatusErr)
+				{
+					USBLog(3, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries Could not ClearPortFeature (%d) (kHubPortSuspend): (0x%x)", this, _portNum, err);
+					break;
+				}
+			}
+			
             if ( retries == 2)
                 delay = 3;
             else if ( retries == 1 )
                 delay = 30;
                 
-            USBLog(3, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d, err: %x - sleeping for %d milliseconds", this, _portNum, err, delay);
+            USBLog(3, "AppleUSBHubPort[%p]::GetDevZeroDescriptorWithRetries - port %d, err: %x - sleeping for %ld milliseconds", this, _portNum, err, delay);
             IOSleep( delay );
             retries--;
         }

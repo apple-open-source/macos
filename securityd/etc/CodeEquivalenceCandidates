@@ -33,8 +33,10 @@
 /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/AE.framework/Versions/Current/Support/AEServer
 /System/Library/Frameworks/ApplicationServices.framework/Versions/Current/Frameworks/AE.framework/Versions/Current/Support/AEServer
 /System/Library/Frameworks/InstantMessage.framework/iChatAgent.app
+/System/Library/Frameworks/SecurityFoundation.framework/Resources/dotmacfx.app
 /System/Library/Frameworks/SecurityFoundation.framework/Resources/kcSync.app
 /System/Library/PreferencePanes/Mac.prefPane
+/System/Library/PreferencePanes/Mac.prefPane/Contents/Resources/dotMacPrefTool
 /System/Library/PrivateFrameworks/Admin.framework/Resources/writeconfig
 /System/Library/PrivateFrameworks/Admin.framework/Versions/A/Resources/writeconfig
 /System/Library/PrivateFrameworks/Apple80211.framework/Versions/A/Resources/airport
@@ -46,6 +48,9 @@
 /System/Library/PrivateFrameworks/DMNotification.framework/Resources/dmnotifyd
 /System/Library/PrivateFrameworks/DMNotification.framework/Versions/A/Resources/dmnotifyd
 /System/Library/PrivateFrameworks/DMNotification.framework/Versions/Current/Resources/dmnotifyd
+/System/Library/PrivateFrameworks/Syndication.framework/Resources/SyndicationAgent.app/Contents/MacOS/SyndicationAgent
+/System/Library/PrivateFrameworks/Syndication.framework/Versions/A/Resources/SyndicationAgent.app/Contents/MacOS/SyndicationAgent
+/System/Library/PrivateFrameworks/Syndication.framework/Versions/Current/Resources/SyndicationAgent.app/Contents/MacOS/SyndicationAgent
 /System/Library/ScriptingAdditions/Keychain Scripting.app
 /sbin/mount_smbfs
 /sbin/mount_webdav

@@ -17,8 +17,10 @@
 	<string>/System/Library/Frameworks/InstantMessage.framework/iChatAgent.app</string>
 	<string>/System/Library/Frameworks/SecurityFoundation.framework/Resources/dotmacfx.app</string>
 	<string>/System/Library/Frameworks/SecurityFoundation.framework/Resources/kcSync.app</string>
+        <string>/System/Library/PreferencePanes/Mac.prefPane/Contents/Resources/dotMacPrefTool</string>
 	<string>/System/Library/PrivateFrameworks/DotmacLegacy.framework/Resources/dotMacTranslator</string>
 	<string>/System/Library/PrivateFrameworks/DMNotification.framework/Resources/dmnotifyd</string>
+	<string>/System/Library/PrivateFrameworks/Syndication.framework/Resources/SyndicationAgent.app/Contents/MacOS/SyndicationAgent</string>
 	<string>/usr/sbin/mDNSResponder</string>
 	<string>/System/Library/PreferencePanes/Mac.prefPane</string>
 </array>

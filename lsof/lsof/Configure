@@ -14,7 +14,7 @@
 # shell script, named $LSOF_MK, that places its source modules in this
 # directory.
 #
-# $Id: Configure,v 1.141 2004/10/19 19:36:15 abe Exp $
+# $Id: Configure,v 1.150 2006/04/10 12:44:20 abe Exp $
 
 #LSOF_CFLAGS_OVERRIDE=1 may be introduced through the environment to cause
 #	the library Makefile's CFLAGS definition to override any in the
@@ -28,7 +28,7 @@ LSOF_HLP_BASE=./cfghlp.
 LSOF_HLP=${LSOF_HLP_BASE}$$
 
 #LSOF_LOCALSUFFIX may be introduced through the environment to select a local
-#	          version of a Makefile.  It is used as a suffix to $LSOF_MKF.
+#		  version of a Makefile.  It is used as a suffix to $LSOF_MKF.
 
 LSOF_MK=Mksrc
 
@@ -84,6 +84,9 @@ LSOF_VF=version
 #	$LSOF_LINUX_INCL    temporary variable for holding path to Linux
 #			    include files
 #	$LSOF_LOCALSUFFIX   local suffix for Makefile
+#	$LSOF_NBSD_BUFQH    NetBSD <sys/bufq.h> copy status
+#	$LSOF_NBSD_PTYFS    NetBSD ${NETBSD_SYS}/sys/fs/ptyfs/ copy status
+#	$LSOF_N_UNIXV	    *BSD system's kernel file
 #	$LSOF_PL	    patch level
 #	$LSOF_RANLIB	    randomizing command for the lsof library
 #	$LSOF_SCRIPT_CALL   Customize and Inventory scripts call status
@@ -106,6 +109,7 @@ LSOF_VF=version
 #	$LSOF_TSTLFF	    tests LDFLAGS file
 #	$LSOF_TSTLFLG	    tests LDFLAGS values
 #	$LSOF_TSTSUBD	    test subdirectory
+#	$LSOF_TSTVPATH	    test v_path state (for $LSOF_TSTCFLG)
 #	$LSOF_TSTXO	    test extra objects (for $LSOF_TSTXOC)
 #	$LSOF_TSTXOC	    test extra objects file
 #	$LSOF_VERS	    Unix dialect version as a decimal number -- may
@@ -162,6 +166,7 @@ LSOF_TSTK64=0
 LSOF_TSTKMEM=1
 LSOF_TSTLFF="${LSOF_TSTSUBD}/config.ldflags"
 LSOF_TSTLFLG=""
+LSOF_TSTVPATH=0
 LSOF_TSTXO=""
 LSOF_TSTXOC="${LSOF_TSTSUBD}/config.xobj"
 if test "X$LSOF_VERS" = "X"	# {
@@ -186,7 +191,6 @@ Usage: Configure <options> <target-dialect>
               -n            : avoid AFS, customization, and inventory checks
   <target-dialect> (****USE -d TO GET TESTED DIALECT VERSION NUMBERS****):
     aix|aixgcc              : IBM AIX xlc (aix) or gcc (aixgcc)
-    bsdi                    : BSDI BSD/OS
     darwin                  : Apple Darwin
     decosf                  : DEC OSF/1
     digital_unix|du         : Digital UNIX
@@ -197,9 +201,9 @@ Usage: Configure <options> <target-dialect>
     nextstep|next|ns|nxt    : NEXTSTEP
     openbsd                 : OpenBSD
     openstep|os             : OPENSTEP
-    openunix|ou             : Caldera OpenUNIX
-    osr|sco                 : SCO OpenServer, SCO devloper's compiler
-    osrgcc|scogcc           : SCO OpenServer, gcc compiler
+    osr|sco                 : SCO OpenServer < 6.0.0, SCO devloper's compiler
+    osrgcc|scogcc           : SCO OpenServer < 6.0.0, gcc compiler
+    osr6                    : SCO OpenServer 6.0.0, SCO compiler
     solaris|solariscc       : Solaris gcc (solaris) or cc (solariscc)
     tru64		    : Tru64 UNIX
     unixware|uw             : SCO|Caldera UnixWare
@@ -253,8 +257,8 @@ do
       echo "rm -f dialects/hpux/kmem/hpux_mount.h"
       rm -rf dialects/n+obsd/include
       echo "rm -rf dialects/n+obsd/include"
-      rm -f dialects/uw/uw21/vm/swap.h dialects/uw/uw7/vm/swap.h
-      echo "rm -f dialects/uw/uw21/vm/swap.h dialects/uw/uw7/vm/swap.h"
+      rm -f dialects/uw/uw7/vm/swap.h
+      echo "rm -f dialects/uw/uw7/vm/swap.h"
       rm -f ${LSOF_LIB}/${LSOF_LIBMKF}
       echo "rm -f ${LSOF_LIB}/${LSOF_LIBMKF}"
       exit 0
@@ -508,50 +512,54 @@ case $LSOF_TGT in	# {
 	LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
       fi	# }
     fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/stat.h
-    then	# {
+    if test -r ${LSOF_INCLUDE}/sys/stat.h	# {
+    then
       grep stat64 ${LSOF_INCLUDE}/sys/stat.h > /dev/null
       if test $? -eq 0 # {
       then
 	LSOF_CFGF="$LSOF_CFGF -DHASSTAT64"
       fi	# }
     fi	# }
+#DEBUG SANFS    if test -r ${LSOF_INCLUDE}/sys/sanfs/sanfsnode.h???	# {
+#DEBUG SANFS    then
+#DEBUG SANFS      LSOF_CFGF="$LSOF_CFGF -DHAS_SANFS"
+#DEBUG SANFS    fi	# }
     if test $LSOF_VERS -ge 5000	# {
     then
 
     # This is AIX 5 or greater.
 
-    if test -d ${LSOF_INCLUDE}/j2	# {
-    then
+      if test -d ${LSOF_INCLUDE}/j2	# {
+      then
 
       # The AIX > 5.0 system has jfs2 support.  Make the necesssary definitions
       # and adjustments.
 
-      LSOF_CFGF="$LSOF_CFGF -DHAS_JFS2"
-      LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/aix/aix5"
-      if test $LSOF_VERS -ge 5200	# {
-      then
-        echo $LSOF_CC | grep gcc > /dev/null
-	if test $? -eq 0	# {
+	LSOF_CFGF="$LSOF_CFGF -DHAS_JFS2"
+	LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/aix/aix5"
+	if test $LSOF_VERS -ge 5200	# {
 	then
-
-	# Test gcc version for AIX 5.2.
-
-	  LSOF_TMP1=`echo $LSOF_CCV | awk -F . '{printf "%d%02d",$1,$2}'`
-	  if test $LSOF_TMP1 -ge 303	# {
+	  echo $LSOF_CC | grep gcc > /dev/null
+	  if test $? -eq 0	# {
 	  then
 
-	  # Add gcc >= 3.3 option to handle use of i_dev from the wInode
-	  # anonymous structure reference in the JFS2 inode structure of
-	  # <j2/j2_inode.h>.
+	  # Test gcc version for AIX 5.2.
 
-	    LSOF_CFGF="$LSOF_CFGF -fms-extensions"
-	  fi	# }
-	fi	#}
+	    LSOF_TMP1=`echo $LSOF_CCV | awk -F . '{printf "%d%02d",$1,$2}'`
+	    if test $LSOF_TMP1 -ge 303	# {
+	    then
+
+	    # Add gcc >= 3.3 option to handle use of i_dev from the wInode
+	    # anonymous structure reference in the JFS2 inode structure of
+	    # <j2/j2_inode.h>.
+
+	      LSOF_CFGF="$LSOF_CFGF -fms-extensions"
+	    fi	# }
+	  fi	#}
+	fi	# }
       fi	# }
-    fi	# }
 
-    # Determine the AIX architecture type and set AIXA accordingly.
+      # Determine the AIX architecture type and set AIXA accordingly.
 
       if test "X$AIX_ARCH" = "X"	# {
       then
@@ -574,7 +582,7 @@ case $LSOF_TGT in	# {
 	then
 
 	# Quit if gcc was specified as the compiler, since the gcc options to
-	# do an ia64 lsof compilation unknown.
+	# do an ia64 lsof compilation are unknown.
 
 	  echo "*************************************************************"
 	  echo "*                                                           *"
@@ -765,114 +773,6 @@ case $LSOF_TGT in	# {
     fi	# }
     ;;
 
-# Configure for BSDI BSD/OS.
-
-  bsdi)
-    if test "X$LSOF_CC" = "X"	# {
-    then
-      LSOF_CC=gcc
-      LSOF_CCV=`$LSOF_CC -v 2>&1 | sed -n 's/.*version \(.*\)/\1/p'`
-    fi	# }
-    if test -x /usr/bin/shlicc2
-    then
-      LSOF_LD=/usr/bin/shlicc2
-    else
-      if test -x /usr/bin/shlicc
-      then
-	LSOF_LD=/usr/bin/shlicc
-      fi
-    fi
-    if test "X$LSOF_VSTR" = "X"	# {
-    then
-      LSOF_VSTR=`uname -r`
-    fi	# }
-    if test "X$LSOF_VERS" = "X"	# {
-    then
-
-      # If the BSDI version isn't predefined, determine it.
-
-      case $LSOF_VSTR in	# {
-      2.0*)
-	LSOF_VERS=20000
-	;;
-      2.1*)
-	LSOF_VERS=20100
-	;;
-      3.0*)
-	LSOF_VERS=30000
-	;;
-      3.1*)
-	LSOF_VERS=30100
-	;;
-      4.0*)
-	LSOF_VERS=40000
-	;;
-      4.1*)
-	LSOF_TSTBIGF=" "
-	LSOF_VERS=40100
-	;;
-      4.3*)
-	LSOF_TSTBIGF=" "
-	LSOF_VERS=40300
-	;;
-      5.0)
-	LSOF_TSTBIGF=" "
-	LSOF_VERS=50000
-	;;
-      *)  
-	echo "Unsupported BSDI release: $LSOF_VSTR"
-	echo "Assuming BSDI BSD/OS 4.3"
-	LSOF_VERS=40300
-	;;
-      esac	# }
-    fi	# }
-
-    # Test for a legal BSDI version.
-
-    case $LSOF_VERS in	# {
-    20000|20100|30000|30100|40000|40100|40300|50000)
-      ;;
-    *)
-      echo "Unsupported BSDI version: $LSOF_VERS"
-      rm -f $LSOF_HLP
-      exit 1
-      ;;
-    esac	# }
-    LSOF_CFGF="-DBSDIV=$LSOF_VERS"
-    if test -r ${LSOF_INCLUDE}/miscfs/fdesc/fdesc.h	# {
-    then
-      grep -q Fctty ${LSOF_INCLUDE}/miscfs/fdesc/fdesc.h
-      if test $? -eq 0	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHASFDESCFS=1"
-      else
-	LSOF_CFGF="$LSOF_CFGF -DHASFDESCFS=2"
-      fi	# }
-      grep -q fd_link ${LSOF_INCLUDE}/miscfs/fdesc/fdesc.h
-      if test $? -eq 0	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHASFDLINK"
-      fi	# }
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/namei.h
-    then
-      grep -q nc_vpid ${LSOF_INCLUDE}/sys/namei.h
-      if test $? -eq 0	# {
-      then
-        LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
-      fi	# }
-    fi	# }
-    if test $LSOF_VERS -ge 40000	# {
-    then
-      if test -d ${LSOF_INCLUDE}/netinet6	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
-      fi	# }
-    fi	# }
-    LSOF_CFGL="-lrpc -lkvm"
-    LSOF_DIALECT_DIR=bsdi
-    ;;
-
 # Configure for Apple Darwin.
 
   darwin)
@@ -956,50 +856,94 @@ case $LSOF_TGT in	# {
     LSOF_CFGF="$LSOF_CFGF -mdynamic-no-pic"
     LSOF_CFGL="-lcurses"
 
-    # Make sure Darwin XNU kernel headers are present.
-
     if test "X$DARWIN_XNUDIR" != "X"	# {
     then
       LSOF_TMP2="${DARWIN_XNUDIR}/bsd"
       LSOF_TMP3="${DARWIN_XNUDIR}/osfmk"
       LSOF_TMP4=""
-    else	# }
+    else
       LSOF_TMP2="${DARWIN_XNU_HEADERS}/System/Library/Frameworks/Kernel.framework/Versions/A/PrivateHeaders"
       LSOF_TMP3="${DARWIN_XNU_HEADERS}/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders"
       LSOF_TMP4=""
       if test "X$DARWIN_XNU_HEADERS" != "X"	# {
       then
-        LSOF_TMP4="${DARWIN_XNU_HEADERS}/usr/include"
+	LSOF_TMP4="${DARWIN_XNU_HEADERS}/usr/include"
       fi	# }
     fi	# }
 
-    # Look for the required Darwin XNU kernel header files
+    # Test Darwin base.
+
+    if test "X$DARWIN_BASE" = "X"	# {
+    then
+      if test -r ${LSOF_INCLUDE}/../local/include/libproc.h -a $LSOF_VERS -ge 800 	# {
+      then
+	DARWIN_BASE="libproc"
+      else
+	DARWIN_BASE="/dev/kmem"
+      fi	# }
+    fi	# }
+    if test "X$DARWIN_BASE" = "Xlibproc"	# {
+    then
+
+      # Configure for libproc-based Darwin lsof.
+
+      echo "Configuring libproc-based Darwin lsof"
+      LSOF_CINFO="libproc-based"
+      LSOF_DIALECT_DIR=darwin/libproc
+      LSOF_CFGL="$LSOF_CFGL -lproc"
+      LSOF_TSTKMEM=0
+      LSOF_TMP1="sys/proc_info.h"
+      LSOF_TMP2=""
+      LSOF_DINC="$LSOF_DINC -I${LSOF_INCLUDE}/../local/include"
+
+    else
+      if test "X$DARWIN_BASE" = "X/dev/kmem"	# {
+      then
+    
+	# Configure for /dev/kmem-based Darwin lsof.
+
+	echo "Configuring /dev/kmem-based Darwin lsof"
+	LSOF_CINFO="/dev/kmem-based"
+	LSOF_DIALECT_DIR=darwin/kmem
+
+      else
+
+	echo "Darwin base unrecognized: $DARWIN_BASE"
+	rm -f $LSOF_HLP
+	exit 1
+
+      fi	# }
+    fi
+
+    # Make sure Darwin XNU kernel headers are present.
 
     LSOF_TMP5=""
     for i in $LSOF_TMP1	# {
     do
       LSOF_TMP6=0
-      for h in $LSOF_TMP2 $LSOF_TMP3 $LSOF_TMP4 /usr/include
+      for j in $LSOF_TMP2 $LSOF_TMP3 $LSOF_TMP4 $LSOF_INCLUDE	# {
       do
-        if test "X${h}" != "X" -a -r ${h}/${i}	# {
-        then
-          LSOF_TMP6=1
-          break
-        fi	# }
-      done
-
+	if test "X${j}" != "X" -a -r ${j}/${i}  # {
+	then
+	  LSOF_TMP6=1
+	  break
+	fi	# }
+      done	# }
       if test $LSOF_TMP6 -ne 1	# {
       then
-        echo "Header file: ${i} not available"
-        LSOF_TMP5="$LSOF_TMP5 $i"
+	if test "X$LSOF_TMP5" = "X"	# {
+	then
+	  LSOF_TMP5=$i
+	else
+	  LSOF_TMP5="$LSOF_TMP5 $i"
+	fi	# }
       fi			# }
     done	# }
-
-    if test "X${LSOF_TMP5}" != "X"	# {
+    if test "X$LSOF_TMP5" != "X"	# {
     then
 
-      # If any Darwin XNU kernel header files are missing, call the
-      # get-hdr-loc.sh script to find the path.
+    # If any Darwin XNU kernel header files are missing, call the
+    # get-hdr-loc.sh script to find the path.
 
       LSOF_TMP6=`pwd`/dialects/darwin/get-hdr-loc.sh
       if test ! -x $LSOF_TMP6	# {
@@ -1020,55 +964,65 @@ case $LSOF_TGT in	# {
       LSOF_TMP4=""
     fi	# }
 
-    # We now know where to find all of our header files!
+    # Add header file paths.
 
-    if test "X${LSOF_TMP2}" != "X" -a -d "${LSOF_TMP2}"	# {
-    then
-      LSOF_DINC="$LSOF_DINC -I${LSOF_TMP2}"
-    fi	# }
-
-    if test "X${LSOF_TMP3}" != "X" -a -d "${LSOF_TMP3}"	# {
-    then
-      LSOF_DINC="$LSOF_DINC -I${LSOF_TMP3}"
-    fi	# }
-
-    if test "X${LSOF_TMP4}" != "X" -a -d "${LSOF_TMP4}"	# {
-    then
-      LSOF_DINC="$LSOF_DINC -I${LSOF_TMP4}"
-    fi	# }
-
-    # Conditionally add a few #defines
-
-    for h in $LSOF_TMP2 $LSOF_TMP3 $LSOF_TMP4 /usr/include	# {
+    for i in $LSOF_TMP2 $LSOF_TMP3 $LSOF_TMP4 $LSOF_INCLUDE	# {
     do
-      if test "X${h}" != "X" -a -r ${h}/sys/namei.h
+      if test -d $i -a "X$i" != "X/usr/include"	# {
       then
-        grep -q nc_vpid ${h}/sys/namei.h
-        if test $? -eq 0	# {
-        then
-          LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
-        fi	# }
-        break;
+	LSOF_DINC="$LSOF_DINC -I${i}"
       fi	# }
     done	# }
+    if test "X$DARWIN_BASE" = "X/dev/kmem"	# {
+    then
 
-    for h in $LSOF_TMP2 $LSOF_TMP3 $LSOF_TMP4 /usr/include	# {
-    do
-      if test $LSOF_VERS -ge 800 -a "X${h}" != "X" -a -r ${h}/sys/file_internal.h	# {
-      then
-        grep -q DTYPE_KQUEUE ${h}/sys/file_internal.h
-	LSOF_CFGF="$LSOF_CFGF -DHASKQUEUE"
-        break;
-      elif test $LSOF_VERS -ge 700 -a "X${h}" != "X" -a -r ${h}/sys/file.h
-      then
-        grep -q DTYPE_KQUEUE ${h}/sys/file.h
-        LSOF_CFGF="$LSOF_CFGF -DHASKQUEUE"
-        break;
-      fi	# }
-    done	# }
+    # Make conditional feature definitions for /dev/kmem-based Darwin lsof.
 
+      for i in $LSOF_TMP2 $LSOF_TMP3 $LSOF_TMP4 $LSOF_INCLUDE      # {
+      do
+	if test "X${i}" != "X" -a -r ${i}/sys/namei.h	# {
+	then
+	  grep -q nc_vpid ${i}/sys/namei.h
+	  if test $? -eq 0	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
+	  fi	# }
+	  break
+	fi	# }
+      done	# }
+      for i in $LSOF_TMP2 $LSOF_TMP3 $LSOF_TMP4 $LSOF_INCLUDE	# {
+      do
+	if test "X${i}" != "X"	# {
+	then
+	  if test $LSOF_VERS -ge 800	# {
+	  then
+	    if test -r ${i}/sys/file_internal.h	# {
+	    then
+	      grep -q DTYPE_KQUEUE ${i}/sys/file_internal.h
+	      if test $? -eq 0	# {
+	      then
+	        LSOF_CFGF="$LSOF_CFGF -DHASKQUEUE"
+	      fi	# }
+	      break
+	    fi	# }
+	  else
+	    if test $LSOF_VERS -ge 700	# {
+	    then
+	      if test -r ${i}/sys/file.h	# {
+	      then
+	        grep -q DTYPE_KQUEUE ${i}/sys/file.h
+	        if test $? -eq 0	# {
+	        then
+	          LSOF_CFGF="$LSOF_CFGF -DHASKQUEUE"
+	        fi	# }
+	      fi	# }
+	      break
+	    fi	# }
+	  fi	# }
+	fi	# }
+      done	# }
+    fi	# }
     LSOF_CFGF="$LSOF_CFGF -DHAS9660F -DDARWINV=$LSOF_VERS"
-    LSOF_DIALECT_DIR=darwin
     LSOF_CFLAGS_OVERRIDE=1
     ;;
 
@@ -1304,7 +1258,7 @@ kernel generation process.
       grep -q nc_vpid ${LSOF_INCLUDE}/sys/namei.h
       if test $? -eq 0	# {
       then
-        LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
+	LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
       fi	# }
     fi	# }
     LSOF_DIALECT_DIR=du
@@ -1410,6 +1364,10 @@ kernel generation process.
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=4100
 	;;
+      4.11*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=4110
+	;;
       4*)
 	LSOF_VERS=4100
 	echo "!!!WARNING!!!  Unsupported FreeBSD version: $LSOF_VSTR"
@@ -1431,19 +1389,40 @@ kernel generation process.
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=5030
 	;;
+      5.4*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=5040
+	;;
+      5.5*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=5050
+	;;
       5*)
-	LSOF_VERS=5020
+	LSOF_VERS=5050
 	echo "!!!WARNING!!!  Unsupported FreeBSD version: $LSOF_VSTR"
-	echo "!!!WARNING!!!  Configuring for FreeBSD 5.2"
+	echo "!!!WARNING!!!  Configuring for FreeBSD 5.5"
 	;;
       6.0*)
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=6000
 	;;
+      6.1*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=6010
+	;;
       6*)
 	LSOF_VERS=6000
 	echo "!!!WARNING!!!  Unsupported FreeBSD version: $LSOF_VSTR"
 	echo "!!!WARNING!!!  Configuring for FreeBSD 6.0"
+	;;
+      7.0*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=7000
+	;;
+      7*)
+	LSOF_VERS=7000
+	echo "!!!WARNING!!!  Unsupported FreeBSD version: $LSOF_VSTR"
+	echo "!!!WARNING!!!  Configuring for FreeBSD 7.0"
 	;;
       *)
 	echo Unknown FreeBSD release: `uname -r`
@@ -1478,7 +1457,7 @@ kernel generation process.
 	  then	# {
 	    LSOF_DEBUG=`echo $LSOF_CFGF | sed 's/.*\(-O[^ $]*\).*/\1/'`
 	  fi	# }
-	  LSOF_CFGF=`echo $LSOF_CFGF | sed 's/\(.*\)-O[^ $]*\(.*\)/\1 \2/' | sed 's/^  *//g' | sed 's/  */ /g' | sed 's/  *$//`
+	  LSOF_CFGF=`echo $LSOF_CFGF | sed 's/\(.*\)-O[^ $]*\(.*\)/\1 \2/' | sed 's/^  *//g' | sed 's/  */ /g' | sed 's/  *$//'`
 	else
 	  LSOF_TMP=0
 	fi	# }
@@ -1536,13 +1515,29 @@ kernel generation process.
 	LSOF_CFGF="$LSOF_CFGF -DHASVMLOCKH"
       fi	# }
       ;;
-    4000|4010|4020|4030|4040|4050|4060|4070|4080|4090|4100|5000|5010|5020|5030|6000)
+    4000|4010|4020|4030|4040|4050|4060|4070|4080|4090|4100|4110|5000|5010|5020|5030|5040|5050|6000|6010|7000)
       if test -r ${LSOF_INCLUDE}/sys/namei.h	# {
       then
 	grep -q "^struct[ 	]*namecache[ 	]*{" ${LSOF_INCLUDE}/sys/namei.h
 	if test $? -eq 0	# {
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHASNAMECACHE"
+	fi	# }
+      fi	# }
+      if test -r ${LSOF_INCLUDE}/ufs/ufs/inode.h	# {
+      then
+	grep -q i_effnlink ${LSOF_INCLUDE}/ufs/ufs/inode.h
+	if test $? -eq 0	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASEFFNLINK=i_effnlink"
+	fi	# }
+      fi	# }
+      if test -r ${LSOF_INCLUDE}/sys/file.h	# {
+      then
+	grep -q f_vnode ${LSOF_INCLUDE}/sys/file.h
+	if test $? -eq 0	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASF_VNODE"
 	fi	# }
       fi	# }
       LSOF_CFGL="-lkvm"
@@ -1585,7 +1580,7 @@ kernel generation process.
 	      grep -q __cpumask_t ${LSOF_INCLUDE}/machine/_types.h
 	      if test $? -eq 0	# {
 	      then
-	        LSOF_CFGF="$LSOF_CFGF -DHASCPUMASK_T"
+		LSOF_CFGF="$LSOF_CFGF -DHASCPUMASK_T"
 	      fi	# }
 	    fi	# }
 	  fi	# }
@@ -1596,6 +1591,51 @@ kernel generation process.
 	    then
 		LSOF_CFGF="$LSOF_CFGF -DHASSBSTATE"
 	    fi	# }
+	  fi	# }
+	fi	# }
+	if test $LSOF_VERS -ge 5030	# {
+	then
+
+	# Do FreeBSD 5.3 and higher version-specific stuff.
+
+	  if test -r ${LSOF_INCLUDE}/sys/vnode.h	# {
+	  then
+	    grep -q "defined(_KVM_VNODE)" ${LSOF_INCLUDE}/sys/vnode.h
+	    if test $? -eq 0	# {
+	    then
+		LSOF_CFGF="$LSOF_CFGF -DHAS_KVM_VNODE"
+	    fi	#}
+	  fi	# }
+	fi	# }
+	if test $LSOF_VERS -ge 6000	# {
+	then
+
+	# Do FreeBSD 6.0 and higher version-specific stuff.
+
+	  if test -r ${LSOF_INCLUDE}/ufs/ufs/inode.h	# {
+	  then
+	    grep -q i_din2 ${LSOF_INCLUDE}/ufs/ufs/inode.h
+	    if test $? -eq 0	# {
+	    then
+	      LSOF_CFGF="$LSOF_CFGF -DHAS_UFS1_2"
+	    fi	# }
+	  fi	# }
+	  if test -r ${LSOF_INCLUDE}/sys/conf.h	# {
+	  then
+	    grep -q "si_udev;" ${LSOF_INCLUDE}/sys/conf.h
+	    if test $? -ne 0	# {
+	    then
+	      LSOF_CFGF="$LSOF_CFGF -DHAS_NO_SI_UDEV"
+	    fi	# }
+	    grep -q si_priv ${LSOF_INCLUDE}/sys/conf.h
+	    if test $? -eq 0	# {
+	    then
+	      LSOF_CFGF="$LSOF_CFGF -DHAS_SI_PRIV"
+	    fi	# }
+	  fi	# }
+	  if test -r ${LSOF_INCLUDE}/sys/sx.h	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHAS_SYS_SX_H"
 	  fi	# }
 	fi	# }
       fi	# }
@@ -1709,13 +1749,21 @@ kernel generation process.
 	echo "" >> cd9660_node.h
       fi	# }
       LSOF_CFGF="$LSOF_CFGF -DHAS9660FS"
+      if test $LSOF_VERS -ge 6000	# {
+      then
+	grep -q "i_dev;" cd9660_node.h
+	if test $? -ne 0	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHAS_NO_ISO_DEV"
+	fi	# }
+      fi	# }
     fi	# }
     if test -r ${LSOF_INCLUDE}/sys/namei.h
     then
       grep -q nc_vpid ${LSOF_INCLUDE}/sys/namei.h
       if test $? -eq 0	# {
       then
-        LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
+	LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
       fi	# }
     fi	# }
     if test $LSOF_DINC_ADD -eq 1	# {
@@ -1725,7 +1773,7 @@ kernel generation process.
 	LSOF_DINC="-I${FREEBSD_SYS}"
       else
 	LSOF_DINC="$LSOF_DINC -I${LSOF_INCLUDE} -I$FREEBSD_SYS"
-      fi	# )
+      fi	# }
     fi	# }
     if test -r ${LSOF_INCLUDE}/netinet/in.h	# {
     then
@@ -1793,7 +1841,7 @@ kernel generation process.
 	    exit 1
 	  fi	# }
 	fi	# }
-	what $LSOF_CC | grep -q Bundled
+	$LSOF_CC -O < /dev/null 2>&1 | grep -q Bundled
 	if test $? -eq 0	# {
 	then
 	  LSOF_DEBUG="No-O"			# to disable -O
@@ -1821,15 +1869,25 @@ kernel generation process.
     if test $? -eq 0	# {
     then
       LSOF_CCV=`$LSOF_CC -v 2>&1 | sed -n 's/.*version \(.*\)/\1/p'`
-      LSOF_CFGF="-DHAS_CONST"
     else
-      what $LSOF_CC | grep -q Bundled
+      $LSOF_CC -O < /dev/null 2>&1 | grep -q Bundled
       if test $? -eq 0	# {
       then
 	LSOF_DEBUG="No-O"			# to disable -O
       fi	# }
     fi	# }
     LSOF_TGT=hpux
+
+    # Test for "const void" support.
+
+    rm -f ${LSOF_TMPC}.*
+    echo "main() { const void *x; return(0); }" >> $LSOF_TMPC.c
+    $LSOF_CC $LSOF_TMPC.c -o $LSOF_TMPC.x > /dev/null 2>&1
+    if test $? -eq 0	# {
+    then
+      LSOF_CFGF="-DHAS_CONST"
+    fi	# }
+    rm -f ${LSOF_TMPC}.*
 
     # Test HP-UX base.
 
@@ -1865,6 +1923,10 @@ kernel generation process.
 	  LSOF_CFGF="$LSOF_CFGF +DD32"
 	fi	# }
       fi	# }
+      if test -r ${LSOF_INCLUDE}/netinet/in6.h	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
+      fi	# }
     else
       if test "X$HPUX_BASE" = "X/dev/kmem"	# {
       then
@@ -1874,7 +1936,7 @@ kernel generation process.
 	if test "X$HPUX_BOOTFILE" = "X"	# {
 	then
 	  HPUX_BOOTFILE="/stand/vmunix"
-	fi
+	fi	# }
 	if test $LSOF_VERS -gt 1100	# {
 	then
 	  echo ""
@@ -1950,40 +2012,40 @@ kernel generation process.
 	      fi	# }
 	      if test "X$LSOF_TMP1" = "X"	# {
 	      then
-	        rm -f ${LSOF_TMPC}.x
-	        $LSOF_CC ${LSOF_TMPC}.c -mlp64 -o ${LSOF_TMPC}.x > /dev/null 2>&1
-	        if test $? -eq 0	# {
-	        then
+		rm -f ${LSOF_TMPC}.x
+		$LSOF_CC ${LSOF_TMPC}.c -mlp64 -o ${LSOF_TMPC}.x > /dev/null 2>&1
+		if test $? -eq 0	# {
+		then
 		  /bin/file ${LSOF_TMPC}.x | /bin/grep 64 > /dev/null
 		  if test $? -eq 0	# {
 		  then
 		      LSOF_TMP1="-mlp64"
 		  fi	# }
-	        fi	# }
+		fi	# }
 	      fi	# }
 	      rm -f ${LSOF_TMPC}.*
 	      if test "X$LSOF_TMP1" = "X"	# {
 	      then
-	        echo ""
-	        echo "***************************************************"
-	        echo "*                                                 *"
-	        echo "* !!!!!!!!!!!!!!!!! FATAL ERROR !!!!!!!!!!!!!!!!! *"
-	        echo "*                                                 *"
-	        echo "* APPARENTLY GCC CANNOT BUILD 64 BIT EXECUTABLES. *"
-	        echo "* A COMPILER MUST BE USED THAT CAN.  SEE 00FAQ    *"
-	        echo "* FOR MORE INFORMATION.                           *"
-	        echo "*                                                 *"
-	        echo "***************************************************"
-	        echo ""
-	        rm -f $LSOF_HLP
-	        exit 1
+		echo ""
+		echo "***************************************************"
+		echo "*                                                 *"
+		echo "* !!!!!!!!!!!!!!!!! FATAL ERROR !!!!!!!!!!!!!!!!! *"
+		echo "*                                                 *"
+		echo "* APPARENTLY GCC CANNOT BUILD 64 BIT EXECUTABLES. *"
+		echo "* A COMPILER MUST BE USED THAT CAN.  SEE 00FAQ    *"
+		echo "* FOR MORE INFORMATION.                           *"
+		echo "*                                                 *"
+		echo "***************************************************"
+		echo ""
+		rm -f $LSOF_HLP
+		exit 1
 	      else
 		if test "X$LSOF_TMP1" != "X "	# {
 		then
 		  LSOF_CFGF="$LSOF_CFGF $LSOF_TMP1"
 		fi	# }
-	        LSOF_CFGL="$LSOF_CFGL -lelf"
-	        LSOF_CINFO="${LSOF_CINFO}, 64 bit HP-UX"
+		LSOF_CFGL="$LSOF_CFGL -lelf"
+		LSOF_CINFO="${LSOF_CINFO}, 64 bit HP-UX"
 	      fi	# }
 	    else
 
@@ -2016,19 +2078,19 @@ kernel generation process.
 	      nm -x $HPUX_BOOTFILE | grep -q nfs_vnodeops3
 	      if test $? -eq 0	# {
 	      then
-	        if test -r ${LSOF_INCLUDE}/nfs/rnode.h	# {
-	        then
+		if test -r ${LSOF_INCLUDE}/nfs/rnode.h	# {
+		then
 		  grep -q r_fh3 ${LSOF_INCLUDE}/nfs/rnode.h
 		  if test $? -ne 0	# {
 		  then
 		    LSOF_TMP1=1
 		  fi	# }
-	        fi	# }
+		fi	# }
 	      fi	# }
 	    else
 	      if test "X$HPUX_RNODE3" = "X1"	# {
 	      then
-	        LSOF_TMP1=1
+		LSOF_TMP1=1
 	      fi	# }
 	    fi	# }
 	    if test $LSOF_TMP1 -eq 1	# {
@@ -2037,11 +2099,11 @@ kernel generation process.
 	    fi	# }
 	  fi # }
 	fi	# }
+	if test $LSOF_VERS -eq 1100	# {
+	then
 
 	# Test for the ipis_s structure.  If it is present, set HAS_IPC_S_PATCH.
 
-	if test $LSOF_VERS -eq 1100	# {
-	then
 	  if test "X$HPUX_IPC_S_PATCH" = "X"	# {
 	  then
 	    if test -x /usr/contrib/Q4/bin/q4exe	# {
@@ -2305,51 +2367,66 @@ return(0); }
       # Validate the NetBSD version.
 
       case $LSOF_VSTR in	# {
-      1.0*)
-	LSOF_VERS="1000"
-	;;
-      1.1*)
-	LSOF_VERS="1010"
-	;;
       1.2*)
-	LSOF_VERS="1020"
+	LSOF_VERS="1002000"
 	;;
       1.3*)
-	LSOF_VERS="1030"
+	LSOF_VERS="1003000"
 	;;
       1.4*)
-	LSOF_VERS="1040"
+	LSOF_VERS="1004000"
 	;;
       1.5*)
 	LSOF_TSTBIGF=" "
-	LSOF_VERS="1050"
+	LSOF_VERS="1005000"
 	;;
       1.6*)
 	LSOF_TSTBIGF=" "
-	LSOF_VERS="1060"
+	LSOF_VERS="1006000"
 	;;
       1*)
-	LSOF_VERS=1060
+	LSOF_VERS="1006000"
 	echo "!!!WARNING!!!  Unsupported NetBSD version: $LSOF_VSTR"
 	echo "!!!WARNING!!!  Configuring for NetBSD 1.6"
 	;;
       2.0*)
 	LSOF_TSTBIGF=" "
-	LSOF_VERS="2000"
+	LSOF_VERS="2000000"
 	;;
       2.99.9)
 	LSOF_TSTBIGF=" "
-	LSOF_VERS="2999"
+	LSOF_VERS="2099009"
+	;;
+      2.99.10)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS="2099010"
+	;;
+      2.99.*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS="2099010"
 	;;
       2*)
-	LSOF_VERS=2000
+	LSOF_VERS="2000000"
 	echo "!!!WARNING!!!  Unsupported NetBSD version: $LSOF_VSTR"
 	echo "!!!WARNING!!!  Configuring for NetBSD 2.0"
 	;;
+      3.0*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS="3000000"
+	;;
+      3.99.*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS="3099000"
+	;;
+      3*)
+	LSOF_VERS="3000000"
+	echo "!!!WARNING!!!  Unsupported NetBSD version: $LSOF_VSTR"
+	echo "!!!WARNING!!!  Configuring for NetBSD 3.0"
+	;;
       *)
 	echo "Unknown NetBSD release: $LSOF_VSTR"
-	echo Assuming NetBSD 1.0
-	LSOF_VERS="1000"
+	echo Assuming NetBSD 1.6
+	LSOF_VERS="1006000"
 	;;
       esac	# }
     fi	# }
@@ -2357,7 +2434,11 @@ return(0); }
     # Test for legal NetBSD version.
 
     case $LSOF_VERS in	# {
-    1000|1010|1020|1030|1040|1050|1060|2000|2999)
+    1002000|1003000|1004000|1005000|1006000)
+      ;;
+    2000000|2099009|2099010)
+      ;;
+    3000000|3099000)
       ;;
     *)
       echo "Unknown NetBSD version: $LSOF_VERS"
@@ -2377,166 +2458,637 @@ return(0); }
       fi	# }
     fi	# }
     LSOF_CFGF="$LSOF_CFGF $LSOF_TMP1"
-    if test -r ${LSOF_INCLUDE}/nfs/nfsproto.h	# {
+    if test -r ${LSOF_INCLUDE}/kvm.h	# {
     then
-	LSOF_CFGF="$LSOF_CFGF -DHASNFSPROTO"
+      grep -q kvm_getproc2 ${LSOF_INCLUDE}/kvm.h
+      if test $? -eq 0	# {
+      then
+	  LSOF_CFGF="$LSOF_CFGF -DHASKVMGETPROC2"
+      fi	# }
     fi	# }
-    if test -r ${LSOF_INCLUDE}/netinet/ip6.h	# {
-    then
-      LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
-    fi	# }
+
+  # Here begin the dual tests on header files that may be in $LSOF_INCLUDE
+  # or $NETBSD_SYS.
+  #
+  # Note that $LSOF_TMP1 holds an indicator of the need for -I$NETBSD_SYS.
+  # LSOF_TMP4 contains a temporary indicator of the use of $NETBSD_SYS.
+
     LSOF_TMP1=0
     if test "X$NETBSD_SYS" = "X"	# {
     then
-      NETBSD_SYS=$LSOF_INCLUDE
+      if test -d /usr/src	# {
+      then
+	NETBSD_SYS="/usr/src/sys"
+      else
+	NETBSD_SYS=$LSOF_INCLUDE
+      fi	# }
     fi	# }
-    if test -r ${NETBSD_SYS}/miscfs/fdesc/fdesc.h	# {
+    LSOF_TMP2="nfs/nfsproto.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
     then
-      grep -q Fctty ${NETBSD_SYS}/miscfs/fdesc/fdesc.h
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASNFSPROTO"
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+      then
+	LSOF_TMP1=1
+      fi	# }
+    fi	# }
+    LSOF_TMP2="netinet/ip6.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+      then
+	LSOF_TMP1=1
+      fi	# }
+    else
+      LSOF_TMP2="netinet/in.h"
+      if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+	LSOF_TMP4=0
+      else
+	if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+	then
+	  LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	  LSOF_TMP4=1
+	else
+	  LSOF_TMP3=""
+	fi	# }
+      fi	# }
+      if test "X$LSOF_TMP3" != "X"	# {
+      then
+	grep -q IPV6_INRIA_VERSION $LSOF_TMP3
+	if test $? -eq 0	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASIPv6 -DHASINRIAIPv6"
+	  if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	  then
+	    LSOF_TMP1=1
+	  fi	# }
+	fi	# }
+      fi # }
+    fi	# }
+    LSOF_TMP2="miscfs/fdesc/fdesc.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      grep -q Fctty $LSOF_TMP3
       if test $? -eq 0	# {
       then
 	LSOF_CFGF="$LSOF_CFGF -DHASFDESCFS=1"
       else
 	LSOF_CFGF="$LSOF_CFGF -DHASFDESCFS=2"
       fi	# }
-      grep -q fd_link ${NETBSD_SYS}/miscfs/fdesc/fdesc.h
+      grep -q fd_link $LSOF_TMP3
       if test $? -eq 0	# {
       then
 	LSOF_CFGF="$LSOF_CFGF -DHASFDLINK"
       fi	# }
-      LSOF_TMP1=1
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/vnode.h	# {
-    then
-      grep -q VT_LFS ${LSOF_INCLUDE}/sys/vnode.h
-      if test $? -eq 0   # {
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASLFS"
-      fi	# }
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/miscfs/nullfs/null.h	# {
-    then
-      LSOF_CFGF="$LSOF_CFGF -DHASNULLFS"
-    else
-      if test -r ${NETBSD_SYS}/miscfs/nullfs/null.h	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHASNULLFS"
 	LSOF_TMP1=1
       fi	# }
     fi	# }
-    if test -d ${NETBSD_SYS}/miscfs/procfs	# {
+    LSOF_TMP2="miscfs/nullfs/null.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASNULLFS"
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+      then
+	LSOF_TMP1=1
+      fi	# }
+    fi	# }
+    LSOF_TMP2="miscfs/procfs"
+    if test -d ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -d ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
     then
       LSOF_CFGF="$LSOF_CFGF -DHASPROCFS"
-      LSOF_TMP1=1
-      grep -q PFSroot ${NETBSD_SYS}/miscfs/procfs/procfs.h
-      if test $? -eq 0 #	{
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASPROCFS_PFSROOT"
-      fi #	}
+	LSOF_TMP1=1
+      fi	# }
+      if test -r ${LSOF_TMP3}/procfs.h	# {
+      then
+	grep -q PFSroot ${LSOF_TMP3}/procfs.h
+	if test $? -eq 0	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASPROCFS_PFSROOT"
+	fi #	}
+      fi	# }
     fi	# }
-    if test -d ${NETBSD_SYS}/isofs/cd9660	# {
+    LSOF_TMP2="sys/bufq.h"
+    LSOF_NBSD_BUFQH=0
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHASBUFQ_H"
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	if test $NETBSD_SYS != $LSOF_INCLUDE	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASBUFQ_H"
+	  LSOF_NBSD_BUFQH=1
+	fi	# }
+      fi	# }
+    fi	# }
+    LSOF_TMP2="isofs/cd9660"
+    if test -d ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -d ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
     then
       LSOF_CFGF="$LSOF_CFGF -DHAS9660FS=1"
-      LSOF_TMP1=1
-    else
-      if test -d ${NETBSD_SYS}/fs/cd9660	# {
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
       then
-        LSOF_CFGF="$LSOF_CFGF -DHAS9660FS=2"
-        LSOF_TMP1=1
+	LSOF_TMP1=1
+      fi	# }
+    else
+      LSOF_TMP2="fs/cd9660"
+      if test -d ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+	LSOF_TMP4=0
+      else
+	if test -d ${NETBSD_SYS}/$LSOF_TMP2	# {
+	then
+	  LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	  LSOF_TMP4=1
+	else
+	  LSOF_TMP3=""
+	fi	# }
+      fi	# }
+      if test "X$LSOF_TMP3" != "X"	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHAS9660FS=1"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
       fi	# }
     fi	# }
-    if test -d ${NETBSD_SYS}/msdosfs	# {
+    LSOF_TMP2="msdosfs"
+    if test -d ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -d ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
     then
       LSOF_CFGF="$LSOF_CFGF -DHASMSDOSFS=1"
-      LSOF_TMP1=1
-    else
-      if test -d ${NETBSD_SYS}/fs/msdosfs	# {
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
       then
-        LSOF_CFGF="$LSOF_CFGF -DHASMSDOSFS=2"
-        LSOF_TMP1=1
+	LSOF_TMP1=1
+      fi	# }
+    else
+      LSOF_TMP2="fs/msdosfs"
+      if test -d ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+	LSOF_TMP4=0
+      else
+	if test -d ${NETBSD_SYS}/$LSOF_TMP2	# {
+	then
+	  LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	  LSOF_TMP4=1
+	else
+	  LSOF_TMP3=""
+	fi	# }
+      fi	# }
+      if test "X$LSOF_TMP3" != "X"	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASMSDOSFS=2"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
       fi	# }
     fi	# }
-    if test -r ${NETBSD_SYS}/miscfs/kernfs/kernfs.h	# {
+    LSOF_TMP2="miscfs/kernfs/kernfs.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
     then
-      grep -q "kt_name;" ${NETBSD_SYS}/miscfs/kernfs/kernfs.h
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      grep -q "kt_name;" $LSOF_TMP3
       if test $? -eq 0	# {
 	then
  	  LSOF_CFGF="$LSOF_CFGF -DHASKERNFS"
-	  LSOF_TMP1=1
-	  grep -q "*kfs_kt;" ${NETBSD_SYS}/miscfs/kernfs/kernfs.h
+	  if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	  then
+	    LSOF_TMP1=1
+	  fi	# }
+	  grep -q "*kfs_kt;" $LSOF_TMP3
 	  if test $? -eq 0      # {
 	  then
 	    LSOF_CFGF="$LSOF_CFGF -DHASKERNFS_KFS_KT"
 	  fi	# }
       fi	# }
     fi	# }
-    if test $LSOF_TMP1 -eq 1 -a "X$LSOF_INCLUDE" != "X$NETBSD_SYS"	# {
+    LSOF_TMP2="sys/namei.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
     then
-      LSOF_DINC="-I$LSOF_INCLUDE -I$NETBSD_SYS"
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/namei.h
-    then
-      grep -q nc_vpid ${LSOF_INCLUDE}/sys/namei.h
-      if test $? -eq 0	# {
-      then
-        LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
-      fi	# }
-    fi	# }
-    grep -q i_ffs_size ${LSOF_INCLUDE}/ufs/ufs/inode.h
-    if test $? -eq 0	# {
-    then
-      LSOF_CFGF="$LSOF_CFGF -DHASI_FFS"
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
     else
-      grep -q i_ffs1_size ${LSOF_INCLUDE}/ufs/ufs/inode.h
-      if test $? -eq 0	# {
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASI_FFS1"
-      fi	#}
-    fi	# }
-    grep -q VT_EXT2FS ${LSOF_INCLUDE}/sys/vnode.h
-    if test $? -eq 0	# {
-    then
-      LSOF_CFGF="$LSOF_CFGF -DHASEXT2FS"
-      grep -q "*e2fs_din" ${LSOF_INCLUDE}/ufs/ufs/inode.h
-      if test $? -eq 0	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHASI_E2FS_PTR"
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
       fi	# }
     fi	# }
-    if test -r ${LSOF_INCLUDE}/nfs/nfsnode.h	# {
+    if test "X$LSOF_TMP3" != "X"	# {
     then
-      grep -q "*n_vattr" ${LSOF_INCLUDE}/nfs/nfsnode.h
+      grep -q nc_vpid $LSOF_TMP3
       if test $? -eq 0	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASNFSVATTRP"
-      fi	# }
-    fi	# }
-    if test "X$NETBSD_UVM" = "X"	# {
-    then
-      if test -r /etc/mk.conf	# {
-      then
-	grep -q "^UVM[ 	]*=" /etc/mk.conf
-	if test $? -eq 0	# {
+	LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
 	then
-	  NETBSD_UVM="Y"
+	  LSOF_TMP1=1
 	fi	# }
       fi	# }
-      if test "X$NETBSD_UVM" = "X"	# {
+    fi	# }
+    LSOF_TMP2="ufs/ufs/inode.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
       then
-	if test -r ${LSOF_INCLUDE}/sys/vnode.h	# {
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      grep -q i_ffs_size $LSOF_TMP3
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASI_FFS"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
 	then
-	  grep -q UVM ${LSOF_INCLUDE}/sys/vnode.h
-	  if test $? -ne 0	# {
+	  LSOF_TMP1=1
+	fi	# }
+      else
+	grep -q i_ffs1_size $LSOF_TMP3
+	if test $? -eq 0	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASI_FFS1"
+	  if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
 	  then
-	    egrep -q "v_uvm;|v_uobj;" ${LSOF_INCLUDE}/sys/vnode.h
-	    if test $? -eq 0	# {
+	    LSOF_TMP1=1
+	  fi	# }
+	fi	# }
+      fi	# }
+      grep -q i_ffs_effnlink $LSOF_TMP3
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASEFFNLINK=i_ffs_effnlink"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
+      fi	# }
+    fi	# }
+    LSOF_TMP2="sys/vnode.h"
+    LSOF_NBSD_PTYFS=0
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "XLSOF_TMP3" != "X"	# {
+    then
+      grep -q VT_EXT2FS $LSOF_TMP3
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASEXT2FS"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
+	LSOF_TMP2="ufs/ufs/inode.h"
+	if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+	then
+	  LSOF_TMP5="${LSOF_INCLUDE}/$LSOF_TMP2"
+	  LSOF_TMP6=0
+	else
+	  if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+	  then
+	    LSOF_TMP5="${NETBSD_SYS}/$LSOF_TMP2"
+	    LSOF_TMP6=1
+	  else
+	    LSOF_TMP5=""
+	  fi	# }
+	fi	# }
+	if test "X$LSOF_TMP5" != "X"	# {
+	then
+	  grep -q "*e2fs_din" $LSOF_TMP5
+	  if test $? -eq 0	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHASI_E2FS_PTR"
+	    if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
 	    then
-	      NETBSD_UVM="Y"
+	      LSOF_TMP1=$LSOF_TMP6
 	    fi	# }
 	  fi	# }
 	fi	# }
       fi	# }
+      grep -q VT_LFS $LSOF_TMP3
+      if test $? -eq 0   # {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASLFS"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
+      fi	# }
+      grep -q VT_PTYFS $LSOF_TMP3
+      if test $? -eq 0   # {
+      then
+	LSOF_TMP2="fs/ptyfs/ptyfs.h"
+	if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASPTYFS"
+	else
+	  if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+	  then
+	    if test $NETBSD_SYS != $LSOF_INCLUDE	# {
+	    then
+	      LSOF_CFGF="$LSOF_CFGF -DHASPTYFS"
+	      LSOF_NBSD_PTYFS=1
+	    fi	# }
+	  fi	# }
+	fi	# }
+      fi	# }
+      if test "X$NETBSD_UVM" = "X"	# {
+      then
+	grep -q UVM $LSOF_TMP3
+	if test $? -ne 0	# {
+	then
+	  egrep -q "v_uvm;|v_uobj;" $LSOF_TMP3
+	  if test $? -eq 0	# {
+	  then
+	    NETBSD_UVM="Y"
+	  fi	# }
+	fi	# }
+      fi	# }
     fi	# }
+    LSOF_TMP2="nfs/nfsnode.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      grep -q "*n_vattr" $LSOF_TMP3
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASNFSVATTRP"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
+      fi	# }
+    fi	# }
+    LSOF_TMP2="sys/lockf.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      grep -q vop_advlock_args $LSOF_TMP3
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHAS_ADVLOCK_ARGS"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
+      fi	# }
+      grep -q lf_lwp $LSOF_TMP3
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHAS_LF_LWP"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
+      fi	# }
+    fi	# }
+    LSOF_TMP2="sys/lwp.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHAS_LWP_H"
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+      then
+	LSOF_TMP1=1
+      fi	# }
+    fi	# }
+    LSOF_TMP2="sys/filedesc.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      grep -q "^struct cwdinfo {" $LSOF_TMP3
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASCWDINFO"
+	if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+	then
+	  LSOF_TMP1=1
+	fi	# }
+      fi	# }
+    fi	# }
+    LSOF_TMP2="sys/pipe.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+      LSOF_TMP4=0
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+	LSOF_TMP4=1
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
+    then
+      LSOF_CFGF="$LSOF_CFGF -DHAS_SYS_PIPEH"
+      if test $LSOF_TMP1 -eq 0 -a $LSOF_TMP4 -eq 1	# {
+      then
+	LSOF_TMP1=1
+      fi	# }
+    fi	# }
+    if test -r ${LSOF_INCLUDE}/sys/statvfs.h 	# {
+    then
+      grep -q '^struct statvfs {' ${LSOF_INCLUDE}/sys/statvfs.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASSTATVFS"
+      fi	# }
+    fi	# }
+
+  # Here end the dual NetBSD tests for header files in $LSOF_INCLUDE or
+  # NETBSD_SYS.
+  #
+  # After this LSOF_TMP1 may be reused.
+
+    if test $LSOF_TMP1 -eq 1	# {
+    then
+      LSOF_DINC="-I$LSOF_INCLUDE -I$NETBSD_SYS"
+    fi	# }
+
+  # Build special header files, as required.
+
     rm -rf dialects/n+obsd/include
     if test "X$NETBSD_UVM" = "XY" -o "X$NETBSD_UVM" = "Xy"	# {
     then
@@ -2549,10 +3101,23 @@ return(0); }
 	LSOF_CFGF="$LSOF_CFGF -DHAS_UVM_INCL"
       fi	# }
     fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/mount.h	# {
+    LSOF_TMP2="sys/mount.h"
+    if test -r ${LSOF_INCLUDE}/$LSOF_TMP2	# {
+    then
+      LSOF_TMP3="${LSOF_INCLUDE}/$LSOF_TMP2"
+    else
+      if test -r ${NETBSD_SYS}/$LSOF_TMP2	# {
+      then
+	LSOF_TMP3="${NETBSD_SYS}/$LSOF_TMP2"
+      else
+	LSOF_TMP3=""
+      fi	# }
+    fi	# }
+    if test "X$LSOF_TMP3" != "X"	# {
     then
 
-      # Build the netexport.h header file for NetBSD.
+      # Build a local NetBSD netexport.h header file for possible use by
+      # <msdosfs/msdosfsmount.h>.  Make sure CFGL contains a -I for it.
 
       LSOF_TMP1=${LSOF_TMPC}.edscr
       LSOF_TMP2=${LSOF_TMPC}.netcred
@@ -2585,68 +3150,63 @@ return(0); }
       echo "" >> $LSOF_TMP4
       echo "#include <net/radix.h>" >> $LSOF_TMP4
       echo "" >> $LSOF_TMP4
-      cat $LSOF_TMP2 >> $LSOF_TMP4
-      echo "" >> $LSOF_TMP4
-      cat $LSOF_TMP3 >> $LSOF_TMP4
+      if test -r $LSOF_TMP2	# {
+      then
+	cat $LSOF_TMP2 >> $LSOF_TMP4
+	echo "" >> $LSOF_TMP4
+      fi	# }
+      if test -r $LSOF_TMP3	# {
+      then
+	cat $LSOF_TMP3 >> $LSOF_TMP4
+      fi	# }
       echo "#endif	/* !defined(NETEXPORT_H) */" >> $LSOF_TMP4
       rm -f $LSOF_TMP1 $LSOF_TMP2 $LSOF_TMP3
       echo $LSOF_CFGF | grep /dialects/n+obsd/include > /dev/null 2>&1
       if test $? -ne 0	# {
       then
 	LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/n+obsd/include"
-      fi
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/lockf.h	# {
-    then
-      grep vop_advlock_args ${LSOF_INCLUDE}/sys/lockf.h > /dev/null
-      if test $? -eq 0	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHAS_ADVLOCK_ARGS"
-      fi	# }
-      grep lf_lwp ${LSOF_INCLUDE}/sys/lockf.h > /dev/null
-      if test $? -eq 0	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHAS_LF_LWP"
       fi	# }
     fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/lwp.h	# {
+    if test $LSOF_NBSD_BUFQH -eq 1	# {
     then
-      LSOF_CFGF="$LSOF_CFGF -DHAS_LWP_H"
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/netinet/in.h	# {
-    then
-      grep IPV6_INRIA_VERSION ${LSOF_INCLUDE}/netinet/in.h > /dev/null
-      if test $? -eq 0	# {
+
+    # Make a local copy of $NETBSD_SYS/sys/bufq.h.
+
+      if test ! -d dialects/n+obsd/include	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASIPv6 -DHASINRIAIPv6"
+	mkdir dialects/n+obsd/include
+      fi	# }
+      if test ! -d dialects/n+obsd/include/sys	# {
+      then
+	mkdir dialects/n+obsd/include/sys
+      fi	# }
+      cp $NETBSD_SYS/sys/bufq.h dialects/n+obsd/include/sys
+      echo $LSOF_CFGF | grep /dialects/n+obsd/include > /dev/null 2>&1
+      if test $? -ne 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/n+obsd/include"
       fi	# }
     fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/filedesc.h	# {
+    if test $LSOF_NBSD_PTYFS -eq 1	# {
     then
-      grep -q "^struct cwdinfo {" ${LSOF_INCLUDE}/sys/filedesc.h
-      if test $? -eq 0	# {
+
+    # Make a local copy of $NETBSD_SYS/sys/fs/ptyfs/.
+
+      if test ! -d dialects/n+obsd/include	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASCWDINFO"
+	mkdir dialects/n+obsd/include
       fi	# }
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/pipe.h	# {
-    then
-      LSOF_CFGF="$LSOF_CFGF -DHAS_SYS_PIPEH"
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/sys/statvfs.h   # {
-    then
-      grep -q '^struct statvfs {' ${LSOF_INCLUDE}/sys/statvfs.h
-      if test $? -eq 0	# {
+      if test ! -d dialects/n+obsd/include/fs	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASSTATVFS"
+	mkdir dialects/n+obsd/include/fs
       fi	# }
-    fi	# }
-    if test -r ${LSOF_INCLUDE}/kvm.h	# {
-    then
-      grep -q kvm_getproc2 ${LSOF_INCLUDE}/kvm.h
-      if test $? -eq 0	# {
+      rm -rf dialects/n+obsd/include/fs/ptyfs
+      mkdir dialects/n+obsd/include/fs/ptyfs
+      cp $NETBSD_SYS/fs/ptyfs/*.h dialects/n+obsd/include/fs/ptyfs
+      echo $LSOF_CFGF | grep /dialects/n+obsd/include > /dev/null 2>&1
+      if test $? -ne 0	# {
       then
-          LSOF_CFGF="$LSOF_CFGF -DHASKVMGETPROC2"
+	LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/n+obsd/include"
       fi	# }
     fi	# }
     LSOF_CFGL="$LSOF_CFGL -lkvm"
@@ -2803,16 +3363,28 @@ return(0); }
 	LSOF_TSTBIGF=" "
 	LSOF_VERS=3060
 	;;
+      3.7*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=3070
+	;;
+      3.8*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=3080
+	;;
+      3.9*)
+	LSOF_TSTBIGF=" "
+	LSOF_VERS=3090
+	;;
       3*)
 	LSOF_TSTBIGF=" "
-	LSOF_VERS=3060
+	LSOF_VERS=3090
 	echo "!!!WARNING!!!  Unsupported OpenBSD 3.x version: $LSOF_VSTR"
-	echo "!!!WARNING!!!  Configuring for OpenBSD 3.6"
+	echo "!!!WARNING!!!  Configuring for OpenBSD 3.9"
 	;;
       *)
 	echo "Unknown OpenBSD release: $LSOF_VSTR"
-	echo Assuming OpenBSD 3.6
-	LSOF_VERS=3060
+	echo Assuming OpenBSD 3.9
+	LSOF_VERS=3090
 	;;
       esac	# }
     fi	# }
@@ -2820,7 +3392,7 @@ return(0); }
     # Test for legal OpenBSD version.
 
     case $LSOF_VERS in	# {
-    1020|2050|2060|2070|2080|2090|3000|3010|3020|3030|3040|3050|3060)
+    1020|2050|2060|2070|2080|2090|3000|3010|3020|3030|3040|3050|3060|3070|3080|3090)
       ;;
     *)
       echo "Unknown OpenBSD version: $LSOF_VERS"
@@ -2894,8 +3466,8 @@ return(0); }
     else
       if test -d ${OPENBSD_SYS}/fs/cd9660	# {
       then
-        LSOF_CFGF="$LSOF_CFGF -DHAS9660FS=2"
-        LSOF_TMP1=1
+	LSOF_CFGF="$LSOF_CFGF -DHAS9660FS=2"
+	LSOF_TMP1=1
       fi	# }
     fi	# }
     if test -d ${OPENBSD_SYS}/msdosfs	# {
@@ -2905,8 +3477,8 @@ return(0); }
     else
       if test -d ${OPENBSD_SYS}/fs/msdosfs	# {
       then
-        LSOF_CFGF="$LSOF_CFGF -DHASMSDOSFS=2"
-        LSOF_TMP1=1
+	LSOF_CFGF="$LSOF_CFGF -DHASMSDOSFS=2"
+	LSOF_TMP1=1
       fi	# }
     fi	# }
     if test -r ${OPENBSD_SYS}/miscfs/kernfs/kernfs.h	# {
@@ -2926,24 +3498,50 @@ return(0); }
     if test $? -eq 0	# {
     then
       LSOF_TMP1=1
-      grep -q "*e2fs_din" ${LSOF_INCLUDE}/ufs/ufs/inode.h
-      if test $? -eq 0	# {
+      if test -r ${LSOF_INCLUDE}/ufs/ufs/inode.h	# {
       then
-	LSOF_CFGF="$LSOF_CFGF -DHASI_E2FS_PTR"
-      fi	# }
-      grep -q "^#define[ 	]i_e2din" ${LSOF_INCLUDE}/ufs/ufs/inode.h
-      if test $? -eq 0	# {
-      then
-	LSOF_TMP1=2
+	grep -q "*e2fs_din" ${LSOF_INCLUDE}/ufs/ufs/inode.h
+	if test $? -eq 0	# {
+	then
+	  LSOF_CFGF="$LSOF_CFGF -DHASI_E2FS_PTR"
+	fi	# }
+	grep -q "^#define[ 	]i_e2din" ${LSOF_INCLUDE}/ufs/ufs/inode.h
+	if test $? -eq 0	# {
+	then
+	  LSOF_TMP1=2
+	fi	# }
       fi	# }
       LSOF_CFGF="$LSOF_CFGF -DHASEXT2FS=$LSOF_TMP1"
+    fi	# }
+    if test -r ${LSOF_INCLUDE}/ufs/ufs/inode.h	# {
+    then
+      grep -q i_effnlink ${LSOF_INCLUDE}/ufs/ufs/inode.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASEFFNLINK=i_effnlink"
+      fi	# }
+      grep -q dinode_u ${LSOF_INCLUDE}/ufs/ufs/inode.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHAS_DINODE_U"
+      fi	# }
+      grep -q i_ffs1_size ${LSOF_INCLUDE}/ufs/ufs/inode.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASI_FFS1"
+      fi	# }
+      grep -q UM_UFS ${LSOF_INCLUDE}/ufs/ufs/inode.h
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHAS_UM_UFS"
+      fi	# }
     fi	# }
     if test -r ${LSOF_INCLUDE}/sys/namei.h
     then
       grep -q nc_vpid ${LSOF_INCLUDE}/sys/namei.h
       if test $? -eq 0	# {
       then
-        LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
+	LSOF_CFGF="$LSOF_CFGF -DHASNCVPID"
       fi	# }
     fi	# }
     if test "X$OPENBSD_UVM" = "X"	# {
@@ -2972,7 +3570,8 @@ return(0); }
     if test -r ${LSOF_INCLUDE}/sys/mount.h -a $LSOF_VERS -lt 3030	# {
     then
 
-      # Build the netexport.h header file for OpenBSD from <sys/mount.h>.
+      # Build a local OpenBSD netexport.h header file for possible use by
+      # <msdosfs/msdosfsmount.h>.  Make sure CFGL contains a -I for it.
 
       LSOF_TMP1=${LSOF_TMPC}.edscr
       LSOF_TMP2=${LSOF_TMPC}.netcred
@@ -3005,16 +3604,22 @@ return(0); }
       echo "" >> $LSOF_TMP4
       echo "#include <net/radix.h>" >> $LSOF_TMP4
       echo "" >> $LSOF_TMP4
-      cat $LSOF_TMP2 >> $LSOF_TMP4
-      echo "" >> $LSOF_TMP4
-      cat $LSOF_TMP3 >> $LSOF_TMP4
+      if test -r $LSOF_TMP2	# {
+      then
+	cat $LSOF_TMP2 >> $LSOF_TMP4
+	echo "" >> $LSOF_TMP4
+      fi	# }
+      if test -r $LSOF_TMP3	# {
+      then
+	cat $LSOF_TMP3 >> $LSOF_TMP4
+      fi	# }
       echo "#endif	/* !defined(NETEXPORT_H) */" >> $LSOF_TMP4
       rm -f $LSOF_TMP1 $LSOF_TMP2 $LSOF_TMP3
       echo $LSOF_CFGF | grep /dialects/n+obsd/include > /dev/null 2>&1
       if test $? -ne 0	# {
       then
 	LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/n+obsd/include"
-      fi
+      fi	# }
     fi	# }
     if test -r ${LSOF_INCLUDE}/sys/lockf.h	# {
     then
@@ -3030,81 +3635,6 @@ return(0); }
     fi	# }
     LSOF_CFGL="-lkvm"
     LSOF_DIALECT_DIR=n+obsd
-    ;;
-
-# Configure for Caldera OpenUNIX.
-
-  openunix|ou)
-    LSOF_TGT="ou";
-    LSOF_TSTBIGF=" "
-    LSOF_TSTLFLG="-lsocket"
-    LSOF_RANLIB=""
-    if test "X$LSOF_VSTR" = "X"	# {
-    then
-      LSOF_VSTR=`uname -v`
-    fi	# }
-    if test "X$LSOF_VERS" = "X"	# {
-    then
-
-      # If the OpenUNIX version isn't pre-defined, determine it.
-
-      LSOF_VERS=`echo $LSOF_VSTR | sed 's/\([0-9\.]*\).*/\1/; s/\./ /g' | awk '{printf "%d%02d%02d\n", $1, $2, $3;}'`
-    fi	# }
-    LSOF_CFGF="-DOPENUNIXV=$LSOF_VERS"
-
-    # Prepare compiler information.
-
-    if test "X$LSOF_CC" = "X"	#
-    then
-      LSOF_CC=cc
-      LSOF_CCV=`$LSOF_CC -V 2>&1 | grep INFO`
-    fi	# }
-
-    # Do OpenUNIX version-specific stuff.
-
-    case $LSOF_VERS in	# {
-    80000|80001)
-      if test $LSOF_VERS -lt 80001	# {
-      then
-
-      # Do things specific to 8.0.
-
-	LSOF_CFGL="-lsocket -lnsl -lelf -lgen"
-	LSOF_DINC="$LSOF_DINC -I`pwd`/dialects/ou/ou8"
-      else
-
-      # Do things specific to 8.0.1 and above.
-
-	LSOF_CFGL="-lsocket -lnsl -lelf -lgen -lcdfs"
-      fi	# }
-      if test -r ${LSOF_INCLUDE}/sys/fs/vx_gemini.h	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -DHASVXFS"
-      fi	# }
-      if test -r ${LSOF_INCLUDE}/netinet/in6.h	# {
-      then
-	  LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
-      fi	# }
-      if test -r ${LSOF_INCLUDE}/sys/fs/cdfs_fs.h	# {
-      then
-	grep "cdfs_LogSecShift;" ${LSOF_INCLUDE}/sys/fs/cdfs_fs.h > /dev/null 2>&1
-	if test $? -eq 0	# {
-	then
-	  LSOF_TMP=`grep "cdfs_LogSecShift;" ${LSOF_INCLUDE}/sys/fs/cdfs_fs.h | sed 's/^[ 	]*\([^ 	]*\).*/\1/'`
-	  if test "X$LSOF_TMP" != "X"	# {
-	  then
-	    LSOF_CFGF="$LSOF_CFGF -DTYPELOGSECSHIFT=$LSOF_TMP"
-	  fi	# }
-	fi	# }
-      fi	# }
-      ;;
-    *)
-      echo Unsupported OpenUNIX version: `uname -v`
-      rm -f $LSOF_HLP
-      exit 1
-      ;;
-    esac	# }
-    LSOF_DIALECT_DIR=ou
     ;;
 
 # Configure for SCO OpenServer.
@@ -3414,9 +3944,7 @@ return(0); }
 	  echo "         installed.  This probably means the NUM_*_VECTORS definitions in"
 	  echo "         <sys/auxv.h> don't match the ones used to build your kernel.  Consult"
 	  echo "         the Sun Problems section of the 00FAQ file of the lsof distribution"
-	  echo "         for an explanation of the work-around being supplied by including"
-	  echo "         the header file ./dialects/sun/include/sys/auxv.h."
-	  LSOF_DINC="$LSOF_DINC -I`pwd`/dialects/sun/include"
+	  echo "         for more information on how to work around the problem."
 	fi	# }
       fi	# }
       ;;
@@ -3483,10 +4011,9 @@ return(0); }
 	then
 	  SOLARIS_KERNBITS=`/bin/isainfo -kv`
 	fi	# }
-	echo $SOLARIS_KERNBITS  | grep 64 > /dev/null
+	echo $SOLARIS_KERNBITS | grep 64 > /dev/null
 	if test $? -eq 0	# {
 	then
-	  LSOF_TSTK64=1
 	  echo $LSOF_CC | grep gcc > /dev/null
 	  if test $? -eq 0	# {
 	  then
@@ -3540,50 +4067,75 @@ return(0); }
 	      echo "!!!WARNING!!!=========!!!WARNING!!!=========!!!WARNING!!!"
 	      echo ""
 	    else
-	     echo ""
-	     echo "*********************************"
-	     echo "* Configuring for 64 bit kernel *"
-	     echo "*********************************"
-	     echo ""
-	     LSOF_CFGF="$LSOF_CFGF $LSOF_TMP1"
-	     LSOF_CINFO="64 bit kernel"
-	   fi	# }
-	  else
-
-	  # Test Sun compiler for 64 bit support.
-
-	    echo "Testing $LSOF_CC for 64 bit support"
-	    rm -f ${LSOF_TMPC}.*
-	    echo "main(){}" > ${LSOF_TMPC}.c
-	    LSOF_TMP1=0
-	    $LSOF_CC ${LSOF_TMPC}.c -xarch=v9 -o ${LSOF_TMPC}.x > /dev/null 2>&1
-	    if test $? -eq 0	# {
-	    then
-	      /bin/file ${LSOF_TMPC}.x | /bin/grep 64 > /dev/null 
-	      if test $? -eq 0	# {
-	      then
-		LSOF_TMP1=1
-	      fi	# }
-	    fi	# }
-	    rm -f ${LSOF_TMPC}.*
-	    if test $LSOF_TMP1 -eq 1	# {
-	    then
-	      LSOF_CFGF="$LSOF_CFGF -xarch=v9"
 	      echo ""
 	      echo "*********************************"
 	      echo "* Configuring for 64 bit kernel *"
 	      echo "*********************************"
 	      echo ""
+	      LSOF_CFGF="$LSOF_CFGF $LSOF_TMP1"
 	      LSOF_CINFO="64 bit kernel"
+	      LSOF_TSTK64=1
+	    fi	# }
+	  else
+
+	  # Test Sun compiler for 64 bit support.
+
+	    if test "X$SOLARIS_INSTR" = "X"	# {
+	    then
+	      SOLARIS_INSTR=`/bin/isainfo -k`
+	    fi	#}
+	    case $SOLARIS_INSTR in	# {
+	    amd64*)
+	      LSOF_TMP1="amd64"
+	      LSOF_TMP2="amd64"
+	      ;;
+	    sparc*)
+	      LSOF_TMP1="v9"
+	      LSOF_TMP2="sparcv9"
+	      ;;
+	    *)
+	      LSOF_TMP1=""
+	      ;;
+	    esac	# }
+	    if test "X$LSOF_TMP1" != "X"	# {
+	    then
+	      echo "Testing $LSOF_CC for 64 bit $LSOF_TMP2 support"
+	      rm -f ${LSOF_TMPC}.*
+	      LSOF_TMP3="-xarch=$LSOF_TMP1"
+	      echo "main(){}" > ${LSOF_TMPC}.c
+	      $LSOF_CC ${LSOF_TMPC}.c $LSOF_TMP3 -o ${LSOF_TMPC}.x > /dev/null 2>&1
+	      if test $? -eq 0	# {
+	      then
+		/bin/file ${LSOF_TMPC}.x | /bin/grep 64 > /dev/null 
+		if test $? -ne 0	# {
+		then
+		  LSOF_TMP3=""
+		fi	# }
+	      fi	# }
+	      rm -f ${LSOF_TMPC}.*
+	    else
+	      LSOF_TMP3=""
+	    fi	# }
+	    if test "X$LSOF_TMP3" != "X"	# {
+	    then
+	      echo ""
+	      echo "*********************************"
+	      echo "* Configuring for 64 bit kernel *"
+	      echo "*********************************"
+	      echo ""
+	      LSOF_CFGF="$LSOF_CFGF $LSOF_TMP3"
+	      LSOF_CINFO="64 bit kernel"
+	      LSOF_TSTK64=1
 	    else
 	      echo ""
 	      echo "!!!WARNING!!!==========!!!WARNING!!!==========!!!WARNING!!!"
-	      echo "!                                                         !"
-	      echo "! LSOF NEEDS TO BE CONFIGURED FOR A 64 BIT KERNEL, BUT    |"
-	      echo "! THE VERSION OF SUN C AVAILABLE DOESN'T SUPPORT THE      !"
-	      echo "! -xarch=v9 FLAG.  LSOF WILL BE CONFIGURED FOR A 32 BIT   !"
-	      echo "! KERNEL.                                                 !"
-	      echo "!                                                         !"
+	      echo "!"
+	      echo "! LSOF NEEDS TO BE CONFIGURED FOR A 64 BIT KERNEL, BUT"
+	      echo "! THE VERSION OF SUN C AVAILABLE DOESN'T SUPPORT THE"
+	      echo "! \"$LSOF_TMP2\" INSTRUCTION SET."
+	      echo "!"
+	      echo "! LSOF WILL BE CONFIGURED FOR A 32 BIT KERNEL."
+	      echo "!"
 	      echo "!!!WARNING!!!==========!!!WARNING!!!==========!!!WARNING!!!"
 	      echo ""
 	    fi	# }
@@ -3608,6 +4160,20 @@ return(0); }
 	fi	# }
       fi	# }
 
+      # Do tests specific to Solaris 9 and above.
+
+      if test $LSOF_VERS -ge 90000	# {
+      then
+	if test -r ${LSOF_INCLUDE}/sys/socketvar.h	# {
+	then
+	  grep soua_vp ${LSOF_INCLUDE}/sys/socketvar.h > /dev/null 2>&1
+	  if test $? -eq 0	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHASSOUXSOUA"
+	  fi	# }
+	fi	# }
+      fi	# }
+
       # Do tests specific to Solaris 10 and above.
 
       if test $LSOF_VERS -ge 100000	# {
@@ -3620,7 +4186,7 @@ return(0); }
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHAS_CRED_IMPL_H"
 
-          # DEBUG -- Begin temporary hack for Solaris 10, build s10_44.
+	  # DEBUG -- Begin temporary hack for Solaris 10, build s10_44.
 
 	  grep "c2/audit.h" ${LSOF_INCLUDE}/sys/cred_impl.h > /dev/null
 	  if test $? -eq 0	# {
@@ -3632,8 +4198,17 @@ return(0); }
 	    LSOF_CFGF="$LSOF_CFGF -I`pwd`/dialects/sun/solaris10"
 	  fi	# }
 
-          # DEBUG -- End temporary hack for Solaris 10, build s10_44.
+	  # DEBUG -- End temporary hack for Solaris 10, build s10_44.
 
+	fi	# }
+	if test -r ${LSOF_INCLUDE}/sys/vnode.h	# {
+	then
+	  grep v_path ${LSOF_INCLUDE}/sys/vnode.h > /dev/null 2>&1
+	  if test $? -eq 0	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHAS_V_PATH"
+	    LSOF_TSTVPATH=1
+	  fi	# }
 	fi	# }
       fi	# }
       if test -r ${LSOF_INCLUDE}/sys/zone.h	# {
@@ -3732,28 +4307,36 @@ return(0); }
     fi	# }
 
     # Test for VxFS.
-
-    if test "X$SOLARIS_VXFSINCL" = "X"	#
-    then
-
+    #
     # If the location of the VxFS header files hasn't been defined in the
-    # environment, establish their likely location.
+    # environment, establish their likely locations.
 
-      if test -d /opt/VRTSvxfs/include	# {
+    LSOF_TMP2=$SOLARIS_VXFSINCL
+    if test -d /opt/VRTS/include	# {
+    then
+      LSOF_TMP2="$LSOF_TMP2 /opt/VRTS/include"
+    fi	# }
+    if test -d /opt/VRTSvxfs/include	# {
+    then
+      LSOF_TMP2="$LSOF_TMP2 /opt/VRTSvxfs/include"
+    fi	# }
+    LSOF_TMP1=0
+    for i in $LSOF_TMP2	# {
+    do
+      if test -r ${i}/vxfsutil.h	# {
       then
 	LSOF_TMP1=1
-	SOLARIS_VXFSINCL="/opt/VRTSvxfs/include"
-      else
-	LSOF_TMP1=0
-	SOLARIS_VXFSINCL="/usr/include"
-      fi
-    else
-      LSOF_TMP1=1
-    fi	# }
-    if test -r ${SOLARIS_VXFSINCL}/vxfsutil.h	# {
+	SOLARIS_VXFSINCL=$i
+	break
+      fi	# }
+    done	# }
+    if test $LSOF_TMP1 -eq 1	# {
     then
 
-    # The VxFS header files are for VxFS version 3.4 or above.
+    # The VxFS header files are for VxFS version 3.4 or above.  Enable VxFS
+    # for those versions.
+
+      LSOF_CFGF="$LSOF_CFGF -DHASVXFS -DHASVXFSUTIL -I$SOLARIS_VXFSINCL"
 
     # Determine which libvxfsutil.a is required -- 32 or 64 bit.
 
@@ -3769,70 +4352,67 @@ return(0); }
 
       if test "X$SOLARIS_VXFSLIB" = "X"	# {
       then
-	SOLARIS_VXFSLIB="/opt/VRTSvxfs/lib"
+	SOLARIS_VXFSLIB=`dirname $SOLARIS_VXFSINCL`/lib
       fi	# }
       LSOF_TMP3="${SOLARIS_VXFSLIB}${LSOF_TMP2}/libvxfsutil.a"
       if test ! -r $LSOF_TMP3	# {
       then
-	echo "!!!FATAL: no $LSOF_TMP3"
+	echo "!!!FATAL: no VxFS $LSOF_TMP3"
 	exit 1
       fi	# }
-
-    # Enable support for VxFS versions 3.4 and above.
-
-      LSOF_CFGF="$LSOF_CFGF -DHASVXFS -DHASVXFSUTIL"
-      if test $LSOF_TMP1 -eq 1	# {
-      then
-	LSOF_CFGF="$LSOF_CFGF -I$SOLARIS_VXFSINCL"
-      fi	# }
       LSOF_CFGL="-L$SOLARIS_VXFSLIB${LSOF_TMP2} -lvxfsutil -ldl"
+
+    # See if the library has the Reverse Name Lookup (RNL) function.
+
+      nm $LSOF_TMP3 | grep vxfs_inotopath > /dev/null 2>&1
+      if test $? -eq 0	# {
+      then
+	LSOF_CFGF="$LSOF_CFGF -DHASVXFSRNL -DHASVXFSDNLC"
+      fi	# }
     else
 
     # See if there are VxFS header files for VxFS versions below 3.4.
 
-      if test -r ${SOLARIS_VXFSINCL}/sys/fs/vx_inode.h	# {
+      if test -r ${LSOF_INCLUDE}/sys/fs/vx_inode.h	# {
       then
 
       # Define VxFS for VxFS versions below 3.4.  Make additional header
       # file tests.
 
 	LSOF_CFGF="$LSOF_CFGF -DHASVXFS"
-	if test $LSOF_TMP1 -eq 1	# {
-	then
-	  LSOF_CFGF="$LSOF_CFGF -I$SOLARIS_VXFSINCL"
-	fi	# }
-	if test -r ${SOLARIS_VXFSINCL}/sys/fs/vx_fs.h	# {
+	if test -r ${LSOF_INCLUDE}/sys/fs/vx_fs.h	# {
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHASVXFS_FS_H"
 	fi	# }
-	if test -r ${SOLARIS_VXFSINCL}/sys/fs/vx_sol.h	# {
+	if test -r ${LSOF_INCLUDE}/sys/fs/vx_sol.h	# {
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHASVXFS_SOL_H"
 	fi	# }
-	if test -r ${SOLARIS_VXFSINCL}/sys/fs/vx_machdep.h	# {
+	if test -r ${LSOF_INCLUDE}/sys/fs/vx_machdep.h	# {
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHASVXFS_MACHDEP_H"
 	fi	# }
-	if test -r ${SOLARIS_VXFSINCL}/sys/fs/vx_solaris.h	# {
+	if test -r ${LSOF_INCLUDE}/sys/fs/vx_solaris.h	# {
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHASVXFS_SOLARIS_H"
-	  grep "off32_t;" ${SOLARIS_VXFSINCL}/sys/fs/vx_machdep.h > /dev/null
+	  grep "off32_t;" ${LSOF_INCLUDE}/sys/fs/vx_machdep.h > /dev/null
 	  if test $? -eq 0	# {
 	  then
 	    LSOF_CFGF="$LSOF_CFGF -DHASVXFS_OFF32_T"
 	  fi	# }
-	  grep "off64_t;" ${SOLARIS_VXFSINCL}/sys/fs/vx_solaris.h > /dev/null
+	  grep "off64_t;" ${LSOF_INCLUDE}/sys/fs/vx_solaris.h > /dev/null
 	  if test $? -eq 0	# {
 	  then
 	    LSOF_CFGF="$LSOF_CFGF -DHASVXFS_OFF64_T"
 	  fi	# }
-	  grep "vx_u64_t;" ${SOLARIS_VXFSINCL}/sys/fs/vx_solaris.h > /dev/null
+	  grep "vx_u64_t;" ${LSOF_INCLUDE}/sys/fs/vx_solaris.h > /dev/null
 	  if test $? -eq 0	# {
 	  then
 	    LSOF_CFGF="$LSOF_CFGF -DHASVXFS_U64_T"
 	  fi	# }
 	fi	# }
-	egrep "struct[ 	]vx_inode[ 	]\{" ${SOLARIS_VXFSINCL}/sys/fs/vx_inode.h > /dev/null
+	egrep "struct[ 	]vx_inode[ 	]\{" ${LSOF_INCLUDE}/sys/fs/vx_inode.h > /dev/null
+	# } (dummy '}' to match '{' in above egrep)
 	if test $? -eq 0	# {
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHASVXFS_VX_INODE"
@@ -3853,9 +4433,10 @@ return(0); }
     fi	# }
     ;;
 
-# Configure for SCO|Caldera UnixWare.
+# Configure for SCO|Caldera OpenServer Release 6.0.0 and UnixWare.
 
-  unixware|uw)
+  osr6|unixware|uw)
+    LSOF_TMP1=$LSOF_TGT
     LSOF_TGT="uw"
     LSOF_RANLIB=""
     if test "X$LSOF_VSTR" = "X"	# {
@@ -3865,21 +4446,33 @@ return(0); }
     if test "X$LSOF_VERS" = "X"	# {
     then
 
-      # If the UnixWare version isn't pre-defined, determine it.
+      # If the Openserver Release 6.0.0 or UnixWare version isn't pre-defined,
+      # determine it.
 
       LSOF_VERS=`echo $LSOF_VSTR | sed 's/\([0-9\.]*\).*/\1/; s/\./ /g' | awk '{printf "%d%02d%02d\n", $1, $2, $3;}'`
     fi	# }
+    if test $LSOF_TMP1 = "osr6"	# {
+    then
+      LSOF_CINFO="OSR6 support via UnixWare sources"
+
+    # Convert the OpenServer Release 6.0.0 version number to a UnixWare one.
+
+      case $LSOF_VERS in	# {
+      60000)
+	LSOF_VERS=70104
+	;;
+      *)
+	echo "Unknown OpenServer Release version: $LSOF_VERS"
+	rm -f $LSOF_HLP
+	exit 1
+      esac	# }
+    fi	# }
     LSOF_CFGF="-DUNIXWAREV=$LSOF_VERS"
 
-    # Do UnixWare version-specific stuff.
+    # Do OpenServer Release 6.0.0 and UnixWare version-specific stuff.
 
     case $LSOF_VERS in	# {
     20100|20101|20102|20103)
-      LSOF_DINC="$LSOF_DINC -I`pwd`/dialects/uw/uw21"
-      if test ! -r ${LSOF_INCLUDE}/vm/swap.h -a -r ${LSOF_INCLUDE}/sys/swap.h	# {
-      then
-	(cd ./dialects/uw/uw21/vm; rm -f swap.h; ln -s ${LSOF_INCLUDE}/sys/swap.h swap.h)
-      fi	# }
       if test -r ${LSOF_INCLUDE}/sys/fs/vx_inode.h	# {
       then
 	LSOF_CFGF="$LSOF_CFGF -DHASVXFS"
@@ -3900,6 +4493,33 @@ return(0); }
 	then
 	  LSOF_CFGF="$LSOF_CFGF -DHASIPv6"
 	fi	# }
+	if test $LSOF_VERS -ge 70104	# {
+	then
+
+	# Process 7.1.4 and above.
+
+	  LSOF_TMP1=0
+	  if test -r ${LSOF_INCLUDE}/netinet/in_pcb.h	# {
+	  then
+	    grep INKERNEL ${LSOF_INCLUDE}/netinet/in_pcb.h > /dev/null 2>&1
+	    if test $? -eq 0	# {
+	    then
+	      LSOF_TMP1=1
+	    fi	# }
+	  fi	# }
+	  if test $LSOF_TMP1 -eq 0 -a -r ${LSOF_INCLUDE}/netinet/tcp_var.h   # {
+	  then
+	    grep INKERNEL ${LSOF_INCLUDE}/netinet/tcp_var.h > /dev/null 2>&1
+	    if test $? -eq 0	# {
+	    then
+	      LSOF_TMP1=1
+	    fi	# }
+	  fi	# }
+	  if test $LSOF_TMP1 -eq 1	# {
+	  then
+	    LSOF_CFGF="$LSOF_CFGF -DHAS_INKERNEL"
+	  fi	# }
+	fi	# }
       fi	# }
       if test ! -r ${LSOF_INCLUDE}/vm/swap.h -a -r ${LSOF_INCLUDE}/sys/swap.h	# {
       then
@@ -3910,7 +4530,7 @@ return(0); }
 	LSOF_CFGF="$LSOF_CFGF -DHASVXFS"
       fi	# }
       LSOF_CFGL="-lsocket -lnsl -lelf -lgen"
-      /bin/pkginfo | grep -i patch | grep -i ptf7038 > /dev/null
+      /bin/pkginfo 2> /dev/null | grep -i patch | grep -i ptf7038 > /dev/null
       if test -r ${LSOF_INCLUDE}/sys/file.h	# {
       then
 	grep f_open ${LSOF_INCLUDE}/sys/file.h > /dev/null
@@ -3942,7 +4562,8 @@ return(0); }
       if test $LSOF_VERS -ge 70101	# {
       then
 
-	# Do UnixWare 7.1.1 and above tests, as required.
+	# Do OpenServer Release 6.0.0 and UnixWare 7.1.1 and above tests, as
+	# required.
 
 	if test "X$UW_HAS_NSC" = "X"	# {
 	then
@@ -4233,6 +4854,10 @@ then
   echo "-DLT_K64" >> $LSOF_TSTCFLG
 fi	# }
 echo "-DLT_VERS=$LSOF_VERS" >> $LSOF_TSTCFLG
+if test $LSOF_TSTVPATH -eq 1	# {
+then
+  echo "-DLT_VPATH" >> $LSOF_TSTCFLG
+fi	# }
 echo "$LSOF_TSTCFLG created"
 
 # Create tests loader flags file.

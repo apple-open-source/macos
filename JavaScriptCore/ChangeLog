@@ -1,3 +1,314 @@
+=== JavaScriptCore-418.3 ===
+
+2006-05-27  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+        
+        - Rolling out the 'currentThreadIsMainThread' argument passed to
+        Interpreter::mark because the fix for <rdar://problem/4562599>
+        makes it superfluous.
+        
+        * kjs/collector.cpp:
+        (KJS::Collector::collect):
+        * kjs/internal.cpp:
+        (InterpreterImp::mark):
+        * kjs/internal.h:
+        * kjs/interpreter.h:
+        (KJS::Interpreter::mark):
+
+=== JavaScriptCore-418.2 ===
+
+2006-05-19  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej.
+
+        - Fixed <rdar://problem/4543569> 10.4.7 regression: Crash occurs
+        when attempting to view image in slideshow mode at
+        http://d.smugmug.com/gallery/581716 ( KJS::IfNode::execute
+        (KJS::ExecState*) + 312)
+
+        - Major fix: On alternate threads, DOMObjects remain in the
+        ScriptInterpreter's cache because they're not collected. So, they
+        need an opportunity to mark their children.
+
+        * kjs/collector.cpp:
+        (KJS::Collector::collect):
+        * kjs/internal.cpp:
+        (InterpreterImp::mark):
+        * kjs/internal.h:
+        * kjs/interpreter.h:
+        (KJS::Interpreter::mark):
+
+=== JavaScriptCore-418.1 ===
+
+2006-05-03  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-11-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin.
+
+        - Fixed http://bugzilla.opendarwin.org/show_bug.cgi?id=5571
+          REGRESSION (412.5-TOT): duplicated words/sentences at 
+          shakespeer.sourceforge.net
+
+        Our UTF16-modified PCRE didn't work with extended character classes
+        (classes involving characters > 255) because it used the GETCHARINC
+        macro to read through them. In UTF16 mode, GETCHARINC expects UTF16 
+        input, but PCRE encodes character classes in UTF8 regardless of the
+        input mode of the subject string.
+
+        The fix is to explicitly define GETUTF8CHARINC, and to use it,
+        rather than GETCHARINC, when reading extended character classes. 
+        
+        In UTF8 mode, we simply define GETCHARINC to be GETUTF8CHARINC.
+
+        * pcre/pcre_internal.h:
+        * pcre/pcre_xclass.c:
+        (_pcre_xclass):
+
+2006-05-03  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-29  Eric Seidel  <eseidel@apple.com>
+        Fix from Mitz Pettel <opendarwin.org@mitzpettel.com>
+
+        Reviewed by darin.
+
+        Fix JSC memory smasher in TOT.
+        http://bugzilla.opendarwin.org/show_bug.cgi?id=5176
+
+        * pcre/pcre_exec.c:
+        (match):
+
+2006-05-03  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-09-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoff.
+
+        - updated to PCRE 6.1
+
+        The original PCRE 6.1 sources are checked into the tree with the tag
+        "pcre-6-1" for reference. What we're checking in right now is the original
+        plus our changes to make it support UTF-16 and at least one other tweak
+        (vertical tab considered whitespace). Our work to get our changes was
+        done on "pcre-6-1-branch", with an anchor at "pcre-6-1-anchor" so you can
+        see the evolution of the UTF-16 changes.
+        
+        Note also that there was one small change made here that's not on the branch
+        in pcre_compile.c.
+
+        * Info.plist: Updated the part of the copyright message that's about PCRE.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj: Added new PCRE source files,
+        removed obsolete ones.
+
+        * pcre/AUTHORS: Updated to PCRE 6.1. Includes credits for Apple's UTF-16
+        changes, but not the credits for Google's C++ wrapper, since we don't include that.
+        * pcre/COPYING: Updated to PCRE 6.1.
+        * pcre/LICENCE: Ditto.
+        * pcre/dftables.c: Ditto.
+        * pcre/pcre-config.h: Ditto.
+        * pcre/pcre.h: Ditto.
+
+        * pcre/pcre_compile.c: Added for PCRE 6.1.
+        * pcre/pcre_config.c: Ditto.
+        * pcre/pcre_exec.c: Ditto.
+        * pcre/pcre_fullinfo.c: Ditto.
+        * pcre/pcre_get.c: Ditto.
+        * pcre/pcre_globals.c: Ditto.
+        * pcre/pcre_info.c: Ditto.
+        * pcre/pcre_internal.h: Ditto.
+        * pcre/pcre_maketables.c: Ditto.
+        * pcre/pcre_ord2utf8.c: Ditto.
+        * pcre/pcre_printint.c: Ditto.
+        * pcre/pcre_refcount.c: Ditto.
+        * pcre/pcre_study.c: Ditto.
+        * pcre/pcre_tables.c: Ditto.
+        * pcre/pcre_try_flipped.c: Ditto.
+        * pcre/pcre_ucp_findchar.c: Ditto.
+        * pcre/pcre_version.c: Ditto.
+        * pcre/pcre_xclass.c: Ditto.
+        * pcre/ucp.h: Ditto.
+        * pcre/ucp_findchar.c: Ditto.
+        * pcre/ucpinternal.h: Ditto.
+        * pcre/ucptable.c: Ditto.
+
+        * pcre/get.c: Removed.
+        * pcre/internal.h: Removed.
+        * pcre/maketables.c: Removed.
+        * pcre/pcre.c: Removed.
+        * pcre/study.c: Removed.
+
+2006-05-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-05-01  Tim Omernick  <timo@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        <rdar://problem/4476875> Support printing for embedded Netscape plugins
+
+        * bindings/npapi.h:
+        Fixed struct alignment problem in our npapi.h.  Structs must be 68k-aligned on both pre-Mac OS X
+        and Mac OS X systems, as this is what plugins expect.
+
+2006-05-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-04-18  Eric Seidel  <eseidel@apple.com>
+
+        Reviewed by ggaren.
+
+        Fix "new Function()" to correctly use lexical scoping.
+        Add ScopeChain::print() function for debugging.
+        <rdar://problem/4067864> REGRESSION (125-407): JavaScript failure on PeopleSoft REN Server
+
+        * kjs/function_object.cpp:
+        (FunctionObjectImp::construct):
+        * kjs/scope_chain.cpp:
+        (KJS::ScopeChain::print):
+        * kjs/scope_chain.h:
+
+2006-05-01  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-03-29  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin.
+
+        - JavaScriptCore side of fix for <rdar://problem/4308243> 8F36 
+        Regression: crash in malloc_consolidate if you use a .PAC file
+
+        The crash was a result of threaded deallocation of thread-unsafe
+        objects. Pure JS objects are thread-safe because all JS execution
+        is synchronized through JSLock. However, JS objects that wrap WebCore 
+        objects are thread-unsafe because JS and WebCore execution are not 
+        synchronized.  That unsafety comes into play when the collector 
+        deallocates a JS object that wraps a WebCore object, thus causing the 
+        WebCore object to be deallocated.
+
+        The solution here is to have each JSCell know whether it is safe to
+        collect on a non-main thread, and to avoid collecting unsafe cells
+        when on a non-main thread.
+
+        We don't have a way to test PAC files yet, so there's no test
+        attached to this patch.
+
+        * kjs/collector.cpp:
+        (KJS::Collector::collect):
+        (1) Added the test "currentThreadIsMainThread || 
+        imp->m_destructorIsThreadSafe". 
+
+        * kjs/protect.h:
+        (KJS::gcProtectNullTolerant):
+        (KJS::gcUnprotectNullTolerant):
+        * kjs/value.h:
+        (KJS::JSCell::JSCell): The bools here must be bitfields, otherwise
+        m_destructorIsThreadSafe becomes another whole word, ruining the
+        collector optimizations we've made based on the size of a JSObject.
+        * kxmlcore/FastMalloc.cpp:
+        (KXMLCore::currentThreadIsMainThread):
+        (KXMLCore::fastMallocRegisterThread):
+        * kxmlcore/FastMalloc.h:
+
+=== JavaScriptCore-418 ===
+
+2006-04-28  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-14  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by John.
+
+        - Fixed <rdar://problem/4330457> CrashTracer: [REGRESSION] 3763 crashes
+        in Safari at com.apple.JavaScriptCore: KJS::Bindings::JavaInstance::
+        getClass const + 56
+
+        This was a memory leak in the bindings code. The leak was so extreme
+        that it would cause Safari or the JVM to abort from lack of memory.
+        Upon construction, Class objects create field and method objects, 
+        storing them in CFDictionaries. The bug was that upon destruction, the 
+        class objects released the dictionaries but didn't destroy the stored 
+        objects.
+
+        The fix is to supply CFDictionary callbacks for destroying the values
+        added to the dictionary. This also requires prohibiting copying,
+        because we don't do any intelligent ref-counting -- when a Class is
+        destroyed, it destroys its methods and fields unconditionally.
+
+        * bindings/jni/jni_class.cpp: 
+        (JavaClass::JavaClass): Added delete callbacks
+        * bindings/runtime.cpp: Added definitions for delete callbacks
+        (KJS::Bindings::deleteMethodList):
+        (KJS::Bindings::deleteMethod):
+        (KJS::Bindings::deleteField):
+        * bindings/runtime.h: Added declarations for delete callbacks
+
+2006-04-26  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2006-02-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej, Eric.
+
+        - WebCore half of fix for <rdar://problem/4176077> CrashTracer: 6569
+        crashes in DashboardClient at com.apple.JavaScriptCore:
+        KJS::Bindings::ObjcFallbackObjectImp::type()
+
+        WebCore and JavaScriptCore weren't sharing Instance objects very
+        nicely. I made them use SharedPtrs, and sent them to bed without dessert.
+
+        * bindings/jni/jni_instance.cpp: Made _instance a SharedPtr
+        (JavaInstance::~JavaInstance):
+        (JObjectWrapper::JObjectWrapper):
+        * bindings/jni/jni_instance.h:
+        (KJS::Bindings::JObjectWrapper::ref):
+        (KJS::Bindings::JObjectWrapper::deref):
+        * bindings/jni/jni_runtime.cpp: Made _array a SharedPtr
+        (JavaArray::~JavaArray):
+        (JavaArray::JavaArray):
+        * bindings/jni/jni_runtime.h:
+        (KJS::Bindings::JavaArray::operator=):
+        * bindings/objc/objc_runtime.h:
+        - Prohibited copying because that would muss the ref count.
+        - Prohibited construction without instance because an instance wrapper
+        without an instance is almost certainly a bug.
+        * bindings/objc/objc_runtime.mm:
+        (ObjcFallbackObjectImp::ObjcFallbackObjectImp):
+        * bindings/runtime.cpp:
+        (KJS::Bindings::Instance::Instance):
+        (KJS::Bindings::Instance::createBindingForLanguageInstance):
+        (KJS::Bindings::Instance::createRuntimeObject):
+        * bindings/runtime.h:
+        (KJS::Bindings::Instance::ref):
+        (KJS::Bindings::Instance::deref):
+        * bindings/runtime_object.cpp:
+        (RuntimeObjectImp::RuntimeObjectImp):
+        (RuntimeObjectImp::fallbackObjectGetter):
+        (RuntimeObjectImp::fieldGetter):
+        (RuntimeObjectImp::methodGetter):
+        (RuntimeObjectImp::getOwnPropertySlot):
+        (RuntimeObjectImp::put):
+        (RuntimeObjectImp::canPut):
+        * bindings/runtime_object.h: 
+        - Removed ownsInstance data member because SharedPtr takes care of 
+        instance lifetime now. 
+        - Prohibited copying because that would muss the ref count.
+        - Prohibited construction without instance because an instance wrapper
+        without an instance is almost certainly a bug.
+        (KJS::RuntimeObjectImp::getInternalInstance):
+
 === JavaScriptCore-417.11 ===
 === JavaScriptCore-417.10 ===
 

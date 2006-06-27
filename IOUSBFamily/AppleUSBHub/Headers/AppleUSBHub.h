@@ -36,6 +36,20 @@
 
 #include <kern/thread_call.h>
 
+/* Convert USBLog to use kprintf debugging */
+#ifndef APPLEUSBHUB_USE_KPRINTF
+	#define APPLEUSBHUB_USE_KPRINTF 0
+#endif
+
+#if APPLEUSBHUB_USE_KPRINTF
+#undef USBLog
+#undef USBError
+void kprintf(const char *format, ...)
+__attribute__((format(printf, 1, 2)));
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 5) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
+
 enum{
       kErrataCaptiveOKBit = 1,
       kStartupDelayBit = 2,
@@ -68,9 +82,12 @@ class AppleUSBHub : public IOService
     IOWorkLoop *		_workLoop;
     UInt32			_locationID;
     UInt32			_inStartMethod;
+	UInt32			_devZeroLockedTimeoutCounter;					// We use this to count down to see when we need to check for a possible stuck dev zero lock
     bool			_portSuspended;
     bool			_hubHasBeenDisconnected;
     bool			_hubIsDead;
+	bool			_abortExpected;
+	UInt32			_retryCount;
     
     // Power stuff
     bool			_busPowered;
@@ -160,6 +177,7 @@ class AppleUSBHub : public IOService
     IOUSBHubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
     bool		MergeDictionaryIntoProvider(IOService *  provider, OSDictionary *  mergeDict);
     bool		MergeDictionaryIntoDictionary(OSDictionary *  sourceDictionary,  OSDictionary *  targetDictionary);
+	bool		HubAreAllPortsDisconnectedOrSuspended();
     
     // test mode functions, called by the AppleUSBHSHubUserClient
     IOReturn		EnterTestMode();

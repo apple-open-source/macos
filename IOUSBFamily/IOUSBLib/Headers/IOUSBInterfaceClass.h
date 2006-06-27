@@ -24,6 +24,7 @@
 #define _IOKIT_IOUSBInterfaceClass_H
 
 #include <IOKit/usb/IOUSBLib.h>
+#include <IOKit/usb/USB.h>
 
 #include "IOUSBIUnknown.h"
 
@@ -65,11 +66,13 @@ protected:
     UInt8								fNumConfigurations;
     // Support for low latency buffers
     UInt32								fNextCookie;
-    LowLatencyUserBufferInfo			*fUserBufferInfoListHead;
+    LowLatencyUserBufferInfoV2			*fUserBufferInfoListHead;
     IOUSBConfigurationDescriptorPtr		fConfigPtr;
     UInt32								fConfigLength;
     IOUSBInterfaceDescriptorPtr			fInterfaceDescriptor;
     bool								fConfigDescCacheValid;
+	bool								fNeedContiguousMemoryForLowLatencyIsoch;
+	bool								fNeedsToReleasefDevice;
     
 public:
     static IOCFPlugInInterface			**alloc();
@@ -129,10 +132,10 @@ public:
     virtual IOUSBDescriptorHeader		*FindNextAltInterface( const void * currentDescriptor, IOUSBFindInterfaceRequest *request);
     
 
-    virtual void						AddDataBufferToList( LowLatencyUserBufferInfo * insertBuffer );
-    virtual bool						RemoveDataBufferFromList( LowLatencyUserBufferInfo * removeBuffer );
-    virtual LowLatencyUserBufferInfo	*FindBufferAddressInList( void * address );
-    virtual LowLatencyUserBufferInfo	*FindBufferAddressRangeInList( void * address, UInt32 size );
+    virtual void						AddDataBufferToList( LowLatencyUserBufferInfoV2 * insertBuffer );
+    virtual bool						RemoveDataBufferFromList( LowLatencyUserBufferInfoV2 * removeBuffer );
+    virtual LowLatencyUserBufferInfoV2	*FindBufferAddressInList( void * address );
+    virtual LowLatencyUserBufferInfoV2	*FindBufferAddressRangeInList( void * address, UInt32 size );
 
     virtual IOReturn					GetInterfaceStringIndex(UInt8 *intfSI);
     virtual IOReturn					CacheConfigDescriptor();

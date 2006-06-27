@@ -48,7 +48,7 @@
 #ifndef	_ARCH_PPC_ASM_HELP_H_
 #define	_ARCH_PPC_ASM_HELP_H_
 
-#import	<architecture/ppc/reg_help.h>
+#include	<architecture/ppc/reg_help.h>
 
 #ifdef	__ASSEMBLER__
 /*

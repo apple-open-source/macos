@@ -41,9 +41,9 @@ private:
 public:
 
     static AppleEHCIedMemoryBlock 	*NewMemoryBlock(void);
-    void				SetNextBlock(AppleEHCIedMemoryBlock *next);
-    AppleEHCIedMemoryBlock		*GetNextBlock(void);
-    UInt32				NumEDs(void);
-    IOPhysicalAddress			GetPhysicalPtr(UInt32 index);
-    EHCIQueueHeadSharedPtr		GetLogicalPtr(UInt32 index);
+    void							SetNextBlock(AppleEHCIedMemoryBlock *next);
+    AppleEHCIedMemoryBlock			*GetNextBlock(void);
+    UInt32							NumEDs(void);
+    IOPhysicalAddress				GetPhysicalPtr(UInt32 index);
+    EHCIQueueHeadSharedPtr			GetLogicalPtr(UInt32 index);
 };

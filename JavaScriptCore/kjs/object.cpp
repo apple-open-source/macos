@@ -123,23 +123,22 @@ Value Object::call(ExecState *exec, Object &thisObj, const List &args)
 
 // ------------------------------ ObjectImp ------------------------------------
 
-ObjectImp::ObjectImp(const Object &proto)
-  : _proto(static_cast<ObjectImp*>(proto.imp())), _internalValue(0L)
+ObjectImp::ObjectImp(const Object &proto, bool destructorIsThreadSafe)
+  : ValueImp(destructorIsThreadSafe), _proto(static_cast<ObjectImp*>(proto.imp())), _internalValue(0L)
 {
   //fprintf(stderr,"ObjectImp::ObjectImp %p\n",(void*)this);
 }
 
-ObjectImp::ObjectImp(ObjectImp *proto)
-  : _proto(proto), _internalValue(0L)
+ObjectImp::ObjectImp(ObjectImp *proto, bool destructorIsThreadSafe)
+  : ValueImp(destructorIsThreadSafe), _proto(proto), _internalValue(0L)
 {
   //fprintf(stderr,"ObjectImp::ObjectImp %p\n",(void*)this);
 }
 
-ObjectImp::ObjectImp()
+ObjectImp::ObjectImp(bool destructorIsThreadSafe)
+  : ValueImp(destructorIsThreadSafe), _proto(NullImp::staticNull), _internalValue(0L)
 {
   //fprintf(stderr,"ObjectImp::ObjectImp %p\n",(void*)this);
-  _proto = NullImp::staticNull;
-  _internalValue = 0L;
 }
 
 ObjectImp::~ObjectImp()

@@ -147,7 +147,10 @@ JSUnprotectedEventListener::JSUnprotectedEventListener(Object _listener, const O
   , win(_win)
 {
     if (_listener.imp()) {
-      static_cast<Window*>(win.imp())->jsUnprotectedEventListeners.insert(_listener.imp(), this);
+      QPtrDict<JSUnprotectedEventListener>& listeners = _html
+        ? static_cast<Window*>(win.imp())->jsUnprotectedHTMLEventListeners
+        : static_cast<Window*>(win.imp())->jsUnprotectedEventListeners;
+      listeners.insert(_listener.imp(), this);
     }
 }
 
@@ -155,7 +158,10 @@ JSUnprotectedEventListener::~JSUnprotectedEventListener()
 {
     if (listener.imp()) {
         if (!win.isNull()) {
-            static_cast<Window*>(win.imp())->jsUnprotectedEventListeners.remove(listener.imp());
+            QPtrDict<JSUnprotectedEventListener>& listeners = html
+              ? static_cast<Window*>(win.imp())->jsUnprotectedHTMLEventListeners
+              : static_cast<Window*>(win.imp())->jsUnprotectedEventListeners;
+            listeners.remove(listener.imp());
         }
     }
 }
@@ -192,7 +198,10 @@ JSEventListener::JSEventListener(Object _listener, const Object &_win, bool _htm
 {
     //fprintf(stderr,"JSEventListener::JSEventListener this=%p listener=%p\n",this,listener.imp());
     if (_listener.imp()) {
-      static_cast<Window*>(win.imp())->jsEventListeners.insert(_listener.imp(), this);
+      QPtrDict<JSEventListener>& listeners = _html
+        ? static_cast<Window*>(win.imp())->jsHTMLEventListeners
+        : static_cast<Window*>(win.imp())->jsEventListeners;
+      listeners.insert(_listener.imp(), this);
     }
 }
 
@@ -200,7 +209,10 @@ JSEventListener::~JSEventListener()
 {
     if (listener.imp()) {
         if (!win.isNull()) {
-          static_cast<Window*>(win.imp())->jsEventListeners.remove(listener.imp());
+          QPtrDict<JSEventListener>& listeners = html
+            ? static_cast<Window*>(win.imp())->jsHTMLEventListeners
+            : static_cast<Window*>(win.imp())->jsEventListeners;
+          listeners.remove(listener.imp());
         }
     }
     //fprintf(stderr,"JSEventListener::~JSEventListener this=%p listener=%p\n",this,listener.imp());
@@ -302,8 +314,10 @@ void JSLazyEventListener::parseCode() const
     code = QString();
     
     if (!listener.isNull()) {
-      static_cast<Window*>(win.imp())->jsEventListeners.insert(listener.imp(), 
-							       (KJS::JSEventListener *)(this));
+      QPtrDict<JSEventListener>& listeners = html
+        ? static_cast<Window*>(win.imp())->jsHTMLEventListeners
+        : static_cast<Window*>(win.imp())->jsEventListeners;
+      listeners.insert(listener.imp(), (KJS::JSEventListener *)(this));
     }
     
     parsed = true;
@@ -511,6 +525,7 @@ Value DOMEventProtoFunc::tryCall(ExecState *exec, Object & thisObj, const List &
   switch (id) {
     case DOMEvent::StopPropagation:
       event.stopPropagation();
+      return Undefined();
     case DOMEvent::PreventDefault:
       event.preventDefault();
       return Undefined();

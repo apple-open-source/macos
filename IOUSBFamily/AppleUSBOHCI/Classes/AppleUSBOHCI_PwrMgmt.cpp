@@ -172,7 +172,7 @@ void AppleUSBOHCI::initForPM (IOPCIDevice *provider)
 		}
         else
         {
-            USBError(1, "%s[%p]::start OHCI controller will be unloaded across sleep",getName(),this);
+            USBError(1, "AppleUSBOHCI[%p]::start OHCI controller will be unloaded across sleep",this);
             _unloadUIMAcrossSleep = true;
             setProperty("Card Type","PCI");
         }
@@ -195,12 +195,12 @@ void AppleUSBOHCI::initForPM (IOPCIDevice *provider)
     // register ourselves with superclass policy-maker
     if ( provider->getProperty("AAPL,clock-id")) 
     {
-		USBLog(2, "%s[%p]:: registering controlling driver with clock", getName(), this);
+		USBLog(2, "AppleUSBOHCI[%p]:: registering controlling driver with clock", this);
         registerPowerDriver(this,ourPowerStatesKL,number_of_power_states);
     }
     else 
     {
-		USBLog(2, "%s[%p]:: registering controlling driver without clock", getName(), this);
+		USBLog(2, "AppleUSBOHCI[%p]:: registering controlling driver without clock", this);
         registerPowerDriver(this,ourPowerStates,number_of_power_states);
     }
     changePowerStateTo(1);
@@ -276,7 +276,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 #endif
     static uint32_t *		pHibernateState;
     
-    USBLog(4,"%s[%p]::setPowerState (%ld) bus %d", getName(), this, powerStateOrdinal, _busNumber );
+    USBLog(4,"AppleUSBOHCI[%p]::setPowerState (%ld) bus %ld", this, powerStateOrdinal, _busNumber );
     IOSleep(5);
 	
     //	If we are not going to sleep, then we need to take the gate, otherwise, we need to wake up    
@@ -290,11 +290,11 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         sleepRes = _workLoop->wake(&_ohciBusState);
         if(sleepRes != kIOReturnSuccess) 
         {
-            USBError(1, "%s[%p] setPowerState - Can't wake  workloop, error 0x%x", getName(), this, sleepRes);
+            USBError(1, "AppleUSBOHCI[%p]::setPowerState - Can't wake  workloop, error 0x%x", this, sleepRes);
         }
         else
         {
-            USBLog(5, "%s[%p :setPowerState - workLoop successfully awakened", getName(), this);
+            USBLog(5, "AppleUSBOHCI[%p]::setPowerState - workLoop successfully awakened", this);
         }
     }
     
@@ -309,16 +309,16 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 		
         if ( _unloadUIMAcrossSleep )
         {
-            USBLog(3,"%s[%p] Unloading UIM for bus %d before going to sleep",getName(),this, _busNumber );
+            USBLog(3,"AppleUSBOHCI[%p]::setPowerState - Unloading UIM for bus %ld before going to sleep",this, _busNumber );
             
             if ( _rootHubDevice )
             {
-                USBLog(2, "%s[%p] Terminating root hub in setPowerState()", getName(), this);
+                USBLog(2, "AppleUSBOHCI[%p] Terminating root hub in setPowerState()", this);
                 _rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
                 _rootHubDevice->detachAll(gIOUSBPlane);
                 _rootHubDevice->release();
                 _rootHubDevice = NULL;
-                USBLog(2, "%s[%p] Terminated root hub in setPowerState()", getName(), this);
+                USBLog(2, "AppleUSBOHCI[%p]::setPowerState - Terminated root hub in setPowerState()", this);
             }
             SuspendUSBBus();
             UIMFinalizeForPowerDown();
@@ -326,11 +326,11 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         }
         else 
         {
-            USBLog(2, "%s[%p] suspending the bus", getName(), this);
+            USBLog(2, "AppleUSBOHCI[%p]::setPowerState - suspending the bus", this);
             _remote_wakeup_occurred = false;
 			
             SuspendUSBBus();
-            USBLog(2, "%s[%p] The bus is now suspended", getName(), this);
+            USBLog(2, "AppleUSBOHCI[%p]::setPowerState - The bus is now suspended", this);
         }
         _ohciBusState = kOHCIBusStateSuspended;
         _idleSuspend = false;
@@ -345,12 +345,12 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     
     if ( powerStateOrdinal == kOHCISetPowerLevelIdleSuspend )
     {
-        USBLog(2, "%s[%p] Suspending the bus due to inactivity", getName(), this);
+        USBLog(2, "AppleUSBOHCI[%p]::setPowerState - Suspending the bus due to inactivity", this);
         _idleSuspend = true;
         
         SuspendUSBBus();
 		
-        USBLog(2, "%s[%p] The bus is now suspended due to inactivity", getName(), this);
+        USBLog(2, "AppleUSBOHCI[%p]::setPowerState - The bus is now suspended due to inactivity", this);
 		
     }
     
@@ -365,13 +365,13 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             if ( isInactive() || (_onCardBus && _pcCardEjected) )
             {
                 _ohciBusState = kOHCIBusStateRunning;
-                USBLog(3,"%s[%p] isInactive (or pccardEjected) while setPowerState (%d,%d)",getName(),this, isInactive(), _pcCardEjected);
+                USBLog(3,"AppleUSBOHCI[%p]::setPowerState - isInactive (or pccardEjected) while setPowerState (%d,%d)",this, isInactive(), _pcCardEjected);
             }
             else
             {
                 IOReturn	err = kIOReturnSuccess;
 				
-                USBLog(5, "%s[%p]: Re-loading UIM if necessary (%d)", getName(), this, _uimInitialized );
+                USBLog(5, "AppleUSBOHCI[%p]::setPowerState - Re-loading UIM if necessary (%d)", this, _uimInitialized );
 				
                 // Initialize the hardware
                 //
@@ -385,7 +385,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
                     err = CreateRootHubDevice( _device, &_rootHubDevice );
                     if ( err != kIOReturnSuccess )
                     {
-                        USBError(1,"%s[%p] Could not create root hub device upon wakeup (%x)!",getName(), this, err);
+                        USBError(1,"AppleUSBOHCI[%p]::setPowerState - Could not create root hub device upon wakeup (%x)!", this, err);
                     }
                     else
                     {
@@ -396,7 +396,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         }
         else 
         {
-            USBLog(2, "%s[%p] setPowerState powering on USB", getName(), this);
+            USBLog(2, "AppleUSBOHCI[%p]::setPowerState - powering on USB", this);
 			
 			// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
 			// then it is likely that we are responsible for the system issuing the wakeup
@@ -411,7 +411,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             {
                 _ohciAvailable = true;										// tell the interrupt filter routine that we are on
                 _pOHCIRegisters->hcInterruptEnable = HostToUSBLong (kOHCIHcInterrupt_MIE);			// enable interrupts now that we are out of D3 state
-                USBLog(4, "%s[%p]::setPowerState - after reenabling interrupts, hcInterruptEnable = %p", getName(), this, USBToHostLong(_pOHCIRegisters->hcInterruptEnable));
+                USBLog(4, "AppleUSBOHCI[%p]::setPowerState - after reenabling interrupts, hcInterruptEnable = 0x%lx", this, (UInt32) USBToHostLong(_pOHCIRegisters->hcInterruptEnable));
             }
             ResumeUSBBus();
             _ohciBusState = kOHCIBusStateRunning;
@@ -420,22 +420,22 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 			
 			if ( _uimInitialized && pHibernateState && *pHibernateState )
 			{
-				USBLog(3,"%s[%p] Unloading UIM for bus %d after hibernate",getName(),this, _busNumber );
+				USBLog(3,"AppleUSBOHCI[%p]::setPowerState - Unloading UIM for bus %ld after hibernate", this, _busNumber );
 				
 				if ( _rootHubDevice )
 				{
-					USBLog(2, "%s[%p] Terminating root hub in setPowerState()", getName(), this);
+					USBLog(2, "AppleUSBOHCI[%p]::setPowerState - Terminating root hub in setPowerState()", this);
 					_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
 					_rootHubDevice->detachAll(gIOUSBPlane);
 					_rootHubDevice->release();
 					_rootHubDevice = NULL;
-					USBLog(2, "%s[%p] Terminated root hub in setPowerState()", getName(), this);
+					USBLog(2, "AppleUSBOHCI[%p]::setPowerState - Terminated root hub in setPowerState()", this);
 				}
 				SuspendUSBBus();
 				UIMFinalizeForPowerDown();
 				_ohciAvailable = false;					// tell the interrupt filter routine that we are off
 
-				USBLog(3,"%s[%p] Would create root hub here, postponing it! (%d)",getName(), this, _needToCreateRootHub);
+				USBLog(3,"AppleUSBOHCI[%p]::setPowerState - Would create root hub here, postponing it! (%d)", this, _needToCreateRootHub);
 				_needToCreateRootHub = TRUE;
 				
 			}
@@ -453,11 +453,11 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         sleepRes = _workLoop->sleep(&_ohciBusState);
         if(sleepRes != kIOReturnSuccess) 
         {
-            USBError(1, "%s[%p] setPowerState - Can't sleep workloop, error 0x%x", getName(), this, sleepRes);
+            USBError(1, "AppleUSBOHCI[%p]::setPowerState - Can't sleep workloop, error 0x%x", this, sleepRes);
         }
         else
 		{
-            USBLog(5, "%s[%p :setPowerState - workLoop successfully slept", getName(), this);
+            USBLog(5, "AppleUSBOHCI[%p]::setPowerState - workLoop successfully slept", this);
         }
     }
     else
@@ -465,7 +465,7 @@ AppleUSBOHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         _workLoop->OpenGate();
     }
 	
-    USBLog(4,"%s[%p]::setPowerState done", getName(), this );
+    USBLog(4,"AppleUSBOHCI[%p]::setPowerState done", this );
     return IOPMAckImplied;
 }
 
@@ -518,7 +518,7 @@ AppleUSBOHCI::SuspendUSBBus()
     //
     if ( _writeDoneHeadInterrupt )
     {
-        USBError(1,"%s[%p] Processing WDH before suspending", getName(), this);
+        USBError(1,"AppleUSBOHCI[%p] Processing WDH before suspending", this);
         PollInterrupts();
     }
     
@@ -561,7 +561,7 @@ AppleUSBOHCI::ResumeUSBBus()
     {
         case kOHCIFunctionalState_Suspend:
 			// Place the USB bus into the resume State
-			USBLog(2, "%s[%p]:: Resuming bus from Suspend state", getName(), this);
+			USBLog(2, "AppleUSBOHCI[%p]:: Resuming bus from Suspend state", this);
 			_pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Resume << kOHCIHcControl_HCFSPhase);
 			// intentional fall through
         case kOHCIFunctionalState_Resume:
@@ -572,18 +572,18 @@ AppleUSBOHCI::ResumeUSBBus()
                 // By using 35 instead of 20, we overflow an internal 5 bit counter by exactly 3ms, which 
                 // stops an errant 3ms suspend from appearing on the bus
 			{
-				USBLog(2, "%s[%p]:: Delaying 35 milliseconds in resume state", getName(), this);
+				USBLog(2, "AppleUSBOHCI[%p]:: Delaying 35 milliseconds in resume state", this);
 				IOSleep(35);
 			}
 			else
 			{
-				USBLog(2, "%s[%p]:: Delaying 20 milliseconds in resume state", getName(), this);
+				USBLog(2, "AppleUSBOHCI[%p]:: Delaying 20 milliseconds in resume state", this);
 				IOSleep(20);
 			}
 			// intentional fall through
         case kOHCIFunctionalState_Reset:
 			// Place the USB bus into the operational State
-			USBLog(2, "%s[%p]: Changing bus to operational", getName(), this);
+			USBLog(2, "AppleUSBOHCI[%p]: Changing bus to operational", this);
 			_pOHCIRegisters->hcControl = HostToUSBLong(kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase);
 			IOSleep(3);			// wait the required 3 ms before turning on the lists
 			_pOHCIRegisters->hcControl =  HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase)
@@ -591,7 +591,7 @@ AppleUSBOHCI::ResumeUSBBus()
 														| kOHCIHcControl_PLE | kOHCIHcControl_IE);
 			break;
         default:
-            USBLog(2, "%s[%p]: Bus already operational", getName(), this);
+            USBLog(2, "AppleUSBOHCI[%p]: Bus already operational", this);
             break;
     }
 }

@@ -39,9 +39,6 @@ typedef struct __KXKextManager {
 
     CFMutableArrayRef       repositoryList;
     
-    // This array holds the com.apple receipts that we might use for verification
-    CFMutableArrayRef	    bomArray;
-
    /*****
     * This dictionary holds all KXKexts that are presumably loadable (valid,
     * eligible during safe boot if we're in that mode, enabled). The keys are 
@@ -65,15 +62,15 @@ typedef struct __KXKextManager {
     Boolean          needsClearRelationships;
     Boolean          needsCalculateRelationships;
 
-    Boolean  performsFullTests;
-    Boolean  performsStrictAuthentication;
+    Boolean          performsFullTests;
+    Boolean          performsStrictAuthentication;
 
     // If false, forks & execs kextload; else does link/load in-task.
     Boolean          performLoadsInTask;
     Boolean          safeBoot;
 
     // kextd will send all repositories to catalog
-    Boolean	     willUpdateCatalog;
+    Boolean          willUpdateCatalog;
 
     // Repositories hold kexts with validation/authentication failures
     // (in badKexts), but the manager holds the ones with missing dependencies.
@@ -1827,17 +1824,6 @@ void KXKextManagerSetWillUpdateCatalog(
 *******************************************************************************/
 
 void KXKextManagerVerifyIntegrityOfAllKexts(KXKextManagerRef aKextManager) {
-    CFIndex count, i;
-
-    _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDetails, NULL, 0,
-        "verifying integrity of all kernel extensions");
-
-    count = CFArrayGetCount(aKextManager->repositoryList);
-    for (i = 0; i < count; i++) {
-        KXKextRepositoryRef thisRepository = (KXKextRepositoryRef)
-            CFArrayGetValueAtIndex(aKextManager->repositoryList, i);
-    }
-
     return;
 
 }

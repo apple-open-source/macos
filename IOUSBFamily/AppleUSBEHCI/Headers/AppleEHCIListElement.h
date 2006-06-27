@@ -27,6 +27,7 @@
 #define _IOKIT_AppleEHCIListElement_H
 
 #include <libkern/c++/OSObject.h>
+#include <IOKit/usb/IOUSBControllerListElement.h>
 
 #include "AppleUSBEHCI.h"
 #include "USBEHCI.h"
@@ -57,28 +58,9 @@
 				
 */
 
+class AppleEHCIIsochEndpoint;
 
-class AppleEHCIListElement : public OSObject
-{
-    OSDeclareDefaultStructors(AppleEHCIListElement)
-
-private:    
-
-public:
-
-    virtual void					SetPhysicalLink(IOPhysicalAddress next) = 0;
-    virtual IOPhysicalAddress		GetPhysicalLink(void) = 0;
-    virtual IOPhysicalAddress		GetPhysicalAddrWithType(void) = 0;
-    virtual void					print(int level);
-
-    IOPhysicalAddress			_sharedPhysical;			// phys address of the memory shared with the controller			
-    void *						_sharedLogical;				// logical address of the above
-    AppleEHCIListElement	*	_logicalNext;				// the next element in the list
-    
-};
-
-
-class AppleEHCIQueueHead : public AppleEHCIListElement
+class AppleEHCIQueueHead : public IOUSBControllerListElement
 {
     OSDeclareDefaultStructors(AppleEHCIQueueHead)
 
@@ -105,40 +87,12 @@ public:
     UInt8									_pollM1;	
     UInt8									_offset;	
     UInt8									_responseToStall;
-    UInt8									_pad2;
+    UInt8									_queueType;
 	UInt8									_bandwidthUsed[8];
 };
 
 
-class AppleUSBEHCI;
-
-class AppleEHCIIsochListElement : public AppleEHCIListElement
-{
-    OSDeclareDefaultStructors(AppleEHCIIsochListElement)
-
-private:
-    
-public:
-
-    virtual void					print(int level);
-
-    AppleEHCIIsochEndpointPtr		_pEndpoint;
-    IOUSBIsocFrame				*	_pFrames;
-    IOUSBIsocCompletion				_completion;
-    Boolean							_lowLatency;
-	UInt8							_framesInTD;			// used for HS Isoch only
-    UInt64							_frameNumber;			// frame number for scheduling purposes
-    UInt32							_frameIndex;			// index into the myFrames array
-    AppleEHCIIsochListElement *		_doneQueueLink;			// linkage used by done queue processing
-
-    // pure virtual methods which must be implemented by descendants
-    virtual IOReturn				UpdateFrameList(AbsoluteTime timeStamp) = 0;
-    virtual IOReturn				Deallocate(AppleUSBEHCI *uim) = 0;
-};
-
-
-
-class AppleEHCIIsochTransferDescriptor : public AppleEHCIIsochListElement
+class AppleEHCIIsochTransferDescriptor : public IOUSBControllerIsochListElement
 {
     OSDeclareDefaultStructors(AppleEHCIIsochTransferDescriptor)
 
@@ -151,18 +105,20 @@ public:
     virtual IOPhysicalAddress		GetPhysicalLink(void);
     virtual IOPhysicalAddress		GetPhysicalAddrWithType(void);
     virtual IOReturn				UpdateFrameList(AbsoluteTime timeStamp);
-    virtual IOReturn				Deallocate(AppleUSBEHCI *uim);
+    virtual IOReturn				Deallocate(IOUSBControllerV2 *uim);
     virtual void					print(int level);
     
     // not a virtual method, because the return type assumes knowledge of the element type
     EHCIIsochTransferDescriptorSharedPtr	GetSharedLogical(void);
-
+	
 private:
     IOReturn mungeEHCIStatus(UInt32 status, UInt16 *transferLen, UInt32 maxPacketSize, UInt8 direction);
     
 };
 
-class AppleEHCISplitIsochTransferDescriptor : public AppleEHCIIsochListElement
+
+
+class AppleEHCISplitIsochTransferDescriptor : public IOUSBControllerIsochListElement
 {
     OSDeclareDefaultStructors(AppleEHCISplitIsochTransferDescriptor)
 
@@ -176,7 +132,7 @@ public:
     virtual IOPhysicalAddress			GetPhysicalLink(void);
     virtual IOPhysicalAddress			GetPhysicalAddrWithType(void);
     virtual IOReturn					UpdateFrameList(AbsoluteTime timeStamp);
-    virtual IOReturn					Deallocate(AppleUSBEHCI *uim);
+    virtual IOReturn					Deallocate(IOUSBControllerV2 *uim);
     virtual void						print(int level);
 
     // not a virtual method, because the return type assumes knowledge of the element type
@@ -184,6 +140,25 @@ public:
     
 	// split Isoch specific varibles
 	bool								_isDummySITD;
+};
+
+
+class AppleEHCIIsochEndpoint : public IOUSBControllerIsochEndpoint
+{
+    OSDeclareDefaultStructors(AppleEHCIIsochEndpoint)
+
+public:
+	virtual bool	init();
+	
+	void								*hiPtr;						// pointer to the Transaction Translator (for Split EP)
+    short								oneMPS;						// For high bandwidth
+    short								mult;						// how many oneMPS sized transactions to do
+    USBDeviceAddress					highSpeedHub;
+    int									highSpeedPort;
+	UInt8								bandwidthUsed[8];			// how many bytes I use on each microframe
+	UInt8								startSplitFlags;
+	UInt8								completeSplitFlags;
+	bool								useBackPtr;
 };
 
 #endif

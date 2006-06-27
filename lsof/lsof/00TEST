@@ -384,6 +384,10 @@ The config.cflags file may contain the following C compiler flags.
 
 			    Example for Solaris 10: -DLT_VERS=100000
 
+    -DLT_VPATH		    is present if the dialect has the v_path
+			    member in the vnode structure (e.g., some
+			    versions of Solaris 10).
+
 The config.cflags file may also contain dialect-specific compiler
 flags needed to activate a specific feature on the dialect.  For
 example, for HP-UX config.cflags might contain:
@@ -606,10 +610,10 @@ path matches.)  The test is repeated.  If full paths are returned
 at least half the time, the test considers itself successful.
 
 This test can't be run on AIX, because lsof can't access the DNLC
-there.  It can't be run on Apple Darwin, either, because insufficiently
-reliable DNLC information is available there.  This test may fail on
-other dialects when the file system -- e.g., NFS. /tmp, loopback --
-doesn't fully participate in the dialect's DNLC.
+there.  It can't be run on Apple Darwin versions below 8.0, either,
+because insufficiently reliable DNLC information is available there.
+This test may fail on other dialects when the file system -- e.g., NFS.
+/tmp, loopback -- doesn't fully participate in the dialect's DNLC.
 
 Run this test:
 
@@ -667,8 +671,8 @@ read access to it there.  The test warning also states that the
 file at the path specified with -p must be a regular file, not a
 directory.
 
-This test can't be run on Darwin, because insufficient NFS file
-information is available to lsof there.
+This test can't be run on Darwin versions below 8.0, because
+insufficient NFS file information is available to lsof there.
 
 Run this test:
 
@@ -706,8 +710,8 @@ the unlink section of its tests and issues a warning.  It also
 issues a hint that the test file path can be named via the -p option
 to give a test file location that isn't on an NFS file system.
 
-This test can't be run on Darwin, because insufficient file system
-link count information is available to lsof there.
+This test can't be run on Darwin, because insufficient file system link
+count information is available to lsof there.
 
 Because some UNIX dialects delay the reporting of a link count
 update after a file has been unlinked, LTnlink may not get its
@@ -834,13 +838,18 @@ base, footprints, and the scripts that support them.
 		  5.2, Power-32, gcc
 		  5.2, Power-64, cc
 		  5.2, Power-64, gcc
-    BSDI	  4.[13], gcc
-    Darwin        1.4, 5.5, 6.x, 7.x, 8.x gcc	Darwin lsof doesn't
+		  5.3, Power-64, cc
+    Darwin        1.4, 5.5, 6.x, 7.x gcc	Darwin lsof doesn't
 						have adequate support
 						to allow the LTbigf,
 						Ltdnlc, LTlock, LTnfs,
 						and LTnlink tests to
 						run.
+		  8.0, gcc			Darwin lsof doesn't
+						have adequate support
+						to allow the LTbigf,
+						LTlock and LTnlink
+						tests to run.
     FreeBSD       4.5, i386, gcc
 		  4.6, i386, gcc
 		  4.7, i386, gcc
@@ -858,6 +867,8 @@ base, footprints, and the scripts that support them.
 		  5.2, Alpha, gcc
 		  5.2, Amd64, gcc
 		  5.2, Sparc, gcc
+		  5.3, Alpha, gcc
+		  5.4, Alpha, gcc
 		  6.0, Alpha, gcc
 		  6.0, Amd64, gcc
 		  6.0, Sparc, gcc
@@ -866,7 +877,8 @@ base, footprints, and the scripts that support them.
 		  10.20, gcc (1)		LTbigf
 		  11.00-32, ANSI-C		LTbigf, LTnfs
 		  11.00-64, ANSI-C
-		  11.11, ANSI-C			LTnfs
+		  11.11, ANSI-C
+		  11.23, ANSI-C
     Linux         2.4.12-686            	LTbigf, no offset tests
 						LTszoff, no offset tests
 		  2.4.18-686            	LTbigf, no offset tests
@@ -881,6 +893,14 @@ base, footprints, and the scripts that support them.
 						LTszoff, no offset tests
 		  2.4.26-686            	LTbigf, no offset tests
 						LTszoff, no offset tests
+		  2.4.27-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.4.28-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.4.29-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
+		  2.4.30-686            	LTbigf, no offset tests
+						LTszoff, no offset tests
 		  2.6.1-rc2	            	LTbigf, no offset tests
 						LTszoff, no offset tests
     NEXTSTEP      3.1, gcc                   	LTnfs
@@ -892,6 +912,8 @@ base, footprints, and the scripts that support them.
 		  2.0x, sparc64, gcc		LTnfs
 		  2.0x, x86, gcc		LTnfs
 		  2.99.9, x86, gcc		LTnfs
+		  2.99.10, x86, gcc		LTnfs
+		  2.99.11, x86, gcc		LTnfs
     OpenBSD       3.0, gcc
 		  3.1, gcc
 		  3.2, gcc
@@ -899,8 +921,8 @@ base, footprints, and the scripts that support them.
 		  3.4, gcc
 		  3.5, gcc
 		  3.6, gcc
+		  3.7, gcc
     OPENSTEP	  4.2, gcc			LTnfs
-    OpenUNIX	  8.0, cc
     OSR           5.04, cc              	LTnfs
 		  5.06, cc              	LTnfs
     Solaris       2.6, cc			LTnfs
@@ -955,4 +977,4 @@ I was unable to make the test suite run on the following dialects.
 
 
 Vic Abell <abe@purdue.edu>
-October 18, 2004
+March 27, 2006

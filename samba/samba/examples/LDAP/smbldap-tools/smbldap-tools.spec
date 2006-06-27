@@ -1,4 +1,4 @@
-# $Source$
+# $Source: /Volumes/george/fs-svn/samba/samba/examples/LDAP/smbldap-tools/smbldap-tools.spec,v $
 %define version	0.8.2
 %define release 1
 %define name 	smbldap-tools

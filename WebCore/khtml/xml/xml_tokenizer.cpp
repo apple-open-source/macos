@@ -30,6 +30,9 @@
 #include "misc/htmlattrs.h"
 #include "misc/loader.h"
 
+#include "KWQLoader.h"
+#include <kio/job.h>
+
 #include "khtmlview.h"
 #include "khtml_part.h"
 #include <kdebug.h>
@@ -41,7 +44,7 @@
 #include <qptrstack.h>
 
 using DOM::DocumentImpl;
-using DOM::DocumentPtr;
+using DOM::DocumentImpl;
 using DOM::DOMString;
 using DOM::ElementImpl;
 using DOM::HTMLScriptElementImpl;
@@ -127,7 +130,7 @@ private:
 class XMLTokenizer : public Tokenizer, public CachedObjectClient
 {
 public:
-    XMLTokenizer(DocumentPtr *, KHTMLView * = 0);
+    XMLTokenizer(DocumentImpl *, KHTMLView * = 0);
     ~XMLTokenizer();
 
     enum ErrorType { warning, nonFatal, fatal };
@@ -172,7 +175,7 @@ private:
     bool enterText();
     void exitText();
 
-    DocumentPtr *m_doc;
+    DocumentImpl *m_doc;
     KHTMLView *m_view;
 
     QString m_xmlCode;
@@ -204,14 +207,58 @@ static int matchFunc(const char* uri)
     return 1; // Match everything.
 }
 
-static void* openFunc(const char * uri) {
-    return &globalDescriptor;
+static khtml::DocLoader *globalDocLoader = 0;
+
+class OffsetBuffer {
+public:
+    OffsetBuffer(const QByteArray &b) : m_buffer(b), m_currentOffset(0) { }
+    
+    int readOutBytes(char *outputBuffer, unsigned askedToRead) {
+        unsigned bytesLeft = m_buffer.size() - m_currentOffset;
+        unsigned lenToCopy = kMin(askedToRead, bytesLeft);
+        if (lenToCopy) {
+            memcpy(outputBuffer, m_buffer.data() + m_currentOffset, lenToCopy);
+            m_currentOffset += lenToCopy;
+        }
+        return lenToCopy;
+    }
+
+private:
+    QByteArray m_buffer;
+    unsigned m_currentOffset;
+};
+
+static bool shouldAllowExternalLoad(const char* inURI)
+{
+    QString url(inURI);
+    if (url.contains("/etc/catalog")
+        || url.startsWith("http://www.w3.org/Graphics/SVG")
+        || url.startsWith("http://www.w3.org/TR/xhtml"))
+        return false;
+    return true;
+}
+
+static void* openFunc(const char* uri)
+{
+    if (!globalDocLoader || !shouldAllowExternalLoad(uri))
+        return &globalDescriptor;
+
+    KURL finalURL;
+    KIO::TransferJob *job = KIO::get(uri, true, false);
+    QString headers;
+    QByteArray data = KWQServeSynchronousRequest(Cache::loader(), globalDocLoader, job, finalURL, headers);
+    
+    return new OffsetBuffer(data);
 }
 
 static int readFunc(void* context, char* buffer, int len)
 {
-    // Always just do 0-byte reads
-    return 0;
+    // Do 0-byte reads in case of a null descriptor
+    if (context == &globalDescriptor)
+        return 0;
+        
+    OffsetBuffer *data = static_cast<OffsetBuffer *>(context);
+    return data->readOutBytes(buffer, len);
 }
 
 static int writeFunc(void* context, const char* buffer, int len)
@@ -220,13 +267,27 @@ static int writeFunc(void* context, const char* buffer, int len)
     return 0;
 }
 
+static int closeFunc(void * context)
+{
+    if (context != &globalDescriptor) {
+        OffsetBuffer *data = static_cast<OffsetBuffer *>(context);
+        delete data;
+    }
+    return 0;
+}
+
+void setLoaderForLibXMLCallbacks(DocLoader *docLoader)
+{
+    globalDocLoader = docLoader;
+}
+
 static xmlParserCtxtPtr createQStringParser(xmlSAXHandlerPtr handlers, void *userData)
 {
     static bool didInit = false;
     if (!didInit) {
         xmlInitParser();
-        xmlRegisterInputCallbacks(matchFunc, openFunc, readFunc, NULL);
-        xmlRegisterOutputCallbacks(matchFunc, openFunc, writeFunc, NULL);
+        xmlRegisterInputCallbacks(matchFunc, openFunc, readFunc, closeFunc);
+        xmlRegisterOutputCallbacks(matchFunc, openFunc, writeFunc, closeFunc);
         didInit = true;
     }
 
@@ -246,9 +307,9 @@ static void parseQString(xmlParserCtxtPtr parser, const QString &string)
 
 // --------------------------------
 
-XMLTokenizer::XMLTokenizer(DocumentPtr *_doc, KHTMLView *_view)
+XMLTokenizer::XMLTokenizer(DocumentImpl *_doc, KHTMLView *_view)
     : m_doc(_doc), m_view(_view),
-      m_context(NULL), m_currentNode(m_doc->document()),
+      m_context(NULL), m_currentNode(m_doc),
       m_sawError(false), m_parserStopped(false), m_errorCount(0),
       m_lastErrorLine(0), m_scriptsIt(0), m_cachedScript(0)
 {
@@ -301,7 +362,7 @@ void XMLTokenizer::startElement(const xmlChar *name, const xmlChar **libxmlAttri
         exitText();
 
     int exceptioncode = 0;
-    ElementImpl *newElement = m_doc->document()->createElementNS(uri, qName, exceptioncode);
+    ElementImpl *newElement = m_doc->createElementNS(uri, qName, exceptioncode);
     if (!newElement)
         return;
 
@@ -311,7 +372,7 @@ void XMLTokenizer::startElement(const xmlChar *name, const xmlChar **libxmlAttri
         DOMString uri(atts.uri(i));
         DOMString ln(atts.localName(i));
         DOMString val(atts.value(i));
-        NodeImpl::Id id = m_doc->document()->attrId(uri.implementation(),
+        NodeImpl::Id id = m_doc->attrId(uri.implementation(),
                                                     ln.implementation(),
                                                     false /* allocate */);
         newElement->setAttribute(id, val.implementation(), exceptioncode);
@@ -384,7 +445,7 @@ void XMLTokenizer::characters(const xmlChar *s, int len)
 
 bool XMLTokenizer::enterText()
 {
-    NodeImpl *newNode = m_doc->document()->createTextNode("");
+    NodeImpl *newNode = m_doc->createTextNode("");
     if (m_currentNode->addChild(newNode)) {
         m_currentNode = newNode;
         return true;
@@ -463,12 +524,12 @@ void XMLTokenizer::processingInstruction(const xmlChar *target, const xmlChar *d
     if (m_currentNode->nodeType() == Node::TEXT_NODE)
         exitText();
     // ### handle exceptions
-    ProcessingInstructionImpl *pi = m_doc->document()->createProcessingInstruction(
+    ProcessingInstructionImpl *pi = m_doc->createProcessingInstruction(
         QString::fromUtf8(reinterpret_cast<const char *>(target)),
         QString::fromUtf8(reinterpret_cast<const char *>(data)));
     m_currentNode->addChild(pi);
     // don't load stylesheets for standalone documents
-    if (m_doc->document()->part()) {
+    if (m_doc->part()) {
 	m_sawXSLTransform = !pi->checkStyleSheet();
         if (m_sawXSLTransform)
             // Stop the SAX parser.
@@ -485,7 +546,7 @@ void XMLTokenizer::cdataBlock(const xmlChar *s, int len)
     if (m_currentNode->nodeType() == Node::TEXT_NODE)
         exitText();
 
-    NodeImpl *newNode = m_doc->document()->createCDATASection("");
+    NodeImpl *newNode = m_doc->createCDATASection("");
     if (m_currentNode->addChild(newNode)) {
         if (m_view && !newNode->attached())
             newNode->attach();
@@ -509,7 +570,7 @@ void XMLTokenizer::comment(const xmlChar *s)
     if (m_currentNode->nodeType() == Node::TEXT_NODE)
         exitText();
     // ### handle exceptions
-    m_currentNode->addChild(m_doc->document()->createComment(QString::fromUtf8(reinterpret_cast<const char *>(s))));
+    m_currentNode->addChild(m_doc->createComment(QString::fromUtf8(reinterpret_cast<const char *>(s))));
 }
 
 static void startElementHandler(void *userData, const xmlChar *name, const xmlChar **libxmlAttributes)
@@ -587,12 +648,12 @@ void XMLTokenizer::finish()
     xmlFreeParserCtxt(m_context);
     m_context = NULL;
 
-    if (m_sawError) {
+    if (m_sawError)
         insertErrorMessageBlock();
-    } else {
+    else {
         // Parsing was successful. Now locate all html <script> tags in the document and execute them
         // one by one.
-        addScripts(m_doc->document());
+        addScripts(m_doc);
         m_scriptsIt = new QPtrListIterator<HTMLScriptElementImpl>(m_scripts);
         executeScripts();
     }
@@ -608,7 +669,7 @@ void XMLTokenizer::insertErrorMessageBlock()
 
     // Create elements for display
     int exceptioncode = 0;
-    DocumentImpl *doc = m_doc->document();
+    DocumentImpl *doc = m_doc;
     NodeImpl* root = doc->documentElement();
     if (!root) {
         root = doc->createElementNS(XHTML_NAMESPACE, "html", exceptioncode);
@@ -670,9 +731,9 @@ void XMLTokenizer::executeScripts()
         QString charset = m_scriptsIt->current()->getAttribute(ATTR_CHARSET).string();
 
 	// don't load external scripts for standalone documents (for now)
-        if (scriptSrc != "" && m_doc->document()->part()) {
+        if (scriptSrc != "" && m_doc->part()) {
             // we have a src attribute
-            m_cachedScript = m_doc->document()->docLoader()->requestScript(scriptSrc, charset);
+            m_cachedScript = m_doc->docLoader()->requestScript(scriptSrc, charset);
             ++(*m_scriptsIt);
             m_cachedScript->ref(this); // will call executeScripts() again if already cached
             return;
@@ -699,7 +760,7 @@ void XMLTokenizer::executeScripts()
 
     // All scripts have finished executing, so calculate the style for the document and close
     // the last element
-    m_doc->document()->updateStyleSelector();
+    m_doc->updateStyleSelector();
 }
 
 void XMLTokenizer::notifyFinished(CachedObject *finishedObj)
@@ -730,16 +791,23 @@ void XMLTokenizer::setTransformSource(DocumentImpl* doc)
     // good error messages.
     const QChar BOM(0xFEFF);
     const unsigned char BOMHighByte = *reinterpret_cast<const unsigned char *>(&BOM);
+
+    // the default catalog file /etc/xml/catalog does not exist, set this env var to an empty string to prevent not found errors
+    // pass 0 to setenv to allow someone to launch the app with XML_CATALOG_FILES defined to somthing meaningful
+    setenv("XML_CATALOG_FILES", "", 0);  
+
+    setLoaderForLibXMLCallbacks(doc->docLoader());
     xmlDocPtr sourceDoc = xmlReadMemory(reinterpret_cast<const char *>(m_xmlCode.unicode()),
                                         m_xmlCode.length() * sizeof(QChar),
                                         doc->URL().ascii(),
                                         BOMHighByte == 0xFF ? "UTF-16LE" : "UTF-16BE", 
                                         XML_PARSE_NOCDATA|XML_PARSE_DTDATTR|XML_PARSE_NOENT);
+    setLoaderForLibXMLCallbacks(0);
     doc->setTransformSource(sourceDoc);
 }
 #endif
 
-Tokenizer *newXMLTokenizer(DocumentPtr *d, KHTMLView *v)
+Tokenizer *newXMLTokenizer(DocumentImpl *d, KHTMLView *v)
 {
     return new XMLTokenizer(d, v);
 }
@@ -780,19 +848,19 @@ bool XMLHandler::internalEntityDecl(const QString &name, const QString &value)
 {
     EntityImpl *e = new EntityImpl(m_doc,name);
     // ### further parse entities inside the value and add them as separate nodes (or entityreferences)?
-    e->addChild(m_doc->document()->createTextNode(value));
+    e->addChild(m_doc->createTextNode(value));
 // ### FIXME
-//     if (m_doc->document()->doctype())
-//         static_cast<GenericRONamedNodeMapImpl*>(m_doc->document()->doctype()->entities())->addNode(e);
+//     if (m_doc->doctype())
+//         static_cast<GenericRONamedNodeMapImpl*>(m_doc->doctype()->entities())->addNode(e);
     return true;
 }
 
 bool XMLHandler::notationDecl(const QString &name, const QString &publicId, const QString &systemId)
 {
 // ### FIXME
-//     if (m_doc->document()->doctype()) {
+//     if (m_doc->doctype()) {
 //         NotationImpl *n = new NotationImpl(m_doc,name,publicId,systemId);
-//         static_cast<GenericRONamedNodeMapImpl*>(m_doc->document()->doctype()->notations())->addNode(n);
+//         static_cast<GenericRONamedNodeMapImpl*>(m_doc->doctype()->notations())->addNode(n);
 //     }
     return true;
 }

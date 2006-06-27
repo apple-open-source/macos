@@ -761,13 +761,13 @@ CSSValueImpl *CSSComputedStyleDeclarationImpl::getPropertyCSSValue(int propertyI
         ASSERT_NOT_REACHED();
         return 0;
     case CSS_PROP_MARGIN_TOP:
-        return valueForLength(style->marginTop());
+        return new CSSPrimitiveValueImpl(renderer->marginTop(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP_MARGIN_RIGHT:
-        return valueForLength(style->marginRight());
+        return new CSSPrimitiveValueImpl(renderer->marginRight(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP_MARGIN_BOTTOM:
-        return valueForLength(style->marginBottom());
+        return new CSSPrimitiveValueImpl(renderer->marginBottom(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP_MARGIN_LEFT:
-        return valueForLength(style->marginLeft());
+        return new CSSPrimitiveValueImpl(renderer->marginLeft(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP__KHTML_MARQUEE:
         // FIXME: unimplemented
         break;
@@ -866,13 +866,13 @@ CSSValueImpl *CSSComputedStyleDeclarationImpl::getPropertyCSSValue(int propertyI
         ASSERT_NOT_REACHED();
         return 0;
     case CSS_PROP_PADDING_TOP:
-        return valueForLength(style->paddingTop());
+        return new CSSPrimitiveValueImpl(renderer->paddingTop(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP_PADDING_RIGHT:
-        return valueForLength(style->paddingRight());
+        return new CSSPrimitiveValueImpl(renderer->paddingRight(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP_PADDING_BOTTOM:
-        return valueForLength(style->paddingBottom());
+        return new CSSPrimitiveValueImpl(renderer->paddingBottom(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP_PADDING_LEFT:
-        return valueForLength(style->paddingLeft());
+        return new CSSPrimitiveValueImpl(renderer->paddingLeft(), CSSPrimitiveValue::CSS_PX);
     case CSS_PROP_PAGE:
         // FIXME: unimplemented
         break;

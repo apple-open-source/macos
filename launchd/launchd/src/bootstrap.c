@@ -1045,3 +1045,16 @@ canSend(mach_port_t port)
 	}
 	return ((p_type & MACH_PORT_TYPE_PORT_RIGHTS) != 0);
 }
+
+/* Sigh... Libc's panic() call fails to abort and continues afterwards */
+void
+panic(const char *msg, ...)
+{
+	va_list ap;
+
+	va_start(ap, msg);
+	vfprintf(stderr, msg, ap);
+	va_end(ap);
+
+	_exit(EXIT_FAILURE);
+}

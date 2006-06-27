@@ -45,7 +45,7 @@ class DOMStringImpl;
 class HTMLAppletElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLAppletElementImpl(DocumentPtr *doc);
+    HTMLAppletElementImpl(DocumentImpl *doc);
 
     ~HTMLAppletElementImpl();
 
@@ -57,6 +57,7 @@ public:
     virtual bool rendererIsNeeded(khtml::RenderStyle *);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
     virtual void closeRenderer();
+    virtual void detach();
 
     bool getMember(const QString &, JType &, QString &);
     bool callMember(const QString &, const QStringList &, JType &, QString &);
@@ -72,7 +73,7 @@ protected:
 
 private:
 #if APPLE_CHANGES
-    mutable KJS::Bindings::Instance *appletInstance;
+    mutable SharedPtr<KJS::Bindings::Instance> m_appletInstance;
     bool m_allParamsAvailable;
 #endif
 };
@@ -82,7 +83,7 @@ private:
 class HTMLEmbedElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLEmbedElementImpl(DocumentPtr *doc);
+    HTMLEmbedElementImpl(DocumentImpl *doc);
 
     ~HTMLEmbedElementImpl();
 
@@ -92,6 +93,7 @@ public:
     virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
 
     virtual void attach();
+    virtual void detach();
     virtual bool rendererIsNeeded(khtml::RenderStyle *);
     virtual khtml::RenderObject *createRenderer(RenderArena *, khtml::RenderStyle *);
     
@@ -107,7 +109,7 @@ public:
 
 #if APPLE_CHANGES
 private:
-    mutable KJS::Bindings::Instance *embedInstance;
+    mutable SharedPtr<KJS::Bindings::Instance> m_embedInstance;
 #endif
 };
 
@@ -116,7 +118,7 @@ private:
 class HTMLObjectElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLObjectElementImpl(DocumentPtr *doc);
+    HTMLObjectElementImpl(DocumentImpl *doc);
 
     ~HTMLObjectElementImpl();
 
@@ -160,7 +162,7 @@ public:
 
 #if APPLE_CHANGES
 private:
-    mutable KJS::Bindings::Instance *objectInstance;
+    mutable SharedPtr<KJS::Bindings::Instance> m_objectInstance;
 #endif
     bool m_complete;
 };
@@ -171,7 +173,7 @@ class HTMLParamElementImpl : public HTMLElementImpl
 {
     friend class HTMLAppletElementImpl;
 public:
-    HTMLParamElementImpl(DocumentPtr *doc);
+    HTMLParamElementImpl(DocumentImpl *doc);
 
     ~HTMLParamElementImpl();
 

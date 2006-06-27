@@ -83,7 +83,7 @@ DisjointCompletion(void *target, void *parameter, IOReturn status, UInt32 buffer
     }
     if (command->GetDirection() == kUSBIn)
     {
-	USBLog(7, "IOUSBController: DisjointCompletion, copying %x out of %x bytes to desc %p from buffer %p", (command->GetDblBufLength()-bufferSizeRemaining), command->GetDblBufLength(), command->GetOrigBuffer(), buf);
+	USBLog(7, "IOUSBController: DisjointCompletion, copying 0x%lx out of 0x%lx bytes to desc %p from buffer %p", (command->GetDblBufLength()-bufferSizeRemaining), command->GetDblBufLength(), command->GetOrigBuffer(), buf);
 	command->GetOrigBuffer()->writeBytes(0, buf, (command->GetDblBufLength()-bufferSizeRemaining));
     }
 	
@@ -228,7 +228,7 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     IOUSBCompletion 	nullCompletion;
     int			i;
 
-    USBLog(7, "%s[%p]::Read #3 - reqCount = %d", getName(), this, reqCount);
+    USBLog(7, "%s[%p]::Read #3 - reqCount = %ld", getName(), this, reqCount);
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
     {
@@ -360,7 +360,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     IOUSBCompletion 	nullCompletion;
     int			i;
 
-    USBLog(7, "%s[%p]::Write #3 - reqCount = %d", getName(), this, reqCount);
+    USBLog(7, "%s[%p]::Write #3 - reqCount = %ld", getName(), this, reqCount);
     
     // Validate its a outty pipe and that we have a buffer
     if((endpoint->direction != kUSBOut) || !buffer || (buffer->getLength() < reqCount))
@@ -462,7 +462,8 @@ IOUSBController::IsocIO(	IOMemoryDescriptor *	buffer,
 {
     IOReturn	 err = kIOReturnSuccess;
     IOUSBIsocCommand *	command;
-    
+    bool		crossEndianRequest = false;
+	
 	// Validate the completion
 	//
         if (completion == 0)
@@ -479,7 +480,14 @@ IOUSBController::IsocIO(	IOMemoryDescriptor *	buffer,
 		return kIOReturnInternalError;
 	}
 	
-	// Validate the direction of the endpoint -- it has to be kUSBIn or kUSBOut
+		// If the high order bit of the endpoint transfer type is set, then this means it's a request from an Rosetta client
+		if ( endpoint->direction & 0x80 )
+		{
+			endpoint->direction &= ~0x80;
+			crossEndianRequest = true;
+		}
+
+		// Validate the direction of the endpoint -- it has to be kUSBIn or kUSBOut
 	if ( (endpoint->direction != kUSBOut) && ( endpoint->direction != kUSBIn) )
 	{		
 		USBLog(5, "%s[%p]::IsocIO - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
@@ -502,6 +510,14 @@ IOUSBController::IsocIO(	IOMemoryDescriptor *	buffer,
         }
     }
     
+	// If the high order bit of the endpoint transfer type is set, then this means it's a request from an Rosetta client
+	if ( crossEndianRequest )
+	{
+		command->SetRosettaClient(true);
+	}
+	else
+		command->SetRosettaClient(false);
+	
 	// Set up a flag indicating that we have a synchronous request in this command
 	//
     if (  (UInt32) completion->action == (UInt32) &IOUSBSyncIsoCompletion )
@@ -557,6 +573,7 @@ IOUSBController::IsocIO(	IOMemoryDescriptor *			buffer,
 {
     IOReturn	 err = kIOReturnSuccess;
     IOUSBIsocCommand *	command;
+    bool		crossEndianRequest = false;
     
 	// Validate the completion
 	//
@@ -572,6 +589,13 @@ IOUSBController::IsocIO(	IOMemoryDescriptor *			buffer,
 	{
 		USBLog(5, "%s[%p]::IsocIO(LL) - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
 		return kIOReturnInternalError;
+	}
+	
+	// If the high order bit of the endpoint transfer type is set, then this means it's a request from an Rosetta client
+	if ( endpoint->direction & 0x80 )
+	{
+		endpoint->direction &= ~0x80;
+		crossEndianRequest = true;
 	}
 	
 	// Validate the direction of the endpoint -- it has to be kUSBIn or kUSBOut
@@ -595,6 +619,14 @@ IOUSBController::IsocIO(	IOMemoryDescriptor *			buffer,
             return kIOReturnNoResources;
         }
     }
+	
+	// If the high order bit of the endpoint transfer type is set, then this means it's a request from an Rosetta client
+	if ( crossEndianRequest )
+	{
+		command->SetRosettaClient(true);
+	}
+	else
+		command->SetRosettaClient(false);
 	
 	// Set up a flag indicating that we have a synchronous request in this command
 	//

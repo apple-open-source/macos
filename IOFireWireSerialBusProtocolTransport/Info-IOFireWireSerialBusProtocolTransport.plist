@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSerialBusProtocolTransport</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.4.0, Copyright Apple Computer, Inc. 1999-2004</string>
+	<string>1.4.4, Copyright Apple Computer, Inc. 1999-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0</string>
+	<string>1.4.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireSerialBusProtocolTransport</key>
@@ -59,6 +59,8 @@
 		<string>1.0.0</string>
 		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
 		<string>1.0.0</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Local-Root</string>

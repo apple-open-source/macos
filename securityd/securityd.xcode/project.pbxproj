@@ -687,7 +687,6 @@
 			buildSettings = {
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -699,7 +698,6 @@
 		};
 		4CA1FEAF052A3C5800F22E42 = {
 			buildSettings = {
-				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers";
 				DEAD_CODE_STRIPPING = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -838,7 +836,7 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 26692;
+				CURRENT_PROJECT_VERSION = 27887;
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks /usr/local/SecurityPieces/Components/securityd $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH = /usr/sbin;
 				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines -fcoalesce-templates";
@@ -1002,14 +1000,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "THEADER=$BUILT_PRODUCTS_DIR/include/flip_gen.h\nTCPP=$BUILT_PRODUCTS_DIR/include/flip_gen.cpp\nmkdir -p $BUILT_PRODUCTS_DIR/include\nsrc/generate.pl src/generate.cf $THEADER.new $TCPP.new $CSSM_HEADERS/cssmtype.h\ncmp -s $THEADER.new $THEADER || mv $THEADER.new $THEADER\ncmp -s $TCPP.new $TCPP || mv $TCPP.new $TCPP\n";
+			shellScript = "THEADER=$BUILT_PRODUCTS_DIR/include/flip_gen.h\nTCPP=$BUILT_PRODUCTS_DIR/include/flip_gen.cpp\nmkdir -p $BUILT_PRODUCTS_DIR/include\nsrc/generate.pl src/generate.cf $THEADER.new $TCPP.new cssmtype.h $CSSM_HEADERS\ncmp -s $THEADER.new $THEADER || mv $THEADER.new $THEADER\ncmp -s $TCPP.new $TCPP || mv $TCPP.new $TCPP\n";
 		};
 		4CDD4F7A053751FF00FEC36D = {
 			buildPhases = (
 				4CDD4F79053751FF00FEC36D,
 			);
 			buildSettings = {
-				CSSM_HEADERS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

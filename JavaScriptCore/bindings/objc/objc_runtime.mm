@@ -255,16 +255,11 @@ unsigned int ObjcArray::getLength() const
 
 const ClassInfo ObjcFallbackObjectImp::info = {"ObjcFallbackObject", 0, 0, 0};
 
-ObjcFallbackObjectImp::ObjcFallbackObjectImp(ObjectImp *proto)
-  : ObjectImp(proto)
+ObjcFallbackObjectImp::ObjcFallbackObjectImp(ObjcInstance *i, const KJS::Identifier propertyName)
+: ObjectImp ((ObjectImp *)0)
+, _instance(i)
+, _item(propertyName)
 {
-    _instance = 0;
-}
-
-ObjcFallbackObjectImp::ObjcFallbackObjectImp(ObjcInstance *i, const KJS::Identifier propertyName) : ObjectImp ((ObjectImp *)0)
-{
-    _instance = i;
-    _item = propertyName;
 }
 
 Value ObjcFallbackObjectImp::get(ExecState *exec, const Identifier &propertyName) const

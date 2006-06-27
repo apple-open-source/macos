@@ -32,6 +32,9 @@
  *	Created.
  */
 
+#ifndef _ARCHITECTURE_ASCII_CODES_H_
+#define _ARCHITECTURE_ASCII_CODES_H_
+
 #define	nul	0x000
 #define	soh	0x001
 #define	stx	0x002
@@ -65,3 +68,5 @@
 #define	rs	0x01e
 #define	us	0x01f
 #define	del	0x07f
+
+#endif	/* _ARCHITECTURE_ASCII_CODES_H_ */

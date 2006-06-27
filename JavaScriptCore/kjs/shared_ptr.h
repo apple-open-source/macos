@@ -88,4 +88,6 @@ template <class T, class U> inline SharedPtr<T> const_pointer_cast(const SharedP
 
 }
 
+using kxmlcore::SharedPtr;
+
 #endif // KXMLCORE_SHARED_PTR_H

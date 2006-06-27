@@ -58,5 +58,6 @@ void Access::operator () (const CssmError &err)
 			return;	// induce retry
 		}
 	// all others are non-recoverable
+	secdebug("tokendb", "non-recoverable error in Access(): %d", err.error);
 	throw;
 }

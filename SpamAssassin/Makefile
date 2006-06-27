@@ -18,10 +18,10 @@ CFLAGS=-Os $(RC_CFLAGS)
 #
 
 PROJECT_NAME=SpamAssassin
-CLAMAV_NAME=clamav-0.88.tar.gz
+CLAMAV_NAME=clamav-0.88.2.tar.gz
 
 AMAVIS_DIR=/private/var/amavis
-CLAMAV_BUILD_DIR=/clamav/clamav-0.88
+CLAMAV_BUILD_DIR=/clamav/clamav-0.88.2
 VIRUS_MAILS_DIR=/private/var/virusmails
 ETCDIR=/private/etc
 ETC_SPAMA_DIR=/private/etc/mail/spamassassin

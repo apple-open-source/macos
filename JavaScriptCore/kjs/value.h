@@ -97,7 +97,7 @@ namespace KJS {
     friend class FunctionCallNode;
   public:
 #if USE_CONSERVATIVE_GC
-    ValueImp() : _marked(0) {}
+    explicit ValueImp(bool destructorIsThreadSafe = true) : _destructorIsThreadSafe(destructorIsThreadSafe), _marked(0) {}
     virtual ~ValueImp() {}
 #else
     ValueImp();
@@ -159,7 +159,8 @@ namespace KJS {
     virtual bool toUInt32(unsigned&) const;
 
 #if USE_CONSERVATIVE_GC
-    bool _marked;
+    bool _destructorIsThreadSafe : 1;
+    bool _marked : 1;
 #else
     unsigned short int _flags;
 

@@ -30,6 +30,7 @@
 #include <JavaVM/jni.h>
 
 #include <JavaScriptCore/runtime.h>
+#include "shared_ptr.h"
 
 namespace KJS {
 
@@ -39,26 +40,27 @@ class JavaClass;
 
 class JObjectWrapper
 {
+friend class SharedPtr<JObjectWrapper>;
 friend class JavaArray;
 friend class JavaInstance;
 friend class JavaMethod;
 
 protected:
     JObjectWrapper(jobject instance);    
-    void ref() { _ref++; }
-    void deref() { 
-        _ref--;
-        if (_ref == 0)
-            delete this;
-    }
-    
     ~JObjectWrapper();
+    
+    void ref() { _refCount++; }
+    void deref() 
+    { 
+        if (--_refCount == 0) 
+            delete this; 
+    }
 	
     jobject _instance;
 
 private:
     JNIEnv *_env;
-    unsigned int _ref;
+    unsigned int _refCount;
 };
 
 class JavaInstance : public Instance
@@ -90,7 +92,7 @@ private:
     JavaInstance (JavaInstance &);           // prevent copying
     JavaInstance &operator=(JavaInstance &); // prevent copying
     
-    JObjectWrapper *_instance;
+    SharedPtr<JObjectWrapper> _instance;
     mutable JavaClass *_class;
 };
 

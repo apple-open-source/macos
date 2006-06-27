@@ -35,7 +35,7 @@
         _isLogging = NO;
         
         if (listener == nil) {
-            [NSException raise:@"USBLoggerBadListener" format:@"Listener must be non-nil"];
+            [NSException raise:@"USB ProberBadListener" format:@"Listener must be non-nil"];
             [self dealloc];
             self = nil;
         }  else {
@@ -44,19 +44,19 @@
             
             kr = IOMasterPort(nil, &_gMasterPort);
             if (kr != KERN_SUCCESS) {
-                NSLog(@"USBLogger: IOMasterPort() returned %d\n", kr);
+                NSLog(@"USB Prober: IOMasterPort() returned %d\n", kr);
                 [self dealloc];
                 self = nil;
             } else {
                 kr = [self OpenUSBControllerUserClient];
                 if (kr != KERN_SUCCESS) {
-                    NSLog(@"USBLogger: -OpenUSBControllerUserClient returned %d\n", kr);
+                    NSLog(@"USB Prober: -OpenUSBControllerUserClient returned %d\n", kr);
                     [self dealloc];
                     self = nil;
                 } else {
                     kr = [self setDebuggerOptions:-1 setLevel:true level:_loggingLevel setType:true type:2];
                     if (kr != KERN_SUCCESS) {
-                        NSLog(@"USBLogger: -setDebuggerOptions returned %d\n", kr);
+                        NSLog(@"USB Prober: -setDebuggerOptions returned %d\n", kr);
                         [self dealloc];
                         self = nil;
                     }
@@ -99,7 +99,7 @@
     kr = IOServiceGetMatchingServices(_gMasterPort, IOServiceMatching(className ), &iter);
     if(kr != KERN_SUCCESS)
     {
-        [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USBLogger: [ERR] IOServiceGetMatchingServices for USB Controller returned %x\n", kr] forLevel:0];
+        [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] IOServiceGetMatchingServices for USB Controller returned %x\n", kr] forLevel:0];
         return kr;
     }
     while ((service = IOIteratorNext(iter)) != nil)
@@ -107,7 +107,7 @@
         kr = IOServiceOpen(service, mach_task_self(), 0, &_gControllerUserClientPort);
         if(kr != KERN_SUCCESS)
         {
-            [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"usblogger: [ERR] Could not IOServiceOpen on USB Controller client %x\n", kr] forLevel:0];
+            [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] Could not IOServiceOpen on USB Controller client %x\n", kr] forLevel:0];
             IOObjectRelease(iter);
             return kr;
         }
@@ -134,7 +134,7 @@
     
     if(kr != KERN_SUCCESS)
     {
-        NSLog(@"USBLogger: [ERR] Could not enable/disable logger (%x)\n", kr);
+        NSLog(@"USB Prober: [ERR] Could not enable/disable logger (%x)\n", kr);
         return kr;
     }
     
@@ -142,7 +142,7 @@
         kr = IOConnectMethodScalarIScalarO( _gControllerUserClientPort, kUSBControllerUserClientSetDebuggingLevel, 1, 0, level);
     if(kr != KERN_SUCCESS)
     {
-        NSLog(@"USBLogger: [ERR] Could not set debugging level (%x)\n", kr);
+        NSLog(@"USB Prober: [ERR] Could not set debugging level (%x)\n", kr);
         return kr;
     }
     
@@ -150,7 +150,7 @@
         kr = IOConnectMethodScalarIScalarO( _gControllerUserClientPort, kUSBControllerUserClientSetDebuggingType, 1, 0, type);
     if(kr != KERN_SUCCESS)
     {
-        NSLog(@"USBLogger: [ERR] Could not set debugging type (%x)\n", kr);
+        NSLog(@"USB Prober: [ERR] Could not set debugging type (%x)\n", kr);
         return kr;
     }
     return kr;
@@ -159,7 +159,7 @@
 - (void)beginLogging {
     IOReturn kr = [self setDebuggerOptions:1 setLevel:false level:0 setType:false type:0];
     if (kr != KERN_SUCCESS) {
-        NSLog(@"USBLogger: -beginLogging failed with: %d\n", kr);
+        NSLog(@"USB Prober: -beginLogging failed with: %d\n", kr);
     } else {
         _isLogging = YES;
         [NSThread detachNewThreadSelector:@selector(DumpUSBLog) toTarget:self withObject:nil];
@@ -173,7 +173,7 @@
 - (void)setLevel:(int)level {
     IOReturn kr = [self setDebuggerOptions:-1 setLevel:true level:level setType:false type:0];
     if (kr != KERN_SUCCESS) {
-        NSLog(@"USBLogger: -setLevel failed with: %d\n", kr);
+        NSLog(@"USB Prober: -setLevel failed with: %d\n", kr);
     }
     _loggingLevel = level;
 }
@@ -206,7 +206,7 @@
     kr = IOServiceGetMatchingServices( _gMasterPort, IOServiceMatching(className ), &iter);
     if(kr != KERN_SUCCESS)
     {
-        [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"usblogger: [ERR] IOMasterPort returned %x\n", kr] forLevel:0];
+        [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] IOMasterPort returned %x\n", kr] forLevel:0];
         [pool release];
         return;
     }
@@ -215,7 +215,7 @@
         kr = IOServiceOpen(service, mach_task_self(), 0, &_gKLogUserClientPort);
         if(kr != KERN_SUCCESS)
         {
-            [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"usblogger: [ERR] Could not open object %d\n", kr] forLevel:0];
+            [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USB Prober: [ERR] Could not open object %d\n", kr] forLevel:0];
             IOObjectRelease(iter);
             [pool release];
             return;

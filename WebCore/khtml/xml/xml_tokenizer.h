@@ -35,7 +35,6 @@
 class KHTMLView;
 
 namespace DOM {
-    class DocumentPtr;
     class DocumentImpl;
     class NodeImpl;
 };
@@ -82,7 +81,10 @@ private:
 #endif
 };
 
-Tokenizer *newXMLTokenizer(DOM::DocumentPtr *, KHTMLView * = 0);
+Tokenizer *newXMLTokenizer(DOM::DocumentImpl *, KHTMLView * = 0);
+#ifdef KHTML_XSLT
+void setLoaderForLibXMLCallbacks(DocLoader*);
+#endif
 QMap<QString, QString> parseAttributes(const DOM::DOMString &, bool &attrsOK);
 
 }

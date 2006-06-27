@@ -143,6 +143,7 @@ static void job_set_alarm(struct jobcb *j);
 static void job_callback(void *obj, struct kevent *kev);
 static void job_log(struct jobcb *j, int pri, const char *msg, ...) __attribute__((format(printf, 3, 4)));
 static void job_log_error(struct jobcb *j, int pri, const char *msg, ...) __attribute__((format(printf, 3, 4)));
+static void job_prep_log_msg(struct jobcb *j, char *buf, const char *msg, int err);
 
 static void ipc_open(int fd, struct jobcb *j);
 static void ipc_close(struct conncb *c);
@@ -323,7 +324,7 @@ int main(int argc, char *argv[])
 static void pid1_magic_init(bool sflag, bool vflag, bool xflag)
 {
 	pthread_attr_t attr;
-	int memmib[2] = { CTL_HW, HW_PHYSMEM };
+	int memmib[2] = { CTL_HW, HW_MEMSIZE };
 	int mvnmib[2] = { CTL_KERN, KERN_MAXVNODES };
 	int hnmib[2] = { CTL_KERN, KERN_HOSTNAME };
 #ifdef KERN_TFP
@@ -913,6 +914,22 @@ static void ipc_readmsg(launch_data_t msg, void *context)
 	launch_data_free(rmc.resp);
 }
 
+static void
+attach_bonjourfds_to_job(launch_data_t o, const char *key, void *context __attribute__((unused)))
+{
+	struct jobcb *j = NULL;
+
+	TAILQ_FOREACH(j, &jobs, tqe) {
+		if (strcmp(j->label, key) == 0)
+			break;
+	}
+
+	if (j == NULL)
+		return;
+
+	launch_data_dict_insert(j->ldj, launch_data_copy(o), LAUNCH_JOBKEY_BONJOURFDS);
+	launch_data_revoke_fds(o);
+}
 
 static void ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
 {
@@ -963,6 +980,9 @@ static void ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
 		} else {
 			resp = load_job(data);
 		}
+	} else if (!strcmp(cmd, LAUNCH_KEY_WORKAROUNDBONJOUR)) {
+		launch_data_dict_iterate(data, attach_bonjourfds_to_job, NULL);
+		resp = launch_data_new_errno(0);
 	} else if (!strcmp(cmd, LAUNCH_KEY_UNSETUSERENVIRONMENT)) {
 		unsetenv(launch_data_get_string(data));
 		resp = launch_data_new_errno(0);
@@ -2311,13 +2331,39 @@ static void job_set_alarm(struct jobcb *j)
 	}
 }
 
-static void job_log_error(struct jobcb *j, int pri, const char *msg, ...)
+void
+job_prep_log_msg(struct jobcb *j, char *buf, const char *msg, int err)
 {
-	size_t newmsg_sz = strlen(msg) + strlen(j->label) + 200;
-	char *newmsg = alloca(newmsg_sz);
+	size_t lsz = strlen(j->label);
+	size_t i, o;
+
+	for (i = 0, o = 0; i < lsz; i++, o++) {
+		if (j->label[i] == '%') {
+			buf[o] = '%';
+			o++;
+			buf[o] = '%';
+		} else {
+			buf[o] = j->label[i];
+		}
+	}
+
+	buf[o++] = ':';
+	buf[o++] = ' ';
+
+	if (err) {
+		sprintf(buf + o, "%s: %s", msg, strerror(err));
+	} else {
+		strcpy(buf + o, msg);
+	}
+}
+
+void
+job_log_error(struct jobcb *j, int pri, const char *msg, ...)
+{
+	char newmsg[10000];
 	va_list ap;
 
-	sprintf(newmsg, "%s: %s: %s", j->label, msg, strerror(errno));
+	job_prep_log_msg(j, newmsg, msg, errno);
 
 	va_start(ap, msg);
 
@@ -2326,13 +2372,13 @@ static void job_log_error(struct jobcb *j, int pri, const char *msg, ...)
 	va_end(ap);
 }
 
-static void job_log(struct jobcb *j, int pri, const char *msg, ...)
+void
+job_log(struct jobcb *j, int pri, const char *msg, ...)
 {
-	size_t newmsg_sz = strlen(msg) + sizeof(": ") + strlen(j->label);
-	char *newmsg = alloca(newmsg_sz);
+	char newmsg[10000];
 	va_list ap;
 
-	sprintf(newmsg, "%s: %s", j->label, msg);
+	job_prep_log_msg(j, newmsg, msg, 0);
 
 	va_start(ap, msg);
 

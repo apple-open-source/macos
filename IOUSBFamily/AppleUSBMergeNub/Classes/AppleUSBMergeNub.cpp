@@ -171,7 +171,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                 // Get the size of our provider's dictionary so that we can check later whether it changed
                 //
                 providerSize = providerDictionary->getCapacity();
-                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
+                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %ld", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
 
                 // Note that our providerDictionary *might* change
                 // between the time we copied it and when we write it out again.  If so, we will obviously overwrite anychanges
@@ -187,7 +187,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                     providerSizeAfterMerge = providerDictionary->getCapacity();
                     if ( providerSizeAfterMerge != providerSize )
                     {
-                        USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), this, providerSize, providerSizeAfterMerge);
+                        USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%ld,%ld)",getName(), this, providerSize, providerSizeAfterMerge);
                     }
 
                     USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);

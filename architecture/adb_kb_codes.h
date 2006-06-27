@@ -35,7 +35,7 @@
 #ifndef	_ARCHITECTURE_ADB_KB_CODES_
 #define _ARCHITECTURE_ADB_KB_CODES_
 
-#import <architecture/adb_kb_map.h>
+#include <architecture/adb_kb_map.h>
 
 #define inv KEY_INVALID
 

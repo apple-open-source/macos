@@ -38,7 +38,6 @@ version
 
 ./dialects:
 aix/
-bsdi/
 darwin/
 du/
 freebsd/
@@ -47,7 +46,6 @@ linux/
 n+obsd/
 n+os/
 osr/
-ou/
 sun/
 uw/
 
@@ -76,23 +74,16 @@ j2/
 j2_lock.h
 j2_snapshot.h
 
-./dialects/bsdi:
-Makefile
-Mksrc*
-dfile.c
-dlsof.h
-dmnt.c
-dnode.c
-dproc.c
-dproto.h
-dsock.c
-dstore.c
-machine.h
-
 ./dialects/darwin:
+get-hdr-loc.sh*
+kmem/
+libproc/
+
+./dialects/darwin/kmem:
 Makefile
 Mksrc*
 ddev.c
+dfile.c
 dlsof.h
 dmnt.c
 dnode.c
@@ -101,7 +92,19 @@ dproc.c
 dproto.h
 dsock.c
 dstore.c
-get-hdr-loc.sh*
+machine.h
+
+./dialects/darwin/libproc:
+Makefile
+Mksrc*
+ddev.c
+dfile.c
+dlsof.h
+dmnt.c
+dproc.c
+dproto.h
+dsock.c
+dstore.c
 machine.h
 
 ./dialects/du:
@@ -169,7 +172,6 @@ sth.h
 tcp_s.h
 udp_s.h
 vnode.h
-vx_inode.h
 
 ./dialects/hpux/pstat:
 Makefile
@@ -241,42 +243,6 @@ sys/
 ./dialects/osr/include/sys:
 cdefs.h
 
-./dialects/ou:
-Makefile
-Mksrc*
-dfile.c
-dlsof.h
-dmnt.c
-dnode.c
-dnode1.c
-dnode2.c
-dnode3.c
-dproc.c
-dproto.h
-dsock.c
-dstore.c
-machine.h
-ou8/
-
-./dialects/ou/ou8:
-README
-sys/
-vm/
-
-./dialects/ou/ou8/sys:
-fs/
-
-./dialects/ou/ou8/sys/fs:
-README
-fifonode.h
-memfs_mnode.h
-namenode.h
-prdata.h
-
-./dialects/ou/ou8/vm:
-README
-page_f.h
-
 ./dialects/sun:
 Makefile
 Mksrc*
@@ -291,15 +257,8 @@ dproc.c
 dproto.h
 dsock.c
 dstore.c
-include/
 machine.h
 solaris_kaddr_filters
-
-./dialects/sun/include:
-sys/
-
-./dialects/sun/include/sys:
-auxv.h
 
 ./dialects/uw:
 Makefile
@@ -316,36 +275,10 @@ dproto.h
 dsock.c
 dstore.c
 machine.h
-uw21/
 uw7/
 
-./dialects/uw/uw21:
-fs/
-sys/
-vm/
-
-./dialects/uw/uw21/fs:
-proc/
-procfs/
-
-./dialects/uw/uw21/fs/proc:
-README
-prdata.h
-
-./dialects/uw/uw21/fs/procfs:
-README
-prdata.h
-
-./dialects/uw/uw21/sys:
-fs/
-
-./dialects/uw/uw21/sys/fs:
-fifonode.h
-namenode.h
-
-./dialects/uw/uw21/vm:
-
 ./dialects/uw/uw7:
+README
 fs/
 sys/
 vm/
@@ -365,6 +298,7 @@ prdata.h
 fs/
 
 ./dialects/uw/uw7/sys/fs:
+README
 fifonode.h
 namenode.h
 

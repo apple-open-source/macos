@@ -323,7 +323,7 @@ JSNodeFilterCondition::JSNodeFilterCondition(Object & _filter) : filter( _filter
 
 short JSNodeFilterCondition::acceptNode(const DOM::Node &node) const
 {
-    KHTMLPart *part = static_cast<DOM::DocumentImpl *>(node.handle()->docPtr()->document())->part();
+    KHTMLPart *part = static_cast<DOM::DocumentImpl *>(node.handle()->getDocument())->part();
     KJSProxy *proxy = KJSProxy::proxy(part);
 
     if (proxy && filter.implementsCall()) {

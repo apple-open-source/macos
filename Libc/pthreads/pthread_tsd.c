@@ -59,6 +59,12 @@ static struct
 	void (*destructor)(void *);
 } _pthread_keys[_POSIX_THREAD_KEYS_MAX];
 static pthread_lock_t tds_lock = LOCK_INITIALIZER;
+/*
+ * Partition _pthread_keys in a lower part that dyld can use, and an upper
+ * part for libSystem.  The libSystem part starts at __pthread_tsd_first = 4.
+ * dyld will set this value to 1.
+ */
+__private_extern__ int __pthread_tsd_first = 4;
 
 /*
  * Create a new key for thread specific data
@@ -71,7 +77,7 @@ pthread_key_create(pthread_key_t *key,
 	LOCK(tds_lock);
 	res = ENOMEM;  /* No 'free' keys */
 	/* The first slot is reserved for pthread_self() */
-	for (i = 1;  i < _POSIX_THREAD_KEYS_MAX;  i++)
+	for (i = __pthread_tsd_first;  i < _POSIX_THREAD_KEYS_MAX;  i++)
 	{
 		if (_pthread_keys[i].created == FALSE)
 		{
@@ -95,7 +101,7 @@ pthread_key_delete(pthread_key_t key)
 	int res;
 	LOCK(tds_lock);
 	/* The first slot is reserved for pthread_self() */
-	if ((key > 0) && (key < _POSIX_THREAD_KEYS_MAX))
+	if ((key >= __pthread_tsd_first) && (key < _POSIX_THREAD_KEYS_MAX))
 	{
 		if (_pthread_keys[key].created)
 		{
@@ -137,7 +143,7 @@ pthread_setspecific(pthread_key_t key,
 	int res;
 	pthread_t self;
 	/* The first slot is reserved for pthread_self() */
-	if ((key > 0) && (key < _POSIX_THREAD_KEYS_MAX))
+	if ((key >= __pthread_tsd_first) && (key < _POSIX_THREAD_KEYS_MAX))
 	{
 		if (_pthread_keys[key].created)
 		{
@@ -166,7 +172,7 @@ _pthread_tsd_cleanup(pthread_t self)
 	for (j = 0;  j < PTHREAD_DESTRUCTOR_ITERATIONS;  j++)
 	{
 		/* The first slot is reserved for pthread_self() */
-		for (i = 1;  i < _POSIX_THREAD_KEYS_MAX;  i++)
+		for (i = __pthread_tsd_first;  i < _POSIX_THREAD_KEYS_MAX;  i++)
 		{
 			if (_pthread_keys[i].created && (param = self->tsd[i]))
 			{

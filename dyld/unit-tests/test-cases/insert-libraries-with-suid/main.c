@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,9 +34,7 @@
 int main(int argc, const char *argv[])
 {
 	const char* rhs = getenv("DYLD_INSERT_LIBRARIES");
-	if ( rhs == NULL )
-        FAIL("insert-libraries-with-suid DYLD_INSERT_LIBRARIES not set");
-	else if ( rhs[0] != '\0' )
+	if ( (rhs != NULL) && (rhs[0] != '\0') )
         FAIL("insert-libraries-with-suid DYLD_INSERT_LIBRARIES not cleared");
 	else
 		PASS("insert-libraries-with-suid");

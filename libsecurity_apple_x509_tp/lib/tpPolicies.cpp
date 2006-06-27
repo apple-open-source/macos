@@ -38,7 +38,7 @@
 #include <ctype.h>
 #include <assert.h>
 #include <CoreFoundation/CFString.h>
-
+#include <Security/cssmapplePriv.h>
 
 /* 
  * Our private per-extension info. One of these per (understood) extension per
@@ -1416,6 +1416,51 @@ static CSSM_RETURN tp_verifyCodeSigningOpts(
 }
 
 /*
+ * Verify Apple Resource Signing options. 
+ *
+ * -- leaf cert must have CSSMOID_APPLE_EKU_RESOURCE_SIGNING EKU
+ * -- mainline code already verified that leaf KeyUsage = digitalSignature (only)
+ */
+static CSSM_RETURN tp_verifyResourceSigningOpts(
+	TPCertGroup &certGroup,
+	const CSSM_DATA *fieldOpts,			// currently unused
+	const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+{
+	unsigned numCerts = certGroup.numCerts();
+	if(numCerts < 2) {
+		tpPolicyError("tp_verifyResourceSigningOpts: numCerts %u", numCerts);
+		return CSSMERR_APPLETP_RS_BAD_CERT_CHAIN_LENGTH;
+	}
+	const iSignCertInfo &leafCert = certInfo[0];
+	TPCertInfo *leaf = certGroup.certAtIndex(0);
+	
+	/* leaf ExtendedKeyUse required, one legal value */
+	if(!leafCert.extendKeyUsage.present) {
+		tpPolicyError("tp_verifyResourceSigningOpts: no extendedKeyUse");
+		leaf->addStatusCode(CSSMERR_APPLETP_RS_BAD_EXTENDED_KEY_USAGE);
+		return CSSMERR_APPLETP_RS_BAD_EXTENDED_KEY_USAGE;
+	}
+
+	CE_ExtendedKeyUsage *eku = &leafCert.extendKeyUsage.extnData->extendedKeyUsage;
+	assert(eku != NULL);
+	bool foundEku = false;
+	
+	for(unsigned i=0; i<eku->numPurposes; i++) {
+		if(tpCompareOids(&eku->purposes[i], &CSSMOID_APPLE_EKU_RESOURCE_SIGNING)) {
+			foundEku = true;
+			break;
+		}
+	}
+	if(!foundEku) {
+		tpPolicyError("tp_verifyResourceSigningOpts: no RESOURCE_SIGNING");
+		leaf->addStatusCode(CSSMERR_APPLETP_RS_BAD_EXTENDED_KEY_USAGE);
+		return CSSMERR_APPLETP_RS_BAD_EXTENDED_KEY_USAGE;
+	}
+
+	return CSSM_OK;
+}
+
+/*
  * RFC2459 says basicConstraints must be flagged critical for
  * CA certs, but Verisign doesn't work that way.
  */
@@ -1693,7 +1738,8 @@ CSSM_RETURN tp_policyVerify(
 		 *							  Object Signing bit set
 		 * kCrlPolicy   : Leaf: usage = CRLSign
 		 * kTP_SMIME   	: if present, must be critical
-		 * kTP_CodeSign : Leaf : usage = digitalSignature
+		 * kTP_CodeSign, kTP_ResourceSign : 
+		 *				  Leaf : usage = digitalSignature
 		 * all others   : non-leaf  : usage = keyCertSign
 		 *			  	  Leaf : don't care
 		 */ 
@@ -1709,6 +1755,7 @@ CSSM_RETURN tp_policyVerify(
 				switch(policy) {
 					case kTPiSign:
 					case kTP_CodeSign:
+					case kTP_ResourceSign:
 						expUsage = CE_KU_DigitalSignature;
 						break;
 					case kCrlPolicy:
@@ -1849,7 +1896,9 @@ CSSM_RETURN tp_policyVerify(
 		case kTP_CodeSign:
 			policyError = tp_verifyCodeSigningOpts(*certGroup, policyFieldData, certInfo);
 			break;
-			
+		case kTP_ResourceSign:
+			policyError = tp_verifyResourceSigningOpts(*certGroup, policyFieldData, certInfo);
+			break;
 		default:
 			break;
 

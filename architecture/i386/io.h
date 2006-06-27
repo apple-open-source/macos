@@ -32,5 +32,10 @@
  *	Created.
  */
 
+#ifndef _ARCH_I386_IO_H_
+#define _ARCH_I386_IO_H_
+
 typedef unsigned short		io_addr_t;
 typedef unsigned short		io_len_t;
+
+#endif	/* _ARCH_I386_IO_H_ */

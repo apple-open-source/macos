@@ -28,6 +28,7 @@
 #include <security_keychain/Policies.h>
 #include <Security/oidsalg.h>
 #include <security_cdsa_client/tpclient.h>
+#include <Security/cssmapplePriv.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -53,6 +54,7 @@ static const CssmOid *theOidList[] = {
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_ICHAT),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_CRL),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_OCSP),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_RESOURCE_SIGN),
     NULL	// sentinel
 };
 

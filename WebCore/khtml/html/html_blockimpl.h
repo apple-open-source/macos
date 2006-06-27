@@ -37,7 +37,7 @@ class DOMString;
 class HTMLBlockquoteElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLBlockquoteElementImpl(DocumentPtr *doc);
+    HTMLBlockquoteElementImpl(DocumentImpl *doc);
     ~HTMLBlockquoteElementImpl();
 
     virtual NodeImpl::Id id() const;
@@ -50,7 +50,7 @@ class DOMString;
 class HTMLDivElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLDivElementImpl(DocumentPtr *doc);
+    HTMLDivElementImpl(DocumentImpl *doc);
     ~HTMLDivElementImpl();
 
     virtual NodeImpl::Id id() const;
@@ -64,7 +64,7 @@ public:
 class HTMLHRElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLHRElementImpl(DocumentPtr *doc);
+    HTMLHRElementImpl(DocumentImpl *doc);
     ~HTMLHRElementImpl();
 
     virtual NodeImpl::Id id() const;
@@ -78,7 +78,7 @@ public:
 class HTMLHeadingElementImpl : public HTMLGenericElementImpl
 {
 public:
-    HTMLHeadingElementImpl(DocumentPtr *doc, ushort _tagid);
+    HTMLHeadingElementImpl(DocumentImpl *doc, ushort _tagid);
 };
 
 // -------------------------------------------------------------------------
@@ -92,7 +92,7 @@ public:
 class HTMLParagraphElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLParagraphElementImpl(DocumentPtr *doc);
+    HTMLParagraphElementImpl(DocumentImpl *doc);
 
     virtual bool mapToEntry(NodeImpl::Id attr, MappedAttributeEntry& result) const;
     virtual void parseHTMLAttribute(HTMLAttributeImpl *attr);
@@ -105,7 +105,7 @@ public:
 class HTMLPreElementImpl : public HTMLGenericElementImpl
 {
 public:
-    HTMLPreElementImpl(DocumentPtr *doc, ushort _tagid);
+    HTMLPreElementImpl(DocumentImpl *doc, ushort _tagid);
 
     long width() const;
     void setWidth( long w );
@@ -116,7 +116,7 @@ public:
 class HTMLMarqueeElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLMarqueeElementImpl(DocumentPtr *doc);
+    HTMLMarqueeElementImpl(DocumentImpl *doc);
 
     virtual NodeImpl::Id id() const;
     
@@ -134,7 +134,7 @@ private:
 class HTMLLayerElementImpl : public HTMLDivElementImpl
 {
 public:
-    HTMLLayerElementImpl( DocumentPtr *doc );
+    HTMLLayerElementImpl( DocumentImpl *doc );
     ~HTMLLayerElementImpl();
 
     virtual NodeImpl::Id id() const;

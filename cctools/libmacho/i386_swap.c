@@ -25,6 +25,84 @@
 #undef environ
 #endif
 
+#define __busy busy
+#define __c0 c0
+#define __c1 c1
+#define __c2 c2
+#define __c3 c3
+#define __cs cs
+#define __darwin_fp_control fp_control
+#define __darwin_fp_status fp_status
+#define __darwin_i386_exception_state i386_exception_state
+#define __darwin_i386_float_state i386_float_state
+#define __darwin_i386_thread_state i386_thread_state
+#define __darwin_mmst_reg mmst_reg
+#define __darwin_xmm_reg xmm_reg
+#define __denorm denorm
+#define __ds ds
+#define __eax eax
+#define __ebp ebp
+#define __ebx ebx
+#define __ecx ecx
+#define __edi edi
+#define __edx edx
+#define __eflags eflags
+#define __eip eip
+#define __err err
+#define __errsumm errsumm
+#define __es es
+#define __esi esi
+#define __esp esp
+#define __faultvaddr faultvaddr
+#define __fpu_cs fpu_cs
+#define __fpu_dp fpu_dp
+#define __fpu_ds fpu_ds
+#define __fpu_fcw fpu_fcw
+#define __fpu_fop fpu_fop
+#define __fpu_fsw fpu_fsw
+#define __fpu_ftw fpu_ftw
+#define __fpu_ip fpu_ip
+#define __fpu_mxcsr fpu_mxcsr
+#define __fpu_mxcsrmask fpu_mxcsrmask
+#define __fpu_reserved fpu_reserved
+#define __fpu_reserved1 fpu_reserved1
+#define __fpu_rsrv1 fpu_rsrv1
+#define __fpu_rsrv2 fpu_rsrv2
+#define __fpu_rsrv3 fpu_rsrv3
+#define __fpu_rsrv4 fpu_rsrv4
+#define __fpu_stmm0 fpu_stmm0
+#define __fpu_stmm1 fpu_stmm1
+#define __fpu_stmm2 fpu_stmm2
+#define __fpu_stmm3 fpu_stmm3
+#define __fpu_stmm4 fpu_stmm4
+#define __fpu_stmm5 fpu_stmm5
+#define __fpu_stmm6 fpu_stmm6
+#define __fpu_stmm7 fpu_stmm7
+#define __fpu_xmm0 fpu_xmm0
+#define __fpu_xmm1 fpu_xmm1
+#define __fpu_xmm2 fpu_xmm2
+#define __fpu_xmm3 fpu_xmm3
+#define __fpu_xmm4 fpu_xmm4
+#define __fpu_xmm5 fpu_xmm5
+#define __fpu_xmm6 fpu_xmm6
+#define __fpu_xmm7 fpu_xmm7
+#define __fs fs
+#define __gs gs
+#define __invalid invalid
+#define __mmst_reg mmst_reg
+#define __mmst_rsrv mmst_rsrv
+#define __ovrfl ovrfl
+#define __pc pc
+#define __precis precis
+#define __rc rc
+#define __ss ss
+#define __stkflt stkflt
+#define __tos tos
+#define __trapno trapno
+#define __undfl undfl
+#define __xmm_reg xmm_reg
+#define __zdiv zdiv
+
 #include <string.h>
 #import <mach-o/i386/swap.h>
 

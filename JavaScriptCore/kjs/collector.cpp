@@ -347,7 +347,8 @@ bool Collector::collect()
   assert(Interpreter::lockCount() > 0);
 
   bool deleted = false;
-
+  bool currentThreadIsMainThread = !pthread_is_threaded_np() || pthread_main_np();
+  
 #if TEST_CONSERVATIVE_GC
   // CONSERVATIVE MARK: mark the root set using conservative GC bit (will compare later)
   ValueImp::useConservativeMark(true);
@@ -357,7 +358,6 @@ bool Collector::collect()
   if (InterpreterImp::s_hook) {
     InterpreterImp *scr = InterpreterImp::s_hook;
     do {
-      //fprintf( stderr, "Collector marking interpreter %p\n",(void*)scr);
       scr->mark();
       scr = scr->next;
     } while (scr != InterpreterImp::s_hook);
@@ -439,7 +439,7 @@ bool Collector::collect()
 
       if (cell->u.freeCell.zeroIfFree != 0) {
 #if USE_CONSERVATIVE_GC
-	if (!imp->_marked)
+	if (!imp->_marked && (currentThreadIsMainThread || imp->_destructorIsThreadSafe))
 #else
 	if (!imp->refcount && imp->_flags == (ValueImp::VI_GCALLOWED | ValueImp::VI_CREATED))
 #endif
@@ -500,7 +500,7 @@ bool Collector::collect()
     ValueImp *imp = (ValueImp *)heap.oversizeCells[cell];
     
 #if USE_CONSERVATIVE_GC
-    if (!imp->_marked) {
+    if (!imp->_marked && (currentThreadIsMainThread || imp->_destructorIsThreadSafe)) {
 #else
     if (!imp->refcount && 
 	imp->_flags == (ValueImp::VI_GCALLOWED | ValueImp::VI_CREATED)) {

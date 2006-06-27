@@ -205,7 +205,7 @@ namespace KJS {
 
   ////////////////////// Option Object ////////////////////////
 
-  class OptionConstructorImp : public ObjectImp {
+  class OptionConstructorImp : public DOMObject {
   public:
     OptionConstructorImp(ExecState *exec, const DOM::Document &d);
     virtual bool implementsConstruct() const;
@@ -216,7 +216,7 @@ namespace KJS {
 
   ////////////////////// Image Object ////////////////////////
 
-  class ImageConstructorImp : public ObjectImp {
+  class ImageConstructorImp : public DOMObject {
   public:
     ImageConstructorImp(ExecState *exec, const DOM::Document &d);
     virtual bool implementsConstruct() const;

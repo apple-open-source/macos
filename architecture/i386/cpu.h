@@ -32,6 +32,9 @@
  *	Created.
  */
 
+#ifndef _ARCH_I386_CPU_H_
+#define _ARCH_I386_CPU_H_
+
 /*
  * Control register 0
  */
@@ -68,3 +71,5 @@ typedef struct _dr6 {
 			bt	:1,
 				:16;
 } dr6_t;
+
+#endif	/* _ARCH_I386_CPU_H_ */

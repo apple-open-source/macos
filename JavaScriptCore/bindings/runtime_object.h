@@ -28,16 +28,13 @@
 #include <JavaScriptCore/runtime.h>
 #include <JavaScriptCore/object.h>
 #include <JavaScriptCore/protect.h>
+#include "shared_ptr.h"
 
 namespace KJS {
 
 class RuntimeObjectImp : public ObjectImp {
 public:
-    RuntimeObjectImp(ObjectImp *proto);
-    
-    ~RuntimeObjectImp();
-    
-    RuntimeObjectImp(Bindings::Instance *i, bool ownsInstance = true);
+    RuntimeObjectImp(Bindings::Instance *i);
 
     const ClassInfo *classInfo() const { return &info; }
 
@@ -57,8 +54,7 @@ public:
 
     virtual Value defaultValue(ExecState *exec, Type hint) const;
 
-    void setInternalInstance (Bindings::Instance *i) { instance = i; }
-    Bindings::Instance *getInternalInstance() const { return instance; }
+    Bindings::Instance *getInternalInstance() const { return instance.get(); }
 
     virtual bool implementsCall() const;
     virtual Value call(ExecState *exec, Object &thisObj, const List &args);
@@ -66,8 +62,11 @@ public:
     static const ClassInfo info;
 
 private:
-    Bindings::Instance *instance;
-    bool ownsInstance;
+    RuntimeObjectImp(); // prevent default construction
+    RuntimeObjectImp(const RuntimeObjectImp& other); // prevent copying
+    RuntimeObjectImp& operator=(const RuntimeObjectImp& other); // ditto
+    
+    SharedPtr<Bindings::Instance> instance;
 };
     
 }; // namespace

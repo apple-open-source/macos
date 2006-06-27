@@ -90,6 +90,7 @@ OSDefineMetaClassAndStructors (	IOFireWireSerialBusProtocolTransport, IOSCSIProt
 #define kDefaultTimeOutValue							30000
 #define kCommandPoolOrbCount							1
 #define kFWSBP2DefaultPageTableEntriesCount				512
+#define kDoubleBufferCommandSizeCheckThreshold			512
 
 enum 
 {
@@ -616,15 +617,15 @@ bool
 	
 	DLOG ( ( "%s: SendSCSICommand called\n", getName () ) );
 
-	clientData 			= NULL;
-	orb					= NULL;
-	commandLength		= 0;
-	commandFlags		= 0;
-	timeOut				= 0;
-	commandProcessed	= true;
+	clientData 				= NULL;
+	orb						= NULL;
+	commandLength			= 0;
+	commandFlags			= 0;
+	timeOut					= 0;
+	commandProcessed		= true;
 	
-	*serviceResponse	= kSCSIServiceResponse_Request_In_Process;
-	*taskStatus			= kSCSITaskStatus_No_Status;
+	*serviceResponse		= kSCSIServiceResponse_Request_In_Process;
+	*taskStatus				= kSCSITaskStatus_No_Status;
 	
 	if ( isInactive () )
 	{
@@ -650,6 +651,7 @@ bool
 	if ( clientData == NULL ) goto exit;
 	
 	GetCommandDescriptorBlock ( request, &cdb );
+	
 	commandLength = GetCommandDescriptorBlockSize ( request );
 	
 #if ( FIREWIRE_SBP_TRANSPORT_DEBUGGING_LEVEL >= 3 )
@@ -687,7 +689,7 @@ bool
 							kFWSBP2CommandImmediate |
 							kFWSBP2CommandNormalORB );
 	
-	SetCommandBuffers ( orb, request );
+	require ( ( SetCommandBuffers ( orb, request ) == kIOReturnSuccess ), exit );
 	
 	orb->setCommandBlock ( cdb, commandLength );
 	
@@ -727,9 +729,55 @@ IOReturn
 		IOFireWireSBP2ORB *	orb,
 		SCSITaskIdentifier	request )
 {
-	return orb->setCommandBuffers (	GetDataBuffer ( request ),
-								GetDataBufferOffset ( request ),
-								GetRequestedDataTransferCount ( request ) );
+	SBP2ClientOrbData *		clientData;
+	IOReturn				status;
+	
+	clientData 	= NULL;
+	status 		= kIOReturnError;
+	
+	clientData = ( SBP2ClientOrbData * ) orb->getRefCon ();
+	require ( clientData, Exit );
+	
+	clientData->quadletAlignedBuffer = NULL;
+	if ( GetDataBuffer ( request ) != NULL )
+	{
+			
+		// Does this command require double buffering in order to ensure quadlet alignment?
+		if ( ( GetDataBuffer ( request )->getLength() < kDoubleBufferCommandSizeCheckThreshold ) &&
+			( ( GetDataBuffer ( request )->getLength() & 3 ) != 0 ) )
+		{
+			// Create quadlet aligned IOBufferMemoryDescriptor, to be released in CompleteSCSITask().
+			clientData->quadletAlignedBuffer = IOBufferMemoryDescriptor::withOptions ( 	kIODirectionOutIn,
+																						GetDataBuffer ( request )->getLength(),
+																						4 );
+																						
+			require ( clientData->quadletAlignedBuffer, Exit );
+																				
+			// If necessary copy data from the non-aligned buffer to the aligned buffer.
+			if ( GetDataTransferDirection ( request ) == kSCSIDataTransfer_FromInitiatorToTarget )
+			{
+				GetDataBuffer ( request )->readBytes (	GetDataBufferOffset ( request ),
+														clientData->quadletAlignedBuffer->getBytesNoCopy ( ),
+														GetDataBuffer ( request )->getLength() );
+			}	
+			
+			status = orb->setCommandBuffers (	clientData->quadletAlignedBuffer,
+												GetDataBufferOffset ( request ),
+												GetRequestedDataTransferCount ( request ) );
+
+		}
+	}
+	
+	if ( clientData->quadletAlignedBuffer == NULL )
+	{
+		status = orb->setCommandBuffers (	GetDataBuffer ( request ),
+											GetDataBufferOffset ( request ),
+											GetRequestedDataTransferCount ( request ) );
+	}
+	
+Exit:
+	
+	return status;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -767,6 +815,21 @@ void
 			}
 			
 			SetRealizedDataTransferCount ( clientData->scsiTask, bytesTransfered );
+			
+			// Did we double buffer this command to ensure quadlet alignment?
+			// If so, copy over memory if necessary.
+			if ( clientData->quadletAlignedBuffer != NULL )
+			{
+				if ( GetDataTransferDirection ( clientData->scsiTask ) == kSCSIDataTransfer_FromTargetToInitiator )
+				{	
+					GetDataBuffer ( clientData->scsiTask )->writeBytes (	GetDataBufferOffset ( clientData->scsiTask ),
+																			clientData->quadletAlignedBuffer->getBytesNoCopy ( ),
+																			clientData->quadletAlignedBuffer->getLength() );
+				}		
+				
+				clientData->quadletAlignedBuffer->release();
+				clientData->quadletAlignedBuffer = NULL;
+			}
 			
 			// Re-entrancy protection.
 			
@@ -1118,9 +1181,16 @@ SCSITaskStatus
 		UInt8				quadletCount,
 		SCSI_Sense_Data *	targetData )
 {
-	SCSITaskStatus		returnValue;
-	UInt8 				statusBlockFormat;
+	SCSITaskStatus			returnValue;
+	uint32_t 				status [ 4 ];
+	uint32_t 				i;
+	uint8_t 				statusBlockFormat;
 
+	for ( i = 0; i < 4; i++ )
+	{
+		if ( i < quadletCount) status [ i ] = OSSwapBigToHostInt32 ( sourceData->status[i] );
+	}
+	
 	returnValue			= kSCSITaskStatus_GOOD;
 	statusBlockFormat	= 0;
 		
@@ -1129,8 +1199,8 @@ SCSITaskStatus
 		
 	if ( quadletCount > 0 )
 	{
-		statusBlockFormat = ( sourceData->status[0] >> 30 ) & 0x03;
-		returnValue = ( SCSITaskStatus ) ( ( sourceData->status[0] >> 24 ) & 0x3F );
+		statusBlockFormat = ( status[0] >> 30 ) & 0x03;
+		returnValue = ( SCSITaskStatus ) ( ( status[0] >> 24 ) & 0x3F );
 		
 		if ( statusBlockFormat == 0 ) 
 		{
@@ -1143,30 +1213,30 @@ SCSITaskStatus
 		
 		if ( statusBlockFormat < 2 )
 		{
-			targetData->VALID_RESPONSE_CODE |= ( sourceData->status[0] >> 16 ) & 0x80;
-			targetData->ADDITIONAL_SENSE_CODE = ( sourceData->status[0] >> 8 ) & 0xFF;
-			targetData->ADDITIONAL_SENSE_CODE_QUALIFIER = sourceData->status[0] & 0xFF;
-			targetData->SENSE_KEY = ( sourceData->status[0] >> 16 ) & 0x0F;
+			targetData->VALID_RESPONSE_CODE |= ( status[0] >> 16 ) & 0x80;
+			targetData->ADDITIONAL_SENSE_CODE = ( status[0] >> 8 ) & 0xFF;
+			targetData->ADDITIONAL_SENSE_CODE_QUALIFIER = status[0] & 0xFF;
+			targetData->SENSE_KEY = ( status[0] >> 16 ) & 0x0F;
 			
 			// Set the M, E, I bits: M->FileMark, E->EOM, I->ILI.
 			
-			targetData->SENSE_KEY |= ( ( sourceData->status[0] >> 16 ) & 0x70 ) << 1;
+			targetData->SENSE_KEY |= ( ( status[0] >> 16 ) & 0x70 ) << 1;
 			
 			if ( quadletCount > 1 )
 			{
-				targetData->INFORMATION_1 = ( sourceData->status[1] >> 24 ) & 0xFF;
-				targetData->INFORMATION_2 = ( sourceData->status[1] >> 16 ) & 0xFF;
-				targetData->INFORMATION_3 = ( sourceData->status[1] >> 8 ) & 0xFF;
-				targetData->INFORMATION_4 = sourceData->status[1] & 0xFF;
+				targetData->INFORMATION_1 = ( status[1] >> 24 ) & 0xFF;
+				targetData->INFORMATION_2 = ( status[1] >> 16 ) & 0xFF;
+				targetData->INFORMATION_3 = ( status[1] >> 8 ) & 0xFF;
+				targetData->INFORMATION_4 = status[1] & 0xFF;
 				targetData->ADDITIONAL_SENSE_LENGTH = 6;
 			}
 			
 			if ( quadletCount > 2 )
 			{
-				targetData->COMMAND_SPECIFIC_INFORMATION_1 = ( sourceData->status[2] >> 24 ) & 0xFF;
-				targetData->COMMAND_SPECIFIC_INFORMATION_2 = ( sourceData->status[2] >> 16 ) & 0xFF;
-				targetData->COMMAND_SPECIFIC_INFORMATION_3 = ( sourceData->status[2] >> 8 ) & 0xFF;
-				targetData->COMMAND_SPECIFIC_INFORMATION_4 = sourceData->status[2] & 0xFF;
+				targetData->COMMAND_SPECIFIC_INFORMATION_1 = ( status[2] >> 24 ) & 0xFF;
+				targetData->COMMAND_SPECIFIC_INFORMATION_2 = ( status[2] >> 16 ) & 0xFF;
+				targetData->COMMAND_SPECIFIC_INFORMATION_3 = ( status[2] >> 8 ) & 0xFF;
+				targetData->COMMAND_SPECIFIC_INFORMATION_4 = status[2] & 0xFF;
 				targetData->ADDITIONAL_SENSE_LENGTH = 6;
 			}
 			
@@ -1180,7 +1250,7 @@ SCSITaskStatus
 				count = ( quadletCount - 3 ) * sizeof ( UInt32 );
 				if ( count > 4 ) count = 4;
 								
-				bcopy ( &sourceData->status[3],
+				bcopy ( &status[3],
 						&targetData->FIELD_REPLACEABLE_UNIT_CODE,
 						count );
 				

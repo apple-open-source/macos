@@ -162,7 +162,7 @@ static CSSM_RETURN tpFindCrlForCert(
 	/* Search inputCrls for a CRL for subject cert */
 	if(vfyCtx.inputCrls != NULL) {
 		crl = vfyCtx.inputCrls->findCrlForCert(subject);
-		if(crl && (crl->verifyWithContext(vfyCtx, &subject) == CSSM_OK)) {
+		if(crl && (crl->verifyWithContextNow(vfyCtx, &subject) == CSSM_OK)) {
 			foundCrl = crl;
 			crl->mFromWhere = CFW_InGroup;
 			tpCrlDebug("   ...CRL found in CrlGroup");
@@ -174,7 +174,7 @@ static CSSM_RETURN tpFindCrlForCert(
 	crl = tpGlobalCrlCache().search(subject, vfyCtx);
 	if(crl) {
 		tpCrlDebug("...tpFindCrlForCert found CRL in cache, calling verifyWithContext");
-		if(crl->verifyWithContext(vfyCtx, &subject) == CSSM_OK) {
+		if(crl->verifyWithContextNow(vfyCtx, &subject) == CSSM_OK) {
 			foundCrl = crl;
 			crl->mFromWhere = CFW_LocalCache;
 			tpCrlDebug("   ...CRL found in local cache");
@@ -358,7 +358,7 @@ CSSM_RETURN tpVerifyCertGroupWithCrls(
 				foundCrls.appendCrl(*crl);
 				
 				/* revoked? */
-				crtn = crl->isCertRevoked(*cert);
+				crtn = crl->isCertRevoked(*cert, vfyCtx.verifyTime);
 				if(crtn) {
 					break;
 				}

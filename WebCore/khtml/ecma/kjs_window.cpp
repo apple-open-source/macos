@@ -1,4 +1,4 @@
-// -*- c-basic-offset: 2 -*-
+        // -*- c-basic-offset: 2 -*-
 /*
  *  This file is part of the KDE libraries
  *  Copyright (C) 2000 Harri Porten (porten@kde.org)
@@ -91,11 +91,14 @@ namespace KJS {
 
 ////////////////////// History Object ////////////////////////
 
-  class History : public ObjectImp {
+  class History : public DOMObject {
     friend class HistoryFunc;
   public:
     History(ExecState *exec, KHTMLPart *p)
-      : ObjectImp(exec->lexicalInterpreter()->builtinObjectPrototype()), part(p) { }
+      : part(p)
+    {
+        setPrototype(exec->lexicalInterpreter()->builtinObjectPrototype());
+    }
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
     Value getValueProperty(ExecState *exec, int token) const;
     virtual const ClassInfo* classInfo() const { return &info; }
@@ -106,10 +109,13 @@ namespace KJS {
     QGuardedPtr<KHTMLPart> part;
   };
 
-  class FrameArray : public ObjectImp {
+  class FrameArray : public DOMObject {
   public:
     FrameArray(ExecState *exec, KHTMLPart *p)
-      : ObjectImp(exec->lexicalInterpreter()->builtinObjectPrototype()), part(p) { }
+      : part(p)
+    {
+        setPrototype(exec->lexicalInterpreter()->builtinObjectPrototype());
+    }
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
     virtual UString toString(ExecState *exec) const;
   private:
@@ -137,14 +143,14 @@ namespace KJS {
 // table for screen object
 /*
 @begin ScreenTable 7
-  height        Screen::Height		DontEnum|ReadOnly
-  width         Screen::Width		DontEnum|ReadOnly
-  colorDepth    Screen::ColorDepth	DontEnum|ReadOnly
-  pixelDepth    Screen::PixelDepth	DontEnum|ReadOnly
-  availLeft     Screen::AvailLeft	DontEnum|ReadOnly
-  availTop      Screen::AvailTop	DontEnum|ReadOnly
-  availHeight   Screen::AvailHeight	DontEnum|ReadOnly
-  availWidth    Screen::AvailWidth	DontEnum|ReadOnly
+  height        Screen::Height                DontEnum|ReadOnly
+  width         Screen::Width                DontEnum|ReadOnly
+  colorDepth    Screen::ColorDepth        DontEnum|ReadOnly
+  pixelDepth    Screen::PixelDepth        DontEnum|ReadOnly
+  availLeft     Screen::AvailLeft        DontEnum|ReadOnly
+  availTop      Screen::AvailTop        DontEnum|ReadOnly
+  availHeight   Screen::AvailHeight        DontEnum|ReadOnly
+  availWidth    Screen::AvailWidth        DontEnum|ReadOnly
 @end
 */
 
@@ -152,7 +158,9 @@ const ClassInfo Screen::info = { "Screen", 0, &ScreenTable, 0 };
 
 // We set the object prototype so that toString is implemented
 Screen::Screen(ExecState *exec)
-  : ObjectImp(exec->lexicalInterpreter()->builtinObjectPrototype()) {}
+{
+    setPrototype(exec->lexicalInterpreter()->builtinObjectPrototype());
+}
 
 Value Screen::get(ExecState *exec, const Identifier &p) const
 {
@@ -206,108 +214,108 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
 
 /*
 @begin WindowTable 91
-  closed	Window::Closed		DontDelete|ReadOnly
-  crypto	Window::Crypto		DontDelete|ReadOnly
-  defaultStatus	Window::DefaultStatus	DontDelete
-  defaultstatus	Window::DefaultStatus	DontDelete
-  status	Window::Status		DontDelete
-  document	Window::Document	DontDelete|ReadOnly
-  Node		Window::Node		DontDelete
-  Event		Window::EventCtor	DontDelete
-  Range		Window::Range		DontDelete
-  NodeFilter	Window::NodeFilter	DontDelete
-  DOMException	Window::DOMException	DontDelete
-  CSSRule	Window::CSSRule		DontDelete
-  frames	Window::Frames		DontDelete|ReadOnly
-  history	Window::_History	DontDelete|ReadOnly
-  event		Window::Event		DontDelete
-  innerHeight	Window::InnerHeight	DontDelete|ReadOnly
-  innerWidth	Window::InnerWidth	DontDelete|ReadOnly
-  length	Window::Length		DontDelete|ReadOnly
-  location	Window::_Location	DontDelete
-  locationbar	Window::Locationbar	DontDelete
-  name		Window::Name		DontDelete
-  navigator	Window::_Navigator	DontDelete|ReadOnly
-  clientInformation	Window::ClientInformation	DontDelete|ReadOnly
-  konqueror	Window::_Konqueror	DontDelete|ReadOnly
-  menubar	Window::Menubar		DontDelete|ReadOnly
-  offscreenBuffering	Window::OffscreenBuffering	DontDelete|ReadOnly
-  opener	Window::Opener		DontDelete|ReadOnly
-  outerHeight	Window::OuterHeight	DontDelete|ReadOnly
-  outerWidth	Window::OuterWidth	DontDelete|ReadOnly
-  pageXOffset	Window::PageXOffset	DontDelete|ReadOnly
-  pageYOffset	Window::PageYOffset	DontDelete|ReadOnly
-  parent	Window::Parent		DontDelete|ReadOnly
-  personalbar	Window::Personalbar	DontDelete|ReadOnly
-  screenX	Window::ScreenX		DontDelete|ReadOnly
-  screenY	Window::ScreenY		DontDelete|ReadOnly
-  screenLeft	Window::ScreenLeft	DontDelete|ReadOnly
-  screenTop	Window::ScreenTop	DontDelete|ReadOnly
-  scrollbars	Window::Scrollbars	DontDelete|ReadOnly
-  statusbar	Window::Statusbar	DontDelete|ReadOnly
-  toolbar	Window::Toolbar		DontDelete|ReadOnly
-  scroll	Window::Scroll		DontDelete|Function 2
-  scrollBy	Window::ScrollBy	DontDelete|Function 2
-  scrollTo	Window::ScrollTo	DontDelete|Function 2
+  closed        Window::Closed                DontDelete|ReadOnly
+  crypto        Window::Crypto                DontDelete|ReadOnly
+  defaultStatus        Window::DefaultStatus        DontDelete
+  defaultstatus        Window::DefaultStatus        DontDelete
+  status        Window::Status                DontDelete
+  document        Window::Document        DontDelete|ReadOnly
+  Node                Window::Node                DontDelete
+  Event                Window::EventCtor        DontDelete
+  Range                Window::Range                DontDelete
+  NodeFilter        Window::NodeFilter        DontDelete
+  DOMException        Window::DOMException        DontDelete
+  CSSRule        Window::CSSRule                DontDelete
+  frames        Window::Frames                DontDelete|ReadOnly
+  history        Window::_History        DontDelete|ReadOnly
+  event                Window::Event                DontDelete
+  innerHeight        Window::InnerHeight        DontDelete|ReadOnly
+  innerWidth        Window::InnerWidth        DontDelete|ReadOnly
+  length        Window::Length                DontDelete|ReadOnly
+  location        Window::_Location        DontDelete
+  locationbar        Window::Locationbar        DontDelete
+  name                Window::Name                DontDelete
+  navigator        Window::_Navigator        DontDelete|ReadOnly
+  clientInformation        Window::ClientInformation        DontDelete|ReadOnly
+  konqueror        Window::_Konqueror        DontDelete|ReadOnly
+  menubar        Window::Menubar                DontDelete|ReadOnly
+  offscreenBuffering        Window::OffscreenBuffering        DontDelete|ReadOnly
+  opener        Window::Opener                DontDelete|ReadOnly
+  outerHeight        Window::OuterHeight        DontDelete|ReadOnly
+  outerWidth        Window::OuterWidth        DontDelete|ReadOnly
+  pageXOffset        Window::PageXOffset        DontDelete|ReadOnly
+  pageYOffset        Window::PageYOffset        DontDelete|ReadOnly
+  parent        Window::Parent                DontDelete|ReadOnly
+  personalbar        Window::Personalbar        DontDelete|ReadOnly
+  screenX        Window::ScreenX                DontDelete|ReadOnly
+  screenY        Window::ScreenY                DontDelete|ReadOnly
+  screenLeft        Window::ScreenLeft        DontDelete|ReadOnly
+  screenTop        Window::ScreenTop        DontDelete|ReadOnly
+  scrollbars        Window::Scrollbars        DontDelete|ReadOnly
+  statusbar        Window::Statusbar        DontDelete|ReadOnly
+  toolbar        Window::Toolbar                DontDelete|ReadOnly
+  scroll        Window::Scroll                DontDelete|Function 2
+  scrollBy        Window::ScrollBy        DontDelete|Function 2
+  scrollTo        Window::ScrollTo        DontDelete|Function 2
   scrollX       Window::ScrollX         DontDelete|ReadOnly
   scrollY       Window::ScrollY         DontDelete|ReadOnly
-  moveBy	Window::MoveBy		DontDelete|Function 2
-  moveTo	Window::MoveTo		DontDelete|Function 2
-  resizeBy	Window::ResizeBy	DontDelete|Function 2
-  resizeTo	Window::ResizeTo	DontDelete|Function 2
-  self		Window::Self		DontDelete|ReadOnly
-  window	Window::_Window		DontDelete|ReadOnly
-  top		Window::Top		DontDelete|ReadOnly
-  screen	Window::_Screen		DontDelete|ReadOnly
-  Image		Window::Image		DontDelete|ReadOnly
-  Option	Window::Option		DontDelete|ReadOnly
-  XMLHttpRequest	Window::XMLHttpRequest	DontDelete|ReadOnly
-  XMLSerializer	Window::XMLSerializer	DontDelete|ReadOnly
-  DOMParser	Window::DOMParser	DontDelete|ReadOnly
-  alert		Window::Alert		DontDelete|Function 1
-  confirm	Window::Confirm		DontDelete|Function 1
-  prompt	Window::Prompt		DontDelete|Function 2
-  open		Window::Open		DontDelete|Function 3
-  print		Window::Print		DontDelete|Function 2
-  setTimeout	Window::SetTimeout	DontDelete|Function 2
-  clearTimeout	Window::ClearTimeout	DontDelete|Function 1
-  focus		Window::Focus		DontDelete|Function 0
+  moveBy        Window::MoveBy                DontDelete|Function 2
+  moveTo        Window::MoveTo                DontDelete|Function 2
+  resizeBy        Window::ResizeBy        DontDelete|Function 2
+  resizeTo        Window::ResizeTo        DontDelete|Function 2
+  self                Window::Self                DontDelete|ReadOnly
+  window        Window::_Window                DontDelete|ReadOnly
+  top                Window::Top                DontDelete|ReadOnly
+  screen        Window::_Screen                DontDelete|ReadOnly
+  Image                Window::Image                DontDelete|ReadOnly
+  Option        Window::Option                DontDelete|ReadOnly
+  XMLHttpRequest        Window::XMLHttpRequest        DontDelete|ReadOnly
+  XMLSerializer        Window::XMLSerializer        DontDelete|ReadOnly
+  DOMParser        Window::DOMParser        DontDelete|ReadOnly
+  alert                Window::Alert                DontDelete|Function 1
+  confirm        Window::Confirm                DontDelete|Function 1
+  prompt        Window::Prompt                DontDelete|Function 2
+  open                Window::Open                DontDelete|Function 3
+  print                Window::Print                DontDelete|Function 2
+  setTimeout        Window::SetTimeout        DontDelete|Function 2
+  clearTimeout        Window::ClearTimeout        DontDelete|Function 1
+  focus                Window::Focus                DontDelete|Function 0
   getSelection  Window::GetSelection    DontDelete|Function 0
-  blur		Window::Blur		DontDelete|Function 0
-  close		Window::Close		DontDelete|Function 0
-  setInterval	Window::SetInterval	DontDelete|Function 2
-  clearInterval	Window::ClearInterval	DontDelete|Function 1
-  captureEvents	Window::CaptureEvents	DontDelete|Function 0
-  releaseEvents	Window::ReleaseEvents	DontDelete|Function 0
+  blur                Window::Blur                DontDelete|Function 0
+  close                Window::Close                DontDelete|Function 0
+  setInterval        Window::SetInterval        DontDelete|Function 2
+  clearInterval        Window::ClearInterval        DontDelete|Function 1
+  captureEvents        Window::CaptureEvents        DontDelete|Function 0
+  releaseEvents        Window::ReleaseEvents        DontDelete|Function 0
 # Warning, when adding a function to this object you need to add a case in Window::get
-  addEventListener	Window::AddEventListener	DontDelete|Function 3
-  removeEventListener	Window::RemoveEventListener	DontDelete|Function 3
-  onabort	Window::Onabort		DontDelete
-  onblur	Window::Onblur		DontDelete
-  onchange	Window::Onchange	DontDelete
-  onclick	Window::Onclick		DontDelete
-  ondblclick	Window::Ondblclick	DontDelete
-  ondragdrop	Window::Ondragdrop	DontDelete
-  onerror	Window::Onerror		DontDelete
-  onfocus	Window::Onfocus		DontDelete
-  onkeydown	Window::Onkeydown	DontDelete
-  onkeypress	Window::Onkeypress	DontDelete
-  onkeyup	Window::Onkeyup		DontDelete
-  onload	Window::Onload		DontDelete
-  onmousedown	Window::Onmousedown	DontDelete
-  onmousemove	Window::Onmousemove	DontDelete
-  onmouseout	Window::Onmouseout	DontDelete
-  onmouseover	Window::Onmouseover	DontDelete
-  onmouseup	Window::Onmouseup	DontDelete
-  onmousewheel	Window::OnWindowMouseWheel	DontDelete
-  onmove	Window::Onmove		DontDelete
-  onreset	Window::Onreset		DontDelete
-  onresize	Window::Onresize	DontDelete
+  addEventListener        Window::AddEventListener        DontDelete|Function 3
+  removeEventListener        Window::RemoveEventListener        DontDelete|Function 3
+  onabort        Window::Onabort                DontDelete
+  onblur        Window::Onblur                DontDelete
+  onchange        Window::Onchange        DontDelete
+  onclick        Window::Onclick                DontDelete
+  ondblclick        Window::Ondblclick        DontDelete
+  ondragdrop        Window::Ondragdrop        DontDelete
+  onerror        Window::Onerror                DontDelete
+  onfocus        Window::Onfocus                DontDelete
+  onkeydown        Window::Onkeydown        DontDelete
+  onkeypress        Window::Onkeypress        DontDelete
+  onkeyup        Window::Onkeyup                DontDelete
+  onload        Window::Onload                DontDelete
+  onmousedown        Window::Onmousedown        DontDelete
+  onmousemove        Window::Onmousemove        DontDelete
+  onmouseout        Window::Onmouseout        DontDelete
+  onmouseover        Window::Onmouseover        DontDelete
+  onmouseup        Window::Onmouseup        DontDelete
+  onmousewheel        Window::OnWindowMouseWheel        DontDelete
+  onmove        Window::Onmove                DontDelete
+  onreset        Window::Onreset                DontDelete
+  onresize        Window::Onresize        DontDelete
   onscroll      Window::Onscroll        DontDelete
   onsearch      Window::Onsearch        DontDelete
-  onselect	Window::Onselect	DontDelete
-  onsubmit	Window::Onsubmit	DontDelete
-  onunload	Window::Onunload	DontDelete
+  onselect        Window::Onselect        DontDelete
+  onsubmit        Window::Onsubmit        DontDelete
+  onunload        Window::Onunload        DontDelete
   onbeforeunload Window::Onbeforeunload        DontDelete
   frameElement  Window::FrameElement    DontDelete|ReadOnly
   showModalDialog Window::ShowModalDialog    DontDelete|Function 1
@@ -316,8 +324,7 @@ const ClassInfo Window::info = { "Window", 0, &WindowTable, 0 };
 IMPLEMENT_PROTOFUNC(WindowFunc)
 
 Window::Window(KHTMLPart *p)
-  : ObjectImp(/*no proto*/)
-  , m_part(p)
+  : m_part(p)
   , screen(0)
   , history(0)
   , frames(0)
@@ -344,11 +351,21 @@ Window::~Window()
         unprotectedListeners.current()->clearWindowObj();
         ++unprotectedListeners;
     }
+    QPtrDictIterator<JSUnprotectedEventListener> unprotectedHTMLListeners(jsUnprotectedHTMLEventListeners);
+    while (unprotectedHTMLListeners.current()) {
+        unprotectedHTMLListeners.current()->clearWindowObj();
+        ++unprotectedHTMLListeners;
+    }
     
     QPtrDictIterator<JSEventListener> listeners(jsEventListeners);
     while (listeners.current()) {
         listeners.current()->clearWindowObj();
         ++listeners;
+    }
+    QPtrDictIterator<JSEventListener> htmlListeners(jsHTMLEventListeners);
+    while (htmlListeners.current()) {
+        htmlListeners.current()->clearWindowObj();
+        ++htmlListeners;
     }
     
     delete winq;
@@ -676,7 +693,7 @@ static ValueImp *showModalDialog(ExecState *exec, Window *openerWindow, const Li
             wargs.ySet = true;
         }
     }
-	
+        
     wargs.dialog = true;
     wargs.resizable = boolFeature(features, "resizable");
     wargs.scrollbarsVisible = boolFeature(features, "scroll", true);
@@ -909,7 +926,7 @@ Value Window::get(ExecState *exec, const Identifier &p) const
     case Focus:
     case Blur:
     case Close:
-	return lookupOrCreateFunction<WindowFunc>(exec,p,this,entry->value,entry->params,entry->attr);
+        return lookupOrCreateFunction<WindowFunc>(exec,p,this,entry->value,entry->params,entry->attr);
     case ShowModalDialog:
         if (!canShowModalDialog(this))
             return Undefined();
@@ -958,12 +975,12 @@ Value Window::get(ExecState *exec, const Identifier &p) const
         return Undefined();
     case Onclick:
       if (isSafeScript(exec))
-        return getListener(exec,DOM::EventImpl::KHTML_CLICK_EVENT);
+        return getListener(exec,DOM::EventImpl::CLICK_EVENT);
       else
         return Undefined();
     case Ondblclick:
       if (isSafeScript(exec))
-        return getListener(exec,DOM::EventImpl::KHTML_DBLCLICK_EVENT);
+        return getListener(exec,DOM::EventImpl::DBLCLICK_EVENT);
       else
         return Undefined();
     case Ondragdrop:
@@ -1097,8 +1114,8 @@ Value Window::get(ExecState *exec, const Identifier &p) const
     if (i < len) {
       KParts::ReadOnlyPart* frame = frames.at(i);
       if (frame && frame->inherits("KHTMLPart")) {
-	KHTMLPart *khtml = static_cast<KHTMLPart*>(frame);
-	return Window::retrieve(khtml);
+        KHTMLPart *khtml = static_cast<KHTMLPart*>(frame);
+        return Window::retrieve(khtml);
       }
     }
   }
@@ -1207,11 +1224,11 @@ void Window::put(ExecState* exec, const Identifier &propertyName, const Value &v
       return;
     case Onclick:
       if (isSafeScript(exec))
-        setListener(exec,DOM::EventImpl::KHTML_CLICK_EVENT,value);
+        setListener(exec,DOM::EventImpl::CLICK_EVENT,value);
       return;
     case Ondblclick:
       if (isSafeScript(exec))
-        setListener(exec,DOM::EventImpl::KHTML_DBLCLICK_EVENT,value);
+        setListener(exec,DOM::EventImpl::DBLCLICK_EVENT,value);
       return;
     case Ondragdrop:
       if (isSafeScript(exec))
@@ -1377,8 +1394,8 @@ static bool shouldLoadAsEmptyDocument(const KURL &url)
 bool Window::isSafeScript (const KJS::ScriptInterpreter *origin, const KJS::ScriptInterpreter *target)
 {
     if (origin == target)
-	return true;
-	
+        return true;
+        
     KHTMLPart *originPart = origin->part();
     KHTMLPart *targetPart = target->part();
 
@@ -1386,20 +1403,20 @@ bool Window::isSafeScript (const KJS::ScriptInterpreter *origin, const KJS::Scri
     // even if the document hasn't been constructed yet.  If the document doesn't
     // exist yet allow JS to access the window object.
     if (!targetPart->xmlDocImpl())
-	return true;
+        return true;
 
     DOM::DocumentImpl *originDocument = originPart->xmlDocImpl();
     DOM::DocumentImpl *targetDocument = targetPart->xmlDocImpl();
 
     if (!targetDocument) {
-	return false;
+        return false;
     }
 
     DOM::DOMString targetDomain = targetDocument->domain();
 
     // Always allow local pages to execute any JS.
     if (targetDomain.isNull())
-	return true;
+        return true;
 
     DOM::DOMString originDomain = originDocument->domain();
 
@@ -1407,21 +1424,21 @@ bool Window::isSafeScript (const KJS::ScriptInterpreter *origin, const KJS::Scri
     // or opener, allow access from any document in the same domain as
     // the parent or opener.
     if (shouldLoadAsEmptyDocument(targetPart->url())) {
-	KHTMLPart *ancestorPart = targetPart->opener() ? targetPart->opener() : targetPart->parentPart();
-	while (ancestorPart && shouldLoadAsEmptyDocument(ancestorPart->url())) {
-	    ancestorPart = ancestorPart->parentPart();
-	}
+        KHTMLPart *ancestorPart = targetPart->opener() ? targetPart->opener() : targetPart->parentPart();
+        while (ancestorPart && shouldLoadAsEmptyDocument(ancestorPart->url())) {
+            ancestorPart = ancestorPart->parentPart();
+        }
 
-	if (ancestorPart)
-	    originDomain = ancestorPart->xmlDocImpl()->domain();
+        if (ancestorPart)
+            originDomain = ancestorPart->xmlDocImpl()->domain();
     }
 
     if ( targetDomain == originDomain )
-	return true;
+        return true;
 
     if (Interpreter::shouldPrintExceptions()) {
-	printf("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains must match.\n", 
-	     targetDocument->URL().latin1(), originDocument->URL().latin1());
+        printf("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains must match.\n", 
+             targetDocument->URL().latin1(), originDocument->URL().latin1());
     }
     QString message;
     message.sprintf("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains must match.\n", 
@@ -1532,7 +1549,8 @@ JSEventListener *Window::getJSEventListener(const Value& val, bool html)
     return 0;
   ObjectImp *listenerObject = static_cast<ObjectImp *>(val.imp());
 
-  JSEventListener *existingListener = jsEventListeners[listenerObject];
+  QPtrDict<JSEventListener>& listeners = html ? jsHTMLEventListeners : jsEventListeners;
+  JSEventListener *existingListener = listeners[listenerObject];
   if (existingListener)
     return existingListener;
 
@@ -1547,7 +1565,8 @@ JSUnprotectedEventListener *Window::getJSUnprotectedEventListener(const Value& v
     return 0;
   ObjectImp *listenerObject = static_cast<ObjectImp *>(val.imp());
 
-  JSUnprotectedEventListener *existingListener = jsUnprotectedEventListeners[listenerObject];
+  QPtrDict<JSUnprotectedEventListener>& listeners = html ? jsUnprotectedHTMLEventListeners : jsUnprotectedEventListeners;
+  JSUnprotectedEventListener *existingListener = listeners[listenerObject];
   if (existingListener)
     return existingListener;
 
@@ -1674,9 +1693,9 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 #else
       {
         policy = 0;
-	LOG(PopupBlocking, "Allowed JavaScript window open of %s", args[0].toString(exec).qstring().ascii());
+        LOG(PopupBlocking, "Allowed JavaScript window open of %s", args[0].toString(exec).qstring().ascii());
       } else {
-	LOG(PopupBlocking, "Blocked JavaScript window open of %s", args[0].toString(exec).qstring().ascii());
+        LOG(PopupBlocking, "Blocked JavaScript window open of %s", args[0].toString(exec).qstring().ascii());
       }
 #endif
     }
@@ -1703,7 +1722,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
         winargs.toolBarsVisible = false;
         winargs.statusBarVisible = false;
 #if APPLE_CHANGES
-	winargs.scrollbarsVisible = true;
+        winargs.scrollbarsVisible = true;
 #endif
         QStringList flist = QStringList::split(',', features);
         QStringList::ConstIterator it = flist.begin();
@@ -1714,24 +1733,24 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
           if (pos >= 0) {
             key = s.left(pos).stripWhiteSpace().lower();
             val = s.mid(pos + 1).stripWhiteSpace().lower();
-	    int spacePos = val.find(' ');
-	    if (spacePos != -1) {
-	      val = val.left(spacePos);
-	    }
+            int spacePos = val.find(' ');
+            if (spacePos != -1) {
+              val = val.left(spacePos);
+            }
 
             int scnum = QApplication::desktop()->screenNumber(widget->topLevelWidget());
 
-	    QRect screen = QApplication::desktop()->screenGeometry(scnum);
+            QRect screen = QApplication::desktop()->screenGeometry(scnum);
             if (key == "left" || key == "screenx") {
               bool ok;
               double d = val.toDouble(&ok);
               if ((d != 0 || ok) && !isnan(d)) {
                 d += screen.x();
                 if (d < screen.x() || d > screen.right())
-		  d = screen.x(); // only safe choice until size is determined
+                  d = screen.x(); // only safe choice until size is determined
                 winargs.x = (int)d;
 #if APPLE_CHANGES
-	        winargs.xSet = true;
+                winargs.xSet = true;
 #endif
               }
             } else if (key == "top" || key == "screeny") {
@@ -1740,10 +1759,10 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
               if ((d != 0 || ok) && !isnan(d)) {
                 d += screen.y();
                 if (d < screen.y() || d > screen.bottom())
-		  d = screen.y(); // only safe choice until size is determined
+                  d = screen.y(); // only safe choice until size is determined
                 winargs.y = (int)d;
 #if APPLE_CHANGES
-	        winargs.ySet = true;
+                winargs.ySet = true;
 #endif
               }
             } else if (key == "height") {
@@ -1753,13 +1772,13 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 #if !APPLE_CHANGES
                 d += 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
 #endif
-	        if (d > screen.height())  // should actually check workspace
-		  d = screen.height();
+                if (d > screen.height())  // should actually check workspace
+                  d = screen.height();
                 if (d < 100)
-		  d = 100;
+                  d = 100;
                 winargs.height = (int)d;
 #if APPLE_CHANGES
-	        winargs.heightSet = true;
+                winargs.heightSet = true;
 #endif
               }
             } else if (key == "width") {
@@ -1769,18 +1788,18 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 #if !APPLE_CHANGES
                 d += 2*qApp->style().pixelMetric( QStyle::PM_DefaultFrameWidth ) + 2;
 #endif
-	        if (d > screen.width())    // should actually check workspace
-		  d = screen.width();
+                if (d > screen.width())    // should actually check workspace
+                  d = screen.width();
                 if (d < 100)
-		  d = 100;
+                  d = 100;
                 winargs.width = (int)d;
 #if APPLE_CHANGES
-	        winargs.widthSet = true;
+                winargs.widthSet = true;
 #endif
               }
             } else {
               goto boolargs;
-	    }
+            }
             continue;
           } else {
             // leaving away the value gives true
@@ -1877,7 +1896,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
             bool userGesture = static_cast<ScriptInterpreter *>(exec->dynamicInterpreter())->wasRunByUserGesture();
             khtmlpart->scheduleLocationChange(url.url(), activePart->referrer(), false, userGesture);
           } 
-	}
+        }
 #else
         uargs.serviceType = QString::null;
         if (uargs.frameName == "_blank")
@@ -1912,7 +1931,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
     if(args.size() >= 2 && widget)
     {
       QWidget * tl = widget->topLevelWidget();
-	  QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
+          QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
       QPoint dest = tl->pos() + QPoint( args[0].toInt32(exec), args[1].toInt32(exec) );
       // Security check (the spec talks about UniversalBrowserWrite to disable this check...)
       if ( dest.x() >= sg.x() && dest.y() >= sg.x() &&
@@ -1925,7 +1944,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
     if(args.size() >= 2 && widget)
     {
       QWidget * tl = widget->topLevelWidget();
-	  QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
+          QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
       QPoint dest( args[0].toInt32(exec)+sg.x(), args[1].toInt32(exec)+sg.y() );
       // Security check (the spec talks about UniversalBrowserWrite to disable this check...)
       if ( dest.x() >= sg.x() && dest.y() >= sg.y() &&
@@ -1939,7 +1958,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
     {
       QWidget * tl = widget->topLevelWidget();
       QSize dest = tl->size() + QSize( args[0].toInt32(exec), args[1].toInt32(exec) );
-	  QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
+          QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
       // Security check: within desktop limits and bigger than 100x100 (per spec)
       if ( tl->x()+dest.width() <= sg.x()+sg.width() &&
            tl->y()+dest.height() <= sg.y()+sg.height() &&
@@ -1957,7 +1976,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
     {
       QWidget * tl = widget->topLevelWidget();
       QSize dest = QSize( args[0].toInt32(exec), args[1].toInt32(exec) );
-	  QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
+          QRect sg = QApplication::desktop()->screenGeometry(QApplication::desktop()->screenNumber(tl));
       // Security check: within desktop limits and bigger than 100x100 (per spec)
       if ( tl->x()+dest.width() <= sg.x()+sg.width() &&
            tl->y()+dest.height() <= sg.y()+sg.height() &&
@@ -2000,7 +2019,7 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
       return Number(r);
     }
     else if (args.size() >= 2 && !Object::dynamicCast(v).isNull() &&
-	     Object::dynamicCast(v).implementsCall()) {
+             Object::dynamicCast(v).implementsCall()) {
       Value func = args[0];
       int i = args[1].toInt32(exec);
 
@@ -2068,16 +2087,16 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
   case Window::ReleaseEvents:
         // If anyone implements these, they need the safescript security check.
         if (!window->isSafeScript(exec))
-	    return Undefined();
+            return Undefined();
 
     // Do nothing for now. These are NS-specific legacy calls.
     break;
   case Window::AddEventListener: {
         if (!window->isSafeScript(exec))
-	    return Undefined();
+            return Undefined();
         JSEventListener *listener = Window::retrieveActive(exec)->getJSEventListener(args[1]);
         if (listener) {
-	    DOM::DocumentImpl* docimpl = static_cast<DOM::DocumentImpl *>(part->document().handle());
+            DOM::DocumentImpl* docimpl = static_cast<DOM::DocumentImpl *>(part->document().handle());
             if (docimpl)
                 docimpl->addWindowEventListener(DOM::EventImpl::typeToId(args[0].toString(exec).string()),listener,args[2].toBoolean(exec));
         }
@@ -2085,10 +2104,10 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
     }
   case Window::RemoveEventListener: {
         if (!window->isSafeScript(exec))
-	    return Undefined();
+            return Undefined();
         JSEventListener *listener = Window::retrieveActive(exec)->getJSEventListener(args[1]);
         if (listener) {
-	    DOM::DocumentImpl* docimpl = static_cast<DOM::DocumentImpl *>(part->document().handle());
+            DOM::DocumentImpl* docimpl = static_cast<DOM::DocumentImpl *>(part->document().handle());
             if (docimpl)
                 docimpl->removeWindowEventListener(DOM::EventImpl::typeToId(args[0].toString(exec).string()),listener,args[2].toBoolean(exec));
         }
@@ -2150,19 +2169,19 @@ void ScheduledAction::execute(Window *window)
         ExecState *exec = interpreter->globalExec();
         Q_ASSERT( window == interpreter->globalObject().imp() );
         Object obj( window );
-	InterpreterLock lock;
+        InterpreterLock lock;
         func.call(exec,obj,args); // note that call() creates its own execution state for the func call
         
-	if ( exec->hadException() ) {
+        if ( exec->hadException() ) {
 #if APPLE_CHANGES
           char *message = exec->exception().toObject(exec).get(exec, messagePropertyName).toString(exec).ascii();
           int lineNumber =  exec->exception().toObject(exec).get(exec, "line").toInt32(exec);
-	  if (Interpreter::shouldPrintExceptions())
-	    printf("(timer):%s\n", message);
+          if (Interpreter::shouldPrintExceptions())
+            printf("(timer):%s\n", message);
 
           KWQ(window->m_part)->addMessageToConsole(message, lineNumber, QString());
 #endif
-	  exec->clearException();
+          exec->clearException();
         }
       }
     }
@@ -2362,18 +2381,18 @@ UString FrameArray::toString(ExecState *) const
 const ClassInfo Location::info = { "Location", 0, 0, 0 };
 /*
 @begin LocationTable 11
-  hash		Location::Hash		DontDelete
-  host		Location::Host		DontDelete
-  hostname	Location::Hostname	DontDelete
-  href		Location::Href		DontDelete
-  pathname	Location::Pathname	DontDelete
-  port		Location::Port		DontDelete
-  protocol	Location::Protocol	DontDelete
-  search	Location::Search	DontDelete
-  [[==]]	Location::EqualEqual	DontDelete|ReadOnly
-  toString	Location::ToString	DontDelete|Function 0
-  replace	Location::Replace	DontDelete|Function 1
-  reload	Location::Reload	DontDelete|Function 0
+  hash                Location::Hash                DontDelete
+  host                Location::Host                DontDelete
+  hostname        Location::Hostname        DontDelete
+  href                Location::Href                DontDelete
+  pathname        Location::Pathname        DontDelete
+  port                Location::Port                DontDelete
+  protocol        Location::Protocol        DontDelete
+  search        Location::Search        DontDelete
+  [[==]]        Location::EqualEqual        DontDelete|ReadOnly
+  toString        Location::ToString        DontDelete|Function 0
+  replace        Location::Replace        DontDelete|Function 1
+  reload        Location::Reload        DontDelete|Function 0
 @end
 */
 IMPLEMENT_PROTOFUNC(LocationFunc)
@@ -2580,17 +2599,17 @@ Value LocationFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 const ClassInfo Selection::info = { "Selection", 0, 0, 0 };
 /*
 @begin SelectionTable 19
-  anchorNode                Selection::AnchorNode		         DontDelete|ReadOnly
-  anchorOffset              Selection::AnchorOffset	             DontDelete|ReadOnly
-  focusNode                 Selection::FocusNode		         DontDelete|ReadOnly
-  focusOffset               Selection::FocusOffset		         DontDelete|ReadOnly
-  baseNode                  Selection::AnchorNode		         DontDelete|ReadOnly
+  anchorNode                Selection::AnchorNode                         DontDelete|ReadOnly
+  anchorOffset              Selection::AnchorOffset                     DontDelete|ReadOnly
+  focusNode                 Selection::FocusNode                         DontDelete|ReadOnly
+  focusOffset               Selection::FocusOffset                         DontDelete|ReadOnly
+  baseNode                  Selection::AnchorNode                         DontDelete|ReadOnly
   baseOffset                Selection::AnchorOffset              DontDelete|ReadOnly
   extentNode                Selection::FocusNode                 DontDelete|ReadOnly
-  extentOffset              Selection::FocusOffset		         DontDelete|ReadOnly
-  isCollapsed               Selection::IsCollapsed		         DontDelete|ReadOnly
+  extentOffset              Selection::FocusOffset                         DontDelete|ReadOnly
+  isCollapsed               Selection::IsCollapsed                         DontDelete|ReadOnly
   type                      Selection::_Type                     DontDelete|ReadOnly
-  [[==]]	                Selection::EqualEqual	             DontDelete|ReadOnly
+  [[==]]                        Selection::EqualEqual                     DontDelete|ReadOnly
   toString                  Selection::ToString                  DontDelete|Function 0
   collapse                  Selection::Collapse                  DontDelete|Function 2
   collapseToEnd             Selection::CollapseToEnd             DontDelete|Function 0
@@ -2776,14 +2795,14 @@ Value SelectionFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
 const ClassInfo BarInfo::info = { "BarInfo", 0, 0, 0 };
 /*
 @begin BarInfoTable 1
-  visible                BarInfo::Visible		         DontDelete|ReadOnly
+  visible                BarInfo::Visible                         DontDelete|ReadOnly
 @end
 */
 BarInfo::BarInfo(ExecState *exec, KHTMLPart *p, Type barType) 
-  : ObjectImp(exec->lexicalInterpreter()->builtinObjectPrototype())
-  , m_part(p)
+  : m_part(p)
   , m_type(barType)
 {
+  setPrototype(exec->lexicalInterpreter()->builtinObjectPrototype());
 }
 
 BarInfo::~BarInfo()
@@ -2839,10 +2858,10 @@ void BarInfo::put(ExecState *exec, const Identifier &p, const Value &v, int attr
 const ClassInfo History::info = { "History", 0, 0, 0 };
 /*
 @begin HistoryTable 4
-  length	History::Length		DontDelete|ReadOnly
-  back		History::Back		DontDelete|Function 0
-  forward	History::Forward	DontDelete|Function 0
-  go		History::Go		DontDelete|Function 1
+  length        History::Length                DontDelete|ReadOnly
+  back                History::Back                DontDelete|Function 0
+  forward        History::Forward        DontDelete|Function 0
+  go                History::Go                DontDelete|Function 1
 @end
 */
 IMPLEMENT_PROTOFUNC(HistoryFunc)

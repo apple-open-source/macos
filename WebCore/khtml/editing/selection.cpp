@@ -845,17 +845,18 @@ void Selection::validate(ETextGranularity granularity)
 
     m_start.clear();
     m_end.clear();
+    
+    if (m_baseIsStart) {
+        m_start = m_base;
+        m_end = m_extent;
+    } else {
+        m_start = m_extent;
+        m_end = m_base;
+    }
 
     // calculate the correct start and end positions
     switch (granularity) {
         case CHARACTER:
-            if (m_baseIsStart) {
-                m_start = m_base;
-                m_end = m_extent;
-            } else {
-                m_start = m_extent;
-                m_end = m_base;
-            }
             break;
         case WORD: {
             // General case: Select the word the caret is positioned inside of, or at the start of (RightWordIfOnBoundary).
@@ -863,8 +864,8 @@ void Selection::validate(ETextGranularity granularity)
             // the document, select that last word (LeftWordIfOnBoundary).
             // Edge case: If the caret is after the last word in a paragraph, select from the the end of the
             // last word to the line break (also RightWordIfOnBoundary);
-            VisiblePosition start = m_baseIsStart ? VisiblePosition(m_base, m_affinity)   : VisiblePosition(m_extent, m_affinity);
-            VisiblePosition end   = m_baseIsStart ? VisiblePosition(m_extent, m_affinity) : VisiblePosition(m_base, m_affinity);
+            VisiblePosition start = VisiblePosition(m_start, m_affinity);
+            VisiblePosition end   = VisiblePosition(m_end, m_affinity);
             EWordSide side = RightWordIfOnBoundary;
             if (isEndOfDocument(start) || (isEndOfLine(start) && !isStartOfLine(start) && !isEndOfParagraph(start)))
                 side = LeftWordIfOnBoundary;
@@ -877,39 +878,36 @@ void Selection::validate(ETextGranularity granularity)
             break;
             }
         case LINE:
-        case LINE_BOUNDARY:
-            if (m_baseIsStart) {
-                m_start = startOfLine(VisiblePosition(m_base, m_affinity)).deepEquivalent();
-                m_end = endOfLine(VisiblePosition(m_extent, m_affinity), IncludeLineBreak).deepEquivalent();
-            } else {
-                m_start = startOfLine(VisiblePosition(m_extent, m_affinity)).deepEquivalent();
-                m_end = endOfLine(VisiblePosition(m_base, m_affinity), IncludeLineBreak).deepEquivalent();
+        case LINE_BOUNDARY: {
+            m_start = startOfLine(VisiblePosition(m_start, m_affinity)).deepEquivalent();
+            VisiblePosition end = endOfLine(VisiblePosition(m_end, m_affinity));
+            if (isEndOfParagraph(end)) {
+                VisiblePosition next = end.next();
+                if (next.isNotNull())
+                    end = next;
             }
+            m_end = end.deepEquivalent();
             break;
-        case PARAGRAPH:
-            if (m_baseIsStart) {
-                VisiblePosition pos(m_base, m_affinity);
-                if (isStartOfLine(pos) && isEndOfDocument(pos))
-                    pos = pos.previous();
-                m_start = startOfParagraph(pos).deepEquivalent();
-                m_end = endOfParagraph(VisiblePosition(m_extent, m_affinity), IncludeLineBreak).deepEquivalent();
-            } else {
-                m_start = startOfParagraph(VisiblePosition(m_extent, m_affinity)).deepEquivalent();
-                m_end = endOfParagraph(VisiblePosition(m_base, m_affinity), IncludeLineBreak).deepEquivalent();
-            }
+        }
+        case PARAGRAPH: {
+            VisiblePosition pos(m_start, m_affinity);
+            if (isStartOfLine(pos) && isEndOfDocument(pos))
+                pos = pos.previous();
+            m_start = startOfParagraph(pos).deepEquivalent();
+            VisiblePosition visibleParagraphEnd = endOfParagraph(VisiblePosition(m_end, m_affinity));
+            
+            // Include the space after the end of the paragraph in the selection.
+            VisiblePosition next = visibleParagraphEnd.next();
+            m_end = next.isNotNull() ? next.deepEquivalent() : visibleParagraphEnd.deepEquivalent();
             break;
+        }
         case DOCUMENT_BOUNDARY:
-            m_start = startOfDocument(VisiblePosition(m_base, m_affinity)).deepEquivalent();
-            m_end = endOfDocument(VisiblePosition(m_base, m_affinity)).deepEquivalent();
+            m_start = startOfDocument(VisiblePosition(m_start, m_affinity)).deepEquivalent();
+            m_end = endOfDocument(VisiblePosition(m_end, m_affinity)).deepEquivalent();
             break;
         case PARAGRAPH_BOUNDARY:
-            if (m_baseIsStart) {
-                m_start = startOfParagraph(VisiblePosition(m_base, m_affinity)).deepEquivalent();
-                m_end = endOfParagraph(VisiblePosition(m_extent, m_affinity)).deepEquivalent();
-            } else {
-                m_start = startOfParagraph(VisiblePosition(m_extent, m_affinity)).deepEquivalent();
-                m_end = endOfParagraph(VisiblePosition(m_base, m_affinity)).deepEquivalent();
-            }
+            m_start = startOfParagraph(VisiblePosition(m_start, m_affinity)).deepEquivalent();
+            m_end = endOfParagraph(VisiblePosition(m_end, m_affinity)).deepEquivalent();
             break;
     }
 

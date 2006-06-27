@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -31,6 +31,8 @@
 #include <IOKit/platform/ApplePlatformExpert.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/IOHibernatePrivate.h>
+#include <IOKit/IOTimerEventSource.h>
 
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -114,7 +116,7 @@ AppleUSBEHCI::initForPM (IOPCIDevice *provider)
 		}
         else
         {
-            USBLog(1, "%s[%p]::start EHCI controller will be unloaded across sleep",getName(),this);
+            USBLog(1, "AppleUSBEHCI[%p]::start EHCI controller will be unloaded across sleep",this);
             _unloadUIMAcrossSleep = true;
             setProperty("Card Type","PCI");
         }
@@ -137,12 +139,12 @@ AppleUSBEHCI::initForPM (IOPCIDevice *provider)
     // register ourselves with superclass policy-maker
     if ( provider->getProperty("AAPL,clock-id")) 
     {
-		USBLog(2, "%s(%p):: registering controlling driver with clock", getName(), this);
+		USBLog(2, "AppleUSBEHCI[%p]:: registering controlling driver with clock",  this);
         registerPowerDriver(this,ourPowerStatesKL,number_of_power_states);
     }
     else 
     {
-		USBLog(2, "%s(%p):: registering controlling driver without clock", getName(), this);
+		USBLog(2, "AppleUSBEHCI[%p]:: registering controlling driver without clock",  this);
         registerPowerDriver(this,ourPowerStates,number_of_power_states);
     }
     changePowerStateTo(1);
@@ -216,13 +218,10 @@ unsigned long AppleUSBEHCI::initialPowerStateForDomainState ( IOPMPowerFlags dom
 IOReturn 
 AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDevice )
 {
-    IOReturn			sleepRes;
-#ifndef kIOHibernateStateKey
-#define kIOHibernateStateKey	"IOHibernateState"
-#endif
+    IOReturn				sleepRes;
     static uint32_t *		pHibernateState;
     
-    USBLog(4,"%s[%p]::setPowerState (%ld) bus %d", getName(), this, powerStateOrdinal, _busNumber );
+    USBLog(5,"AppleUSBEHCI[%p]::setPowerState (%ld) bus %ld",  this, powerStateOrdinal, _busNumber );
     IOSleep(5);
 	
     //	If we are not going to sleep, then we need to take the gate, otherwise, we need to wake up    
@@ -236,16 +235,22 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         sleepRes = _workLoop->wake(&_ehciBusState);
         if(sleepRes != kIOReturnSuccess) 
         {
-            USBError(1, "%s[%p] setPowerState - Can't wake  workloop, error 0x%x", getName(), this, sleepRes);
+            USBError(1, "AppleUSBEHCI[%p]::setPowerState - Can't wake  workloop, error 0x%x",  this, sleepRes);
         }
         else
         {
-            USBLog(5, "%s[%p :setPowerState - workLoop successfully awakened", getName(), this);
+            USBLog(5, "AppleUSBEHCI[%p]::setPowerState - workLoop successfully awakened",  this);
         }
     }
     
     if ( powerStateOrdinal == kEHCISetPowerLevelSuspend ) 
     {
+		// disable the interrupt
+		
+		USBLog(5, "AppleUSBEHCI::setPowerState - disabling interrupt before suspending bus");
+		_savedUSBIntr = _pEHCIRegisters->USBIntr;			// save currently enabled interrupts
+		_pEHCIRegisters->USBIntr = 0;						// disable all interrupts
+
 		if ( !pHibernateState )
 		{
 			OSData * data = OSDynamicCast(OSData, (IOService::getPMRootDomain())->getProperty(kIOHibernateStateKey));
@@ -258,24 +263,29 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 		
         if ( _unloadUIMAcrossSleep )
         {
-            USBLog(3,"%s[%p] Unloading UIM for bus %d before going to sleep",getName(),this, (int)_busNumber );
+            USBLog(3,"AppleUSBEHCI[%p]::setPowerState - Unloading UIM for bus %d before going to sleep", this, (int)_busNumber );
             
             if ( _rootHubDevice )
             {
-                USBLog(2, "%s[%p] Terminating root hub in setPowerState()", getName(), this);
+                USBLog(2, "AppleUSBEHCI[%p]::setPowerState - Terminating root hub in setPowerState()",  this);
                 _rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
                 _rootHubDevice->detachAll(gIOUSBPlane);
                 _rootHubDevice->release();
                 _rootHubDevice = NULL;
-                USBLog(2, "%s[%p] Terminated root hub in setPowerState()", getName(), this);
+                USBLog(2, "AppleUSBEHCI[%p]::setPowerState - Terminated root hub in setPowerState()",  this);
             }
             SuspendUSBBus();
             UIMFinalizeForPowerDown();
+			
+			// save these for when we wake back up
+			_savedPeriodicListBase = _pEHCIRegisters->PeriodicListBase;
+			_savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
+		
             _ehciAvailable = false;					// tell the interrupt filter routine that we are off
         }
         else 
         {
-            USBLog(2, "%s[%p] suspending the bus", getName(), this);
+            USBLog(5, "AppleUSBEHCI[%p]::setPowerState - suspending the bus",  this);
             _remote_wakeup_occurred = false;
 			
             // Make sure that we have the USB Bus running before we go into suspend
@@ -287,53 +297,77 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 			USBLog(7, "AppleUSBEHCI[%p]::setPowerState - about to suspend bus - showing queue", this);
 			printAsyncQueue(7);
             SuspendUSBBus();
+			
+			// save these now, in case we end up hibernating
+			_savedPeriodicListBase = _pEHCIRegisters->PeriodicListBase;
+			_savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
+		
             USBLog(7, "AppleUSBEHCI[%p]::setPowerState The bus is now suspended - showing queue", this);
 			printAsyncQueue(7);
         }
         
+		_ehciAvailable = false;								// tell the interrupt filter routine that we are off
+		
         _ehciBusState = kEHCIBusStateSuspended;
         _idleSuspend = false;
-		
-        // on PCI PM machines, arm the PME and go to state D3
-        if (_hasPCIPwrMgmt)
-        {
-            _savedUSBIntr = _pEHCIRegisters->USBIntr;			// save currently enabled interrupts
-            _pEHCIRegisters->USBIntr = 0;						// disable all interrupts
-            _ehciAvailable = false;								// tell the interrupt filter routine that we are off
-        }
-        
-    }
+	}
     
     if ( powerStateOrdinal == kEHCISetPowerLevelIdleSuspend )
     {
-        USBLog(2, "%s[%p] halting the bus due to inactivity", getName(), this);
+        USBLog(5, "AppleUSBEHCI[%p]::setPowerState - halting the bus due to inactivity",  this);
         _idleSuspend = true;
-        
+        DisableAsyncSchedule();
+        DisablePeriodicSchedule();
         StopUSBBus();
 		
-        USBLog(2, "%s[%p] The bus is now halted due to inactivity", getName(), this);
+        USBLog(5, "AppleUSBEHCI[%p]::setPowerState - The bus is now halted due to inactivity",  this);
 		
     }
     
     if ( powerStateOrdinal == kEHCISetPowerLevelRunning ) 
     {
 		
+		// If we woke from hibernate, unload the UIM and suspend the bus
+		//
+		if ( _uimInitialized && pHibernateState && *pHibernateState && !_wakingFromHibernation && !_idleSuspend)
+		{
+			USBLog(1,"AppleUSBEHCI[%p]::setPowerState - Unloading UIM for bus %d after hibernate - _ehciAvailable[%s]",this, (int)_busNumber, _ehciAvailable ? "true" : "false" );
+			_wakingFromHibernation = true;						// we will clear this when we create the root hub
+			UIMFinalizeForPowerDown();
+			_ehciAvailable = true;								// let the delete endpoints come through
+			if ( _rootHubDevice )
+			{
+				USBLog(2, "+AppleUSBEHCI[%p]::setPowerState - Terminating root hub in setPowerState()",  this);
+				_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
+				_rootHubDevice->detachAll(gIOUSBPlane);
+				_rootHubDevice->release();
+				_rootHubDevice = NULL;
+				USBLog(2, "-AppleUSBEHCI[%p]::setPowerState - Terminated root hub in setPowerState()",  this);
+			}
+			// SuspendUSBBus();
+			// _ehciAvailable = false;					// tell the interrupt filter routine that we are off
+			
+			USBLog(2,"AppleUSBEHCI[%p]::setPowerState - setting _needToCreateRootHub", this);
+			_needToCreateRootHub = true;
+			goto done;
+		}
+		
         // If we were just idle suspended, we did not unload the UIM, so we need to check that here
         //
-        if ( !_uimInitialized )
+        else if ( !_uimInitialized )
         {
             // If we are inactive OR if we are a PC Card and we have been ejected, then we don't need to do anything here
             //
             if ( isInactive() || (_onCardBus && _pcCardEjected) )
             {
                 _ehciBusState = kEHCIBusStateRunning;
-                USBLog(3,"%s[%p] isInactive (or pccardEjected) while setPowerState (%d,%d)",getName(),this, isInactive(), _pcCardEjected);
+                USBLog(3,"AppleUSBEHCI[%p]::setPowerState - isInactive (or pccardEjected) while setPowerState (%d,%d)",this, isInactive(), _pcCardEjected);
             }
             else
             {
                 IOReturn	err = kIOReturnSuccess;
 				
-                USBLog(5, "%s[%p]: Re-loading UIM if necessary (%d)", getName(), this, _uimInitialized );
+                USBLog(5, "AppleUSBEHCI[%p]::setPowerState - Re-loading UIM if necessary (%d)",  this, _uimInitialized );
 				
                 // Initialize our hardware
                 //
@@ -350,7 +384,7 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
                     err = CreateRootHubDevice( _device, &_rootHubDevice );
                     if ( err != kIOReturnSuccess )
                     {
-                        USBError(1,"%s[%p] Could not create root hub device upon wakeup (%x)!",getName(), this, err);
+                        USBError(1,"AppleUSBEHCI[%p]::setPowerState - Could not create root hub device upon wakeup (%x)!", this, err);
                     }
                     else
                     {
@@ -361,12 +395,12 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         }
 		else if (_idleSuspend)
 		{
-            USBLog(2, "%s[%p]::setPowerState - in _idleSuspend -  restarting USB", getName(), this);
+            USBLog(5, "AppleUSBEHCI[%p]::setPowerState - in _idleSuspend -  restarting USB",  this);
 			RestartUSBBus();
 		}
         else 
         {
-            USBLog(2, "%s[%p] setPowerState powering on USB", getName(), this);
+            USBLog(5, "AppleUSBEHCI[%p]::setPowerState - setPowerState powering on USB",  this);
 			
 			// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
 			// then it is likely that we are responsible for the system issuing the wakeup
@@ -377,13 +411,12 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 			
             _remote_wakeup_occurred = true;	//doesn't matter how we woke up
 			
-            if (_hasPCIPwrMgmt)
-            {
-                _ehciAvailable = true;										// tell the interrupt filter routine that we are on
-                if (_savedUSBIntr)
-                    _pEHCIRegisters->USBIntr = _savedUSBIntr;							// enable all interrupts
-                USBLog(4, "AppleUSBEHCI[%p]::setPowerState - after reenabling interrupts, USBIntr = %p", this, (void*)USBToHostLong(_pEHCIRegisters->USBIntr));
-            }
+			_ehciAvailable = true;										// tell the interrupt filter routine that we are on
+
+			if (_savedUSBIntr)
+				_pEHCIRegisters->USBIntr = _savedUSBIntr;							// enable all interrupts
+			USBLog(5, "AppleUSBEHCI[%p]::setPowerState - after reenabling interrupts, USBIntr = %p", this, (void*)USBToHostLong(_pEHCIRegisters->USBIntr));
+
 			USBLog(7, "AppleUSBEHCI[%p]::setPowerState - about to resume bus - showing queue", this);
 			printAsyncQueue(7);
             ResumeUSBBus();
@@ -391,36 +424,12 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 			printAsyncQueue(7);
             _ehciBusState = kEHCIBusStateRunning;
         }
-		
-		// If we woke from hibernate, unload the UIM and suspend the bus
-		//
-		if ( _uimInitialized && pHibernateState && *pHibernateState )
-		{
-			USBLog(3,"%s[%p] Unloading UIM for bus %d after hibernate",getName(),this, (int)_busNumber );
-			
-			if ( _rootHubDevice )
-			{
-				USBLog(2, "%s[%p] Terminating root hub in setPowerState()", getName(), this);
-				_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
-				_rootHubDevice->detachAll(gIOUSBPlane);
-				_rootHubDevice->release();
-				_rootHubDevice = NULL;
-				USBLog(2, "%s[%p] Terminated root hub in setPowerState()", getName(), this);
-			}
-			SuspendUSBBus();
-			UIMFinalizeForPowerDown();
-			_ehciAvailable = false;					// tell the interrupt filter routine that we are off
-			
-			USBLog(3,"%s[%p] Would create root hub here, postponing it! (%d)",getName(), this, _needToCreateRootHub);
-			_needToCreateRootHub = TRUE;
-		}
-		
-		
+				
         LastRootHubPortStatusChanged(true);
         _idleSuspend = false;
     }
 	
-	
+done:	
     // if we are now suspended, then we need to sleep our workloop, otherwise, we need to release the gate on it
     //
     if (_ehciBusState == kEHCIBusStateSuspended)
@@ -428,11 +437,11 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         sleepRes = _workLoop->sleep(&_ehciBusState);
         if(sleepRes != kIOReturnSuccess) 
         {
-            USBError(1, "%s[%p] setPowerState - Can't sleep workloop, error 0x%x", getName(), this, sleepRes);
+            USBError(1, "AppleUSBEHCI[%p]::setPowerState - Can't sleep workloop, error 0x%x",  this, sleepRes);
         }
         else
 		{
-            USBLog(5, "%s[%p :setPowerState - workLoop successfully slept", getName(), this);
+            USBLog(5, "AppleUSBEHCI[%p]::setPowerState - workLoop successfully slept",  this);
         }
     }
     else
@@ -440,7 +449,7 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
         _workLoop->OpenGate();
     }
 	
-    USBLog(4,"%s[%p]::setPowerState done", getName(), this );
+    USBLog(5,"AppleUSBEHCI[%p]::setPowerState done",  this );
     return IOPMAckImplied;
 }
 
@@ -482,7 +491,7 @@ AppleUSBEHCI::ResumeUSBBus()
     // restore volatile registers saved in SuspendUSBBus()
 	if (USBToHostLong(_pEHCIRegisters->ConfigFlag) != kEHCIPortRoutingBit)
 	{
-		USBLog(2, "%s[%p]::ResumeUSBBus - restoring ConfigFlag[from %p]", getName(), this, USBToHostLong(_pEHCIRegisters->ConfigFlag));
+		USBLog(5, "AppleUSBEHCI[%p]::ResumeUSBBus - restoring ConfigFlag[from 0x%x]",  this, (unsigned int) USBToHostLong(_pEHCIRegisters->ConfigFlag));
 		_pEHCIRegisters->ConfigFlag = HostToUSBLong(kEHCIPortRoutingBit);
 		IOSync();
 		if (_errataBits & kErrataNECIncompleteWrite)
@@ -501,14 +510,14 @@ AppleUSBEHCI::ResumeUSBBus()
 	
     if (_savedPeriodicListBase && (_pEHCIRegisters->PeriodicListBase != _savedPeriodicListBase))
     {
-		USBLog(2, "%s[%p]::ResumeUSBBus - restoring PeriodicListBase[from %p to %p]", getName(), this, USBToHostLong(_pEHCIRegisters->PeriodicListBase), USBToHostLong(_savedPeriodicListBase));
+		USBLog(4, "AppleUSBEHCI[%p]::ResumeUSBBus - restoring PeriodicListBase[from 0x%x to 0x%x]",  this, (unsigned int)USBToHostLong(_pEHCIRegisters->PeriodicListBase),  (unsigned int)USBToHostLong(_savedPeriodicListBase));
         _pEHCIRegisters->PeriodicListBase = _savedPeriodicListBase;
         IOSync();
     }
 	
     if (_savedAsyncListAddr && (_pEHCIRegisters->AsyncListAddr != _savedAsyncListAddr))
     {
-		USBLog(2, "%s[%p]::ResumeUSBBus - restoring AsyncListAddr[from %p to %p]", getName(), this, USBToHostLong(_pEHCIRegisters->AsyncListAddr), USBToHostLong(_savedAsyncListAddr));
+		USBLog(4, "AppleUSBEHCI[%p]::ResumeUSBBus - restoring AsyncListAddr[from 0x%x to 0x%x]",  this,  (unsigned int)USBToHostLong(_pEHCIRegisters->AsyncListAddr),  (unsigned int)USBToHostLong(_savedAsyncListAddr));
         _pEHCIRegisters->AsyncListAddr = _savedAsyncListAddr;
         IOSync();
     }
@@ -534,44 +543,58 @@ AppleUSBEHCI::ResumeUSBBus()
 	}
     // resume all enabled ports which we own
     numPorts = USBToHostLong(_pEHCICapRegisters->HCSParams) & kEHCINumPortsMask;
-    USBLog(7, "%s[%p]::ResumeUSBBus - resuming %d ports", getName(), this, numPorts);
+    USBLog(7, "AppleUSBEHCI[%p]::ResumeUSBBus - resuming %d ports",  this, numPorts);
     for (i=0; i < numPorts; i++)
     {
 		UInt32 portStat;
 		portStat = USBToHostLong(_pEHCIRegisters->PortSC[i]);
 		if (portStat & kEHCIPortSC_Owner)
 		{
-			USBLog(7, "%s[%p]::ResumeUSBBus - port %d owned by OHCI", getName(), this, i);
+			USBLog(4, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d owned by OHCI",  this, i+1);
 		}
 		else if (portStat & kEHCIPortSC_Enabled)
 		{
-			portStat |= kEHCIPortSC_Resume;
-			_pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
-			IOSync();
-			if (_errataBits & kErrataNECIncompleteWrite)
+			// If the port was NOT suspended prior to the suspend OR it is the cause of the resume, then
+			// resume the port
+			if ( !(_savedSuspendedPortBitmap & (1<<i)) || (portStat & kEHCIPortSC_Resume) )
 			{
-				UInt32		newValue = 0, count = 0;
-				newValue = USBToHostLong(_pEHCIRegisters->PortSC[i]);
-				while ((count++ < 10) && !(newValue & kEHCIPortSC_Resume))
+				portStat |= kEHCIPortSC_Resume;
+				_pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
+				IOSync();
+				if (_errataBits & kErrataNECIncompleteWrite)
 				{
-					USBError(1, "EHCI driver: ResumeUSBBus - PortSC resume not sticking (on). Retrying.");
-					_pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
-					IOSync();
+					UInt32		newValue = 0, count = 0;
 					newValue = USBToHostLong(_pEHCIRegisters->PortSC[i]);
+					while ((count++ < 10) && !(newValue & kEHCIPortSC_Resume))
+					{
+						USBError(1, "EHCI driver: ResumeUSBBus - PortSC resume not sticking (on). Retrying.");
+						_pEHCIRegisters->PortSC[i] = HostToUSBLong(portStat);
+						IOSync();
+						newValue = USBToHostLong(_pEHCIRegisters->PortSC[i]);
+					}
 				}
+
+				if ( (portStat & kEHCIPortSC_Resume) && (_savedSuspendedPortBitmap & (1<<i)))
+				{
+					USBLog(4, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d was suspended but resuming it because it generated a resume",  this, i+1);
+				}
+
+				USBLog(4, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d now resumed (%ld, %ld)",  this, i+1, _savedSuspendedPortBitmap & (1<<i), portStat & kEHCIPortSC_Resume);
 			}
-			USBLog(7, "%s[%p]::ResumeUSBBus - port %d now resumed", getName(), this, i);
+			else
+				USBLog(4, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d not resuming because it was previously suspended",  this, i+1);
+
 			enabledports = true;
 		}
 		else
 		{
-			USBLog(7, "%s[%p]::ResumeUSBBus - port %d not enabled", getName(), this, i);
+			USBLog(7, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d not enabled",  this, i);
 		}
     }
     
     if (enabledports)
     {
-		USBLog(7, "%s[%p]::ResumeUSBBus Delaying 20 milliseconds in resume state", getName(), this);
+		USBLog(7, "AppleUSBEHCI[%p]::ResumeUSBBus Delaying 20 milliseconds in resume state",  this);
 		IODelay(20000);
 		for (i=0; i < numPorts; i++)
 		{
@@ -579,7 +602,7 @@ AppleUSBEHCI::ResumeUSBBus()
 			portStat = USBToHostLong(_pEHCIRegisters->PortSC[i]);
 			if (portStat & kEHCIPortSC_Owner)
 			{
-				USBLog(7, "%s[%p]::ResumeUSBBus - port %d owned by OHCI", getName(), this, i);
+				USBLog(7, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d owned by OHCI",  this, i+1);
 			}
 			else if (portStat & kEHCIPortSC_Enabled)
 			{
@@ -607,12 +630,12 @@ AppleUSBEHCI::ResumeUSBBus()
 					}
 				}
 #endif
-				USBLog(7, "%s[%p]::ResumeUSBBus - port %d finished resume sequence", getName(), this, i);
+				USBLog(7, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d finished resume sequence",  this, i+1);
 				enabledports = true;
 			}
 			else
 			{
-				USBLog(7, "%s[%p]::ResumeUSBBus - port %d not enabled", getName(), this, i);
+				USBLog(7, "AppleUSBEHCI[%p]::ResumeUSBBus - port %d not enabled",  this, i+1);
 			}
 		}
 		IODelay(10000);				// wait 10 ms before allowing any data transfer
@@ -620,7 +643,7 @@ AppleUSBEHCI::ResumeUSBBus()
     
     if (_savedUSBCMD)
     {
-		USBLog(7, "%s[%p]::ResumeUSBBus - USBCMD is <%p> will be <%p>", getName(), this, (void*)_pEHCIRegisters->USBCMD, (void*)_savedUSBCMD);
+		USBLog(7, "AppleUSBEHCI[%p]::ResumeUSBBus - USBCMD is <%p> will be <%p>",  this, (void*)_pEHCIRegisters->USBCMD, (void*)_savedUSBCMD);
 		_pEHCIRegisters->USBCMD = _savedUSBCMD;
     }
 	
@@ -635,13 +658,17 @@ AppleUSBEHCI::SuspendUSBBus()
     int		i;
     UInt32	usbcmd, usbsts;
     
+	// Initialize our suspended bitmap to no ports suspended
+	_savedSuspendedPortBitmap = 0;
+	
     // save the USBCMD register before disabling the list processing
     _savedUSBCMD = _pEHCIRegisters->USBCMD;
-    USBLog(7, "%s[%p]::SuspendUSBBus - got _savedUSBCMD <%p>", getName(), this, (void*)_savedUSBCMD);
+    USBLog(7, "AppleUSBEHCI[%p]::SuspendUSBBus - got _savedUSBCMD <%p>",  this, (void*)_savedUSBCMD);
     
 	// disable list processing
     usbcmd = USBToHostLong(_savedUSBCMD);
 	
+
 	// first make sure that the status register matches the command register
     if (usbcmd & kEHCICMDAsyncEnable)
 	{
@@ -661,6 +688,7 @@ AppleUSBEHCI::SuspendUSBBus()
 		// should really never happen
 		for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
 			IODelay(100);
+
 		if (i)
 		{
 			USBError(1, "AppleUSBEHCI[%p]::SuspendUSBBus - Periodic Schedule should have been on but was off for %d loops", this, i);
@@ -676,15 +704,19 @@ AppleUSBEHCI::SuspendUSBBus()
 	// which causes an incorrect error
 	for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
 		IODelay(1000);
+		
 	if (i > 2)
 	{
 		USBError(1, "AppleUSBEHCI[%p]::SuspendUSBBus - Async Schedule took %d loops to turn off", this, i);
 	}
-	for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
+
+
+	for (i=0; (i < 1000) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
 		IODelay(1000);
+		
 	if (i > 2)
 	{
-		USBError(1, "AppleUSBEHCI[%p]::SuspendUSBBus - Periodic Schedule took %d loops to turn off", this, i);
+		USBError(1, "AppleUSBEHCI[%p]::SuspendUSBBus - Periodic Schedule took %d loops to turn off CMD(%p) STS(%p)", this, i, (void*)USBToHostLong(_pEHCIRegisters->USBCMD), (void*)USBToHostLong(_pEHCIRegisters->USBSTS));
 	}
 
 	// save these registers per Intel recommendations - but do it AFTER the scheduling has stopped
@@ -693,22 +725,31 @@ AppleUSBEHCI::SuspendUSBBus()
 	
     // suspend all enabled ports which we own
     GetNumberOfPorts( &numPorts );
-    USBLog(7, "%s[%p]::SuspendUSBBus - suspending %d ports", getName(), this, numPorts);
+    USBLog(numPorts ? 4 : 1, "AppleUSBEHCI[%p]::SuspendUSBBus - suspending %d ports",  this, numPorts);
     for (i=0; i < numPorts; i++)
     {
 		UInt32 portStat;
 		portStat = USBToHostLong(_pEHCIRegisters->PortSC[i]);
 		if (portStat & kEHCIPortSC_Owner)
 		{
-			USBLog(7, "%s[%p]::SuspendUSBBus - port %d owned by OHCI", getName(), this, i);
+			USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d owned by OHCI",  this, i+1);
 		}
 		else if (portStat & kEHCIPortSC_Enabled)
 		{
-			EHCIRootHubPortSuspend(i+1, true);
+			if (portStat & kEHCIPortSC_Suspend)
+			{
+				_savedSuspendedPortBitmap |= (1<<i);
+				
+				USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d was already suspended",  this, i+1);
+			}
+			else
+			{
+				EHCIRootHubPortSuspend(i+1, true);
+			}
 		}
 		else
 		{
-			USBLog(7, "%s[%p]::SuspendUSBBus - port %d not enabled", getName(), this, i);
+			USBLog(4, "AppleUSBEHCI[%p]::SuspendUSBBus - port %d not enabled",  this, i+1);
 		}
     }
 
@@ -717,7 +758,7 @@ AppleUSBEHCI::SuspendUSBBus()
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
     IOSync();
     _ehciBusState = kEHCIBusStateOff;
-    USBLog(7, "%s[%p]::SuspendUSBBus - ports suspended, HC stop set, waiting for halted", getName(), this);
+    USBLog(7, "AppleUSBEHCI[%p]::SuspendUSBBus - ports suspended, HC stop set, waiting for halted",  this);
     
     // wait for halted bit
     do
@@ -725,7 +766,7 @@ AppleUSBEHCI::SuspendUSBBus()
 		usbsts = USBToHostLong(_pEHCIRegisters->USBSTS);
     } while (!(usbsts & kEHCIHCHaltedBit));
     
-    USBLog(5, "%s[%p]::SuspendUSBBus - HC halted", getName(), this);
+    USBLog(5, "AppleUSBEHCI[%p]::SuspendUSBBus - HC halted",  this);
 }
 
 
@@ -735,12 +776,13 @@ AppleUSBEHCI::StopUSBBus()
 {
     UInt32	usbcmd;
     
+
     usbcmd = USBToHostLong(_pEHCIRegisters->USBCMD);
     // clear run/stop
     usbcmd &= ~kEHCICMDRunStop;
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
     _ehciBusState = kEHCIBusStateOff;
-    USBLog(5, "%s[%p]::StopUSBBus - HC halted", getName(), this);
+    USBLog(5, "AppleUSBEHCI[%p]::StopUSBBus - HC halted",  this);
 }
 
 
@@ -759,7 +801,7 @@ AppleUSBEHCI::RestartUSBBus()
     usbcmd |= kEHCICMDRunStop;
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
     _ehciBusState = kEHCIBusStateRunning;
-    USBLog(5, "%s[%p]::RestartUSBBus - HC restarted", getName(), this);
+    USBLog(5, "AppleUSBEHCI[%p]::RestartUSBBus - HC restarted",  this);
 }
 
 
@@ -772,15 +814,19 @@ AppleUSBEHCI::PowerDownHandler(void *target, void *refCon, UInt32 messageType, I
     if (!me || !(me->_errataBits & kErrataICH6PowerSequencing))
         return kIOReturnUnsupported;
     
-    USBLog(2, "EHCI: %p: PowerDownHandler %p %p", me, (void*)messageType, messageArgument);
+    USBLog(2, "AppleUSBEHCI[%p]::PowerDownHandler PowerDownHandler %p %p", me, (void*)messageType, messageArgument);
 
-    if (me->_ehciAvailable) {
+    if (me->_ehciAvailable) 
+	{
         switch (messageType)
         {
             case kIOMessageSystemWillRestart:
             case kIOMessageSystemWillPowerOff:
-                if (me->_ehciBusState == kEHCIBusStateRunning) {
-                    if ( me->_rootHubDevice ) {
+				
+                if (me->_ehciBusState == kEHCIBusStateRunning) 
+				{
+                    if ( me->_rootHubDevice ) 
+					{
                         me->_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
                         me->_rootHubDevice->detachAll(gIOUSBPlane);
                         me->_rootHubDevice->release();
@@ -788,7 +834,14 @@ AppleUSBEHCI::PowerDownHandler(void *target, void *refCon, UInt32 messageType, I
                     }
                     me->SuspendUSBBus();
                 }
-                if (me->_uimInitialized) {
+
+				// Let's not look for any timeouts anymore
+				// NOTE: This really should be done in the superclass, but there was no good way to do that in the time frame
+				// we had. The PowerDownHandler should just be moved to the controller level
+				me->_watchdogUSBTimer->cancelTimeout();
+				
+				if (me->_uimInitialized) 
+				{
                     me->UIMFinalizeForPowerDown();
                 }
                 break;

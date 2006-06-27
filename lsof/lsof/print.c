@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: print.c,v 1.45 2004/03/12 14:52:01 abe Exp $";
+static char *rcsid = "$Id: print.c,v 1.47 2006/03/27 23:04:25 abe Exp $";
 #endif
 
 
@@ -668,14 +668,27 @@ print_file()
 
 #if	defined(HASFSTRUCT)
 	    if (Fsv) {
+
+# if	!defined(HASNOFSADDR)
 		if (Fsv & FSV_FA)
 		    (void) printf(" %*s", FsColW, FSTTL);
+# endif	/* !defined(HASNOFSADDR) */
+
+# if	!defined(HASNOFSCOUNT)
 		if (Fsv & FSV_CT)
 		    (void) printf(" %*s", FcColW, FCTTL);
+# endif	/* !defined(HASNOFSCOUNT) */
+
+# if	!defined(HASNOFSFLAGS)
 		if (Fsv & FSV_FG)
 		    (void) printf(" %*s", FgColW, FGTTL);
+# endif	/* !defined(HASNOFSFLAGS) */
+
+# if	!defined(HASNOFSNADDR)
 		if (Fsv & FSV_NI)
 		    (void) printf(" %*s", NiColW, NiTtl);
+# endif	/* !defined(HASNOFSNADDR) */
+
 	    }
 #endif	/* defined(HASFSTRUCT) */
 
@@ -798,6 +811,8 @@ print_file()
  */
 
 	if (Fsv) {
+
+# if	!defined(HASNOFSADDR)
 	    if (Fsv & FSV_FA) {
 		cp =  (Lf->fsv & FSV_FA) ? print_kptr(Lf->fsa, buf, sizeof(buf))
 					 : "";
@@ -808,6 +823,9 @@ print_file()
 		    (void) printf(" %*.*s", FsColW, FsColW, cp);
 		    
 	    }
+# endif	/* !defined(HASNOFSADDR) */
+
+# if	!defined(HASNOFSCOUNT)
 	    if (Fsv & FSV_CT) {
 		if (Lf->fsv & FSV_CT) {
 		    (void) snpf(buf, sizeof(buf), "%ld", Lf->fct);
@@ -820,6 +838,9 @@ print_file()
 		} else
 		    (void) printf(" %*.*s", FcColW, FcColW, cp);
 	    }
+# endif	/* !defined(HASNOFSCOUNT) */
+
+# if	!defined(HASNOFSFLAGS)
 	    if (Fsv & FSV_FG) {
 		if ((Lf->fsv & FSV_FG) && (FsvFlagX || Lf->ffg || Lf->pof))
 		    cp = print_fflags(Lf->ffg, Lf->pof);
@@ -831,6 +852,9 @@ print_file()
 		} else
 		    (void) printf(" %*.*s", FgColW, FgColW, cp);
 	    }
+# endif	/* !defined(HASNOFSFLAGS) */
+
+# if	!defined(HASNOFSNADDR)
 	    if (Fsv & FSV_NI) {
 		cp = (Lf->fsv & FSV_NI) ? print_kptr(Lf->fna, buf, sizeof(buf))
 					: "";
@@ -840,6 +864,8 @@ print_file()
 		} else
 		    (void) printf(" %*.*s", NiColW, NiColW, cp);
 	    }
+# endif	/* !defined(HASNOFSNADDR) */
+
 	}
 #endif	/* defined(HASFSTRUCT) */
 
@@ -982,7 +1008,7 @@ print_file()
 #if	defined(HASPRINTINO)
 	    cp = HASPRINTINO(Lf);
 #else	/* !defined(HASPRINTINO) */
-	    (void) snpf(buf, sizeof(buf), "%lu", Lf->inode);
+	    (void) snpf(buf, sizeof(buf), InodeFmt_d, Lf->inode);
 	    cp = buf;
 #endif	/* defined(HASPRINTINO) */
 
@@ -994,7 +1020,7 @@ print_file()
 		cp = "";
 	    break;
 	case 3:
-	    (void) snpf(buf, sizeof(buf), "%#lx", Lf->inode);
+	    (void) snpf(buf, sizeof(buf), InodeFmt_x, Lf->inode);
 	    cp = buf;
 	    break;
 	default:
@@ -1186,10 +1212,22 @@ print_init()
 	UserColW = strlen(USERTTL);
 
 #if	defined(HASFSTRUCT)
-	FcColW = strlen(FCTTL);
-	FgColW = strlen(FGTTL);
+
+# if	!defined(HASNOFSADDR)
 	FsColW = strlen(FSTTL);
+# endif	/* !defined(HASNOFSADDR) */
+
+# if	!defined(HASNOFSCOUNT)
+	FcColW = strlen(FCTTL);
+# endif	/* !defined(HASNOFSCOUNT) */
+
+# if	!defined(HASNOFSFLAGS)
+	FgColW = strlen(FGTTL);
+# endif	/* !defined(HASNOFSFLAGS) */
+
+# if	!defined(HASNOFSNADDR)
 	NiColW = strlen(NiTtl);
+# endif	/* !defined(HASNOFSNADDR) */
 #endif	/* defined(HASFSTRUCT) */
 
 #if	defined(HASZONES)
@@ -1867,7 +1905,7 @@ printname(nl)
 
 #if	defined(HASNCACHE)
 	char buf[MAXPATHLEN];
-	char *cp, *cp1;
+	char *cp;
 	int fp;
 #endif	/* defined(HASNCACHE) */
 
@@ -1904,7 +1942,6 @@ printname(nl)
 	    ps++;
 	    goto print_nma;
 	}
-
 	if (Lf->is_com) {
 
 	/*
@@ -1916,8 +1953,10 @@ printname(nl)
 	}
 
 #if	defined(HASPRIVNMCACHE)
-	if (HASPRIVNMCACHE(Lf))
+	if (HASPRIVNMCACHE(Lf)) {
+	    ps++;
 	    goto print_nma;
+	}
 #endif	/* defined(HASPRIVNMCACHE) */
 
 	if (Lf->lmi_srch) {
@@ -1973,6 +2012,8 @@ printname(nl)
 		    NcacheReload = 0;
 		}
 		if ((cp = ncache_lookup(buf, sizeof(buf), &fp))) {
+		    char *cp1; 
+
 		    if (*cp == '\0')
 			goto print_nma;
 		    if (fp && Lf->fsdir) {
@@ -2609,7 +2650,7 @@ printunkaf(fam, ty)
 	    p = "pseudo_";
 	    s = "KEY";
 	    break;
-#endif	/* defined(pseudo_AF_XTP) */
+#endif	/* defined(pseudo_AF_KEY) */
 
 #if	defined(AF_KEY)		/* Security Association DB socket */
 	case AF_KEY:			

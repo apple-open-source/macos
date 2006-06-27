@@ -2313,12 +2313,18 @@ static CURLcode CreateConnection(struct SessionHandle *data,
   if(urllen < LEAST_PATH_ALLOC)
     urllen=LEAST_PATH_ALLOC;
 
-  conn->pathbuffer=(char *)malloc(urllen);
+  /*
+   * We malloc() the buffers below urllen+3 to make room for to possibilities:
+   * 1 - an extra terminating zero
+   * 2 - (possibly an extra slash and) a terminating zero
+   */
+
+  conn->pathbuffer=(char *)malloc(urllen+3);
   if(NULL == conn->pathbuffer)
     return CURLE_OUT_OF_MEMORY; /* really bad error */
   conn->path = conn->pathbuffer;
 
-  conn->host.rawalloc=(char *)malloc(urllen);
+  conn->host.rawalloc=(char *)malloc(urllen+3);
   if(NULL == conn->host.rawalloc)
     return CURLE_OUT_OF_MEMORY;
   conn->host.name = conn->host.rawalloc;

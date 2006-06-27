@@ -386,15 +386,15 @@ namespace KJS {
      *
      * @param proto The prototype
      */
-    ObjectImp(const Object &proto);
-    ObjectImp(ObjectImp *proto);
+    ObjectImp(const Object &proto, bool destructorIsThreadSafe = true);
+    ObjectImp(ObjectImp *proto, bool destructorIsThreadSafe = true);
 
     /**
      * Creates a new ObjectImp with a prototype of Null()
      * (that is, the ECMAScript "null" value, not a null Object).
      *
      */
-    ObjectImp();
+    explicit ObjectImp(bool destructorIsThreadSafe = true);
 
     virtual ~ObjectImp();
 

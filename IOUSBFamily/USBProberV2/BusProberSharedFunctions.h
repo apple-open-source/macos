@@ -62,6 +62,7 @@ BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls);
 char * GetStringFromNumber(UInt32 value, int sizeInBytes, int style);
 char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceRef deviceIntf);
 NSString * VendorNameFromVendorID(NSString * intValueAsString);
+NSString * GetUSBProductNameFromRegistry(io_registry_entry_t entry);
 void FreeString(char * cstr);
 UInt16 Swap16(void *p);
 UInt32	Swap32(void *p);

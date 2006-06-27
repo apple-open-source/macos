@@ -270,6 +270,7 @@ void IOFireWireAVCProtocolUserClient::avcTargetCommandHandler(const AVCCommandHa
 	// Send rest of packet if necessary
 	while(cmdLen) {
 		copyLen = cmdLen;
+		dst = (UInt8 *)(args+2);
 		if(copyLen > (kMaxAsyncArgs - 2)*sizeof(void *))
 			copyLen =  (kMaxAsyncArgs - 2)*sizeof(void *);
 		bcopy(src, dst, copyLen);

@@ -1054,8 +1054,10 @@ void KHTMLPart::clear()
   d->m_mousePressNode = DOM::Node();
 
 
-  if ( d->m_doc )
+  if ( d->m_doc ) {
+    d->m_doc->cancelParsing();
     d->m_doc->detach();
+  }
 
   // Moving past doc so that onUnload works.
   if ( d->m_jscript )

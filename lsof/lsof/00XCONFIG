@@ -133,7 +133,7 @@ LSOF_CCV        is the C compiler version.  You should specify it
 			 the version number of gcc and some other
 			 dialect-specific compilers.
 
-			 Check the dialect stanza in ths lsof Configure
+			 Check the dialect stanza in the lsof Configure
 			 script to see how lsof_CCV is set by default.
 
 LSOF_HOST       may be used to specify a value in lsof's -v output
@@ -248,13 +248,6 @@ Abbreviation*	  Prefix	 Number       LSOF_VERS
 				  5.1.x		   5100
 				  5.2.x		   5200
 				  5.3.x		   5300
-	bsdi	    BSDI	  2.0.x		  20000
-				  2.1.x		  20100
-				  3.0.x		  30000
-				  3.1.x		  30100
-				  4.0		  40000
-				  4.1		  40100
-				  4.3		  40300
       darwin	  DARWIN	  1.2*		    120
 				  1.3*		    130
 				  1.4*		    140
@@ -291,13 +284,14 @@ Abbreviation*	  Prefix	 Number       LSOF_VERS
 				  2.3.x	     	  23xxx
 				  2.4.x		  24xxx
 				  2.6.x		  26xxx
-     netbsd	  NETBSD	  1.0		   1000
-				  1.1		   1010
-				  1.2		   1020
-				  1.3		   1030
-				  1.4		   1040
-				  1.5		   1050
-				  1.6		   1060
+     netbsd	  NETBSD	  1.2		1002000
+				  1.3		1003000
+				  1.4		1004000
+				  1.5		1005000
+				  1.6		1006000
+				  2.0		2000000
+				  2.99.9        2099009
+				  2.99.10       2099010
 	 ns     NEXTSTEP	  3.1		     31
     openbsd	 OPENBSD	  1.2		   1020
 				  2.0		   2000
@@ -376,7 +370,7 @@ AIX_KERNBITS		specifies the kernel bit size, 32 or 64, of the Power
 			architecture AIX 5.x kernel for which lsof was built.
 
 			default: determined by the Configure script with a test
-				 program that uses <sys/systemcfg.h> macroes.
+				 program that uses <sys/systemcfg.h> macros.
 
 AIX_USHACK		If this environment variable has a value of "Y" or "y",
 			and if the aixgcc Configure abbreviation is selected,
@@ -398,7 +392,7 @@ DARWIN_XNU_HEADERS	If this environment variable has a value, the value is
 			Darwin XNU kernel source directory.
 
 			default: none
-			
+
 DU_ADVFSV		specifies the DEC OSF/1, Digital UNIX, or Tru64 UNIX
 			ADVFS file system version -- e.g., 200 for 2.0, 400
 			for 4.0, etc.
@@ -457,14 +451,6 @@ HPUX_CCDIR2		specifies the second directory where Configure might
 
 			default: /usr/ccs/bin
 
-HPUX_RNODE3		If this environment variable has a value of "1", the
-			Configure script will define HASRNODE3 in the Makefile
-			CFGF flags.   If it is defined, but not "1", Configure
-			will not define HASRNODE2.
-
-			default: determined using `nm -x /stand/vmunix` and
-				 `grep r_fh3 /usr/include/nfs/rnode.h`
-
 HPUX_HASONLINEJFS	If this environment variable has a value of "Y" or "y",
 			the HASONLINEJFS definition will be enabled in the
 			Makefile CFLAGS.  That will cause dnode1.c to use an
@@ -498,6 +484,14 @@ HPUX_LIBC2		specifies the second directory that might contain the
 			HP-UX C library, libc.sl.
 
 			default: /lib
+
+HPUX_RNODE3		If this environment variable has a value of "1", the
+			Configure script will define HASRNODE3 in the Makefile
+			CFGF flags.   If it is defined, but not "1", Configure
+			will not define HASRNODE2.
+
+			default: determined using `nm -x /stand/vmunix` and
+				 `grep r_fh3 /usr/include/nfs/rnode.h`
 
 HPUX_X25DIR		specifies path to the HP-UX X25 directory that contains
 			configuration header files.
@@ -595,16 +589,25 @@ SOLARIS_26PR_LDT	If this environment variable has a value of "Y" or "y",
 
 			default: tested by compilation
 
-SOLARIS_KERNBITS	specifies the nuber of bits in the Solaris 7 or 8
-			kernel: 32 or 64.
-
-			default: tested with /bin/isainfo -kv
-
 SOLARIS_CCDIR		specifies the path to the Sun C compiler -- i.e., when
 			`Configure solariscc` is used.  This is ignored when
 			LSOF_CC has been specified.
 
 			default: /opt/SUNWspro/bin
+
+SOLARIS_INSTR		specifies the Sun C compiler target instruction set
+			when building lsof for a 64 bit kernel -- i.e., when
+			the Configure abbreviation is "solariscc".  Possible
+			values include amd64 and sparcv9.  This is ignored when
+			the Configure abbreviation is "solaris" -- i.e., the
+			compiler is gcc.
+
+			default: tested with /bin/isainfo -k
+
+SOLARIS_KERNBITS	specifies the number of bits in the Solaris 7, 8, 9 or
+			10 kernel: 32 or 64.
+
+			default: tested with /bin/isainfo -kv
 
 SOLARIS_VSOCK		If this environment variable has a value of "Y" or "y",
 			the HAS_VSOCK definition is in the Solaris Makefile's
@@ -617,14 +620,24 @@ SOLARIS_VXFSINCL	This environment variable defines the path to the
 			header files of the VxFS 3.4 or greater version.  If
 			SOLARIS_VXFSINCL is not set, the default is used.
 
-			default: /opt/VRTS/vxfs/include
+			default: VxFS < 4.0:
+				    /opt/VRTSvxfs/include
+				 VxFS 4.0 and above:
+				    /opt/VRTSfssdk/<version>/include
 
 SOLARIS_VXFSLIB		This environment variable defines the path to the
 			VxFS 3.4 or greater utility libraries, libvxfsutil.a
 			(32 bit) and libvxfsutil64.a (64 bit).  If
 			SOLARIS_VXFSLIB is not set, the default is used.
 
-			default: /opt/VRTS/vxfs/lib
+			Note:  end SOLARIS_VXFSLIB at the "/lib" component; do
+			       NOT put "/sparcv9" at its end.  The lsof
+			       Configure script will add "/sparcv9" if it is
+			       required; hence, if Configure finds that
+			       "/sparcv9" is needed, your SOLARIS_VXFSLIB
+			       directory tree must have a sparcv9 subdirectory.
+
+			default: `dirname $SOLARIS_VXFSINCL`/lib
 
 SUN_AFSAPATHDEF		specifies the path to the AFS library modload file
 			for either Solaris or SunOS.
@@ -641,4 +654,4 @@ UW_HAS_NSC		If this environment variable has a value of "Y" or "y",
 			default: tested via /bin/node_self
 
 Vic Abell <abe@purdue.edu>
-October 17, 2004
+March 27, 2006

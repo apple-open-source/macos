@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004,2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,26 +72,20 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 			CFDictionaryRef		config,
 			Boolean			keepInactive)
 {
-	CFMutableDictionaryRef  newConfig       = NULL;
-	Boolean			ok		= FALSE;
+	CFMutableDictionaryRef  newConfig;
+	Boolean			ok;
 
-	if (config != NULL) {
-		if (!isA_CFDictionary(config)) {
-			_SCErrorSet(kSCStatusInvalidArgument);
-			return FALSE;
-		}
-		newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
-	} else {
-		newConfig = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (!isA_CFDictionary(config)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
 	}
+
+	newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
 
 	if (keepInactive) {
 		CFDictionaryRef	curConfig;
 
-		/*
-		 * preserve enabled/disabled state
-		 */
-
+		// preserve enabled/disabled state
 		curConfig = SCPreferencesPathGetValue(prefs, path);
 		if (isA_CFDictionary(curConfig) && CFDictionaryContainsKey(curConfig, kSCResvInactive)) {
 			// if currently disabled
@@ -102,22 +96,10 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 		}
 	}
 
-	/*
-	 * set new configuration
-	 */
+	// set new configuration
+	ok = SCPreferencesPathSetValue(prefs, path, newConfig);
 
-	if (CFDictionaryGetCount(newConfig) == 0) {
-		CFRelease(newConfig);
-		newConfig = NULL;
-	}
-
-	if (newConfig == NULL) {
-		ok = SCPreferencesPathRemoveValue(prefs, path);
-	} else {
-		ok = SCPreferencesPathSetValue(prefs, path, newConfig);
-	}
-
-	if (newConfig != NULL)  CFRelease(newConfig);
+	CFRelease(newConfig);
 	return ok;
 }
 
@@ -145,10 +127,7 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 	CFMutableDictionaryRef  newConfig       = NULL;
 	Boolean			ok		= FALSE;
 
-	/*
-	 * preserve current configuration
-	 */
-
+	// preserve current configuration
 	curConfig = SCPreferencesPathGetValue(prefs, path);
 	if (curConfig != NULL) {
 		if (!isA_CFDictionary(curConfig)) {
@@ -168,10 +147,7 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 		CFDictionarySetValue(newConfig, kSCResvInactive, kCFBooleanTrue);
 	}
 
-	/*
-	 * update configuration
-	 */
-
+	// update configuration
 	if (CFDictionaryGetCount(newConfig) == 0) {
 		CFRelease(newConfig);
 		newConfig = NULL;
@@ -218,7 +194,7 @@ __copyTemplates()
 		return NULL;
 	}
 
-	/* convert the XML data into a property list */
+	// convert the XML data into a property list
 	templates = CFPropertyListCreateFromXMLData(NULL, xmlTemplates, kCFPropertyListImmutable, &xmlError);
 	CFRelease(xmlTemplates);
 	if (templates == NULL) {

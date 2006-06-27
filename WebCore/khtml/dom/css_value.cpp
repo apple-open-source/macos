@@ -356,13 +356,16 @@ void CSSPrimitiveValue::setFloatValue( unsigned short unitType, float floatValue
     throwException(exceptioncode);
 }
 
-float CSSPrimitiveValue::getFloatValue( unsigned short unitType )
+double CSSPrimitiveValue::getFloatValue( unsigned short unitType )
 {
     if(!impl) return 0;
-    // ### add unit conversion
-    if(primitiveType() != unitType)
-	throw CSSException(CSSException::SYNTAX_ERR);
     return ((CSSPrimitiveValueImpl *)impl)->getFloatValue( unitType );
+}
+
+double CSSPrimitiveValue::getFloatValue()
+{
+    if(!impl) return 0;
+    return ((CSSPrimitiveValueImpl *)impl)->getFloatValue();
 }
 
 void CSSPrimitiveValue::setStringValue( unsigned short stringType, const DOMString &stringValue )

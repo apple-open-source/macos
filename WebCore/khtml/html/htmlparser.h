@@ -48,7 +48,7 @@ class HTMLStackElem;
 
 namespace DOM {
     class HTMLDocumentImpl;
-    class DocumentPtr;
+    class DocumentImpl;
     class HTMLElementImpl;
     class NodeImpl;
     class HTMLFormElementImpl;
@@ -70,8 +70,8 @@ class KHTMLParser;
 class KHTMLParser
 {
 public:
-    KHTMLParser(KHTMLView *w, DOM::DocumentPtr *i, bool includesComments=false);
-    KHTMLParser(DOM::DocumentFragmentImpl *frag, DOM::DocumentPtr *doc, bool includesComments=false);
+    KHTMLParser(KHTMLView *w, DOM::DocumentImpl *i, bool includesComments=false);
+    KHTMLParser(DOM::DocumentFragmentImpl *frag, DOM::DocumentImpl *doc, bool includesComments=false);
     virtual ~KHTMLParser();
 
     /**
@@ -93,14 +93,13 @@ public:
     bool noSpaces() const { return !inBody; }
     bool selectMode() const { return inSelect; }
 
-    DOM::HTMLDocumentImpl *doc() const { return static_cast<DOM::HTMLDocumentImpl *>(document->document()); }
-    DOM::DocumentPtr *docPtr() const { return document; }
+    DOM::HTMLDocumentImpl *doc() const { return static_cast<DOM::HTMLDocumentImpl *>(document); }
 
 protected:
     void setCurrent(DOM::NodeImpl *newCurrent);
 
     KHTMLView *HTMLWidget;
-    DOM::DocumentPtr *document;
+    DOM::DocumentImpl *document;
 
     /*
      * generate an element from the token

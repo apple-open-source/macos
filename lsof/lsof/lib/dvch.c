@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dvch.c,v 1.14 2002/02/26 15:16:22 abe Exp abe $";
+static char *rcsid = "$Id: dvch.c,v 1.15 2005/08/08 19:39:42 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -934,7 +934,7 @@ read_dhdr:
 	/*
 	 * Convert inode number.
 	 */
-	    for (cp++, Devtp[i].inode = 0; *cp != ' '; cp++) {
+	    for (cp++, Devtp[i].inode = (INODETYPE)0; *cp != ' '; cp++) {
 		if (*cp < '0' || *cp > '9') {
 		    if (!Fwarn) {
 			(void) fprintf(stderr,
@@ -944,7 +944,8 @@ read_dhdr:
 		    }
 		    goto read_close;
 		}
-		Devtp[i].inode = (Devtp[i].inode * 10) + (int)(*cp - '0');
+		Devtp[i].inode = (INODETYPE)((Devtp[i].inode * 10)
+			       + (int)(*cp - '0'));
 	    }
 	/*
 	 * Get path name; allocate space for it; copy it; store the
@@ -1021,7 +1022,7 @@ read_dhdr:
 	    /*
 	     * Convert inode number.
 	     */
-		for (cp++, BDevtp[i].inode = 0; *cp != ' '; cp++) {
+		for (cp++, BDevtp[i].inode = (INODETYPE)0; *cp != ' '; cp++) {
 		    if (*cp < '0' || *cp > '9') {
 		      if (!Fwarn) {
 			(void) fprintf(stderr,
@@ -1031,7 +1032,8 @@ read_dhdr:
 		      }
 		      goto read_close;
 		    }
-		    BDevtp[i].inode = (BDevtp[i].inode * 10) + (int)(*cp - '0');
+		    BDevtp[i].inode = (INODETYPE)((BDevtp[i].inode * 10)
+				    + (int)(*cp - '0'));
 		}
 	    /*
 	     * Get path name; allocate space for it; copy it; store the

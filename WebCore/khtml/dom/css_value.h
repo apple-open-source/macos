@@ -474,7 +474,8 @@ public:
      * specified unit.
      *
      */
-    float getFloatValue ( unsigned short unitType );
+    double getFloatValue(unsigned short unitType);
+    double getFloatValue();
 
     /**
      * A method to set the string value with a specified unit. If the

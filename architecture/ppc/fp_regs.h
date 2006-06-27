@@ -38,7 +38,7 @@
 #ifndef _ARCH_PPC_FP_REGS_H_
 #define _ARCH_PPC_FP_REGS_H_
 
-#import <architecture/ppc/reg_help.h>
+#include <architecture/ppc/reg_help.h>
 
 #if !defined(__ASSEMBLER__)
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,6 +54,8 @@ protected:
         IOReturn	_correctStatus;		
 		IOUSBDevice *	_device;	// Remember containing device for clearing TTs
 		UInt8			_speed;
+		IOUSBInterface	* _interface;
+		bool			_crossEndianCompatible;
     };
     ExpansionData * _expansionData;
     
@@ -68,13 +70,16 @@ public:
 		virtual bool InitToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
 									USBDeviceAddress address, IOUSBController * controller);
 	
-    // The following method is obsolete
+    // The following 2 methods are obsolete
     //
     static IOUSBPipe *ToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
                                  USBDeviceAddress address, IOUSBController * controller);
 	
     static IOUSBPipe *ToEndpoint(const IOUSBEndpointDescriptor *endpoint,
                                  IOUSBDevice * device, IOUSBController * controller);
+	
+    static IOUSBPipe *ToEndpoint(const IOUSBEndpointDescriptor *endpoint,
+                                 IOUSBDevice * device, IOUSBController * controller, IOUSBInterface *interface);
 	
     // Controlling pipe state
     /*!

@@ -196,7 +196,7 @@ extern "C" void NSAccessibilityUnregisterUniqueIdForUIElement(id element);
     // FIXME: Do the continuation search like anchorElement does
     NodeImpl* elt = m_renderer->element();
     for ( ; elt; elt = elt->parentNode()) {
-        if (elt->getHTMLEventListener(DOM::EventImpl::KHTML_CLICK_EVENT))
+        if (elt->getHTMLEventListener(DOM::EventImpl::CLICK_EVENT))
             return static_cast<HTMLAnchorElementImpl*>(elt);
             
         if (elt->getHTMLEventListener(DOM::EventImpl::MOUSEDOWN_EVENT))
@@ -1220,7 +1220,7 @@ static CGColorRef CreateCGColorIfDifferent(NSColor *nsColor, CGColorRef existing
     // get color information assuming NSDeviceRGBColorSpace 
     NSColor *rgbColor = [nsColor colorUsingColorSpaceName:NSDeviceRGBColorSpace];
     if (rgbColor == nil) {
-	rgbColor = [NSColor blackColor];
+        rgbColor = [NSColor blackColor];
     }
     float components[4];
     [rgbColor getRed:&components[0] green:&components[1] blue:&components[2] alpha:&components[3]];
@@ -1254,7 +1254,7 @@ static void AXAttributeStringSetColor(NSMutableAttributedString *attrString, NSS
 static void AXAttributeStringSetNumber(NSMutableAttributedString *attrString, NSString *attribute, NSNumber* number, NSRange range)
 {
     if (number != nil) {
-	[attrString addAttribute:attribute value:number range:range];
+        [attrString addAttribute:attribute value:number range:range];
     } else
         [attrString removeAttribute:attribute range:range];
 }

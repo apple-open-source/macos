@@ -20,6 +20,7 @@
  */
 
 #include "scope_chain.h"
+#include "reference_list.h"
 
 #include "object.h"
 

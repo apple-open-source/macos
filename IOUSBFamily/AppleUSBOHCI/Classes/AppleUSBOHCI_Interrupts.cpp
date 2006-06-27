@@ -50,7 +50,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 	 clock_get_uptime (&timeStop);
 	 SUB_ABSOLUTETIME(&timeStop, &_filterTimeStamp); 
 	 absolutetime_to_nanoseconds(timeStop, &timeElapsed); 
-	 USBLog(5,"%s[%p]::PollInterrupts:  microsecs since filter interrupt:  %qd", getName(), this, timeElapsed / 1000);
+	 USBLog(5,"AppleUSBOHCI[%p]::PollInterrupts:  microsecs since filter interrupt:  %qd", this, timeElapsed / 1000);
 	 */
 	
     // WritebackDoneHead Interrupt
@@ -70,7 +70,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         //setPowerState(1, self);
         _remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
 		
-        USBLog(3,"%s[%p] ResumeDetected Interrupt on bus %d", getName(), this, _busNumber );
+        USBLog(3,"AppleUSBOHCI[%p] ResumeDetected Interrupt on bus %ld", this, _busNumber );
         if ( _idleSuspend )
             setPowerState(kOHCISetPowerLevelRunning, self);
     }
@@ -79,7 +79,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     //
     if (_unrecoverableErrorInterrupt & kOHCIHcInterrupt_UE)
     {
-        USBError(1,"USB Controller on bus %d received and unrecoverable error interrupt.  Attempting to recover (%d,%d,%d)", _busNumber,_onCardBus, _pcCardEjected, isInactive() );
+        USBError(1,"USB Controller on bus %ld received and unrecoverable error interrupt.  Attempting to recover (%d,%d,%d)", _busNumber,_onCardBus, _pcCardEjected, isInactive() );
         _unrecoverableErrorInterrupt = 0;
 		
         _errors.unrecoverableError++;
@@ -124,7 +124,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 					err = CreateRootHubDevice( _device, &_rootHubDevice );
 					if ( err != kIOReturnSuccess )
 					{
-						USBError(1,"%s[%p] Could not create root hub device upon wakeup (%x)!",getName(), this, err);
+						USBError(1,"AppleUSBOHCI[%p] Could not create root hub device upon wakeup (%x)!", this, err);
 					}
 					else
 					{
@@ -143,7 +143,7 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         _rootHubStatusChangeInterrupt = 0;
         _remote_wakeup_occurred = true;						//needed by ::callPlatformFunction()
 		
-        USBLog(3,"%s[%p] RootHub Status Change Interrupt on bus %d", getName(), this, _busNumber );
+        USBLog(3,"AppleUSBOHCI[%p] RootHub Status Change Interrupt on bus %ld", this, _busNumber );
 		
         UIMRootHubStatusChange( false );
         LastRootHubPortStatusChanged ( true );
@@ -468,7 +468,7 @@ AppleUSBOHCI::FilterInterrupt(int index)
 				{
 					if (!IsValidPhysicalAddress( physicalAddress & kOHCIPageMask) )
 					{
-						USBLog(1, "Bad phys addr #1 %p", physicalAddress);
+						USBLog(1, "Bad phys addr #1 0x%lx", physicalAddress);
 						pHCDoneTD = NULL;
 					}
 					else
@@ -557,6 +557,9 @@ AppleUSBOHCI::FilterInterrupt(int index)
 					frameCount = (USBToHostLong(pITD->pShared->flags) & kOHCIITDControl_FC) >> kOHCIITDControl_FCPhase;
 					for (i = 0; i <= frameCount; i++)
 					{
+						UInt16		frActCount;
+						UInt32		frStatus;
+						
 						// Debugging stamps
 						//
 						_framesUpdated++;
@@ -575,22 +578,39 @@ AppleUSBOHCI::FilterInterrupt(int index)
 						{
 							// If the condition code is not accessed, set the frActCount to 0 and the status accordingly
 							//
-							pFrames[pITD->frameNum + i].frActCount = 0;
-							pFrames[pITD->frameNum + i].frStatus = TranslateStatusToUSBError(kOHCIITDConditionNotAccessedReturn);
+							frActCount = 0;
+							frStatus = TranslateStatusToUSBError(kOHCIITDConditionNotAccessedReturn);
 						}
 						else
 						{
-							// Set the frStatus to the OHCI Condition code translated to the correct USB Error
-							//
-							pFrames[pITD->frameNum + i].frStatus = TranslateStatusToUSBError( (offset & kOHCIITDPSW_CC) >> kOHCIITDPSW_CCPhase);
-							
-							// Successful isoch transmit sets the size field to requested count,
+                            // Get the IOReturn code from the OHCI Condition code translated to the correct USB Error
+                            //
+                            IOReturn        tdStatus = TranslateStatusToUSBError( (offset & kOHCIITDPSW_CC) >> kOHCIITDPSW_CCPhase);
+						
+                            // Successful isoch transmit sets the size field to requested count,
 							// successful receive sets size to actual packet size received
 							//
-							if((kIOReturnSuccess == pFrames[pITD->frameNum + i].frStatus) && (pITD->pType == kOHCIIsochronousOutLowLatencyType))
-								pFrames[pITD->frameNum + i].frActCount = pFrames[pITD->frameNum + i].frReqCount;
+							if((kIOReturnSuccess == tdStatus) && (pITD->pType == kOHCIIsochronousOutLowLatencyType))
+								frActCount = pFrames[pITD->frameNum + i].frReqCount;
 							else
-								pFrames[pITD->frameNum + i].frActCount = offset & kOHCIITDPSW_Size;
+								frActCount = offset & kOHCIITDPSW_Size;
+							
+							//  Now update the frStatus, indicating that the frReqCount is valid
+                            //
+							frStatus = tdStatus;
+                                
+						}
+						// If this request originated from a Rosetta client, swap the fr* stuff
+						if ( pITD->requestFromRosettaClient )
+						{
+							pFrames[pITD->frameNum + i].frReqCount = OSSwapInt16(pFrames[pITD->frameNum + i].frReqCount);
+							pFrames[pITD->frameNum + i].frActCount = OSSwapInt16(frActCount);
+							pFrames[pITD->frameNum + i].frStatus = OSSwapInt32(frStatus);
+						}
+						else
+						{
+							pFrames[pITD->frameNum + i].frActCount = frActCount;
+							pFrames[pITD->frameNum + i].frStatus = frStatus;
 						}
 						
 					}

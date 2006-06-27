@@ -142,14 +142,75 @@ Value DOMFunction::call(ExecState *exec, Object &thisObj, const List &args)
   return val;
 }
 
-static QPtrDict<DOMObject> * staticDomObjects = 0;
-QPtrDict< QPtrDict<DOMNode> > * staticDOMNodesPerDocument = 0;
+class DOMObjectsMarker : public ObjectImp
+{
+public:
+  virtual void mark();
+  virtual void markOnMainThread();
+  virtual void markOnAlternateThread();
+};
+
+void DOMObjectsMarker::mark()
+{
+  if (!pthread_is_threaded_np() || pthread_main_np())
+    markOnMainThread();
+  else
+    markOnAlternateThread();
+}
+
+void DOMObjectsMarker::markOnMainThread()
+{
+  ObjectImp::mark();
+  
+  QPtrDictIterator<QPtrDict<DOMNode> > dictIterator(ScriptInterpreter::domNodesPerDocument());
+  for (QPtrDict<DOMNode>* nodeDict = dictIterator.current(); nodeDict; nodeDict = ++dictIterator) {
+    QPtrDictIterator<DOMNode> nodeIterator(*nodeDict);
+    for (DOMNode *node = nodeIterator.current(); node; node = ++nodeIterator) {
+      // don't mark wrappers for nodes that are no longer in the
+      // document - they should not be saved if the node is not
+      // otherwise reachable from JS.
+      DOM::NodeImpl *n = node->toNode().handle();
+      if (n && n->inDocument() && !node->marked())
+        node->mark();
+    }
+  }
+}
+
+void DOMObjectsMarker::markOnAlternateThread()
+{
+  // On alternate threads, DOMObjects remain in the cache because they're not collected.
+  // So, they need an opportunity to mark their children.
+  ObjectImp::mark();
+  
+  QPtrDictIterator<QPtrDict<DOMNode> > dictIterator(ScriptInterpreter::domNodesPerDocument());
+  for (QPtrDict<DOMNode>* nodeDict = dictIterator.current(); nodeDict; nodeDict = ++dictIterator) {
+    QPtrDictIterator<DOMNode> nodeIterator(*nodeDict);
+    for (DOMNode *node = nodeIterator.current(); node; node = ++nodeIterator)
+      if (!node->marked())
+        node->mark();
+  }
+
+  QPtrDictIterator<DOMObject> objectIterator(ScriptInterpreter::domObjects());
+  for (DOMObject *object = objectIterator.current(); object; object = ++objectIterator)
+    if (!object->marked())
+      object->mark();
+}
+
+static QPtrDict<DOMObject>* staticDomObjects = 0;
+static QPtrDict< QPtrDict<DOMNode> >* staticDOMNodesPerDocument = 0;
+static DOMObjectsMarker* staticDOMObjectsMarker = 0;
 
 QPtrDict<DOMObject> & ScriptInterpreter::domObjects()
 {
   if (!staticDomObjects) {
     staticDomObjects = new QPtrDict<DOMObject>(1021);
+    if (!staticDOMObjectsMarker) {
+      InterpreterLock lock;
+      staticDOMObjectsMarker = new DOMObjectsMarker();
+      gcProtect(staticDOMObjectsMarker);
+    }
   }
+    
   return *staticDomObjects;
 }
 
@@ -158,6 +219,11 @@ QPtrDict< QPtrDict<DOMNode> > & ScriptInterpreter::domNodesPerDocument()
   if (!staticDOMNodesPerDocument) {
     staticDOMNodesPerDocument = new QPtrDict<QPtrDict<DOMNode> >();
     staticDOMNodesPerDocument->setAutoDelete(true);
+    if (!staticDOMObjectsMarker) {
+      InterpreterLock lock;
+      staticDOMObjectsMarker = new DOMObjectsMarker();
+      gcProtect(staticDOMObjectsMarker);
+    }
   }
   return *staticDOMNodesPerDocument;
 }
@@ -186,7 +252,12 @@ void ScriptInterpreter::forgetDOMObject( void* objectHandle )
 
 DOMNode *ScriptInterpreter::getDOMNodeForDocument(DOM::DocumentImpl *document, DOM::NodeImpl *node)
 {
-  QPtrDict<DOMNode> *documentDict = (QPtrDict<DOMNode> *)domNodesPerDocument()[document];
+  // Because this function gets called from inside mark, while a thread that holds the
+  // malloc lock may be suspended, we must not call malloc. Therefore, we can't call
+  // domNodePerDocument() if it will allocate the dictionary.
+  if (!staticDOMNodesPerDocument)
+    return NULL;
+  QPtrDict<DOMNode> *documentDict = domNodesPerDocument()[document];
   if (documentDict)
     return (*documentDict)[node];
 
@@ -216,29 +287,6 @@ void ScriptInterpreter::forgetAllDOMNodesForDocument(DOM::DocumentImpl *document
   domNodesPerDocument().remove(document);
 }
 
-void ScriptInterpreter::mark()
-{
-  QPtrDictIterator<QPtrDict<DOMNode> > dictIterator(domNodesPerDocument());
-
-  QPtrDict<DOMNode> *nodeDict;
-  while ((nodeDict = dictIterator.current())) {
-    QPtrDictIterator<DOMNode> nodeIterator(*nodeDict);
-
-    DOMNode *node;
-    while ((node = nodeIterator.current())) {
-      // don't mark wrappers for nodes that are no longer in the
-      // document - they should not be saved if the node is not
-      // otherwise reachable from JS.
-      DOM::NodeImpl *n = node->toNode().handle();
-      if (n && n->inDocument() && !node->marked())
-          node->mark();
-
-      ++nodeIterator;
-    }
-    ++dictIterator;
-  }
-}
-
 void ScriptInterpreter::updateDOMNodeDocument(DOM::NodeImpl *node, DOM::DocumentImpl *oldDoc, DOM::DocumentImpl *newDoc)
 {
   DOMNode *cachedObject = getDOMNodeForDocument(oldDoc, node);
@@ -254,9 +302,8 @@ bool ScriptInterpreter::wasRunByUserGesture() const
   {
     int id = m_evt->handle()->id();
     bool eventOk = ( // mouse events
-      id == DOM::EventImpl::CLICK_EVENT || id == DOM::EventImpl::MOUSEDOWN_EVENT ||
-      id == DOM::EventImpl::MOUSEUP_EVENT || id == DOM::EventImpl::KHTML_DBLCLICK_EVENT ||
-      id == DOM::EventImpl::KHTML_CLICK_EVENT ||
+      id == DOM::EventImpl::CLICK_EVENT || id == DOM::EventImpl::DBLCLICK_EVENT || id == DOM::EventImpl::MOUSEDOWN_EVENT ||
+      id == DOM::EventImpl::MOUSEUP_EVENT ||
       // keyboard events
       id == DOM::EventImpl::KEYDOWN_EVENT || id == DOM::EventImpl::KEYPRESS_EVENT ||
       id == DOM::EventImpl::KEYUP_EVENT ||
@@ -285,9 +332,9 @@ bool ScriptInterpreter::wasRunByUserGesture() const
 bool ScriptInterpreter::isGlobalObject(const Value &v)
 {
     if (v.type() == ObjectType) {
-	Object o = v.toObject (globalExec());
-	if (o.classInfo() == &Window::info)
-	    return true;
+        Object o = v.toObject (globalExec());
+        if (o.classInfo() == &Window::info)
+            return true;
     }
     return false;
 }
@@ -310,11 +357,11 @@ void *ScriptInterpreter::createLanguageInstanceForValue (ExecState *exec, Bindin
     void *result = 0;
     
     if (language == Bindings::Instance::ObjectiveCLanguage)
-	result = createObjcInstanceForValue (exec, value, origin, current);
+        result = createObjcInstanceForValue (exec, value, origin, current);
     
     if (!result)
-	result = Interpreter::createLanguageInstanceForValue (exec, language, value, origin, current);
-	
+        result = Interpreter::createLanguageInstanceForValue (exec, language, value, origin, current);
+        
     return result;
 }
 

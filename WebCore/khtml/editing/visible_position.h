@@ -91,8 +91,6 @@ public:
     
 private:
     void init(const Position &, EInitHint, EAffinity);
-    void initUpstream(const Position &);
-    void initDownstream(const Position &);
 
     static Position deepEquivalent(const Position &);
     static Position rangeCompliantEquivalent(const Position &);

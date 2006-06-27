@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -32,6 +32,7 @@
 #include <IOKit/pci/IOPCIDevice.h>
 
 #include <IOKit/usb/IOUSBControllerV2.h>
+#include <IOKit/usb/IOUSBControllerListElement.h>
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/USBHub.h>
 
@@ -49,7 +50,7 @@
 #undef USBError
 void kprintf(const char *format, ...)
 __attribute__((format(printf, 1, 2)));
-#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 4) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 3) { kprintf( FORMAT "\n", ## ARGS ) ; }
 #define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
 #endif
 
@@ -65,9 +66,9 @@ extern "C" {
 };
 
 struct InterruptTransaction {
-    IOMemoryDescriptor *	buf;
-    UInt32 			bufLen;
-    IOUSBCompletion		completion;
+    IOMemoryDescriptor *		buf;
+    UInt32						bufLen;
+    IOUSBCompletion				completion;
 };
 #define kMaxOutstandingTrans 4
 
@@ -76,19 +77,13 @@ class AppleEHCIedMemoryBlock;
 class AppleEHCItdMemoryBlock;
 class AppleEHCIitdMemoryBlock;
 class AppleEHCIsitdMemoryBlock;
-class AppleEHCIListElement;
 class AppleEHCIQueueHead;
-class AppleEHCIIsochListElement;
 class AppleEHCIIsochTransferDescriptor;
 class AppleEHCISplitIsochTransferDescriptor;
 
 typedef struct EHCIGeneralTransferDescriptor
 EHCIGeneralTransferDescriptor,
 *EHCIGeneralTransferDescriptorPtr;
-
-typedef struct AppleEHCIIsochEndpointStruct
-AppleEHCIIsochEndpoint,
-*AppleEHCIIsochEndpointPtr;
 
 // these need to be included after the definitions above
 #include "AppleEHCIListElement.h"
@@ -102,7 +97,6 @@ struct EHCIGeneralTransferDescriptor
     UInt32									unused;
     AppleEHCIQueueHead						*pQH;					// pointer to TD's Queue Head
     UInt8									traceFlag;
-    UInt8									pType;
 	UInt8									lastTDofTransaction;
     IOPhysicalAddress						pPhysical;
     EHCIGeneralTransferDescriptorPtr		pLogicalNext;
@@ -122,8 +116,8 @@ enum{
 
 enum
 {
-    kEHCICheckForRootHubConnectionsPeriod = 30, 	// Check every x secs to see if root hub has connections
-    kEHCICheckForRootHubInactivityPeriod = 30		// Wait for x secs after the last time the root hub was active
+    kEHCICheckForRootHubConnectionsPeriod = 5,		// Check every 5 secs to see if root hub has connections
+    kEHCICheckForRootHubInactivityPeriod = 2		// Wait for 2 secs after the last time the root hub was active
 };
 
 
@@ -139,72 +133,26 @@ enum{
 };
 
 
-// this is an internal "endpoint" data sructure used to track bandwidth and other
-// issues in Isoch connections. It has no "shared" counterpart in the hardware
-struct AppleEHCIIsochEndpointStruct {
-    AppleEHCIIsochEndpointPtr			nextEP;
-    AppleEHCIIsochListElement  			*toDoList;					// ITD or SITD
-    AppleEHCIIsochListElement  			*toDoEnd;					// ITD or SITD
-    AppleEHCIIsochListElement  			*doneQueue;					// ITD or SITD
-    AppleEHCIIsochListElement  			*doneEnd;					// ITD or SITD
-    AppleEHCIIsochListElement  			*deferredQueue;				// ITD or SITD
-    AppleEHCIIsochListElement  			*deferredEnd;				// ITD or SITD
-    UInt64								firstAvailableFrame;		// next frame available for a transfer on this EP
-    UInt32								maxPacketSize;
-    UInt32								activeTDs;					// + when added to todo list, - when taken from done queue
-    UInt32								onToDoList;					// + when added to todo list, - when taken from done queue
-    UInt32								onDoneQueue;					// + when added to todo list, - when taken from done queue
-	UInt32								scheduledTDs;				// + when linked onto periodic list, - when unlinked
-	UInt32								deferredTDs;
-	UInt32								onProducerQ;
-	UInt32								onReversedList;
-    IOReturn							accumulatedStatus;
-	AppleUSBEHCIHubInfo					*hiPtr;						// pointer to the Transaction Translator (for Split EP)
-    UInt16								inSlot;						// where Isoc TDs are being put in the periodic list 
-    short								oneMPS;						// For high bandwidth
-    short								mult;						// how many oneMPS sized transactions to do
-    short								functionAddress;
-    short								endpointNumber;
-    USBDeviceAddress					highSpeedHub;
-    int									highSpeedPort;
-    UInt8								direction;
-	UInt8								interval;					// this is the processed interval value for HS endpoints
-	UInt8								bandwidthUsed[8];			// how many bytes I use on each microframe
-	UInt8								startSplitFlags;
-	UInt8								completeSplitFlags;
-	bool								useBackPtr;
-	bool								aborting;
-};
-
-
 class AppleUSBEHCI : public IOUSBControllerV2
 {
     OSDeclareDefaultStructors(AppleUSBEHCI)
 private:
-    virtual void initForPM (IOPCIDevice *provider);
-    unsigned long maxCapabilityForDomainState ( IOPMPowerFlags domainState );
-    unsigned long initialPowerStateForDomainState ( IOPMPowerFlags domainState );
-    virtual IOReturn setPowerState( unsigned long, IOService* );
-    static IOReturn 	PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service,
-                                         void *messageArgument, vm_size_t argSize);
+    virtual void		initForPM (IOPCIDevice *provider);
+    unsigned long		maxCapabilityForDomainState ( IOPMPowerFlags domainState );
+    unsigned long		initialPowerStateForDomainState ( IOPMPowerFlags domainState );
+    virtual IOReturn	setPowerState( unsigned long, IOService* );
+    static IOReturn 	PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize);
     
 	
-    void showRegisters(char *s);
-    void printTD(EHCIGeneralTransferDescriptorPtr pTD, int level);
-    void printAsyncQueue(int level);
+    void							showRegisters(char *s);
+    void							printTD(EHCIGeneralTransferDescriptorPtr pTD, int level);
+    void							printAsyncQueue(int level);
     
-    void AddIsocFramesToSchedule(AppleEHCIIsochEndpointPtr);
-    void ReturnIsocDoneQueue(AppleEHCIIsochEndpointPtr);
-    void PutTDonToDoList(AppleEHCIIsochEndpointPtr pED, AppleEHCIIsochListElement *pTD);
-    void PutTDonDoneQueue(AppleEHCIIsochEndpointPtr pED, AppleEHCIIsochListElement *pTD, bool checkDeferred);
-    void PutTDonDeferredQueue(AppleEHCIIsochEndpointPtr pED, AppleEHCIIsochListElement *pTD);
-    AppleEHCIIsochListElement *GetTDfromToDoList(AppleEHCIIsochEndpointPtr pED);
-    AppleEHCIIsochListElement *GetTDfromDoneQueue(AppleEHCIIsochEndpointPtr pED);
-    AppleEHCIIsochListElement *GetTDfromDeferredQueue(AppleEHCIIsochEndpointPtr pED);
-    IOReturn AbortIsochEP(AppleEHCIIsochEndpointPtr);
-    IOReturn DeleteIsochEP(AppleEHCIIsochEndpointPtr);
-	UInt8 LastScheduledSSMicroFrame(AppleEHCIIsochEndpointPtr pEP);
-	UInt8 FirstScheduledSSMicroFrame(AppleEHCIIsochEndpointPtr pEP);
+    void							AddIsocFramesToSchedule(AppleEHCIIsochEndpoint*);
+    IOReturn						AbortIsochEP(AppleEHCIIsochEndpoint*);
+    IOReturn						DeleteIsochEP(AppleEHCIIsochEndpoint*);
+	UInt8							LastScheduledSSMicroFrame(AppleEHCIIsochEndpoint* pEP);
+	UInt8							FirstScheduledSSMicroFrame(AppleEHCIIsochEndpoint* pEP);
     
 protected:
 	IOPCIDevice *							_device;
@@ -226,17 +174,16 @@ protected:
     AppleEHCIIsochTransferDescriptor		*_pLastFreeITD;						// last of availabble Trasfer Descriptors
     AppleEHCISplitIsochTransferDescriptor	*_pLastFreeSITD;					// last of availabble Trasfer Descriptors
     AppleEHCIQueueHead						*_pLastFreeQH;						// last of available Endpoint Descriptors
-    AppleEHCIIsochEndpointPtr				_isochEPList;						// linked list of active Isoch "endpoints"
-    AppleEHCIIsochEndpointPtr				_freeIsochEPList;					// linked list of freed Isoch EP data structures
     IOPhysicalAddress						*_periodicList;						// Physical interrrupt heads
-    AppleEHCIListElement					**_logicalPeriodicList;				// logical interrupt heads
+    IOUSBControllerListElement				**_logicalPeriodicList;				// logical interrupt heads
     UInt16									_periodicBandwidth[kEHCIMaxPoll];	// bandwidth remaining per frame
     AppleUSBEHCIHubInfo						*_hsHubs;							// high speed hubs
     IOFilterInterruptEventSource *			_filterInterruptSource;
     UInt32									_filterInterruptCount;
     UInt8									_ehciBusState;
+	UInt8									_istKeepAwayFrames;					// the isochronous schedule threshold keepaway
     IOLock *								_intLock;
-    volatile AppleEHCIIsochListElement *	_savedDoneQueueHead;				// saved by the Filter Interrupt routine
+    volatile IOUSBControllerIsochListElement *_savedDoneQueueHead;				// saved by the Filter Interrupt routine
     volatile UInt32							_producerCount;						// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
     volatile UInt32							_consumerCount;						// Counter used to synchronize reading of the done queue between filter (producer) and action (consumer)
     volatile bool							_filterInterruptActive;				// in the filter interrupt routine
@@ -247,6 +194,7 @@ protected:
     UInt32									_portChangeInterrupt;
     UInt32									_errorInterrupt;
     UInt32									_completeInterrupt;
+	UInt32									_controlBulkTransactionsOut;
     const OSSymbol							*usb_remote_wakeup;
     bool									_unloadUIMAcrossSleep;
     bool									_onCardBus;
@@ -259,8 +207,9 @@ protected:
     bool									_ehciAvailable;
 	bool									_is64bit;
 	bool									_inAbortIsochEP;
+	bool									_wakingFromHibernation;
     UInt32									_isochBandwidthAvail;					// amount of available bandwidth for Isochronous transfers
-    UInt32									_periodicEDsInSchedule;
+    UInt32									_periodicEDsInSchedule;					// interrupt endpoints
     UInt64									_frameNumber;							// the current frame number
     UInt16									_rootHubFuncAddress;					// Function Address for the root hub
     struct InterruptTransaction				_outstandingTrans[kMaxOutstandingTrans];
@@ -282,20 +231,20 @@ protected:
     UInt32									_savedUSBCMD;							// to save during suspend/resume
     UInt32									_savedPeriodicListBase;					// to save during sleep/wake on PC[I] Cards
     UInt32									_savedAsyncListAddr;					// to save during sleep/wake on PC[I] Cards
+	UInt32									_savedSuspendedPortBitmap;				// to save the ports that were suspended prior to sleep
     UInt16									_outSlot;
 	
     AbsoluteTime							_lastCheckedTime;						// Last time we checked the Root Hub for inactivity
-    thread_call_t							_processDoneQueueThread;
 	UInt32									_rhPrevStatus[kMaxPorts];				// Previous status of the root hub SC registers
 	UInt32									_rhChangeBits[kMaxPorts];				// Change bits of the root hub
     IONotifier *                            _powerDownNotifier;
 	bool									_needToCreateRootHub;					// True if we need to create the root hub post wake
+	bool									_gangedOvercurrent;						// True if our root hubs reports overcurrent on all ports
 	
     // methods
     
     static void 				InterruptHandler(OSObject *owner, IOInterruptEventSource * source, int count);
     static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
-    static void 				ProcessDoneQueueEntry(OSObject *target, thread_call_param_t endpointPtr);
 	
     bool						FilterInterrupt(int index);
 	
@@ -343,13 +292,11 @@ protected:
 											  short 					functionNumber,
 											  short					endpointNumber,
 											  short					direction,
-											  AppleEHCIListElement			**pLEBack);
+											  IOUSBControllerListElement			**pLEBack);
     AppleEHCIQueueHead *AllocateQH(void);
     EHCIGeneralTransferDescriptorPtr AllocateTD(void);
     AppleEHCIIsochTransferDescriptor *AllocateITD(void);
     AppleEHCISplitIsochTransferDescriptor *AllocateSITD(void);
-    AppleEHCIIsochEndpointPtr AllocateIsochEP(void);
-    IOReturn DeallocateIsochEP(AppleEHCIIsochEndpointPtr pEP);
     IOReturn  allocateTDs(
 						  AppleEHCIQueueHead			*pEDQueue,
 						  IOUSBCommand*			command,
@@ -363,10 +310,10 @@ protected:
 												 AppleEHCIQueueHead   				**pEDBack,
 												 short direction);
     void scavengeCompletedTransactions(IOUSBCompletionAction safeAction);
-	IOReturn scavengeIsocTransactions(IOUSBCompletionAction safeAction);
-	IOReturn scavengeAnIsocTD(AppleEHCIIsochListElement *pTD, IOUSBCompletionAction safeAction);
+	IOReturn scavengeIsocTransactions(IOUSBCompletionAction safeAction, bool reQueueTransactions);
+	IOReturn scavengeAnIsocTD(IOUSBControllerIsochListElement *pTD, IOUSBCompletionAction safeAction);
 	
-    IOReturn scavengeAnEndpointQueue(AppleEHCIListElement *pEDQueue, IOUSBCompletionAction safeAction);
+    IOReturn scavengeAnEndpointQueue(IOUSBControllerListElement *pEDQueue, IOUSBCompletionAction safeAction);
     IOReturn EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCDoneTD, OSStatus forceErr, IOUSBCompletionAction safeAction, EHCIGeneralTransferDescriptorPtr stopAt);
     IOReturn DeallocateTD (EHCIGeneralTransferDescriptorPtr pTD);
     IOReturn DeallocateED (AppleEHCIQueueHead *pED);
@@ -393,26 +340,25 @@ protected:
 	
     IOReturn			AcquireOSOwnership(void);
 
-    AppleEHCIIsochEndpointPtr	FindIsochronousEndpoint(short functionNumber, short endpointNumber, short direction, AppleEHCIIsochEndpointPtr *pEDBack);
-    AppleEHCIIsochEndpointPtr	CreateIsochronousEndpoint(short functionNumber, short endpointNumber, short direction, USBDeviceAddress highSpeedHub, int highSpeedPort);
-	
-    IOReturn 		CreateHSIsochTransfer(	AppleEHCIIsochEndpointPtr	pEP,
-											IOUSBIsocCompletion			completion,
-											UInt64						frameNumberStart,
-											IOMemoryDescriptor			*pBuffer,
-											UInt32						frameCount,
-											IOUSBLowLatencyIsocFrame	*pFrames,
-											UInt32						updateFrequency = 0,
-											Boolean						lowLatency = false);
+    IOReturn 		CreateHSIsochTransfer(	AppleEHCIIsochEndpoint				*pEP,
+											IOUSBIsocCompletion					completion,
+											UInt64								frameNumberStart,
+											IOMemoryDescriptor					*pBuffer,
+											UInt32								frameCount,
+											IOUSBLowLatencyIsocFrame			*pFrames,
+											UInt32								updateFrequency = 0,
+											bool								lowLatency = false,
+											bool								requestFromRosettaClient = false);
 
-    IOReturn 		CreateSplitIsochTransfer(AppleEHCIIsochEndpointPtr	pEP,
-											 IOUSBIsocCompletion		completion,
-											 UInt64						frameNumberStart,
-											 IOMemoryDescriptor 		*pBuffer,
-											 UInt32						frameCount,
-											 IOUSBIsocFrame				*pFrames,				// could be IOUSBLowLatencyIsocFrame*
-											 UInt32						updateFrequency = 0,
-											 bool						lowLatency = false);
+    IOReturn 		CreateSplitIsochTransfer(AppleEHCIIsochEndpoint				*pEP,
+											 IOUSBIsocCompletion				completion,
+											 UInt64								frameNumberStart,
+											 IOMemoryDescriptor					*pBuffer,
+											 UInt32								frameCount,
+											 IOUSBIsocFrame						*pFrames,				// could be IOUSBLowLatencyIsocFrame*
+											 UInt32								updateFrequency = 0,
+											 bool								lowLatency = false,
+											 bool								requestFromRosettaClient = false);
 	
 	void  ReturnOneTransaction(EHCIGeneralTransferDescriptor 	*transaction,
 							   AppleEHCIQueueHead				*pED,
@@ -648,11 +594,16 @@ public:
     virtual IOReturn		DisablePeriodicSchedule(void);
 	
     void 			CheckEDListForTimeouts(AppleEHCIQueueHead *head);
-    bool			RootHubAreAllPortsDisconnected( void );
+    bool			RootHubAreAllPortsDisconnectedOrSuspended( void );
     void			GetNumberOfPorts(UInt8 *numPorts);
 	
+	virtual IOUSBControllerIsochEndpoint*			AllocateIsochEP();
+    virtual void									ReturnIsochDoneQueue(IOUSBControllerIsochEndpoint*);
 	
+
 };
+
+
 // Constants that define the different power states in the setPowerState call
 enum
 {

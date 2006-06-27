@@ -27,6 +27,7 @@
 #include "certGroupUtils.h"
 #include "tpCrlVerify.h"
 #include "tpPolicies.h"
+#include "tpTime.h"
 #include <Security/cssmapi.h>
 #include <Security/x509defs.h>
 #include <Security/oidscert.h>
@@ -214,7 +215,7 @@ CSSM_RETURN TPCrlInfo::parseExtensions(
 				/* verify onlyCACerts/onlyUserCerts */
 				bool isUserCert;
 				if(forCert->isLeaf() &&
-					!(vfyCtx.actionFlags && CSSM_TP_ACTION_LEAF_IS_CA)) {
+					!(vfyCtx.actionFlags & CSSM_TP_ACTION_LEAF_IS_CA)) {
 						isUserCert = true;
 				}
 				else {
@@ -247,7 +248,7 @@ CSSM_RETURN TPCrlInfo::parseExtensions(
  */
 CSSM_RETURN TPCrlInfo::verifyWithContext(
 	TPVerifyContext			&tpVerifyContext,
-	TPCertInfo				*forCert,		// optional
+	TPCertInfo				*forCert,		// optional 
 	bool					doCrlVerify)	
 {
 	/*
@@ -428,6 +429,23 @@ CSSM_RETURN TPCrlInfo::verifyWithContext(
 }
 
 /*
+ * Wrapper for verifyWithContext for use when evaluating a CRL
+ * "now" instead of at the time in TPVerifyContext.verifyTime.
+ * In this case, on entry, TPVerifyContext.verifyTime is the 
+ * time at which a cert is being evaluated.
+ */
+CSSM_RETURN TPCrlInfo::verifyWithContextNow(
+	TPVerifyContext		&tpVerifyContext,
+	TPCertInfo			*forCert,			// optional
+	bool				doCrlVerify)
+{
+	CSSM_TIMESTRING ctxTime = tpVerifyContext.verifyTime;
+	CSSM_RETURN crtn = verifyWithContext(tpVerifyContext, forCert, doCrlVerify);
+	tpVerifyContext.verifyTime = ctxTime;
+	return crtn;
+}
+
+/*
  * Do I have the same issuer as the specified subject cert? Returns 
  * true if so.
  */
@@ -444,8 +462,8 @@ bool TPCrlInfo::hasSameIssuer(
 }
 
 /*
- * Determine if specified cert has been revoked. Assumes that 
- * the current CRL has been fully verified.
+ * Determine if specified cert has been revoked as of the
+ * provided time; a NULL timestring indicates "now". 
  *
  * Assumes current CRL is verified good and that issuer names of 
  * the cert and CRL match.
@@ -462,7 +480,8 @@ bool TPCrlInfo::hasSameIssuer(
  * Error status is added to subjectCert. 
  */
 CSSM_RETURN TPCrlInfo::isCertRevoked(
-	TPCertInfo &subjectCert)
+	TPCertInfo &subjectCert,
+	CSSM_TIMESTRING verifyTime)
 {
 	assert(mVerifyState == CVS_Good);
 	CSSM_X509_TBS_CERTLIST_PTR tbs = &mX509Crl->tbsCertList;
@@ -490,18 +509,43 @@ CSSM_RETURN TPCrlInfo::isCertRevoked(
 	CSSM_X509_REVOKED_CERT_ENTRY_PTR entries = 
 		tbs->revokedCertificates->revokedCertEntry;
 	crtn = CSSM_OK;
+	CFDateRef cfRevokedTime = NULL;
+	CFDateRef cfVerifyTime = NULL;
+
 	for(uint32 dex=0; dex<numEntries; dex++) {
 		CSSM_X509_REVOKED_CERT_ENTRY_PTR entry = &entries[dex];
 		if(tpCompareCssmData(subjSerial, &entry->certificateSerialNumber)) {
 			/* 
-			 * It's in there.
-			 * FIXME: we're assuming that we don't have to compare
-			 * the "current verification time" (the verifyTime argument
-			 * to both our and the TPCertInfo's constructor) to this
-			 * entry's revocationDate. That would imply that a CRL could
-			 * contain a future revocation, and I don't think that
-			 * X509//RFC2459 intends this.
+			 * It's in there. Compare revocation time in the CRL to 
+			 * our caller-specified verifyTime.
 			 */
+			CSSM_X509_TIME_PTR xTime = &entry->revocationDate;
+			int rtn;
+			rtn = timeStringToCfDate((char *)xTime->time.Data, xTime->time.Length, 
+				&cfRevokedTime);
+			if(rtn) {
+				tpErrorLog("fetchNotBeforeAfter: malformed revocationDate\n");
+			}
+			else {
+				if(verifyTime != NULL) {
+					rtn = timeStringToCfDate((char *)verifyTime, strlen(verifyTime), 
+											 &cfVerifyTime);
+				}
+				else {
+					/* verify right now */
+					cfVerifyTime = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
+				}
+				if((rtn == 0) && cfVerifyTime != NULL) {
+					CFComparisonResult res = CFDateCompare(cfVerifyTime, cfRevokedTime, NULL);
+					if(res == kCFCompareLessThan) {
+						/* cfVerifyTime < cfRevokedTime; I guess this one's OK */
+						tpCrlDebug("   isCertRevoked: cert %u NOT YET REVOKED by CRL %u", 
+								   subjectCert.index(), index());
+						break;
+					}
+				}
+			}
+
 			/*
 			 * REQUIRED TBD: parse the entry's extensions, specifically to 
 			 * get a reason. This will entail a bunch of new TP/cert specific
@@ -518,6 +562,12 @@ CSSM_RETURN TPCrlInfo::isCertRevoked(
 	subjectCert.freeField(&CSSMOID_X509V1SerialNumber, subjSerial);
 	if(crtn) {
 		subjectCert.addStatusCode(crtn);
+	}
+	if(cfRevokedTime) {
+		CFRelease(cfRevokedTime);
+	}
+	if(cfVerifyTime) {
+		CFRelease(cfVerifyTime);
 	}
 	return crtn;
 }

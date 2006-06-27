@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -179,6 +179,7 @@ protected:
         bool				_useTimeStamp;
         AbsoluteTime		_timeStamp;
 		bool				_isSyncTransfer;								// Returns true if the command is used for a synchronous transfer
+		bool				_rosettaClient;
     };
     ExpansionData * 		_expansionData;
 
@@ -205,6 +206,7 @@ public:
     void					SetUseTimeStamp(bool useIt)						{ _expansionData->_useTimeStamp= useIt; }
     void					SetTimeStamp(AbsoluteTime timeStamp)			{ _expansionData->_timeStamp= timeStamp; }
  	void					SetIsSyncTransfer(bool isSync)					{ _expansionData->_isSyncTransfer = isSync; }
+ 	void					SetRosettaClient(bool isRosetta)				{ _expansionData->_rosettaClient = isRosetta; }
    
 	// Accessors
     usbCommand				GetSelector(void)								{ return _selector; }
@@ -221,6 +223,7 @@ public:
     bool					GetUseTimeStamp(void)							{ return _expansionData->_useTimeStamp; }
     AbsoluteTime			GetTimeStamp(void)								{ return _expansionData->_timeStamp; }
 	bool					GetIsSyncTransfer(void)							{ return _expansionData->_isSyncTransfer; }
+	bool					GetIsRosettaClient(void)							{ return _expansionData->_rosettaClient; }
 };
 
 

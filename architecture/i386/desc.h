@@ -31,7 +31,10 @@
  * 29 March 1992 ? at NeXT
  *	Created.
  */
- 
+
+#ifndef _ARCH_I386_DESC_H_
+#define _ARCH_I386_DESC_H_
+
 /*
  * Code segment descriptor.
  */
@@ -96,7 +99,7 @@ typedef struct ldt_desc {
     unsigned char	base24;
 } ldt_desc_t;
 
-#import <architecture/i386/sel.h>
+#include <architecture/i386/sel.h>
 
 /*
  * Call gate descriptor.
@@ -144,3 +147,5 @@ typedef struct intr_gate {
 			present	:1,
 			offset16:16;
 } intr_gate_t;
+
+#endif	/* _ARCH_I386_DESC_H_ */

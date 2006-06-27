@@ -857,6 +857,8 @@ void KWQKHTMLPart::setStatusBarText(const QString &status)
 
 void KWQKHTMLPart::scheduleClose()
 {
+    if (!shouldClose())
+        return;
     KWQ_BLOCK_EXCEPTIONS;
     [_bridge closeWindowSoon];
     KWQ_UNBLOCK_EXCEPTIONS;
@@ -1870,17 +1872,17 @@ bool KWQKHTMLPart::shouldClose()
     if (![_bridge canRunBeforeUnloadConfirmPanel])
         return true;
 
-    SharedPtr<DocumentImpl> document = xmlDocImpl();
+    khtml::SharedPtr<DocumentImpl> document = xmlDocImpl();
     if (!document)
         return true;
     HTMLElementImpl* body = document->body();
     if (!body)
         return true;
 
-    SharedPtr<BeforeUnloadEventImpl> event = new BeforeUnloadEventImpl;
+    khtml::SharedPtr<BeforeUnloadEventImpl> event = new BeforeUnloadEventImpl;
     event->setTarget(document.get());
-    int exception = 0;
-    body->dispatchGenericEvent(event.get(), exception);
+    document->handleWindowEvent(event.get(), false);
+
     if (!event->defaultPrevented() && document)
  	document->defaultEventHandler(event.get());
     if (event->result().isNull())
@@ -2885,6 +2887,7 @@ bool KWQKHTMLPart::sendContextMenuEvent(NSEvent *event)
         mev.innerNode.handle(), true, 0, &qev, true, NodeImpl::MousePress);
     if (!swallowEvent && !isPointInsideSelection(xm, ym) &&
         ([_bridge selectWordBeforeMenuEvent] || [_bridge isEditable] || mev.innerNode.handle()->isContentEditable())) {
+        _mouseDownMayStartSelect = true; // context menu events are always allowed to perform a selection
         selectClosestWordFromMouseEvent(&qev, mev.innerNode, xm, ym);
     }
 

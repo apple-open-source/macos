@@ -58,6 +58,8 @@ __RCSID("$FreeBSD: src/bin/cp/utils.c,v 1.38 2002/07/31 16:52:16 markm Exp $");
 
 #ifdef __APPLE__
 #include <copyfile.h>
+#include <string.h>
+#include <sys/mount.h>
 #endif
 
 #include "extern.h"
@@ -130,6 +132,28 @@ copy_file(FTSENT *entp, int dne)
 	}
 
 	rval = 0;
+
+#ifdef __APPLE__
+	if (S_ISREG(fs->st_mode)) {
+		struct statfs sfs;
+
+		/*
+		 * Pre-allocate blocks for the destination file if it
+		 * resides on Xsan.
+		 */
+		if (fstatfs(to_fd, &sfs) == 0 &&
+		    strcmp(sfs.f_fstypename, "acfs") == 0) {
+			fstore_t fst;
+
+			fst.fst_flags = 0;
+			fst.fst_posmode = F_PEOFPOSMODE;
+			fst.fst_offset = 0;
+			fst.fst_length = fs->st_size;
+
+			(void) fcntl(to_fd, F_PREALLOCATE, &fst);
+		}
+	}
+#endif /* __APPLE__ */
 
 	/*
 	 * Mmap and write if less than 8M (the limit is so we don't totally

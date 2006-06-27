@@ -1840,20 +1840,14 @@ unsigned long *outlen)
 		    system_error("can't set owner and group on file: %s",
 				 output_file);
 	    }
-	    else{
-		if(chmod(file_name, mode) == -1)
-		    system_error("can't set permissions on file: %s",
-				 file_name);
-		if(chown(file_name, uid, gid) == -1)
-		    system_error("can't set owner and group on file: %s",
-				 file_name);
-	    }
 	}
 
 	free_archs(archs, narchs);
 	if(ofile != NULL)
 	    ofile_unmap(ofile);
 	cleanup();
+	if(error_message_buffer != NULL)
+	    free(error_message_buffer);
 
 	return(REDO_PREBINDING_SUCCESS); /* successful */
 

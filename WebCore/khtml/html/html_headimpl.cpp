@@ -45,7 +45,7 @@
 using namespace DOM;
 using namespace khtml;
 
-HTMLBaseElementImpl::HTMLBaseElementImpl(DocumentPtr *doc)
+HTMLBaseElementImpl::HTMLBaseElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -108,7 +108,7 @@ void HTMLBaseElementImpl::process()
 
 // -------------------------------------------------------------------------
 
-HTMLLinkElementImpl::HTMLLinkElementImpl(DocumentPtr *doc)
+HTMLLinkElementImpl::HTMLLinkElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
     m_sheet = 0;
@@ -323,7 +323,7 @@ bool HTMLLinkElementImpl::isURLAttribute(AttributeImpl *attr) const
 
 // -------------------------------------------------------------------------
 
-HTMLMetaElementImpl::HTMLMetaElementImpl(DocumentPtr *doc) : HTMLElementImpl(doc)
+HTMLMetaElementImpl::HTMLMetaElementImpl(DocumentImpl *doc) : HTMLElementImpl(doc)
 {
 }
 
@@ -371,7 +371,7 @@ void HTMLMetaElementImpl::process()
 
 // -------------------------------------------------------------------------
 
-HTMLScriptElementImpl::HTMLScriptElementImpl(DocumentPtr *doc)
+HTMLScriptElementImpl::HTMLScriptElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc), m_cachedScript(0), m_createdByParser(false)
 {
 }
@@ -457,7 +457,7 @@ bool HTMLScriptElementImpl::isURLAttribute(AttributeImpl *attr) const
 
 // -------------------------------------------------------------------------
 
-HTMLStyleElementImpl::HTMLStyleElementImpl(DocumentPtr *doc) : HTMLElementImpl(doc)
+HTMLStyleElementImpl::HTMLStyleElementImpl(DocumentImpl *doc) : HTMLElementImpl(doc)
 {
     m_sheet = 0;
     m_loading = false;
@@ -553,7 +553,7 @@ void HTMLStyleElementImpl::sheetLoaded()
 
 // -------------------------------------------------------------------------
 
-HTMLTitleElementImpl::HTMLTitleElementImpl(DocumentPtr *doc)
+HTMLTitleElementImpl::HTMLTitleElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc), m_title("")
 {
 }

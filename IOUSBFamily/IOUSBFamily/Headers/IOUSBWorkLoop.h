@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,8 +20,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-
 
 #ifndef _IOKIT_IOUSBWORKLOOP_H
 #define _IOKIT_IOUSBWORKLOOP_H

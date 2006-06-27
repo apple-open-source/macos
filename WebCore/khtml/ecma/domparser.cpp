@@ -22,6 +22,7 @@
 #include "domparser.lut.h"
 
 #include "html/html_documentimpl.h"
+#include "misc/loader.h"
 
 using DOM::DocumentImpl;
 
@@ -89,7 +90,7 @@ Value DOMParserProtoFunc::tryCall(ExecState *exec, Object &thisObj, const List &
       QString str = args[0].toString(exec).qstring();
       QString contentType = args[1].toString(exec).qstring().stripWhiteSpace();
 
-      if (contentType == "text/xml" || contentType == "application/xml" || contentType == "application/xhtml+xml") {
+      if (khtml::isXMLMIMEType(contentType)) {
         DocumentImpl *docImpl = parser->doc->implementation()->createDocument();
 
         docImpl->open();

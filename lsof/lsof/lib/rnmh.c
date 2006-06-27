@@ -38,7 +38,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rnmh.c,v 1.10 2004/03/10 23:47:18 abe Exp $";
+static char *rcsid = "$Id: rnmh.c,v 1.11 2005/08/08 19:42:23 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -446,11 +446,11 @@ ncache_load()
 		    continue;
 # else	/* !defined(NCACHE_NMLEN) */
 	    /*
-	     * If it's possible to read the first three characters of the
+	     * If it's possible to read the first four characters of the name,
 	     * do so and check for "." and "..".
 	     */
 		if (!c.NCACHE_NM
-		||  kread((KA_T)c.NCACHE_NM, nbf, 3))
+		||  kread((KA_T)c.NCACHE_NM, nbf, 4))
 		    continue;
 		if (nbf[0] == '.') {
 		    if (!nbf[1]
@@ -461,12 +461,12 @@ ncache_load()
 	    * Read the rest of the name, 32 characters at a time, until a NUL
 	    * character has been read or nbfl characters have been read.
 	    */
-		nbf[3] = '\0';
-		if ((len = (int)strlen(nbf)) < 3) {
+		nbf[4] = '\0';
+		if ((len = (int)strlen(nbf)) < 4) {
 		    if (!len)
 			continue;
 		} else {
-		    for (np = &nbf[3]; len < nbfl; np += rl) {
+		    for (np = &nbf[4]; len < nbfl; np += rl) {
 			if ((rl = nbfl - len) > 32) {
 			    rl = 32;
 			    nbf[len + rl] = '\0';
@@ -669,7 +669,7 @@ ncache_lookup(buf, blen, fp)
  * file system mount point, return an empty path reply.  That tells the
  * caller to print the file system mount point name only.
  */
-	if (Lf->inp_ty == 1 && Lf->fs_ino && Lf->inode == Lf->fs_ino)
+	if ((Lf->inp_ty == 1) && Lf->fs_ino && (Lf->inode == Lf->fs_ino))
 	    return(cp);
 # endif	/* defined(HASFSINO) */
 
@@ -695,8 +695,8 @@ ncache_lookup(buf, blen, fp)
 		if (!mtp->dir || !mtp->inode)
 		    continue;
 		if (Lf->dev == mtp->dev
-		&&  (unsigned long)mtp->inode == Lf->inode
-		&&  strcmp(mtp->dir, Lf->fsdir) == 0)
+		&&  mtp->inode == Lf->inode
+		&&  (strcmp(mtp->dir, Lf->fsdir) == 0))
 		    return(cp);
 	    }
 	    return((char *)NULL);

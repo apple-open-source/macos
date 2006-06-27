@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rdev.c,v 1.10 2002/04/19 11:57:19 abe Exp $";
+static char *rcsid = "$Id: rdev.c,v 1.11 2005/08/08 19:41:18 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -265,7 +265,7 @@ readdev(skip)
 			}
 		    }
 		    Devtp[i].rdev = RDEV_EXPDEV(sb.st_rdev);
-		    Devtp[i].inode = sb.st_ino;
+		    Devtp[i].inode = (INODETYPE)sb.st_ino;
 		    if (!(Devtp[i].name = mkstrcpy(fp, (MALLOC_S *)NULL))) {
 			(void) fprintf(stderr,
 			    "%s: no space for device name: ", Pn);
@@ -319,7 +319,7 @@ readdev(skip)
 		    }
 		    BDevtp[j].name = fp;
 		    fp = (char *)NULL;
-		    BDevtp[j].inode = sb.st_ino;
+		    BDevtp[j].inode = (INODETYPE)sb.st_ino;
 		    BDevtp[j].rdev = RDEV_EXPDEV(sb.st_rdev);
 		    BDevtp[j].v = 0;
 		    j++;

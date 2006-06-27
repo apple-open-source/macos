@@ -66,6 +66,7 @@ public:
 	void instantiateAcl();
 	void changedAcl();
     Database *relatedDatabase();
+	void validate(AclAuthorization auth, const AccessCredentials *cred, Database *relatedDatabase);
 
 public:
 	// SecurityServerAcl personality

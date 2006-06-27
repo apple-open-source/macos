@@ -1,0 +1,86 @@
+/*
+ * dstore.c -- Darwin global storage for libproc-based lsof
+ */
+
+
+/*
+ * Portions Copyright 2005 Apple Computer, Inc.  All rights reserved.
+ *
+ * Copyright 2005 Purdue Research Foundation, West Lafayette, Indiana
+ * 47907.  All rights reserved.
+ *
+ * Written by Allan Nathanson, Apple Computer, Inc., and Victor A.
+ * Abell, Purdue University.
+ *
+ * This software is not subject to any license of the American Telephone
+ * and Telegraph Company or the Regents of the University of California.
+ *
+ * Permission is granted to anyone to use this software for any purpose on
+ * any computer system, and to alter it and redistribute it freely, subject
+ * to the following restrictions:
+ *
+ * 1. Neither the authors, nor Apple Computer, Inc. nor Purdue University
+ *    are responsible for any consequences of the use of this software.
+ *
+ * 2. The origin of this software must not be misrepresented, either
+ *    by explicit claim or by omission.  Credit to the authors, Apple
+ *    Computer, Inc. and Purdue University must appear in documentation
+ *    and sources.
+ *
+ * 3. Altered versions must be plainly marked as such, and must not be
+ *    misrepresented as being the original software.
+ *
+ * 4. This notice may not be removed or altered.
+ */
+
+
+#ifndef lint
+static char copyright[] =
+"@(#) Copyright 2005 Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
+static char *rcsid = "$Id: dstore.c,v 1.5 2006/03/23 21:28:26 ajn Exp $";
+#endif
+
+
+#include "lsof.h"
+
+
+#if	defined(HASFSTRUCT)
+/*
+ * Pff_tab[] - table for printing file flags
+ */
+
+struct pff_tab Pff_tab[] = {
+	{ (long)FREAD,		FF_READ		},
+	{ (long)FWRITE,		FF_WRITE	},
+	{ (long)FNONBLOCK,	FF_NBLOCK	},
+	{ (long)FNDELAY,	FF_NDELAY	},
+	{ (long)FAPPEND,	FF_APPEND	},
+	{ (long)FASYNC,		FF_ASYNC	},
+	{ (long)FFSYNC,		FF_FSYNC	},
+	{ (long)O_NOCTTY,	FF_NOCTTY	},
+	{ (long)O_EVTONLY,	FF_EVTONLY	},
+	{ (long)0,		NULL 		}
+};
+
+
+/*
+ * Pof_tab[] - table for print process open file flags
+ */
+
+struct pff_tab Pof_tab[] = {
+
+# if	defined(UF_CLOSING)
+	{ (long)UF_CLOSING,	POF_CLOSING	},
+# endif	/* defined(UF_CLOSING) */
+
+# if	defined(UF_EXCLOSE)
+	{ (long)UF_EXCLOSE,	POF_CLOEXEC	},
+# endif	/* defined(UF_EXCLOSE) */
+
+# if	defined(UF_RESERVED)
+	{ (long)UF_RESERVED,	POF_RESERVED	},
+# endif	/* defined(UF_RESERVED) */
+
+	{ (long)0,		NULL		}
+};
+#endif	/* defined(HASFSTRUCT) */

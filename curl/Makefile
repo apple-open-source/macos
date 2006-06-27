@@ -18,7 +18,8 @@ AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = configure.diff curl-config.in.diff lib__ssluse.c.diff \
-                 libcurl-ntlmbuf.patch disable_poll.patch
+                 libcurl-ntlmbuf.patch disable_poll.patch \
+                 libcurl-urllen.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

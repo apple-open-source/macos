@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.33 2004/07/06 19:09:32 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.35 2005/08/08 19:44:35 abe Exp $";
 #endif
 
 
@@ -253,6 +253,10 @@ struct fieldsel FieldSel[] = {
 };
 
 int Hdr = 0;			/* header print status */
+char *InodeFmt_d = (char *) NULL;
+				/* INODETYPE decimal printf specification */
+char *InodeFmt_x = (char *) NULL;
+				/* INODETYPE hexadecimal printf specification */
 struct lfile *Lf = (struct lfile *)NULL;
 				/* current local file structure */
 struct lproc *Lp = (struct lproc *)NULL;
@@ -295,7 +299,11 @@ int NmColW;			/* NAME column width */
 char *Nmlst = (char *)NULL;	/* namelist file path */
 int NodeColW;			/* NODE column width */
 int Npgid = 0;			/* -g option count */
+int Npgidi = 0;			/* -g option inclusion count */
+int Npgidx = 0;			/* -g option exclusion count */
 int Npid = 0;			/* -p option count */
+int Npidi = 0;			/* -p option inclusion count */
+int Npidx = 0;			/* -p option exclusion count */
 int Npuns;			/* number of unselected PIDs (starts at Npid) */
 int Ntype;			/* node type (see N_* symbols) */
 int Nuid = 0;			/* -u option count */

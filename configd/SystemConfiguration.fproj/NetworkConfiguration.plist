@@ -23,7 +23,7 @@
 		<key>Modem</key>
 		<dict>
 			<key>ConnectionScript</key>
-			<string>Apple Internal 56K Modem (v.92)</string>
+			<string>Apple Internal 56K Modem (v.34)</string>
 			<key>DataCompression</key>
 			<integer>1</integer>
 			<key>DialMode</key>
@@ -48,6 +48,47 @@
 		<key>PPP-Bluetooth</key>
 		<dict/>
 		<key>PPP-Ethernet</key>
+		<dict>
+			<key>ACSPEnabled</key>
+			<integer>0</integer>
+			<key>CommDisplayTerminalWindow</key>
+			<integer>0</integer>
+			<key>CommRedialCount</key>
+			<integer>1</integer>
+			<key>CommRedialEnabled</key>
+			<integer>1</integer>
+			<key>CommRedialInterval</key>
+			<integer>5</integer>
+			<key>CommUseTerminalScript</key>
+			<integer>0</integer>
+			<key>DialOnDemand</key>
+			<integer>0</integer>
+			<key>DisconnectOnIdle</key>
+			<integer>0</integer>
+			<key>DisconnectOnIdleTimer</key>
+			<integer>1800</integer>
+			<key>DisconnectOnLogout</key>
+			<integer>1</integer>
+			<key>DisconnectOnSleep</key>
+			<integer>1</integer>
+			<key>IPCPCompressionVJ</key>
+			<integer>1</integer>
+			<key>IdleReminder</key>
+			<integer>0</integer>
+			<key>IdleReminderTimer</key>
+			<integer>1800</integer>
+			<key>LCPEchoEnabled</key>
+			<integer>1</integer>
+			<key>LCPEchoFailure</key>
+			<integer>4</integer>
+			<key>LCPEchoInterval</key>
+			<integer>10</integer>
+			<key>Logfile</key>
+			<string>/var/log/ppp.log</string>
+			<key>VerboseLogging</key>
+			<integer>0</integer>
+		</dict>
+		<key>PPP-IEEE80211</key>
 		<dict>
 			<key>ACSPEnabled</key>
 			<integer>0</integer>
@@ -222,7 +263,12 @@
 		<key>IEEE80211</key>
 		<dict>
 			<key>AppleTalk</key>
-			<dict/>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>Node</string>
+				<key>__INACTIVE__</key>
+				<true/>
+			</dict>
 			<key>DNS</key>
 			<dict/>
 			<key>IPv4</key>
@@ -231,7 +277,10 @@
 				<string>DHCP</string>
 			</dict>
 			<key>IPv6</key>
-			<dict/>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>Automatic</string>
+			</dict>
 			<key>Proxies</key>
 			<dict>
 				<key>FTPPassive</key>

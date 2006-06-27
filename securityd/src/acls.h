@@ -62,7 +62,7 @@ public:
 	virtual ~SecurityServerAcl();
 
     // validation calls restated
-	void validate(AclAuthorization auth, const AccessCredentials *cred, Database *relatedDatabase);
+   virtual void validate(AclAuthorization auth, const AccessCredentials *cred, Database *relatedDatabase);
 	void validate(AclAuthorization auth, const Context &context, Database *relatedDatabase);
 
 	// CSSM layer ACL calls

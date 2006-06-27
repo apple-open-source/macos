@@ -740,6 +740,7 @@ msdosfs_vfs_getattr(mount_t mp, struct vfs_attr *attr, vfs_context_t context)
 	
 	if (VFSATTR_IS_ACTIVE(attr, f_capabilities)) {
 		attr->f_capabilities.capabilities[VOL_CAPABILITIES_FORMAT] = 
+			VOL_CAP_FMT_SYMBOLICLINKS |
 			VOL_CAP_FMT_NO_ROOT_TIMES |
 			VOL_CAP_FMT_CASE_PRESERVING |
 			VOL_CAP_FMT_FAST_STATFS ;

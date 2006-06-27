@@ -58,7 +58,9 @@ static char copyright[] =
  * Darwin-specific items
  */
 
+# if	defined(LT_KMEM)
 #undef	DO_TEST
+# endif	/* defined(LT_KMEM) */
 
 #endif	/* defined(LT_DIAL_darwin) */
 
@@ -103,7 +105,6 @@ main(argc, argv)
     int ti, tj;				/* temporary indexes */
     char xlnk[32];			/* expected link count in ASCII */
     int xv = 0;				/* exit value */
-    char xbuf[64];			/* expected value buffer */
 /*
  * Get program name and PID, issue start message, and build space prefix.
  */
@@ -208,7 +209,7 @@ print_file_error:
  */
     if ((em = ConvStatDev(&tfsb.st_dev, &tfdc)))
 	PrtMsgX(em, Pn, cleanup, 1);
-    (void) snprintf(ibuf, sizeof(ibuf) - 1, "%u", tfsb.st_ino);
+    (void) snprintf(ibuf, sizeof(ibuf) - 1, "%u", (unsigned int)tfsb.st_ino);
     ibuf[sizeof(szbuf) - 1] = '\0';
     (void) snprintf(xlnk, sizeof(xlnk) - 1, "%d", tfsb.st_nlink);
     ibuf[sizeof(szbuf) - 1] = '\0';
@@ -290,6 +291,7 @@ print_file_error:
  * Exit successfully.
  */
     (void) PrtMsgX("OK", Pn, cleanup, 0);
+    return(0);
 }
 
 
@@ -331,7 +333,6 @@ FindFile(opt, ff, ie, tfdc, ibuf, xlnk, szbuf)
     LTfldo_t *inop;			/* inode number pointer */
     LTdev_t lsofdc;			/* lsof device components */
     int nf;				/* number of fields */
-    char nlkbuf[32];			/* link count buffer */
     LTfldo_t *nlkp;			/* nlink pointer */
     char *opv[4];			/* option vector for ExecLsof() */
     char *pem = (char *)NULL;		/* previous error message pointer */

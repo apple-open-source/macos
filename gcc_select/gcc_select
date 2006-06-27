@@ -29,7 +29,7 @@
 
 #######################################################################
 
-GCC_SELECT_VERSION="2.15"
+GCC_SELECT_VERSION="2.18.1"
 
 #######################################################################
 
@@ -57,6 +57,12 @@ default_dirs="include/gcc/darwin	\
 	libexec/gcc/darwin/ppc		\
 	lib/gcc/darwin"
 
+#####
+
+# <rdar://problem/4244790> gcc_select should explicitly set a PATH
+# This is good for security as well as isolating the script from
+# users mucking around with the system.
+PATH="/bin:/sbin:/usr/bin:/usr/sbin"
 
 #######################################################################
 #
@@ -212,9 +218,6 @@ WRAP_HELP
             else
                 current_cc=$switchto_cc
             fi
-        else
-            echo "Error trying to determine current cc version (got $current_cc)"
-            exit 1
         fi
     fi
 
@@ -517,7 +520,7 @@ WRAP_HELP
     done
 
     # Set up the library symlinks...
-    if [ $os_version -ge 100400 ]; then
+    if [ $os_version -ge 100400 -a $(echo "$switchto_cc" | sed 's/^3\.5$/4\.0/' | sed 's/\..*//') -ge 4 ]; then
       for lib in $symlink_libs libcc_dynamic.a ; do
 	[ -L $usr/lib/$lib ] && $dashn rm -f $usr/lib/$lib
       done

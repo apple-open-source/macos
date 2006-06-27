@@ -914,7 +914,7 @@ PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
 	kernel_header.uncompressed_size = NXSwapHostIntToBig(kernel_file_size);
 
 	strcpy(kernel_header.platform_name, platform_name);
-	strcpy(kernel_header.root_path, root_path);
+	memcpy(kernel_header.root_path, root_path, sizeof(kernel_header.root_path));
 
 	if (verbose_level > 0)
 	    verbose_log("adler32 0x%08x, compressing...", NXSwapBigIntToHost(kernel_header.adler32));

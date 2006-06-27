@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,7 +50,7 @@
 // Allow clients to define their own debug level.
 
 #if( !defined( DEBUG_LEVEL ) )
-	#define	DEBUG_LEVEL			DEBUG_LEVEL_PRODUCTION
+	#define	DEBUG_LEVEL			DEBUG_LEVEL_FINAL
 #endif
 
 // Index for user client methods
@@ -109,7 +109,7 @@ void			KernelDebugEnable( bool enable );
 //	KernelIOLog, you get the benefit of having your logs compiled out when you set the
 //	DEBUG_LEVEL to production mode and recompile. Dude. Sweet. What's mine say?
 
-void			KernelDebugLogInternal( KernelDebugLevel inLevel, UInt32 inTag, char const *inFormatString, ... );
+void			KernelDebugLogInternal( KernelDebugLevel inLevel, UInt32 inTag, char const *inFormatString, ... )  __attribute__ ((format(printf,3,4)));;
 void 			KernelDebugLogDataInternal( UInt32 inLevel,  UInt32 inTag, void *buffer, UInt32 byteCount, bool preBuffer);
 
 // Handy macros.
@@ -134,7 +134,7 @@ void 			KernelDebugLogDataInternal( UInt32 inLevel,  UInt32 inTag, void *buffer,
 // Some macros to call the debugging outputs. We'll strip out the debug logs if we are production code.
 
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-	#define	KernelDebugLog( LEVEL, ARGS... )			KernelDebugLogInternal( ( LEVEL ), 'KDbg', ## ARGS )
+#define	KernelDebugLog( LEVEL, ARGS... )			KernelDebugLogInternal( ( LEVEL ), 'KDbg', ## ARGS ) __attribute__ ((format(printf,1,2)));
 	#define	KernelDebugLogTag( LEVEL, TAG, ARGS... )		KernelDebugLogInternal( ( LEVEL ), ( TAG ),  ## ARGS )
 	#define KernelDebugLogData( LEVEL, TAG, BUFFER, SIZE, HOLD)	KernelDebugLogDataInternal( ( LEVEL ), ( TAG ), ( BUFFER ), ( SIZE ), ( HOLD ))
 #else

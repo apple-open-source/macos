@@ -64,6 +64,7 @@
 #if APPLE_CHANGES
 #include "KWQAssertions.h"
 #include "KWQLoader.h"
+#include "KWQRegExp.h"
 #endif
 
 using namespace khtml;
@@ -72,6 +73,17 @@ using namespace DOM;
 #if APPLE_CHANGES
 static bool cacheDisabled;
 #endif
+
+bool khtml::isXMLMIMEType(const QString& mimeType)
+{
+    if (mimeType == "text/xml" || mimeType == "application/xml" || mimeType == "text/xsl")
+        return true;
+    static const char* validChars = "[0-9a-zA-Z_\\-+~!$\\^{}|.%'`#&*]"; // per RFCs: 3023, 2045
+    static QRegExp xmlTypeRegExp(QString("^") + validChars + "+/" + validChars + "+\\+xml$");
+    if (xmlTypeRegExp.match(mimeType) > -1)
+        return true;
+    return false;
+}
 
 // Call this "walker" instead of iterator so people won't expect Qt or STL-style iterator interface.
 // Just keep calling next() on this. It's safe from deletions of the current item

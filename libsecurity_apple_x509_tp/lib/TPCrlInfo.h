@@ -104,7 +104,16 @@ public:
 	 */
 	CSSM_RETURN verifyWithContext(
 		TPVerifyContext		&tpVerifyContext,
-		TPCertInfo			*forCert,	// optional
+		TPCertInfo			*forCert,			// optional
+		bool				doCrlVerify = false);	
+	
+	/*
+ 	 * Wrapper for verifyWithContext for use when evaluating a CRL
+  	 * "now" instead of at the time in TPVerifyContext.verifyTime.
+	 */
+	CSSM_RETURN verifyWithContextNow(
+		TPVerifyContext		&tpVerifyContext,
+		TPCertInfo			*forCert,			// optional
 		bool				doCrlVerify = false);	
 	
 	/*
@@ -115,11 +124,13 @@ public:
 		const TPCertInfo		&subject);
 		
 	/*
-	 * Determine if specified cert has been revoked. Assumes that 
-	 * the current CRL has been fully verified.
+	 * Determine if specified cert has been revoked as of the
+	 * provided time; a NULL timestring indicates "now".
+	 * Assumes that the current CRL has been fully verified.
 	 */
 	CSSM_RETURN isCertRevoked(
-		TPCertInfo 				&subjectCert);
+		TPCertInfo 				&subjectCert,
+		CSSM_TIMESTRING 		verifyTime);
 		
 	/* accessors */
 	const CSSM_X509_SIGNED_CRL *x509Crl()		{ return mX509Crl; }

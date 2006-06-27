@@ -43,26 +43,33 @@ IOReturn
 AppleUSBOpticalMouse::StartFinalProcessing()
 {
     OSNumber 		*curResPtr, *resPrefPtr;
-    UInt32 		curResInt, resPrefInt;
-    IOFixed		curRes, resPref;
+    UInt32			curResInt, resPrefInt;
+    IOFixed			curRes, resPref;
     IOReturn		err = kIOReturnSuccess;
     OSBoolean * 	boolObj;
-    
+    OSObject *		propertyObj = NULL;
+	
     USBLog(3, "%s[%p]::StartFinalProcessing", getName(), this);
 
-    boolObj = OSDynamicCast( OSBoolean, getProperty("SwitchTo800DPI") );
+    propertyObj = copyProperty("SwitchTo800DPI");
+    boolObj = OSDynamicCast( OSBoolean, propertyObj );
     if ( boolObj && boolObj->isTrue() )
     {
        // USBLog(3, "%s[%p]::StartFinalProcessing - found switchTo800DPI resolution property", getName(), this);
         _switchTo800dpiFlag = true;
     }
+	if (propertyObj)
+		propertyObj->release();
 
-    boolObj = OSDynamicCast( OSBoolean, getProperty("SwitchTo2000FPS") );
+    propertyObj = copyProperty("SwitchTo2000FPS");
+    boolObj = OSDynamicCast( OSBoolean, propertyObj );
     if ( boolObj && boolObj->isTrue() )
     {
        // USBLog(3, "%s[%p]::StartFinalProcessing - found switchTo2000fps resolution property", getName(), this);
         _switchTo2000fpsFlag = true;
     }
+	if (propertyObj)
+		propertyObj->release();
 
     if ( _switchTo2000fpsFlag )
     {
@@ -139,26 +146,32 @@ AppleUSBOpticalMouse::StartFinalProcessing()
 
     if ( _switchTo800dpiFlag )
     {
-        curResPtr = (OSNumber*)getProperty(kIOHIDPointerResolutionKey);
+		propertyObj = copyProperty(kIOHIDPointerResolutionKey);
+        curResPtr = OSDynamicCast( OSNumber, propertyObj );
         if (curResPtr)
         {
             curResInt = curResPtr->unsigned32BitValue();
-            USBLog(3, "%s[%p]::StartFinalProcessing - found current resolution property - value %x", getName(), this, curResInt);
+            USBLog(3, "%s[%p]::StartFinalProcessing - found current resolution property - value 0x%lx", getName(), this, curResInt);
         }
         else
         {
             curResInt = kDefaultFixedResolution;
-            USBLog(3, "%s[%p]::StartFinalProcessing - no current property found - using default %x", getName(), this, curResInt);
+            USBLog(3, "%s[%p]::StartFinalProcessing - no current property found - using default 0x%lx", getName(), this, curResInt);
         }
-        
-        resPrefPtr = (OSNumber *)getProperty("xResolutionPref");
+		if (propertyObj)
+			propertyObj->release();
+
+		propertyObj = copyProperty(("xResolutionPref"));
+        resPrefPtr = OSDynamicCast( OSNumber, propertyObj );
         if (resPrefPtr)
             resPrefInt = resPrefPtr->unsigned32BitValue();
         else
         {
             resPrefInt = kDefaultFixedResolution * 2;
-            USBLog(3, "%s[%p]::StartFinalProcessing - no preference property found - using default %x", getName(), this, resPrefInt);
+            USBLog(3, "%s[%p]::StartFinalProcessing - no preference property found - using default 0x%lx", getName(), this, resPrefInt);
         }
+		if (propertyObj)
+			propertyObj->release();
     
         resPref = (IOFixed) resPrefInt;
         curRes = (IOFixed) curResInt;

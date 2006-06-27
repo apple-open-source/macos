@@ -27,7 +27,7 @@
 
 namespace KJS {
 
-  class DOMParserConstructorImp : public ObjectImp {
+  class DOMParserConstructorImp : public DOMObject {
   public:
     DOMParserConstructorImp(ExecState *, DOM::DocumentImpl *d);
     virtual bool implementsConstruct() const;

@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rmnt.c,v 1.9 2002/06/24 19:20:15 abe Exp $";
+static char *rcsid = "$Id: rmnt.c,v 1.11 2006/03/27 22:56:06 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -160,7 +160,7 @@ readmnt()
 			if (!Fwarn)
 			    (void) fprintf(stderr,
 				"      assuming \"%.*s\" from %s\n",
-				(opte - opt), opt, MOUNTED);
+				(int)(opte - opt), opt, MOUNTED);
 		    } else
 			opt = (char *)NULL;
 		}
@@ -187,7 +187,7 @@ no_space_for_mount:
 	    mtp->next = Lmi;
 	    mtp->dev = RMNT_EXPDEV(sb.st_dev);
 	    mtp->rdev = RMNT_EXPDEV(sb.st_rdev);
-	    mtp->inode = sb.st_ino;
+	    mtp->inode = (INODETYPE)sb.st_ino;
 	    mtp->mode = sb.st_mode;
 
 # if	defined(RMNT_FSTYPE) && defined(MOUNTS_FSTYPE)

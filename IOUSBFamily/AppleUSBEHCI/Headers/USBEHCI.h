@@ -149,7 +149,9 @@ enum
 // these are for the HCCPARAMS register
 enum
 {
-	kEHCIEECPMask		= EHCIBitRange (8, 15),				// EECP offset
+	kEHCIISTMask		= EHCIBitRange(4, 7),				// Isochronous Scheduling Threshold mask
+	kEHCIISTPhase		= EHCIBitRangePhase(4, 7),			// IST shift amount
+	kEHCIEECPMask		= EHCIBitRange(8, 15),				// EECP offset
 	kEHCIEECPPhase		= EHCIBitRangePhase(8, 15),			// EECP shift amount
 	kEHCI64Bit			= kEHCIBit0							// whether we use 64 bit addressing
 };
@@ -512,12 +514,13 @@ enum
  */
 enum 
 {
-	cwCommandSERREnable		= kEHCIBit8,
+	cwCommandSERREnable			= kEHCIBit8,
 	cwCommandEnableParityError	= kEHCIBit6,
-	cwCommandEnableBusMaster	= kEHCIBit2,		/* Set this on initialization			*/
-	cwCommandEnableMemorySpace	= kEHCIBit1,		/* Respond at Base Address One if set	*/
-	cwCommandEnableIOSpace		= kEHCIBit0		/* Respond at Base Address Zero if set	*/
+	cwCommandEnableBusMaster	= kEHCIBit2,		// Set this on initialization
+	cwCommandEnableMemorySpace	= kEHCIBit1,		// Respond at Base Address One if set
+	cwCommandEnableIOSpace		= kEHCIBit0			// Respond at Base Address Zero if set
 };
+
 
 // Config space defs.
 enum
@@ -575,16 +578,10 @@ enum
 
 enum 
 {
-    kEHCIBulkTransferOutType		= 1,
-    kEHCIBulkTransferInType		= 2,
-    kEHCIControlSetupType		= 3,
-    kEHCIControlDataType		= 4,
-    kEHCIControlStatusType 		= 5,
-    kEHCIInterruptInType		= 6,
-    kEHCIInterruptOutType		= 7,
-//	kEHCIOptiLSBug			= 8,
-    kEHCIIsochronousType		= 9,
-    kEHCITDasBufferType			= 10
+    kEHCITypeBulk		= 1,
+    kEHCITypeControl	= 2,
+    kEHCITypeInterrupt	= 3,
+    kEHCITypeIsoch		= 4
 };
 
 // bits in the FRIndex register
@@ -593,7 +590,7 @@ enum
     kEHCIFRIndexMillisecondMask		= EHCIBitRange (3, 13),
     kEHCIFrameNumberIncrement		= kEHCIBit11,
     // please note: if the Frame List Size in the USBCMD register changes, this needs to change as well
-    kEHCIFRIndexRolloverBit		= kEHCIBit13,
+    kEHCIFRIndexRolloverBit			= kEHCIBit13,
     kEHCIMicroFrameNumberIncrement	= kEHCIBit14		// ok, not really in the register, but related to the above
 };
 

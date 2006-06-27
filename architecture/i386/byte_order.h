@@ -22,8 +22,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _ARCH_I386_BYTE_ORDER_H_
+#define _ARCH_I386_BYTE_ORDER_H_
+
 /*
  * Maintain source compatibility
  */
 
 #include <architecture/byte_order.h>
+
+#endif	/* _ARCH_I386_BYTE_ORDER_H_ */

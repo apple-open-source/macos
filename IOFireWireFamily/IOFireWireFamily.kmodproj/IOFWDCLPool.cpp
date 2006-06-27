@@ -221,7 +221,7 @@ IOFWDCLPool :: importUserProgram (
 		while( !error && exportCursor < exportData + exportLength )
 		{
 			NuDCLSharedData * data = (NuDCLSharedData*)exportCursor ;
-			exportCursor += sizeof( *data ) ;
+			exportCursor += ( sizeof( *data ) + 4 ) & ~(size_t)0x3 ;
 
 			IOVirtualRange		kernRanges[ data->rangeCount ] ;
 			IOVirtualAddress	kernBaseAddress = bufferMap->getVirtualAddress() ;
@@ -257,7 +257,7 @@ IOFWDCLPool :: importUserProgram (
 					case NuDCLSharedData::kSendType :
 					{
 						SendNuDCLSharedData * sendData = ( SendNuDCLSharedData * )exportCursor ;
-						exportCursor = (UInt8*)( sendData + 1 ) ;
+						exportCursor += ( sizeof( *sendData ) + 4 ) & ~(size_t)0x3 ;
 
 						if ( !appendSendDCL( NULL, data->rangeCount, kernRanges ) )
 						{
@@ -270,7 +270,7 @@ IOFWDCLPool :: importUserProgram (
 					case NuDCLSharedData::kReceiveType :
 					{
 						ReceiveNuDCLSharedData * rcvData = ( ReceiveNuDCLSharedData * )exportCursor ;
-						exportCursor = (UInt8*)( rcvData + 1 ) ;
+						exportCursor += ( sizeof( *rcvData ) + 4 ) & ~(size_t)0x3 ;
 
 						if ( !appendReceiveDCL( NULL, rcvData->headerBytes, data->rangeCount, kernRanges ) )
 						{
@@ -322,11 +322,6 @@ IOFWDCLPool :: importUserProgram (
 		}
 		
 		InfoLog("...done error=%x\n", error ) ;		
-	}
-	
-	for( unsigned index=0, count=fProgram->getCount(); index < count; ++index )
-	{
-		((IOFWDCL*)fProgram->getObject( index ))->debug() ;
 	}
 	
 	delete exportData ;

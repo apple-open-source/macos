@@ -33,21 +33,21 @@ OSDefineMetaClassAndStructors(AppleEHCItdMemoryBlock, IOBufferMemoryDescriptor);
 AppleEHCItdMemoryBlock*
 AppleEHCItdMemoryBlock::NewMemoryBlock(void)
 {
-    AppleEHCItdMemoryBlock 			*me = new AppleEHCItdMemoryBlock;
+    AppleEHCItdMemoryBlock					*me = new AppleEHCItdMemoryBlock;
     EHCIGeneralTransferDescriptorSharedPtr	sharedPtr;
-    IOByteCount					len;
-    IOPhysicalAddress				sharedPhysical;
-    UInt32					i;
+    IOByteCount								len;
+    IOPhysicalAddress						sharedPhysical;
+    UInt32									i;
     
     if (!me)
-	USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock, constructor failed!");
+		USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock, constructor failed!");
 	
     // allocate exactly one physical page
     if (me && !me->initWithOptions(kIOMemorySharingTypeMask, kEHCIPageSize, kEHCIPageSize)) 
     {
-	USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock, initWithOptions failed!");
-	me->release();
-	return NULL;
+		USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock, initWithOptions failed!");
+		me->release();
+		return NULL;
     }
     
     me->prepare();
@@ -57,8 +57,8 @@ AppleEHCItdMemoryBlock::NewMemoryBlock(void)
     
     for (i=0; i < TDsPerBlock; i++)
     {
-	me->_TDs[i].pPhysical = sharedPhysical+(i * sizeof(EHCIGeneralTransferDescriptorShared));
-	me->_TDs[i].pShared = &sharedPtr[i];
+		me->_TDs[i].pPhysical = sharedPhysical+(i * sizeof(EHCIGeneralTransferDescriptorShared));
+		me->_TDs[i].pShared = &sharedPtr[i];
     }
     
     return me;

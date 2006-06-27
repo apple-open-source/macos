@@ -28,6 +28,7 @@
 #include "html/html_documentimpl.h"
 #include "misc/loader.h"
 #include "xsl_stylesheetimpl.h"
+#include "xml_tokenizer.h"
 
 #include <kdebug.h>
 
@@ -111,12 +112,14 @@ bool XSLStyleSheetImpl::parseString(const DOMString &string, bool strict)
     // Parse in a single chunk into an xmlDocPtr
     const QChar BOM(0xFEFF);
     const unsigned char BOMHighByte = *reinterpret_cast<const unsigned char *>(&BOM);
+    setLoaderForLibXMLCallbacks(docLoader());
     m_stylesheetDoc = xmlReadMemory(reinterpret_cast<const char *>(string.unicode()),
                                     string.length() * sizeof(QChar),
                                     m_ownerDocument->URL().ascii(),
                                     BOMHighByte == 0xFF ? "UTF-16LE" : "UTF-16BE", 
                                     XML_PARSE_NOCDATA|XML_PARSE_DTDATTR|XML_PARSE_NOENT);
     loadChildSheets();
+    setLoaderForLibXMLCallbacks(0);
     return m_stylesheetDoc;
 }
 
@@ -126,11 +129,16 @@ void XSLStyleSheetImpl::loadChildSheets()
         return;
     
     xmlNodePtr stylesheetRoot = m_stylesheetDoc->children;
+    
+    // Top level children may include other things such as DTD nodes, we ignore those.
+    while (stylesheetRoot && stylesheetRoot->type != XML_ELEMENT_NODE)
+        stylesheetRoot = stylesheetRoot->next;
+    
     if (m_embedded) {
         // We have to locate (by ID) the appropriate embedded stylesheet element, so that we can walk the 
         // import/include list.
         xmlAttrPtr idNode = xmlGetID(m_stylesheetDoc, (const xmlChar*)(const char*)(href().string().utf8()));
-        if (idNode == NULL)
+        if (!idNode)
             return;
         stylesheetRoot = idNode->parent;
     } else {

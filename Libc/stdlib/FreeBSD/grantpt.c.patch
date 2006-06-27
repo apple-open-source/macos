@@ -1,5 +1,5 @@
---- grantpt.c.orig	2004-09-14 19:06:46.000000000 -0700
-+++ grantpt.c	2004-09-14 19:11:31.000000000 -0700
+--- grantpt.c.orig	2006-04-21 22:41:31.000000000 -0700
++++ grantpt.c	2006-04-21 22:43:03.000000000 -0700
 @@ -54,18 +54,16 @@
  #include <unistd.h>
  #include "un-namespace.h"
@@ -58,7 +58,97 @@
  			 minor((x).st_rdev) >= 0 &&			\
  			 minor((x).st_rdev) < PT_MAX)
  
-@@ -227,8 +246,8 @@
+@@ -100,50 +119,53 @@
+ 	serrno = errno;
+ 
+ 	if ((slave = ptsname(fildes)) != NULL) {
+-		/*
+-		 * Block SIGCHLD.
+-		 */
+-		(void)sigemptyset(&nblock);
+-		(void)sigaddset(&nblock, SIGCHLD);
+-		(void)_sigprocmask(SIG_BLOCK, &nblock, &oblock);
+-
+-		switch (pid = fork()) {
+-		case -1:
+-			break;
+-		case 0:		/* child */
++		/* 4430299: if we are root, we don't need to fork/exec */
++		if (geteuid() != 0) {
+ 			/*
+-			 * pt_chown expects the master pseudo TTY to be its
+-			 * standard input.
++			 * Block SIGCHLD.
+ 			 */
+-			(void)_dup2(fildes, STDIN_FILENO);
+-			(void)_sigprocmask(SIG_SETMASK, &oblock, NULL);
+-			execl(_PATH_PTCHOWN, _PATH_PTCHOWN, (char *)NULL);
+-			_exit(EX_UNAVAILABLE);
+-			/* NOTREACHED */
+-		default:	/* parent */
++			(void)sigemptyset(&nblock);
++			(void)sigaddset(&nblock, SIGCHLD);
++			(void)_sigprocmask(SIG_BLOCK, &nblock, &oblock);
++
++			switch (pid = fork()) {
++			case -1:
++				break;
++			case 0:		/* child */
++				/*
++				 * pt_chown expects the master pseudo TTY to be its
++				 * standard input.
++				 */
++				(void)_dup2(fildes, STDIN_FILENO);
++				(void)_sigprocmask(SIG_SETMASK, &oblock, NULL);
++				execl(_PATH_PTCHOWN, _PATH_PTCHOWN, (char *)NULL);
++				_exit(EX_UNAVAILABLE);
++				/* NOTREACHED */
++			default:	/* parent */
++				/*
++				 * Just wait for the process.  Error checking is
++				 * done below.
++				 */
++				while ((spid = _waitpid(pid, &status, 0)) == -1 &&
++				       (errno == EINTR))
++					;
++				if (spid != -1 && WIFEXITED(status) &&
++				    WEXITSTATUS(status) == EX_OK)
++					retval = 0;
++				else
++					errno = EACCES;
++				break;
++			}
++
+ 			/*
+-			 * Just wait for the process.  Error checking is
+-			 * done below.
++			 * Restore process's signal mask.
+ 			 */
+-			while ((spid = _waitpid(pid, &status, 0)) == -1 &&
+-			       (errno == EINTR))
+-				;
+-			if (spid != -1 && WIFEXITED(status) &&
+-			    WEXITSTATUS(status) == EX_OK)
+-				retval = 0;
+-			else
+-				errno = EACCES;
+-			break;
++			(void)_sigprocmask(SIG_SETMASK, &oblock, NULL);
+ 		}
+ 
+-		/*
+-		 * Restore process's signal mask.
+-		 */
+-		(void)_sigprocmask(SIG_SETMASK, &oblock, NULL);
+-
+ 		if (retval) {
+ 			/*
+-			 * pt_chown failed.  Try to manually change the
++			 * pt_chown failed (or we're root).  Try to manually change the
+ 			 * permissions for the slave.
+ 			 */
+ 			gid = (grp = getgrnam("tty")) ? grp->gr_gid : -1;
+@@ -227,8 +249,8 @@
  			errno = EINVAL;
  		else {
  			(void)sprintf(slave, _PATH_DEV PTS_PREFIX "%c%c",

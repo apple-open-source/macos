@@ -31,6 +31,7 @@
 #include <ustring.h>
 
 #include <objc_header.h>
+#include "shared_ptr.h"
 
 namespace KJS
 {
@@ -163,8 +164,6 @@ private:
 
 class ObjcFallbackObjectImp : public KJS::ObjectImp {
 public:
-    ObjcFallbackObjectImp(ObjectImp *proto);
-        
     ObjcFallbackObjectImp(ObjcInstance *i, const KJS::Identifier propertyName);
 
     const ClassInfo *classInfo() const { return &info; }
@@ -192,9 +191,13 @@ public:
     virtual bool toBoolean(ExecState *exec) const;
 
 private:
+    ObjcFallbackObjectImp(); // prevent default construction
+    ObjcFallbackObjectImp(const ObjcFallbackObjectImp& other); // prevent copying
+    ObjcFallbackObjectImp& operator=(const ObjcFallbackObjectImp& other); // ditto
+    
     static const ClassInfo info;
 
-    ObjcInstance *_instance;
+    SharedPtr<ObjcInstance> _instance;
     KJS::Identifier _item;
 };
 

@@ -46,7 +46,9 @@ namespace KJS {
    */
   class DOMObject : public ObjectImp {
   public:
-    DOMObject() : ObjectImp() {}
+    // DOMObject Destruction is not thread-safe because JS DOM objects 
+    // wrap unsafe WebCore DOM data structures
+    DOMObject() : ObjectImp(false) {}
     virtual Value get(ExecState *exec, const Identifier &propertyName) const;
     virtual Value tryGet(ExecState *exec, const Identifier &propertyName) const
       { return ObjectImp::get(exec, propertyName); }
@@ -131,8 +133,6 @@ namespace KJS {
      */
     bool wasRunByUserGesture() const;
 
-    virtual void mark();
-    
     DOM::Event *getCurrentEvent() const { return m_evt; }
 
 #if APPLE_CHANGES
@@ -148,7 +148,8 @@ namespace KJS {
 
     static QPtrDict<DOMObject> &domObjects();
     static QPtrDict<QPtrDict<DOMNode> > &domNodesPerDocument();
-
+    friend class DOMObjectsMarker;
+    
     DOM::Event *m_evt;
     bool m_inlineCode;
     bool m_timerCallback;

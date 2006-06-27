@@ -44,8 +44,8 @@
 #ifndef	_ARCH_PPC_PSEUDO_INST_H_
 #define	_ARCH_PPC_PSEUDO_INST_H_
 
-#import <architecture/ppc/reg_help.h>
-#import <architecture/ppc/asm_help.h>
+#include <architecture/ppc/reg_help.h>
+#include <architecture/ppc/asm_help.h>
 
 #ifdef	__ASSEMBLER__
 

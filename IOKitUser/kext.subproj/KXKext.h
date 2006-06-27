@@ -104,6 +104,9 @@ CFMutableArrayRef KXKextCopyIndirectDependencies(KXKextRef aKext);
 // manager.
 CFMutableArrayRef KXKextCopyAllDependents(KXKextRef aKext);
 
+// This may be NULL
+CFMutableDictionaryRef KXKextGetWarnings(KXKextRef aKext);
+
 Boolean KXKextIsLoadable(KXKextRef aKext, Boolean safeBoot);
 
 // isLoaded is the same value for all kexts of a given {id, version}.
@@ -118,8 +121,9 @@ vm_address_t KXKextGetStartAddress(KXKextRef aKext);
 Boolean KXKextGetLoadFailed(KXKextRef aKext);
 void KXKextSetLoadFailed(KXKextRef aKext, Boolean flag);
 
-void KXKextPrintDiagnostics(KXKextRef aKext,
-    FILE * stream);
+/* KXKextPrintDiagnostics() prints all errors and warnings. */
+void KXKextPrintDiagnostics(KXKextRef aKext, FILE * stream);
+void KXKextPrintWarnings(KXKextRef aKext, FILE * stream);
 
 /*******************************************************************************
 ********************************************************************************

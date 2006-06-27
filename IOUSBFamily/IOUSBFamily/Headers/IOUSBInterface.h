@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,8 +60,9 @@ protected:
     UInt8				_iInterface;
 
     struct ExpansionData {
-        IOCommandGate	*		_gate;
-        IOWorkLoop	*		_workLoop;
+        IOCommandGate		*_gate;
+        IOWorkLoop			*_workLoop;
+		bool				_needToClose;
     };
     ExpansionData * _expansionData;
 
@@ -83,6 +84,7 @@ public:
     virtual bool 	finalize(IOOptionBits options);
     virtual void 	stop(IOService *  provider);
     virtual IOReturn 	message( UInt32 type, IOService * provider,  void * argument = 0 );
+    virtual bool 	didTerminate( IOService * provider, IOOptionBits options, bool * defer );
     virtual void 	free();	
 
     /*!

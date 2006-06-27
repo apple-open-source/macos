@@ -167,9 +167,8 @@ public:
     // use with care!!!
     void setPrimitiveType(unsigned short type) { m_type = type; }
     void setFloatValue ( unsigned short unitType, double floatValue, int &exceptioncode );
-    double getFloatValue ( unsigned short/* unitType */) const {
-	return m_value.num;
-    }
+    double getFloatValue(unsigned short unitType);
+    double getFloatValue() { return m_value.num; }
 
     void setStringValue ( unsigned short stringType, const DOM::DOMString &stringValue, int &exceptioncode );
     DOM::DOMString getStringValue() const;

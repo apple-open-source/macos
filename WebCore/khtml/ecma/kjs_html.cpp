@@ -3387,7 +3387,7 @@ void KJS::HTMLSelectCollection::tryPut(ExecState *exec, const Identifier &proper
 ////////////////////// Option Object ////////////////////////
 
 OptionConstructorImp::OptionConstructorImp(ExecState *exec, const DOM::Document &d)
-    : ObjectImp(), doc(d)
+    : doc(d)
 {
   // ## isn't there some redundancy between ObjectImp::_proto and the "prototype" property ?
   //put(exec,"prototype", ...,DontEnum|DontDelete|ReadOnly);
@@ -3427,7 +3427,7 @@ Object OptionConstructorImp::construct(ExecState *exec, const List &args)
 ////////////////////// Image Object ////////////////////////
 
 ImageConstructorImp::ImageConstructorImp(ExecState *, const DOM::Document &d)
-    : ObjectImp(), doc(d)
+    : doc(d)
 {
 }
 

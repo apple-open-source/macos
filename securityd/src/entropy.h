@@ -42,7 +42,7 @@ using MachPlusPlus::MachServer;
 class EntropyManager : public MachServer::Timer, private DevRandomGenerator {
     // all the parameters you ever (should) want to change :-)
     static const int collectInterval = 600; // collect every 10 minutes
-    static const int updateInterval = 3600; // update file every hour
+    static const int updateInterval = 3600 * 6; // update file every 6 hours
     static const int timingsToCollect = 40; // how many timings?
 
 public:

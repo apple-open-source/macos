@@ -221,7 +221,7 @@ void HTMLNamedAttrMapImpl::parseClassAttribute(const DOMString& classStr)
 
 // ------------------------------------------------------------------
 
-HTMLElementImpl::HTMLElementImpl(DocumentPtr *doc)
+HTMLElementImpl::HTMLElementImpl(DocumentImpl *doc)
     : ElementImpl(doc)
 {
     m_inlineStyleDecl = 0;
@@ -442,60 +442,60 @@ void HTMLElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         break;
 // standard events
     case ATTR_ONCLICK:
-	setHTMLEventListener(EventImpl::KHTML_CLICK_EVENT,
+        setHTMLEventListener(EventImpl::CLICK_EVENT,
             getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONCONTEXTMENU:
-	setHTMLEventListener(EventImpl::CONTEXTMENU_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+        setHTMLEventListener(EventImpl::CONTEXTMENU_EVENT,
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONDBLCLICK:
-	setHTMLEventListener(EventImpl::KHTML_DBLCLICK_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+        setHTMLEventListener(EventImpl::DBLCLICK_EVENT,
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONMOUSEDOWN:
         setHTMLEventListener(EventImpl::MOUSEDOWN_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONMOUSEMOVE:
         setHTMLEventListener(EventImpl::MOUSEMOVE_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONMOUSEOUT:
         setHTMLEventListener(EventImpl::MOUSEOUT_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONMOUSEOVER:
         setHTMLEventListener(EventImpl::MOUSEOVER_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONMOUSEUP:
         setHTMLEventListener(EventImpl::MOUSEUP_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONMOUSEWHEEL:
         setHTMLEventListener(EventImpl::MOUSEWHEEL_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONFOCUS:
         setHTMLEventListener(EventImpl::DOMFOCUSIN_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONBLUR:
         setHTMLEventListener(EventImpl::DOMFOCUSOUT_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONKEYDOWN:
         setHTMLEventListener(EventImpl::KEYDOWN_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
-	break;
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
+        break;
     case ATTR_ONKEYPRESS:
         setHTMLEventListener(EventImpl::KEYPRESS_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
-	break;
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
+        break;
     case ATTR_ONKEYUP:
         setHTMLEventListener(EventImpl::KEYUP_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+            getDocument()->createHTMLEventListener(attr->value().string(), this));
         break;
     case ATTR_ONSCROLL:
         setHTMLEventListener(EventImpl::SCROLL_EVENT,
@@ -560,8 +560,8 @@ void HTMLElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
         // other misc attributes
     default:
 #ifdef UNSUPPORTED_ATTR
-	kdDebug(6030) << "UATTR: <" << this->nodeName().string() << "> ["
-		      << attr->name().string() << "]=[" << attr->value().string() << "]" << endl;
+        kdDebug(6030) << "UATTR: <" << this->nodeName().string() << "> ["
+                      << attr->name().string() << "]=[" << attr->value().string() << "]" << endl;
 #endif
         break;
     }
@@ -592,8 +592,8 @@ const AtomicStringList* HTMLElementImpl::getClassList() const
 
 static inline bool isHexDigit( const QChar &c ) {
     return ( c >= '0' && c <= '9' ) ||
-	   ( c >= 'a' && c <= 'f' ) ||
-	   ( c >= 'A' && c <= 'F' );
+           ( c >= 'a' && c <= 'f' ) ||
+           ( c >= 'A' && c <= 'F' );
 }
 
 static inline int toHex( const QChar &c ) {
@@ -693,8 +693,8 @@ void HTMLElementImpl::addHTMLColor(HTMLAttributeImpl* attr, int id, const DOMStr
         int basicLength = (color.length() + 2) / 3;
         if ( basicLength > 1 ) {
             // IE ignores colors with three digits or less
-            // 	    qDebug("trying to fix up color '%s'. basicLength=%d, length=%d",
-            // 		   color.latin1(), basicLength, color.length() );
+            //             qDebug("trying to fix up color '%s'. basicLength=%d, length=%d",
+            //                    color.latin1(), basicLength, color.length() );
             int colors[3] = { 0, 0, 0 };
             int component = 0;
             int pos = 0;
@@ -717,18 +717,18 @@ void HTMLElementImpl::addHTMLColor(HTMLAttributeImpl* attr, int id, const DOMStr
                 component++;
             }
             maxDigit = basicLength - maxDigit;
-            // 	    qDebug("color is %x %x %x, maxDigit=%d",  colors[0], colors[1], colors[2], maxDigit );
+            //             qDebug("color is %x %x %x, maxDigit=%d",  colors[0], colors[1], colors[2], maxDigit );
             
             // normalize to 00-ff. The highest filled digit counts, minimum is 2 digits
             maxDigit -= 2;
             colors[0] >>= 4*maxDigit;
             colors[1] >>= 4*maxDigit;
             colors[2] >>= 4*maxDigit;
-            // 	    qDebug("normalized color is %x %x %x",  colors[0], colors[1], colors[2] );
-            // 	assert( colors[0] < 0x100 && colors[1] < 0x100 && colors[2] < 0x100 );
+            //             qDebug("normalized color is %x %x %x",  colors[0], colors[1], colors[2] );
+            //         assert( colors[0] < 0x100 && colors[1] < 0x100 && colors[2] < 0x100 );
             
             color.sprintf("#%02x%02x%02x", colors[0], colors[1], colors[2] );
-            // 	    qDebug( "trying to add fixed color string '%s'", color.latin1() );
+            //             qDebug( "trying to add fixed color string '%s'", color.latin1() );
             if ( attr->decl()->setProperty(id, DOMString(color), false) )
                 return;
         }
@@ -795,10 +795,10 @@ DocumentFragmentImpl *HTMLElementImpl::createContextualFragment(const DOMString 
     if ( !getDocument()->isHTMLDocument() )
         return NULL;
 
-    DocumentFragmentImpl *fragment = new DocumentFragmentImpl( docPtr() );
+    DocumentFragmentImpl *fragment = new DocumentFragmentImpl( getDocument() );
     fragment->ref();
     {
-        HTMLTokenizer tok(docPtr(), fragment);
+        HTMLTokenizer tok(getDocument(), fragment);
         tok.setForceSynchronous(true);            // disable asynchronous parsing
         tok.write( html.string(), true );
         tok.finish();
@@ -815,24 +815,24 @@ DocumentFragmentImpl *HTMLElementImpl::createContextualFragment(const DOMString 
     NodeImpl *nextNode;
     for (NodeImpl *node = fragment->firstChild(); node != NULL; node = nextNode) {
         nextNode = node->nextSibling();
-	node->ref();
+        node->ref();
         if (node->id() == ID_HTML || node->id() == ID_BODY) {
-	    NodeImpl *firstChild = node->firstChild();
+            NodeImpl *firstChild = node->firstChild();
             if (firstChild != NULL) {
                 nextNode = firstChild;
             }
-	    NodeImpl *nextChild;
+            NodeImpl *nextChild;
             for (NodeImpl *child = firstChild; child != NULL; child = nextChild) {
-		nextChild = child->nextSibling();
+                nextChild = child->nextSibling();
                 child->ref();
                 node->removeChild(child, ignoredExceptionCode);
-		fragment->insertBefore(child, node, ignoredExceptionCode);
+                fragment->insertBefore(child, node, ignoredExceptionCode);
                 child->deref();
-	    }
+            }
             fragment->removeChild(node, ignoredExceptionCode);
-	} else if (node->id() == ID_HEAD) {
-	    fragment->removeChild(node, ignoredExceptionCode);
-	}
+        } else if (node->id() == ID_HEAD) {
+            fragment->removeChild(node, ignoredExceptionCode);
+        }
         // Important to do this deref after removeChild, because if the only thing
         // keeping a node around is a parent that is non-0, removeChild will not
         // delete the node. This works fine in JavaScript because there's always
@@ -853,7 +853,7 @@ bool HTMLElementImpl::setInnerHTML( const DOMString &html )
 {
     DocumentFragmentImpl *fragment = createContextualFragment( html );
     if (fragment == NULL) {
-	return false;
+        return false;
     }
 
     removeChildren();
@@ -871,7 +871,7 @@ bool HTMLElementImpl::setOuterHTML( const DOMString &html )
     DocumentFragmentImpl *fragment = parent->createContextualFragment( html );
 
     if (fragment == NULL) {
-	return false;
+        return false;
     }
     
     int ec = 0;
@@ -910,7 +910,7 @@ bool HTMLElementImpl::setInnerText( const DOMString &text )
 
     removeChildren();
 
-    TextImpl *t = new TextImpl( docPtr(), text );
+    TextImpl *t = new TextImpl( getDocument(), text );
     int ec = 0;
     appendChild( t, ec );
     if ( !ec )
@@ -942,10 +942,10 @@ bool HTMLElementImpl::setOuterText( const DOMString &text )
     NodeBaseImpl *parent = static_cast<NodeBaseImpl *>(parentNode());
 
     if (!parent) {
-	return false;
+        return false;
     }
 
-    TextImpl *t = new TextImpl( docPtr(), text );
+    TextImpl *t = new TextImpl( getDocument(), text );
     int ec = 0;
     ref();
     parent->replaceChild(t, this, ec);
@@ -957,10 +957,10 @@ bool HTMLElementImpl::setOuterText( const DOMString &text )
     // is previous node a text node? if so, merge into it
     NodeImpl *prev = t->previousSibling();
     if (prev && prev->isTextNode()) {
-	TextImpl *textPrev = static_cast<TextImpl *>(prev);
-	textPrev->appendData(t->data(), ec);
-	t->remove(ec);
-	t = textPrev;
+        TextImpl *textPrev = static_cast<TextImpl *>(prev);
+        textPrev->appendData(t->data(), ec);
+        t->remove(ec);
+        t = textPrev;
     }
 
     if ( ec )
@@ -969,9 +969,9 @@ bool HTMLElementImpl::setOuterText( const DOMString &text )
     // is next node a text node? if so, merge it in
     NodeImpl *next = t->nextSibling();
     if (next && next->isTextNode()) {
-	TextImpl *textNext = static_cast<TextImpl *>(next);
-	t->appendData(textNext->data(), ec);
-	textNext->remove(ec);
+        TextImpl *textNext = static_cast<TextImpl *>(next);
+        t->appendData(textNext->data(), ec);
+        textNext->remove(ec);
     }
 
     if ( ec )
@@ -1004,27 +1004,27 @@ void HTMLElementImpl::addHTMLAlignment(HTMLAttributeImpl* attr)
     } else if ( strcasecmp( alignment, "absbottom" ) == 0 ) {
         propvalign = CSS_VAL_BOTTOM;
     } else if ( strcasecmp( alignment, "left" ) == 0 ) {
-	propfloat = CSS_VAL_LEFT;
-	propvalign = CSS_VAL_TOP;
+        propfloat = CSS_VAL_LEFT;
+        propvalign = CSS_VAL_TOP;
     } else if ( strcasecmp( alignment, "right" ) == 0 ) {
-	propfloat = CSS_VAL_RIGHT;
-	propvalign = CSS_VAL_TOP;
+        propfloat = CSS_VAL_RIGHT;
+        propvalign = CSS_VAL_TOP;
     } else if ( strcasecmp( alignment, "top" ) == 0 ) {
-	propvalign = CSS_VAL_TOP;
+        propvalign = CSS_VAL_TOP;
     } else if ( strcasecmp( alignment, "middle" ) == 0 ) {
-	propvalign = CSS_VAL__KHTML_BASELINE_MIDDLE;
+        propvalign = CSS_VAL__KHTML_BASELINE_MIDDLE;
     } else if ( strcasecmp( alignment, "center" ) == 0 ) {
-	propvalign = CSS_VAL_MIDDLE;
+        propvalign = CSS_VAL_MIDDLE;
     } else if ( strcasecmp( alignment, "bottom" ) == 0 ) {
-	propvalign = CSS_VAL_BASELINE;
+        propvalign = CSS_VAL_BASELINE;
     } else if ( strcasecmp ( alignment, "texttop") == 0 ) {
-	propvalign = CSS_VAL_TEXT_TOP;
+        propvalign = CSS_VAL_TEXT_TOP;
     }
     
     if ( propfloat != -1 )
-	addCSSProperty( attr, CSS_PROP_FLOAT, propfloat );
+        addCSSProperty( attr, CSS_PROP_FLOAT, propfloat );
     if ( propvalign != -1 )
-	addCSSProperty( attr, CSS_PROP_VERTICAL_ALIGN, propvalign );
+        addCSSProperty( attr, CSS_PROP_VERTICAL_ALIGN, propvalign );
 }
 
 bool HTMLElementImpl::isFocusable() const
@@ -1110,7 +1110,7 @@ void HTMLElementImpl::click(bool sendMouseEvents)
     
     // always send click
     QMouseEvent clickEvent(QEvent::MouseButtonRelease, QPoint(0,0), Qt::LeftButton, 0);
-    dispatchMouseEvent(&clickEvent, EventImpl::KHTML_CLICK_EVENT, 0, true);
+    dispatchMouseEvent(&clickEvent, EventImpl::CLICK_EVENT, 0, true);
 }
 
 // accessKeyAction is used by the accessibility support code
@@ -1129,23 +1129,23 @@ void HTMLElementImpl::accessKeyAction(bool sendToAnyElement)
 DOMString HTMLElementImpl::toString() const
 {
     if (!hasChildNodes()) {
-	DOMString result = openTagStartToString();
-	result += ">";
+        DOMString result = openTagStartToString();
+        result += ">";
 
-	if (endTagRequirement(id()) == REQUIRED) {
-	    result += "</";
-	    result += tagName();
-	    result += ">";
-	}
+        if (endTagRequirement(id()) == REQUIRED) {
+            result += "</";
+            result += tagName();
+            result += ">";
+        }
 
-	return result;
+        return result;
     }
 
     return ElementImpl::toString();
 }
 
 // -------------------------------------------------------------------------
-HTMLGenericElementImpl::HTMLGenericElementImpl(DocumentPtr *doc, ushort i)
+HTMLGenericElementImpl::HTMLGenericElementImpl(DocumentImpl *doc, ushort i)
     : HTMLElementImpl(doc)
 {
     _id = i;

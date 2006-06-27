@@ -29,6 +29,18 @@ The
 program creates or updates kext caches, which are used to speed up
 kext loading operations and to prepare kexts for inclusion in such
 media as device ROM.
+It is invoked automatically as needed to rebuild the system caches,
+and can be used manually to build kext archives to be stored
+in device ROM.
+.Pp
+NOTE:
+Kernel extension installers should not use this program
+to update caches.
+Instead they should merely
+.Xr touch 1
+the /System/Library/Extensions
+directory after they have finished, which will cause the system
+to update all necessary kernel extension caches.
 .Pp
 There are three kinds of kext cache.
 The first is the mkext cache,
@@ -89,8 +101,8 @@ for the given
 stripping the binaries before inclusion.
 If multiple
 .Fl a
-options are used, a fat file will be created
-containing multiple mkext archives that are thinned
+options are used, a multi-architecture file will be created
+containing an embedded mkext archive
 for each of the specified architectures.
 .It Fl c Ar kernel_cache_filename
 The name of the kernel cache file to create. If none is specified,

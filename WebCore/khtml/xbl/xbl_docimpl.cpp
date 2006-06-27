@@ -21,7 +21,7 @@ XBLDocumentImpl::~XBLDocumentImpl()
 
 XMLHandler* XBLDocumentImpl::createTokenHandler()
 {
-    return new XBLTokenHandler(docPtr());
+    return new XBLTokenHandler(getDocument());
 }
 
 void XBLDocumentImpl::setPrototypeBinding(const DOM::DOMString& id, XBLPrototypeBinding* binding)

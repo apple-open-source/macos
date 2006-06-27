@@ -1,5 +1,5 @@
 /*
- * "$Id: http.c,v 1.28.2.1 2006/01/31 18:36:07 jlovell Exp $"
+ * "$Id: http.c,v 1.28.2.3 2006/02/27 21:19:12 jlovell Exp $"
  *
  *   HTTP routines for the Common UNIX Printing System (CUPS).
  *
@@ -2455,7 +2455,10 @@ http_setup_ssl(http_t *http)		/* I - HTTP data */
     error = (*_cupsSSLSetEnableCertVerifyProc)(conn, FALSE);
 
   if (!error)
-    error = (*_cupsSSLHandshakeProc)(conn);
+  {
+    while ((error = (*_cupsSSLHandshakeProc)(conn)) == errSSLWouldBlock)
+      usleep(1000);
+  }
 
   if (error != 0)
   {
@@ -2463,8 +2466,6 @@ http_setup_ssl(http_t *http)		/* I - HTTP data */
 
     http->error  = error;
     http->status = HTTP_ERROR;
-
-    _cups_cdsa_init();
 
     (*_cupsSSLDisposeContextProc)(conn);
 
@@ -2518,7 +2519,9 @@ http_shutdown_ssl(http_t *http)	/* I - HTTP data */
 #  elif defined(HAVE_CDSASSL)
   _cups_cdsa_init();
 
-  (*_cupsSSLCloseProc)((SSLContextRef)http->tls);
+  while ((*_cupsSSLCloseProc)((SSLContextRef)http->tls) == errSSLWouldBlock)
+    usleep(1000);
+
   (*_cupsSSLDisposeContextProc)((SSLContextRef)http->tls);
 #  endif /* HAVE_LIBSSL */
 
@@ -2559,8 +2562,13 @@ http_read_ssl(http_t *http,		/* I - HTTP data */
     result = 0;
     break;
   case errSSLWouldBlock:
-    errno = EAGAIN;
-    result = -1;
+    if (processed)
+      result = (int)processed;
+    else
+    {
+      result = -1;
+      errno = EINTR;
+    }
     break;
   default:
     errno = EPIPE;
@@ -2591,7 +2599,7 @@ http_write_ssl(http_t     *http,	/* I - HTTP data */
 #  elif defined(HAVE_CDSASSL)
   int		result;			/* Return value */
   OSStatus	error;			/* Error info */
-  size_t	processed;		/* Number of bytes processed */
+  size_t	processed = 0;		/* Number of bytes processed */
 
   _cups_cdsa_init();
 
@@ -2606,8 +2614,13 @@ http_write_ssl(http_t     *http,	/* I - HTTP data */
     result = 0;
     break;
   case errSSLWouldBlock:
-    errno = EAGAIN;
-    result = -1;
+    if (processed)
+      result = (int)processed;
+    else
+    {
+      result = -1;
+      errno = EINTR;
+    }
     break;
   default:
     errno = EPIPE;
@@ -2631,34 +2644,35 @@ CDSAReadFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
              void             *data,		/* I  - Data buffer */
 	     size_t           *dataLength)	/* IO - Number of bytes */
 {
-  OSStatus	result;
+  OSStatus	result;				/* Function return value */
   ssize_t	bytes;				/* Number of bytes read */
 
-  for (;;)
-  {
+  do
     bytes = recv((int)connection, data, *dataLength, 0);
+  while (bytes == -1 && errno == EINTR);
 
-    DEBUG_printf(("CDSAReadFunc(%d): recv %d bytes, errno %d\n", (int)connection, (int)bytes, errno));
-
-    if (bytes > 0)
-    {
-      result = (bytes == *dataLength) ? 0 : errSSLWouldBlock;
-      *dataLength = bytes;
-      return result;
-    }
-
-    if (bytes == 0)
-      return errSSLClosedAbort;
-
-    if (errno == EAGAIN)
-      return errSSLWouldBlock;
-
-    if (errno == EPIPE)
-      return errSSLClosedAbort;
-
-    if (errno != EINTR)
-      return errSSLInternal;
+  if (bytes == *dataLength)
+    result = 0;
+  else if (bytes > 0)
+  {
+    *dataLength = bytes;
+    result = errSSLWouldBlock;
   }
+  else
+  {
+    *dataLength = 0;
+  
+    if (bytes == 0)
+      result = errSSLClosedAbort;
+    else if (errno == EAGAIN)
+      result = errSSLWouldBlock;
+    else if (errno == EPIPE)
+      result = errSSLClosedAbort;
+    else
+      result = errSSLInternal;
+  }
+
+  return result;
 }
 
 
@@ -2671,31 +2685,33 @@ CDSAWriteFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
               const void       *data,		/* I  - Data buffer */
 	      size_t           *dataLength)	/* IO - Number of bytes */
 {
-  OSStatus	result;
-  ssize_t	bytes;
+  OSStatus	result;				/* Function return value */
+  ssize_t	bytes;				/* Number of bytes written */
 
-  for (;;)
-  {
+  do
     bytes = write((int)connection, data, *dataLength);
+  while (bytes == -1 && errno == EINTR);
 
-    DEBUG_printf(("CDSAWriteFunc(%d): write(%d) %d bytes, errno %d\n", (int)connection, (int)*dataLength, (int)bytes, errno));
-
-    if (bytes >= 0)
-    {
-      result = (bytes == *dataLength) ? 0 : errSSLWouldBlock;
-      *dataLength = bytes;
-      return result;
-    }
-
-    if (errno == EAGAIN)
-      return errSSLWouldBlock;
-
-    if (errno == EPIPE)
-      return errSSLClosedAbort;
-
-    if (errno != EINTR)
-      return errSSLInternal;
+  if (bytes == *dataLength)
+    result = 0;
+  else if (bytes >= 0)
+  {
+    *dataLength = bytes;
+    result = errSSLWouldBlock;
   }
+  else
+  {
+    *dataLength = 0;
+  
+    if (errno == EAGAIN)
+      result = errSSLWouldBlock;
+    else if (errno == EPIPE)
+      result = errSSLClosedAbort;
+    else
+      result = errSSLInternal;
+  }
+
+  return result;
 }
 #  endif /* HAVE_CDSASSL */
 #endif /* HAVE_SSL */
@@ -2852,5 +2868,5 @@ static void wakeupCupsd()
 #endif /* __APPLE__ */
 
 /*
- * End of "$Id: http.c,v 1.28.2.1 2006/01/31 18:36:07 jlovell Exp $".
+ * End of "$Id: http.c,v 1.28.2.3 2006/02/27 21:19:12 jlovell Exp $".
  */

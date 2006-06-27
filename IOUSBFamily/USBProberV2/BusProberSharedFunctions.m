@@ -30,7 +30,7 @@ int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID ) {
     
     err = (*deviceIntf)->GetLocationID(deviceIntf, locationID);
     if (err) {
-        NSLog(@"BusProber: GetDeviceSpeed() failed");
+        NSLog(@"USB Prober: GetDeviceSpeed() failed");
         return -1;
     }
     return 0;
@@ -41,7 +41,7 @@ int GetDeviceSpeed( IOUSBDeviceRef deviceIntf, UInt8 * speed ) {
     
     err = (*deviceIntf)->GetDeviceSpeed(deviceIntf, speed);
     if (err) {
-        NSLog(@"BusProber: GetDeviceSpeed() failed");
+        NSLog(@"USB Prober: GetDeviceSpeed() failed");
         return -1;
     }
     return 0;
@@ -52,7 +52,7 @@ int GetDeviceAddress( IOUSBDeviceRef deviceIntf, USBDeviceAddress * address ) {
     
     err = (*deviceIntf)->GetDeviceAddress(deviceIntf, address);
     if (err) {
-        NSLog(@"BusProber: GetDeviceAddress() failed");
+        NSLog(@"USB Prober: GetDeviceAddress() failed");
         return -1;
     }
     return 0;
@@ -64,18 +64,18 @@ int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend ) {
 	// First, see if we can open the IOUSBDevice.  If so, then call suspend and then close
     err = (*deviceIntf)->USBDeviceOpen(deviceIntf);
     if (err) {
-        NSLog(@"BusProber: USBDeviceOpen() failed");
-        return -1;
+        NSLog(@"USB Prober: USBDeviceOpen() failed 0x%x", err);
+        return err;
     }
     err = (*deviceIntf)->USBDeviceSuspend(deviceIntf, suspend);
     if (err) {
-        NSLog(@"BusProber: USBDeviceSuspend() failed");
-        return -1;
+        NSLog(@"USB Prober: USBDeviceSuspend() failed  0x%x", err);
+        return err;
     }
     err = (*deviceIntf)->USBDeviceClose(deviceIntf);
     if (err) {
-        NSLog(@"BusProber: USBDeviceClose() failed");
-        return -1;
+        NSLog(@"USB Prober: USBDeviceClose() failed  0x%x", err);
+        return err;
     }
     return 0;
 }
@@ -83,6 +83,7 @@ int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend ) {
 IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len) {
     IOUSBDevRequest req;
     
+	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     req.bRequest = kUSBRqGetDescriptor;
     req.wValue = (descType << 8) | descIndex;
@@ -101,6 +102,7 @@ int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, U
     if (lang == nil) // set default langID
         lang=0x0409;
     
+	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     req.bRequest = kUSBRqGetDescriptor;
     req.wValue = (kUSBStringDesc << 8) | descIndex;
@@ -121,6 +123,7 @@ int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, U
     
     // OK, now that we have the string length, make a request for the full length
     //
+	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
     req.bRequest = kUSBRqGetDescriptor;
     req.wValue = (kUSBStringDesc << 8) | descIndex;
@@ -129,6 +132,7 @@ int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, U
     req.pData = buf;
     
     verify_noerr(err = (*deviceIntf)->DeviceRequest(deviceIntf, &req));
+	if ( err ) return -1;
     
     return req.wLenDone;
 }
@@ -138,6 +142,7 @@ int GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descInde
     IOUSBDevRequest req;
     IOReturn err;
     
+	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBClass, kUSBDevice);
     req.bRequest = kUSBRqGetDescriptor;
     req.wValue = (descType << 8) | descIndex;
@@ -155,6 +160,7 @@ int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 
     IOUSBDevRequest req;
     IOReturn err;
     
+	bzero(&req, sizeof(req));
     req.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBInterface);
     req.bRequest = kUSBRqGetDescriptor;
     req.wValue = (descType << 8) | descIndex;
@@ -521,11 +527,11 @@ NSString * VendorNameFromVendorID(NSString * intValueAsString) {
         NSString *vendorListString = [NSString stringWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"USBVendors" ofType:@"txt"]];
         
         if (vendorListString == nil) { 
-            NSLog(@"Error reading USBVendors.txt from the Resources directory");
+            NSLog(@"USB Prober: Error reading USBVendors.txt from the Resources directory");
         } else {
             NSArray *vendorsAndIDs = [vendorListString componentsSeparatedByString:@"\n"];
             if (vendorsAndIDs == nil) { 
-                NSLog(@"Error parsing USBVendors.txt");
+                NSLog(@"USB Prober: Error parsing USBVendors.txt");
             } else {
                 NSEnumerator *enumerator = [vendorsAndIDs objectEnumerator];
                 NSString *vendorIDCombo;
@@ -544,6 +550,12 @@ NSString * VendorNameFromVendorID(NSString * intValueAsString) {
     vendorName = [gVendorNamesDictionary objectForKey:intValueAsString];
     
     return (vendorName != nil ? vendorName : @"unknown vendor");
+}
+
+NSString * GetUSBProductNameFromRegistry(io_registry_entry_t entry) {
+
+	return (NSString *) IORegistryEntryCreateCFProperty(	entry, CFSTR("USB Product Name"), kCFAllocatorDefault, 0);
+	
 }
 
 void FreeString(char * cstr) {

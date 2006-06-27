@@ -306,11 +306,8 @@ VisiblePosition startOfLine(const VisiblePosition &c)
     return VisiblePosition(startNode, startOffset, DOWNSTREAM);
 }
 
-VisiblePosition endOfLine(const VisiblePosition &c, EIncludeLineBreak includeLineBreak)
+VisiblePosition endOfLine(const VisiblePosition &c)
 {
-    // FIXME: Need to implement the "include line break" version.
-    assert(includeLineBreak == DoNotIncludeLineBreak);
-
     RootInlineBox *rootBox = rootBoxForLine(c);
     if (!rootBox)
         return VisiblePosition();
@@ -357,7 +354,7 @@ bool isStartOfLine(const VisiblePosition &p)
 
 bool isEndOfLine(const VisiblePosition &p)
 {
-    return p.isNotNull() && p == endOfLine(p, DoNotIncludeLineBreak);
+    return p.isNotNull() && p == endOfLine(p);
 }
 
 VisiblePosition previousLinePosition(const VisiblePosition &c, int x)
@@ -583,7 +580,7 @@ VisiblePosition startOfParagraph(const VisiblePosition &c)
     return VisiblePosition(node, offset, DOWNSTREAM);
 }
 
-VisiblePosition endOfParagraph(const VisiblePosition &c, EIncludeLineBreak includeLineBreak)
+VisiblePosition endOfParagraph(const VisiblePosition &c)
 {
     Position p = c.deepEquivalent();
 
@@ -592,7 +589,7 @@ VisiblePosition endOfParagraph(const VisiblePosition &c, EIncludeLineBreak inclu
         return VisiblePosition();
 
     NodeImpl *startBlock = startNode->enclosingBlockFlowElement();
-    NodeImpl *stayInsideBlock = includeLineBreak ? 0 : startBlock;
+    NodeImpl *stayInsideBlock = startBlock;
     
     NodeImpl *node = startNode;
     long offset = p.offset();
@@ -606,21 +603,12 @@ VisiblePosition endOfParagraph(const VisiblePosition &c, EIncludeLineBreak inclu
         RenderStyle *style = r->style();
         if (style->visibility() != VISIBLE)
             continue;
-        if (r->isBR()) {
-            if (includeLineBreak)
-                return VisiblePosition(n, 1, DOWNSTREAM);
+        if (r->isBR() || r->isBlockFlow())
             break;
-        }
-        if (r->isBlockFlow()) {
-            if (includeLineBreak)
-                return VisiblePosition(n, 0, DOWNSTREAM);
-            break;
-        }
+            
         // FIXME: We avoid returning a position where the renderer can't accept the caret.
         // We should probably do this in other cases such as startOfParagraph.
         if (r->isText() && r->caretMaxRenderedOffset() > 0) {
-            if (includeLineBreak && !n->isAncestor(startBlock))
-                return VisiblePosition(n, 0, DOWNSTREAM);
             long length = static_cast<RenderText *>(r)->length();
             if (style->whiteSpace() == PRE) {
                 QChar *text = static_cast<RenderText *>(r)->text();
@@ -629,15 +617,13 @@ VisiblePosition endOfParagraph(const VisiblePosition &c, EIncludeLineBreak inclu
                     o = offset;
                 for (long i = o; i < length; ++i)
                     if (text[i] == '\n')
-                        return VisiblePosition(n, i + includeLineBreak, DOWNSTREAM);
+                        return VisiblePosition(n, i, DOWNSTREAM);
             }
             node = n;
             offset = length;
         } else if (r->isReplaced()) {
             node = n;
             offset = 1;
-            if (includeLineBreak && !n->isAncestor(startBlock))
-                break;
         }
     }
 
@@ -656,7 +642,7 @@ bool isStartOfParagraph(const VisiblePosition &pos)
 
 bool isEndOfParagraph(const VisiblePosition &pos)
 {
-    return pos.isNotNull() && isEqualIgnoringAffinity(pos, endOfParagraph(pos, DoNotIncludeLineBreak));
+    return pos.isNotNull() && isEqualIgnoringAffinity(pos, endOfParagraph(pos));
 }
 
 VisiblePosition previousParagraphPosition(const VisiblePosition &p, int x)
@@ -697,7 +683,7 @@ VisiblePosition startOfBlock(const VisiblePosition &c)
 }
 
 // written, but not yet tested
-VisiblePosition endOfBlock(const VisiblePosition &c, EIncludeLineBreak includeLineBreak)
+VisiblePosition endOfBlock(const VisiblePosition &c)
 {
     Position p = c.deepEquivalent();
 
@@ -706,7 +692,7 @@ VisiblePosition endOfBlock(const VisiblePosition &c, EIncludeLineBreak includeLi
         return VisiblePosition();
 
     NodeImpl *startBlock = startNode->enclosingBlockFlowElement();
-    NodeImpl *stayInsideBlock = includeLineBreak ? 0 : startBlock;
+    NodeImpl *stayInsideBlock = startBlock;
     
     NodeImpl *node = startNode;
     long offset = p.offset();
@@ -718,21 +704,14 @@ VisiblePosition endOfBlock(const VisiblePosition &c, EIncludeLineBreak includeLi
         RenderStyle *style = r->style();
         if (style->visibility() != VISIBLE)
             continue;
-        if (r->isBlockFlow()) {
-            if (includeLineBreak)
-                return VisiblePosition(n, 0, DOWNSTREAM);
+        if (r->isBlockFlow())
             break;
-        }
         if (r->isText()) {
-            if (includeLineBreak && !n->isAncestor(startBlock))
-                return VisiblePosition(n, 0, DOWNSTREAM);
             node = n;
             offset = static_cast<RenderText *>(r)->length();
         } else if (r->isReplaced()) {
             node = n;
             offset = 1;
-            if (includeLineBreak && !n->isAncestor(startBlock))
-                break;
         }
     }
 
@@ -751,7 +730,7 @@ bool isStartOfBlock(const VisiblePosition &pos)
 
 bool isEndOfBlock(const VisiblePosition &pos)
 {
-    return pos.isNotNull() && isEqualIgnoringAffinity(pos, endOfBlock(pos, DoNotIncludeLineBreak));
+    return pos.isNotNull() && isEqualIgnoringAffinity(pos, endOfBlock(pos));
 }
 
 // ---------

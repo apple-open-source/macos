@@ -46,7 +46,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: fino.c,v 1.3 2000/12/04 14:04:29 abe Exp $";
+static char *rcsid = "$Id: fino.c,v 1.4 2005/08/08 19:40:02 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -92,7 +92,7 @@ find_bl_ino_again:
 		    goto find_bl_ino_again;
 # endif	/* defined(HASDCACHE) */
 
-		Lf->inode = (unsigned long)BSdev[mid]->inode;
+		Lf->inode = BSdev[mid]->inode;
 		if (Lf->inp_ty == 0)
 		    Lf->inp_ty = 1;
 		return;
@@ -138,7 +138,7 @@ find_ch_ino_again:
 		    goto find_ch_ino_again;
 # endif	/* defined(HASDCACHE) */
 
-		Lf->inode = (unsigned long)Sdev[mid]->inode;
+		Lf->inode = Sdev[mid]->inode;
 		if (Lf->inp_ty == 0)
 		    Lf->inp_ty = 1;
 		return;

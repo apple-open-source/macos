@@ -167,7 +167,7 @@ print_file_error:
     for (ti = 0; ti < TSTFSZ; ti += sizeof(buf)) {
 	if (write(Fd, buf, sizeof(buf)) != sizeof(buf)) {
 	    (void) fprintf(stderr, "ERROR!!!  can't write %d bytes to %s\n",
-		sizeof(buf), Path);
+		(int)sizeof(buf), Path);
 	     goto print_file_error;
 	}
     }
@@ -210,6 +210,7 @@ print_file_error:
 	xv = 0;
     }
     (void) PrtMsgX(tcp, Pn, cleanup, xv);
+    return(0);
 }
 
 

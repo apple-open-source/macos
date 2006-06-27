@@ -116,6 +116,7 @@ static void get_catalog_demand_lists(CFMutableSetRef * kernel_requests,
 static void usage(int level);
 
 #define kMaxArchs 64
+#define kRootPathLen 256
 
 /*******************************************************************************
 *******************************************************************************/
@@ -167,7 +168,7 @@ int main(int argc, const char * argv[])
 
     struct {
 	char platform_name[64];
-	char root_path[256];
+	char root_path[kRootPathLen];
     } platform_name_root_path;
     io_registry_entry_t entry;
     Boolean all_plists;
@@ -274,14 +275,64 @@ int main(int argc, const char * argv[])
     entry = IORegistryEntryFromPath(kIOMasterPortDefault, kIODeviceTreePlane ":/chosen");
     if (entry)
     {
-	CFTypeRef obj;
+	CFTypeRef obj = 0;
 	obj = IORegistryEntryCreateCFProperty(entry, CFSTR("rootpath"), kCFAllocatorDefault, kNilOptions);
 	if (obj && (CFGetTypeID(obj) == CFDataGetTypeID()))
 	{
 	    CFIndex len = CFDataGetLength((CFDataRef) obj);
-	    strncpy(platform_name_root_path.root_path, CFDataGetBytePtr((CFDataRef) obj), len);
+	    strncpy(platform_name_root_path.root_path, (char *)CFDataGetBytePtr((CFDataRef) obj), len);
 	    platform_name_root_path.root_path[len] = 0;
-	}
+	} else {
+            const char *data;
+            char *ptr = platform_name_root_path.root_path;
+            CFIndex len;
+            // Construct entry from UUID of boot volume and kernel name.
+            obj = 0;
+            do {
+                obj = IORegistryEntryCreateCFProperty(entry, CFSTR("boot-device-path"), kCFAllocatorDefault, kNilOptions);
+                if (!obj)
+                    break;
+
+                if (CFGetTypeID(obj) == CFDataGetTypeID()) {
+                    data = (char *)CFDataGetBytePtr((CFDataRef) obj);
+                    len = CFDataGetLength((CFDataRef) obj);
+                } else if (CFGetTypeID(obj) == CFStringGetTypeID()) {
+                    data = CFStringGetCStringPtr((CFStringRef) obj, kCFStringEncodingUTF8);
+                    if (!data)
+                        break;
+                    len = strlen(data) + 1; // include trailing null
+                } else {
+                    break;
+                }
+                if (len > kRootPathLen)
+                    len = kRootPathLen;
+                memcpy(ptr, data, len);
+                ptr += len;
+
+                CFRelease(obj);
+
+                obj = IORegistryEntryCreateCFProperty(entry, CFSTR("boot-file"), kCFAllocatorDefault, kNilOptions);
+                if (!obj)
+                    break;
+
+                if (CFGetTypeID(obj) == CFDataGetTypeID()) {
+                    data = (char *)CFDataGetBytePtr((CFDataRef) obj);
+                    len = CFDataGetLength((CFDataRef) obj);
+                } else if (CFGetTypeID(obj) == CFStringGetTypeID()) {
+                    data = CFStringGetCStringPtr((CFStringRef) obj, kCFStringEncodingUTF8);
+                    if (!data)
+                        break;
+                    len = strlen(data);
+                } else {
+                    break;
+                }
+                if ((ptr - platform_name_root_path.root_path + len) >= kRootPathLen)
+                    len = kRootPathLen - (ptr - platform_name_root_path.root_path);
+                memcpy(ptr, data, len);
+            } while (0);
+        }
+        if (obj)
+            CFRelease(obj);
 	IOObjectRelease(entry);
     }
     if (!platform_name_root_path.platform_name[0] || !platform_name_root_path.root_path[0])
@@ -934,14 +985,14 @@ domkext:
         }
         fat_offset += bytes_written;
 
+        if (checkMkextArchiveSize(bytes_written) == false) {
+                fprintf(stderr, "archive would be too large; aborting\n");
+                exit_code = 1;
+                goto finish;
+        }
+
         fatArchs[i].size = NXSwapHostLongToBig(bytes_written);
         fatArchs[i].align = NXSwapHostLongToBig(0);
-    }
-
-    if (checkMkextArchiveSize(fat_offset) == false) {
-            fprintf(stderr, "archive would be too large; aborting\n");
-            exit_code = 1;
-            goto finish;
     }
 
     if (nArchs > 1) {
@@ -1344,7 +1395,7 @@ static void addKextForMkextCache(
                 }
   
                 find_arch(NULL, &archSize, archCPU, archSubtype,
-                   machO, machOSize);
+                   (u_int8_t *)machO, machOSize);
                 if (!archSize) { // Couldn't find an architecture
                     fprintf(stderr, "%s doesn't contain code for the "
                         "architecture specified; "

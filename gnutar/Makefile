@@ -20,7 +20,7 @@ AEP_Version    = 1.14
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = src__extract.diff PR3885704.diff EA.diff
+AEP_Patches    = src__extract.diff PR3885704.diff EA.diff preallocate.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

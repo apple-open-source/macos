@@ -48,9 +48,9 @@ Token &TokenDbCommon::token() const
 	return parent<Token>();
 }
 
-string TokenDbCommon::dbName() const
+const std::string &TokenDbCommon::dbName() const
 {
-	return token().printName().c_str();
+	return token().printName();
 }
 
 
@@ -233,9 +233,11 @@ bool TokenDatabase::validateSecret(const AclSubject *subject, const AccessCreden
 		access().authenticate(CSSM_DB_ACCESS_READ, cred);
 		secdebug("tokendb", "%p remote validation successful", this);
 		return true;
-	} catch (...) {
+	}
+	catch (...) {
 		secdebug("tokendb", "%p remote validation failed", this);
-		return false;
+	//	return false;
+	throw;	// try not to mask error
 	}
 }
 
@@ -467,13 +469,16 @@ void TokenDatabase::getOutputSize(const Context &context, Key &key,
 //
 void TokenDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentials *cred)
 {
+	Access access(token());
+	TRY
+	GUARD
 	if (mode != CSSM_DB_ACCESS_RESET && cred) {
+		secdebug("tokendb", "%p authenticate calling validate", this);
 		int pin;
 		if (sscanf(cred->EntryTag, "PIN%d", &pin) == 1)
 			return validate(CSSM_ACL_AUTHORIZATION_PREAUTH(pin), cred);
 	}
 
-	Access access(token());
 	access().authenticate(mode, cred);
 	switch (mode) {
 	case CSSM_DB_ACCESS_RESET:
@@ -490,8 +495,8 @@ void TokenDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentia
 		break;
 	}
 	}
+	DONE
 }
-
 
 //
 // Data access interface.

@@ -28,12 +28,12 @@
 #define _DOM2_RangeImpl_h_
 
 #include <qptrlist.h>
+#include "DocPtr.h"
 #include "dom/dom2_range.h"
 #include "misc/shared.h"
 #include "misc/main_thread_malloc.h"
 namespace DOM {
 
-class DocumentPtr;
 class NodeImpl;
 class Position;
 
@@ -41,8 +41,8 @@ class RangeImpl : public khtml::Shared<RangeImpl>
 {
     friend class DocumentImpl;
 public:
-    RangeImpl(DocumentPtr *_ownerDocument);
-    RangeImpl(DocumentPtr *_ownerDocument,
+    RangeImpl(DocumentImpl *_ownerDocument);
+    RangeImpl(DocumentImpl *_ownerDocument,
               NodeImpl *_startContainer, long _startOffset,
               NodeImpl *_endContainer, long _endOffset);
 
@@ -112,7 +112,8 @@ public:
 #endif
 
 protected:
-    DocumentPtr *m_ownerDocument;
+    // FIXME - this could be a full-on SharedPtr in principle...
+    DocPtr<DocumentImpl> m_ownerDocument;
     NodeImpl *m_startContainer;
     unsigned long m_startOffset;
     NodeImpl *m_endContainer;

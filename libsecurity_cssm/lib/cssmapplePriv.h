@@ -35,7 +35,7 @@ extern "C" {
 
 /* 
  * Options for X509TP's CSSM_TP_CertGroupVerify for policy 
- * CSSMOID_APPLE_TP_REVOCATION_OCSP. A pointer to, and length of, one 
+ * CSSMAPPLE_TP_REVOCATION_OCSP. A pointer to, and length of, one 
  * of these is optionally placed in 
  * CSSM_TP_VERIFY_CONTEXT.Cred->Policy.PolicyIds[n].FieldValue.
  */
@@ -141,6 +141,18 @@ typedef struct cssm_applecspdl_db_create_with_blob_parameters
 	const void *openParameters;
 	const CSSM_DATA *blob;
 } CSSM_APPLE_CSPDL_DB_CREATE_WITH_BLOB_PARAMETERS;
+
+// extra information for resource signing
+extern const CSSM_OID CSSMOID_APPLE_TP_RESOURCE_SIGN;
+extern const CSSM_OID CSSMOID_APPLE_EKU_RESOURCE_SIGNING;
+
+enum
+{
+	/* Illegal cert chain length for Resource Signing */
+	CSSMERR_APPLETP_RS_BAD_CERT_CHAIN_LENGTH = CSSM_TP_PRIVATE_ERROR + 52,
+	/* bad extended key usage for Resource Signing */
+	CSSMERR_APPLETP_RS_BAD_EXTENDED_KEY_USAGE = CSSM_TP_PRIVATE_ERROR + 53
+};
 
 #ifdef __cplusplus
 }

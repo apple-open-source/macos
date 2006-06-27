@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: arg.c,v 1.43 2004/03/10 23:42:49 abe Exp $";
+static char *rcsid = "$Id: arg.c,v 1.46 2006/03/27 23:04:25 abe Exp $";
 #endif
 
 
@@ -128,7 +128,6 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 	struct stat *sbp;	/* if non-NULL, pointer to stat(2) buffer
 				 * when argument count == 1 */
 {
-	unsigned char ad, an;
 	short err = 0;
 	char *fnm, *fsnm, *path;
 	int fsm, ftype, j;
@@ -146,6 +145,7 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 #endif	/* defined(CKFA_EXPDEV) */
 
 #if	defined(HASPROCFS)
+	unsigned char ad, an;
 	int pfsnl = -1;
 	pid_t pid;
 	struct procfsid *pfi;
@@ -272,7 +272,7 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 #endif	/* defined(HASSPECDEVD) */
 
 		    }
-		    sfp->i = sb.st_ino;
+		    sfp->i = (INODETYPE)sb.st_ino;
 		    sfp->mode = sb.st_mode & S_IFMT;
 		
 #if	defined(CKFA_EXPDEV)
@@ -332,7 +332,11 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 	     */
 		if (!fnm || fnm == path) {
 		    sfp->name = fnm;
+
+#if	defined(HASPROCFS)
 		    an = 0;
+#endif	/* defined(HASPROCFS) */
+
 		} else {
 		    if (!(sfp->name = mkstrcpy(fnm, (MALLOC_S *)NULL))) {
 			(void) fprintf(stderr,
@@ -340,11 +344,19 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 			safestrprt(fnm, stderr, 1);
 			Exit(1);
 		    }
+
+#if	defined(HASPROCFS)
 		    an = 1;
+#endif	/* defined(HASPROCFS) */
+
 		}
 		if (!fsnm || fsnm == path) {
 		    sfp->devnm = fsnm;
+
+#if	defined(HASPROCFS)
 		    ad = 0;
+#endif	/* defined(HASPROCFS) */
+
 		} else {
 		    if (!(sfp->devnm = mkstrcpy(fsnm, (MALLOC_S *)NULL))) {
 			(void) fprintf(stderr,
@@ -352,7 +364,11 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 			safestrprt(fsnm, stderr, 1);
 			Exit(1);
 		    }
+
+#if	defined(HASPROCFS)
 		    ad = 1;
+#endif	/* defined(HASPROCFS) */
+
 		}
 		if (!(sfp->aname = mkstrcpy(av[i], (MALLOC_S *)NULL))) {
 		    (void) fprintf(stderr,
@@ -419,7 +435,7 @@ ck_file_arg(i, ac, av, fv, rs, sbp)
 		Procfsid = pfi;
 
 # if	defined(HASPINODEN)
-		pfi->inode = (unsigned long)sfp->i;
+		pfi->inode = (INODETYPE)sfp->i;
 # endif	/* defined(HASPINODEN) */
 
 	    /*
@@ -524,7 +540,7 @@ ctrl_dcache(c)
 	for (c++; *c && (*c == ' ' || *c == '\t'); c++)
 	    ;
 	if (strlen(c)) {
-	    if (!(DCpathArg = mkstrcpy(c, (MALLOC_S)NULL))) {
+	    if (!(DCpathArg = mkstrcpy(c, (MALLOC_S *)NULL))) {
 		(void) fprintf(stderr, "%s: no space for -D path: ", Pn);
 		safestrprt(c, stderr, 1);
 		Exit(1);
@@ -937,7 +953,7 @@ enter_dir(d, descend)
 	Dstkn = Dstkx = 0;
 	Dstk = (char **)NULL;
 	(void) stkdir(dn);
-	av[0] = (dn == d) ? mkstrcpy(dn, (MALLOC_S)NULL) : dn;
+	av[0] = (dn == d) ? mkstrcpy(dn, (MALLOC_S *)NULL) : dn;
 	av[1] = (char *)NULL;
 	dn = (char *)NULL;
 	if (!ck_file_arg(0, 1, av, 1, 1, &sb)) {
@@ -1159,7 +1175,7 @@ enter_id(ty, p)
 	char *p;			/* process group ID string pointer */
 {
 	char *cp;
-	int i, id, mx, n;
+	int err, i, id, j, mx, n, ni, nx, x;
 	struct int_lst *s;
 
 	if (!p) {
@@ -1174,11 +1190,15 @@ enter_id(ty, p)
 	case PGID:
 	    mx = Mxpgid;
 	    n = Npgid;
+	    ni = Npgidi;
+	    nx = Npgidx;
 	    s = Spgid;
 	    break;
 	case PID:
 	    mx = Mxpid;
 	    n = Npid;
+	    ni = Npidi;
+	    nx = Npidx;
 	    s = Spid;
 	    break;
 	default:
@@ -1190,12 +1210,19 @@ enter_id(ty, p)
 /*
  * Convert and store the ID.
  */
-	for (cp = p; *cp;) {
+	for (cp = p, err = 0; *cp;) {
 
 	/*
 	 * Assemble ID.
 	 */
-	    for (id = 0; *cp && *cp != ','; cp++) {
+	    for (i = id = x = 0; *cp && *cp != ','; cp++) {
+		if (!i) {
+		    i = 1;
+		    if (*cp == '^') {
+			x = 1;
+			continue;
+		    }
+		}
 
 #if	defined(__STDC__)
 		if (!isdigit((unsigned char)*cp))
@@ -1214,13 +1241,24 @@ enter_id(ty, p)
 	    if (*cp)
 		cp++;
 	/*
-	 * Avoid entering duplicates.
+	 * Avoid entering duplicates and conflicts.
 	 */
-	    for (i = 0; i < n; i++) {
-		if (id == s[i].i)
+	    for (i = j = 0; i < n; i++) {
+		if (id == s[i].i) {
+		    if (x == s[i].x) {
+			j = 1;
+			continue;
+		    }
+		    (void) fprintf(stderr,
+			"%s: P%sID %d has been included and excluded.\n",
+			Pn,
+			(ty == PGID) ? "G" : "",
+			id);
+		    err = j = 1;
 		    break;
+		}
 	    }
-	    if (i < n)
+	    if (j)
 		continue;
 	/*
 	 * Allocate table table space.
@@ -1240,7 +1278,12 @@ enter_id(ty, p)
 		}
 	    }
 	    s[n].f = 0;
-	    s[n++].i = id;
+	    s[n].i = id;
+	    s[n++].x = x;
+	    if (x)
+		nx++;
+	    else
+		ni++;
 	}
 /*
  * Save variables for the type of ID.
@@ -1248,13 +1291,17 @@ enter_id(ty, p)
 	if (ty == PGID) {
 	    Mxpgid = mx;
 	    Npgid = n;
+	    Npgidi = ni;
+	    Npgidx = nx;
 	    Spgid = s;
 	} else {
 	    Mxpid = mx;
 	    Npid = Npuns = n;
+	    Npidi = ni;
+	    Npidx = nx;
 	    Spid = s;
 	}
-	return(0);
+	return(err);
 }
 
 
@@ -1400,7 +1447,10 @@ nwad_exit:
 	    wa++;
 	    if (!*wa || *wa == ':') {
 
+#if	defined(HASIPv6)
 unacc_address:
+#endif	/* defined(HASIPv6) */
+
 		(void) fprintf(stderr,
 		    "%s: unacceptable Internet address in: -i ", Pn);
 		safestrprt(na, stderr, 1);
@@ -1544,7 +1594,7 @@ unacc_port:
 		/*
 		 * Convert service name to port number, using already-specified
 		 * protocol name.  A '-' is taken to be part of the name; hence
-		 * the staring entry of a range can't be a service name.
+		 * the starting entry of a range can't be a service name.
 		 */
 		    for (p = wa; *wa && *wa != ','; wa++)
 			;
@@ -1879,7 +1929,8 @@ enter_uid(us)
 			lnml++;
 		    }
 		    (void) fprintf(stderr,
-			"%s: -u login name > %d characters: ", Pn, LOGINML);
+			"%s: -u login name > %d characters: ", Pn,
+			    (int)LOGINML);
 		    safestrprtn(st, lnml, stderr, 1);
 		    err = j = 1;
 		    break;
@@ -1944,7 +1995,7 @@ enter_uid(us)
 		    continue;
 		}
 		(void) fprintf(stderr,
-		    "%s: UID %d has been included and excluded\n",
+		    "%s: UID %d has been included and excluded.\n",
 			Pn, (int)uid);
 		err = j = 1;
 		break;
@@ -1967,7 +2018,7 @@ enter_uid(us)
 		}
 	    }
 	    if (nn) {
-		if (!(lp = mkstrcpy(lnm, (MALLOC_S)NULL))) {
+		if (!(lp = mkstrcpy(lnm, (MALLOC_S *)NULL))) {
 		    (void) fprintf(stderr, "%s: no space for login: ", Pn);
 		    safestrprt(lnm, stderr, 1);
 		    Exit(1);

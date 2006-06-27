@@ -102,6 +102,10 @@
 		4.71, March 11, 2004
 		4.72, July 13, 2004
 		4.73, October 21, 2004
+		4.74, January 17, 2005
+		4.75, May 16, 2005
+		4.76, August 30, 2005
+		4.77, April 10, 2006
 
 
 Dialects Supported
@@ -113,21 +117,21 @@ version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
 	AIX 5.[123]
-	Apple Darwin 6.x, 7.x, and 8.x for Power Macintosh systems
-	BSDI BSD/OS 4.3.1 for x86-based systems
-	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.1
-	FreeBSD 4.[2-9], 4.10, 5.[012] and 6.0 for x86-based systems
-	FreeBSD 5.[012] and 6.0 for Alpha, AMD64 and Sparc64 based systems
-	HP-UX 11.00 and 11.11
+	Apple Darwin 7.x and 8.x for Power Macintosh systems
+	FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
+	FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
+	    systems
+	HP-UX 11.00, 11.11 and 11.23
 	Linux 2.1.72 and above for x86-based systems
-	NetBSD 1.[456] and 2.0 for Alpha, x86, and SPARC-based systems
+	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
+	    systems
 	NEXTSTEP 3.[13]
-	OpenBSD 2.[89] and 3.[0123456] for x86-based systems
+	OpenBSD 2.[89] and 3.[0-9] for x86-based systems
 	OPENSTEP 4.x
-	Caldera OpenUNIX 8
 	SCO OpenServer Release 5.0.6 for x86-based systems
 	SCO|Caldera UnixWare 7.1.4 for x86-based systems
 	Solaris 2.6, 8, 9 and 10
+	Tru64 UNIX 5.1
 
 (The pub/tools/unix/lsof/contrib directory on lsof.itap.purdue.edu
 contains information on other ports.)
@@ -3757,6 +3761,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		arguments.  Jakub supplied suggested code.
 
 		Dropped *claims* that lsof works on AIX below 5.1, SCO
+		Dropped *claims* that lsof works on AIX below 5.1, SCO
 		Openserver 5.0.4, Tru64 UNIX 5.0, and UnixWare below
 		7.1.4.  Lsof will probably build and work on those UNIX
 		dialect versions, but I no longer have any way to test
@@ -3797,6 +3802,310 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 
 		Validated on Solaris 10, i8xpc, build s10_63.
 
+4.74		January 17, 2005
+		Fixed a Solaris segment fault bug on systems that lack
+		a /dev/allkmem device.  Offered the fix as a patch to
+		lsof 4.73.  The bug was reported by Donald Zoch
+		<donald.zoch@amd.com>.
+
+		Updated lsof for FreeBSD 6.0 and higher for a change in
+		<sys/vnode.h>, based on a report from Sergey A. Osokin
+		<osa@FreeBSD.ORG>.  Made the update available in a 4.74
+		'A' edition pre-release.
+
+		Filed an HP bug report about missing pstat(2) CWD info
+		for LOFS on HP-UX 11.11 and higher.  The missing CWD
+		info was noticed by Ermin Borovac <e.borovac@bom.gov.au>.
+		Added info to 00FAQ about the problem, which can cause
+		the lsof test suite's LTbasic test to fail.
+
+		Updated the q4-generated tcp_s.h in the lsof
+		distribution and added socket option support for HP-UX
+		11.00.  Erwin Reyns <ereyns@europarl.eu.int> helped
+		test.
+
+		Updated for Solaris 10, build s10_69, with a patch
+		supplied by Mike Miscevic <miscevic@hotpop.com>.
+
+		Added v_path support to Solaris 10 lsof.  That relieves
+		it of having to read and decode the kernel DNLC, and
+		delivers full paths more reliably.
+
+		Added specialized NFS4 support to Solaris 10 lsof.
+
+		Applied Solaris 10 patches to lsof supplied by Casper
+		Dik <casper@holland.sun.com>.
+
+		Updated lsof for NetBSD 2.99.10 and tested it on a
+		system provided by Andrew Brown <atatat@atatdot.net>.
+
+		Added support for the FreeBSD 6.0-CURRENT f_vnode
+		pointer in the file structure.
+
+		Added BSDI, FreeBSD, NetBSD and OpenBSD support for the
+		*effnlink member of the inode structure.  This makes
+		the lsof LTnlink test run faster on all modified
+		dialects and correctly on OpenBSD.
+
+		Added ptyfs support for NetBSD, using modifications
+		provided by Andrew Brown.
+		
+		Changed the netbsd Configure stanza to look by default
+		for system header files in both /usr/include and
+		/usr/src.  (The NETBSD_SYS environment variable can
+		still be used to select an alternate for /usr/src.)
+
+		Corrects two FreeBSD 4.10 RPC/XDR type definitions.
+
+		Added an FAQ Q&A about setuid and setgid restrictions
+		in HP-UX 11.11.  The information in the answer was
+		supplied by Frank Sanders <frank.sanders@siemens.com>.
+
+		Added abbreviations for AXI FCIO and FSNAPSHOT file
+		flags.  Holger VanKoll <Holger.VanKoll@swisscom.com>
+		reported the missing FCIO.
+
+		Adjusted lsof's private AIX 64 bit rnode structure for
+		64 bit AIX 5.2 systems.  (IBM doesn't distribute a
+		correct <nfs/rnode.h> for it.)
+
+		Corrected a Linux socket inode printing bug reported by
+		Igor Schein <igor@txc.com>.
+
+		Updated for FreeBSD 4.11.  The support compiles but
+		hasn't been tested.
+
+		Back-ported a FreeBSD 6.0-CURRENT fix to FreeBSD
+		5.3-RELEASE-p1.  That was done to solve a compilation
+		problem reported by Radko Keves <rado@daemon.sk>.
+
+4.75		May 16, 2005
+		Dropped the *claim* that lsof works on DEC OSF/1 and
+		Digital UNIX, since my last 4.0 test system has been
+		removed.  The last tested distribution of lsof on DEC OSF/1
+		and Digital UNIX was revision 4.74.  It has been archived
+		on lsof.itap.purdue.edu in pub/tools/unix/lsof/OLD/src.
+
+		Added negation forms to the values in the -g (PGID) and
+		-p (PID) lists.  Negated PGID and PID values, like
+		negated UID or login name values, are applied without
+		ORing or ANDing and take effect before any other
+		selection criteria are applied.
+
+		At the request of Marcin Gozdalik <gozdal@gmail.com>
+		added a -X option for Linux.  The option inhibits the
+		reading of the /proc/net/tcp* and /proc/net/udp*
+		files.
+
+		Based on a report from David Gutierrez
+		<davegu1@hotmail.com> changed DEC OSF/1 process table
+		allocation to request memory in smaller increments.
+
+		Based on a report from jayjwa <jayjwa@atr2.ath.cx>
+		updated the Customize script to use "tail -n 1" where
+		possible.
+
+		Enabled support for FreeBSD 5.4.
+
+		Improved the BSDI, FreeBSD, NetBSD, OpenBSD and Solaris
+		kvm_open() and kvm_openfiles() error messages.
+
+		Enabled support for NetBSD 2.99.12.
+
+		Improved HP-UX Configure stanza with help from Piet
+		Starreveld <pstarrev@csc.com>.  Picked some lint Piet
+		found.
+
+		Enabled IPv6 support for HP-UX > 11.  Piet Starreveld
+		helped test it on 11.23, among others.
+
+		Updated for HP-UX 11.23 on the ia64 architecture.
+
+		Updated to latest FreeBSD 6.0-CURRENT, using a test
+		system provided by Andrzej Tobola <ato@iem.pw.edu.pl>.
+
+		Added support for SCO OSR 6.0.0 and UnixWare 7.1.4 with
+		help from Richard at SCO.
+
+		Corrected a Linux bug in NFS handling, reported by Karel Zak
+		<kzak@redhat.com>.  Karel supplied a patch.
+
+		Improved the code for accessing an AIX 3.2 and higher
+		sockaddr_un structure, thus eliminating a segmentation
+		fault possibility.
+
+		Updated for AIX 5.3.
+
+		Added preliminary (DEBUG) support for the AIX SANFS
+		file system.
+
+		Fixed a bug in the Solaris 10 processing of the vnode's
+		v_path pointer with code supplied by Edward Jajko
+		<ejajko@portal.com>.  The fix was offered as a patch to
+		4.74.
+
+		Dropped support for OpenUNIX 8, since a test system is
+		no longer available.  Archived an OpenUNIX-only
+		distribution of the last revision (4.74) tested on
+		OpenUNIX in pub/tools/unix/lsof/OLD/src.
+
+		Tested under Openbsd 3.7.
+
+		Tested under Darwin 7.7.0.
+
+		Enabled building on amd64 Solaris 10 with hints from
+		Marc Aurele La France <tsi@ualberta.ca>.  Marc provided
+		a test system.
+
+		Supplied a missing quote in the FreeBSD Configure
+		stanza.  Carl Cook <Info@quantum-sci.com> reported the
+		problem.
+
+		Removed "-O" option from tests/Makefile so that the
+		HP-UX bundled compiler won't complain.
+
+4.76		August 30, 2005
+		Corrected an example and spelling errors in man page.
+
+		Updated for Apple Darwin 8.x with changes supplied by
+		Allan Nathanson <ajn@apple.com>.  Allan also provided a
+		test system.
+
+		Completed documentation of CLRLFILEADD in all machine.h
+		files.
+
+		At the request of Chris Markle <cmarkle@sendmail.com>
+		added partial listen queue length to socket options
+		displayed when -Tf is specified.  Partial queue length
+		is not reported for all dialects.  (00FAQ lists the
+		ones where it is reported.)
+
+		Updated for FreeBSD 7.0 with information supplied by
+		Andrzej Tobola <ato@iem.pw.edu.pl>.
+
+		Updated Solaris VxFS support for VxFS versions 4 and
+		above with technical advice from Craig Harmer
+		<craig_harmer@symantec.com>, Gary Millen
+		<gary_millen@symantec.com> and Chuck Silvers
+		<charles_silvers@symantec.com>.  Testing help was
+		provided by Michael Antlitz <mantlitz@prophasys.com>,
+		Steve Ginsberg <steve@dhapdigital.com> and Kenneth
+		Stailey <kstailey@yahoo.com>.
+
+		Fixed a Solaris address space map processing bug.
+		Janardhan Molumuri <mjanardhan@gmail.com> reported the
+		bug and help me identify it.  Made the fix available as
+		a patch to 4.75.
+
+		Added support for Solaris 10 port and CTFS files.  The
+		CTFS support is imcomplete, because I don't know how
+		to get inode number, size and link count.  (There's
+		a new 00FAQ entry about that.)
+
+		Investigated a report from Christopher J Warweg
+		<warwegc@GAO.GOV> that the CHECKSUMS for the lsof 4.75
+		binary for 64 bit Solaris 8 was incorrect.  It was my
+		packaging error.  I rebuilt and repackaged the binary.
+
+		Enabled support for Linux map file names with embedded
+		spaces.
+
+4.77		April 10, 2006
+		Added -X option support for Solaris 10 and above.  When
+		-X is specified lsof will report cached v_node path
+		names for unlinked files, followed by "(deleted)".
+		Improved cached vnode path name handling by adding
+		"(?)" to the end of path names of questionable accuracy.
+		Updated 00FAQ to reflect these changes.
+
+		Updated for FreeBSD 7.0-CURRENT.
+
+		Fixed name addition spacing bug, reported by Stuart
+		Anderson <anderson@ligo.caltech.edu>.  Also updated
+		Solaris 10 SAMFS support at Stuart's request.
+
+		Added missing "break;" and another HASSTATVFS test to
+		the NetBSD and OpenBSD dnode.c.  Bill Behr
+		<bbehr@networkstoragecorp.com> reported those needs.
+
+		Fixed an HP-UX 11 file descriptor "chunk" size problem,
+		reported by Per Allansson <per@appgate.com>.  Per helped
+		devise the fix and tested it.  This fix was offered as
+		a patch to lsof 4.76.
+
+		Updated for FreeBSD 6.0-STABLE and FreeBSD
+		6.1-PRERELEASE.
+
+		Updated scripts/sort_res.perl5 with changes supplied by
+		Frederick Fabian <fabian.frederick@skynet.be>, the
+		author of the script.
+
+		Corrected +|-M man page documentation error, reported
+		by Roger Cornelius <rac@tenzing.org>.
+
+		Improved FreeBSD user device random seed generation in
+		response to a problem report from Danny Braniss
+		<danny@cs.huji.ac.il>.
+
+		Eliminated three syntax error bugs and other compiler
+		complaints from the PSTAT-based lsof.  H. Merijn Brand
+		<h.m.brand@xs4all.nl> reported the problems and tested
+		the fixes.
+
+		Eliminated compiler complaints in the test suite.
+
+		Investigated problems with the building of lsof on
+		PA-RISC HP-UX 11.23, based on a report from John
+		Orndorff <John.Orndorff@sungard.com>.  Found that
+		neither the HP bundled C compiler nor gcc would build
+		lsof, but the the HP unbundled ANSI C compiler would.
+		Concluded that HP bundled C compiler can't handle
+		<gssapi/gssapi.h>.  Devised a work-around to gcc's
+		omission of the rpcent structure definition of
+		<netdb.h> that allows it to compile lsof's print.c, but
+		the resulting binary doesn't run reliably.  Documented
+		the situation in 00FAQ.
+
+		Changed reporting of unknown file types.  The number of
+		an unknown type is now reported as four octets.  The
+		change was made in response to a Linux lsof bug report
+		from Karel Zak <kzak@redhat.com>.
+
+		Dropped the *claim* that lsof works on BSDI BSD/OS
+		since my last test system has been removed.  The last
+		tested distribution of lsof for BSDI BSD/OS was
+		revision 4.76.  It has been archived on
+		lsof.itap.purdue.edu in pub/tools/unix/lsof/OLD/src.
+
+		As a result of discussing the lsof source tar's MD5
+		checksum with Andrew Bell <andrew.bell.ia@gmail.com>,
+		changed the description of a suitable MD5 tool in the
+		lsof distribution's documentation to name the openssl
+		"dgst" command.
+
+		Enabled compilation on Solaris 10 1/06 with a fix sent
+		by Jason Fortezzo <fortezza@mechanicalism.net>.  Made
+		the fix available as a patch to 4.76.
+
+		Adjusted to FreeBSD 5.5-PRERELEASE.
+
+		Corrected a bug in the lsof library's process_file()
+		function to enable the locating of AIX XTI sockets by
+		their TCP/IP address values.  The bug was reported by
+		Michel Dubois <Dubois@sears.ca>.
+
+		Based on a bug report from Karel Zak <kzak@redhat.com>
+		added command name length checking to as many dialects
+		as possible (Linux for Karel) for the "-c c" option.
+
+		Updated for OpenBSD 3.[89].  Tested the 3.9 update on a
+		system provided by David Mazieres.  I have not tested
+		on OpenBSD 3.8, but David reports lsof 4.76 worked
+		there.
+
+		Ended regression testing of lsof on 32 bit Solars 8
+		with the ending of access to a test system.  Lsof
+		continues to be tested on 64 bit Solaris 8.
 
 Vic Abell <abe@purdue.edu>
-October 21, 2004
+April 10, 2006

@@ -1,5 +1,5 @@
---- hash_page.c.orig	Thu Mar 21 14:46:26 2002
-+++ hash_page.c	Sat Oct 18 18:31:10 2003
+--- hash_page.c.orig	2006-04-22 23:04:55.000000000 -0700
++++ hash_page.c	2006-04-23 00:23:46.000000000 -0700
 @@ -74,7 +74,7 @@
  #include <db.h>
  #include "hash.h"
@@ -9,3 +9,39 @@
  
  static u_int32_t	*fetch_bitmap(HTAB *, int);
  static u_int32_t	 first_free(u_int32_t);
+@@ -586,7 +586,7 @@
+ 	int is_bucket, is_bitmap;
+ {
+ 	int fd, page, size;
+-	int wsize;
++	int wsize, max;
+ 
+ 	size = hashp->BSIZE;
+ 	if ((hashp->fp == -1) && open_temp(hashp))
+@@ -595,7 +595,6 @@
+ 
+ 	if (hashp->LORDER != BYTE_ORDER) {
+ 		int i;
+-		int max;
+ 
+ 		if (is_bitmap) {
+ 			max = hashp->BSIZE >> 2;	/* divide by 4 */
+@@ -619,6 +618,18 @@
+ 		errno = EFTYPE;
+ 		return (-1);
+ 	}
++	/* 4485533 - reswap the in-memory copy */
++	if (hashp->LORDER != BYTE_ORDER) {
++		int i;
++
++		if (is_bitmap) {
++			for (i = 0; i < max; i++)
++				M_32_SWAP(((int *)p)[i]);
++		} else {
++			for (i = 0; i <= max; i++)
++				M_16_SWAP(((u_int16_t *)p)[i]);
++		}
++	}
+ 	return (0);
+ }
+ 

@@ -36,19 +36,38 @@
 #define OUTPUT_FILE stdout
 namespace IOFireWireLib {
 
-	NuDCLPool::NuDCLPool( const IUnknownVTbl & vTable, Device& device, UInt32 capacity )
-	: super( vTable )
-	,fDevice( device )
-	,fProgram( ::CFArrayCreateMutable( kCFAllocatorDefault, capacity, NULL ) )
-	,fCurrentTag( 0 )
-	,fCurrentSync( 0 )
+	static void cfArrayReleaseNuDCLObject(CFAllocatorRef allocator,const void *ptr)
 	{
+		const NuDCL *	dcl = reinterpret_cast< const NuDCL* >( ptr ) ;
+		delete dcl;
 	}
+
+	NuDCLPool::NuDCLPool( const IUnknownVTbl & vTable, Device& device, UInt32 capacity )
+		: super( vTable )
+		,fDevice( device )
+		,fCurrentTag( 0 )
+		,fCurrentSync( 0 )
+	{
+			CFArrayCallBacks arrayCallbacks;
 	
+			// Initialize callbacks
+			arrayCallbacks.version = 0;
+			arrayCallbacks.retain = NULL;
+			arrayCallbacks.copyDescription = NULL;
+			arrayCallbacks.equal = NULL;
+			arrayCallbacks.release = cfArrayReleaseNuDCLObject;
+	
+			// Create fProgram array
+			fProgram = ::CFArrayCreateMutable( kCFAllocatorDefault, capacity, &arrayCallbacks );
+	}
+
 	NuDCLPool::~NuDCLPool()
 	{
+		// Release the fProgram array. The array's release callback will delete all the elements!
+		if (fProgram)
+			CFRelease(fProgram);
 	}
-	
+
 	DCLCommand*
 	NuDCLPool::GetProgram()
 	{
@@ -186,7 +205,7 @@ namespace IOFireWireLib {
 	const IOFireWireNuDCLPoolInterface NuDCLPoolCOM::sInterface =
 	{
 		INTERFACEIMP_INTERFACE,
-		1, 0, 		// version/revision
+		1, 1, 		// version/revision
 	
 		& Class::S_GetProgram
 		,& Class::S_GetDCLs

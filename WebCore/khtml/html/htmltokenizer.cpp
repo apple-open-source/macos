@@ -230,9 +230,11 @@ inline bool tagMatch(const char *s1, const QChar *s2, uint length)
     return true;
 }
 
+static bool globalIncludesComments = 0;
+
 // ----------------------------------------------------------------------------
 
-HTMLTokenizer::HTMLTokenizer(DOM::DocumentPtr *_doc, KHTMLView *_view, bool includesComments)
+HTMLTokenizer::HTMLTokenizer(DOM::DocumentImpl *_doc, KHTMLView *_view)
     : inWrite(false)
 {
     view = _view;
@@ -240,19 +242,19 @@ HTMLTokenizer::HTMLTokenizer(DOM::DocumentPtr *_doc, KHTMLView *_view, bool incl
     scriptCode = 0;
     scriptCodeSize = scriptCodeMaxSize = scriptCodeResync = 0;
     charsets = KGlobal::charsets();
-    parser = new KHTMLParser(_view, _doc, includesComments);
+    parser = new KHTMLParser(_view, _doc, globalIncludesComments);
     m_executingScript = 0;
     loadingExtScript = false;
     onHold = false;
     attrNamePresent = false;
     timerId = 0;
-    includesCommentsInDOM = includesComments;
+    includesCommentsInDOM = globalIncludesComments;
     loadStopped = false;
     
     begin();
 }
 
-HTMLTokenizer::HTMLTokenizer(DOM::DocumentPtr *_doc, DOM::DocumentFragmentImpl *i, bool includesComments)
+HTMLTokenizer::HTMLTokenizer(DOM::DocumentImpl *_doc, DOM::DocumentFragmentImpl *i)
     : inWrite(false)
 {
     view = 0;
@@ -260,15 +262,25 @@ HTMLTokenizer::HTMLTokenizer(DOM::DocumentPtr *_doc, DOM::DocumentFragmentImpl *
     scriptCode = 0;
     scriptCodeSize = scriptCodeMaxSize = scriptCodeResync = 0;
     charsets = KGlobal::charsets();
-    parser = new KHTMLParser(i, _doc, includesComments);
+    parser = new KHTMLParser(i, _doc, globalIncludesComments);
     m_executingScript = 0;
     loadingExtScript = false;
     onHold = false;
     timerId = 0;
-    includesCommentsInDOM = includesComments;
+    includesCommentsInDOM = globalIncludesComments;
     loadStopped = false;
 
     begin();
+}
+
+void HTMLTokenizer::setIncludesComments(bool include)
+{
+    globalIncludesComments = include;
+}
+
+bool HTMLTokenizer::includesComments()
+{
+    return globalIncludesComments;
 }
 
 void HTMLTokenizer::reset()
@@ -643,9 +655,6 @@ void HTMLTokenizer::scriptExecution( const QString& str, QString scriptURL,
 void HTMLTokenizer::parseComment(TokenizerString &src)
 {
     // FIXME: Why does this code even run for comments inside <script> and <style>? This seems bogus.
-    bool strict = !parser->doc()->inCompatMode() && !script && !style;
-    int delimiterCount = 0;
-    bool canClose = false;
     checkScriptBuffer(src.length());
     while ( !src.isEmpty() ) {
         scriptCode[ scriptCodeSize++ ] = *src;
@@ -653,35 +662,19 @@ void HTMLTokenizer::parseComment(TokenizerString &src)
         qDebug("comment is now: *%s*",
                QConstString((QChar*)src.current(), QMIN(16, src.length())).string().latin1());
 #endif
-
-        if (strict) {
-            if (src->unicode() == '-') {
-                delimiterCount++;
-                if (delimiterCount == 2) {
-                    delimiterCount = 0;
-                    canClose = !canClose;
-                }
-            }
-            else
-                delimiterCount = 0;
-        }
-
-        if ((!strict || canClose) && src->unicode() == '>') {
+        if (src->unicode() == '>') {
             bool handleBrokenComments = brokenComments && !(script || style);
             int endCharsCount = 1; // start off with one for the '>' character
-            if (!strict) {
-                // In quirks mode just check for -->
-                if (scriptCodeSize > 2 && scriptCode[scriptCodeSize-3] == '-' && scriptCode[scriptCodeSize-2] == '-') {
-                    endCharsCount = 3;
-                }
-                else if (scriptCodeSize > 3 && scriptCode[scriptCodeSize-4] == '-' && scriptCode[scriptCodeSize-3] == '-' && 
-                    scriptCode[scriptCodeSize-2] == '!') {
-                    // Other browsers will accept --!> as a close comment, even though it's
-                    // not technically valid.
-                    endCharsCount = 4;
-                }
+            if (scriptCodeSize > 2 && scriptCode[scriptCodeSize-3] == '-' && scriptCode[scriptCodeSize-2] == '-') {
+                endCharsCount = 3;
             }
-            if (canClose || handleBrokenComments || endCharsCount > 1) {
+            else if (scriptCodeSize > 3 && scriptCode[scriptCodeSize-4] == '-' && scriptCode[scriptCodeSize-3] == '-' && 
+                scriptCode[scriptCodeSize-2] == '!') {
+                // Other browsers will accept --!> as a close comment, even though it's
+                // not technically valid.
+                endCharsCount = 4;
+            }
+            if (handleBrokenComments || endCharsCount > 1) {
                 ++src;
                 if (!( script || xmp || textarea || style)) {
                     if (includesCommentsInDOM) {
@@ -1044,9 +1037,9 @@ void HTMLTokenizer::parseTag(TokenizerString &src)
                 unsigned short tagID = getTagID(ptr, len);
                 if (!tagID) {
                     DOMString tagName(ptr);
-                    DocumentImpl *doc = parser->docPtr()->document();
+                    DocumentImpl *doc = parser->doc();
                     if (doc->isValidName(tagName))
-                        tagID = parser->docPtr()->document()->tagId(0, tagName.implementation(), false);
+                        tagID = parser->doc()->tagId(0, tagName.implementation(), false);
                 }
                 if (tagID) {
 #ifdef TOKEN_DEBUG
@@ -1162,7 +1155,7 @@ void HTMLTokenizer::parseTag(TokenizerString &src)
                         ++src;
                     }
                     else {
-                        currToken.addAttribute(parser->docPtr()->document(), buffer, attrName, emptyAtom);
+                        currToken.addAttribute(parser->doc(), buffer, attrName, emptyAtom);
                         dest = buffer;
                         tag = SearchAttribute;
                     }
@@ -1214,7 +1207,7 @@ void HTMLTokenizer::parseTag(TokenizerString &src)
                         dest--; // remove trailing newlines
                     AtomicString v(buffer+1, dest-buffer-1);
                     attrName.setUnicode(buffer+1,dest-buffer-1); 
-                    currToken.addAttribute(parser->docPtr()->document(), buffer, attrName, v);
+                    currToken.addAttribute(parser->doc(), buffer, attrName, v);
                     tag = SearchAttribute;
                     dest = buffer;
                     tquote = NoQuote;
@@ -1238,7 +1231,7 @@ void HTMLTokenizer::parseTag(TokenizerString &src)
                         AtomicString v(buffer+1, dest-buffer-1);
                         if (!attrNamePresent)
                             attrName.setUnicode(buffer+1,dest-buffer-1); 
-                        currToken.addAttribute(parser->docPtr()->document(), buffer, attrName, v);
+                        currToken.addAttribute(parser->doc(), buffer, attrName, v);
 
                         dest = buffer;
                         tag = SearchAttribute;
@@ -1277,7 +1270,7 @@ void HTMLTokenizer::parseTag(TokenizerString &src)
                     if ( curchar <= ' ' || curchar == '>' )
                     {
                         AtomicString v(buffer+1, dest-buffer-1);
-                        currToken.addAttribute(parser->docPtr()->document(), buffer, attrName, v);
+                        currToken.addAttribute(parser->doc(), buffer, attrName, v);
                         dest = buffer;
                         tag = SearchAttribute;
                         break;

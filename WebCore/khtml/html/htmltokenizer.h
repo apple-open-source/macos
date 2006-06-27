@@ -51,7 +51,6 @@ class KHTMLParser;
 class KHTMLView;
 
 namespace DOM {
-    class DocumentPtr;
     class DocumentFragmentImpl;
 }
 
@@ -121,9 +120,12 @@ public:
 class HTMLTokenizer : public Tokenizer, public CachedObjectClient
 {
 public:
-    HTMLTokenizer(DOM::DocumentPtr *, KHTMLView * = 0, bool includesComments=false);
-    HTMLTokenizer(DOM::DocumentPtr *, DOM::DocumentFragmentImpl *frag, bool includesComments=false);
+    HTMLTokenizer(DOM::DocumentImpl *, KHTMLView * = 0);
+    HTMLTokenizer(DOM::DocumentImpl *, DOM::DocumentFragmentImpl *frag);
     virtual ~HTMLTokenizer();
+
+    static void HTMLTokenizer::setIncludesComments(bool include);
+    static bool HTMLTokenizer::includesComments();
 
     virtual void write(const TokenizerString &str, bool appendData);
     virtual void finish();

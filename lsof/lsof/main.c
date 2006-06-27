@@ -34,7 +34,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: main.c,v 1.47 2004/10/17 21:39:23 abe Exp $";
+static char *rcsid = "$Id: main.c,v 1.50 2006/03/27 23:04:25 abe Exp $";
 #endif
 
 
@@ -195,7 +195,7 @@ main(argc, argv)
 		err = 1;
 		continue;
 	    }
-	    switch(c) {
+	    switch (c) {
 	    case 'a':
 		Fand = 1;
 		break;
@@ -229,8 +229,19 @@ main(argc, argv)
 			    GOx1 = GObk[0];
 			    GOx2 = GObk[1];
 			}
-		    } else
+		    } else {
 			CmdLim = atoi(GOv);
+
+#if	defined(MAXSYSCMDL)
+			if (CmdLim > MAXSYSCMDL) {
+			    (void) fprintf(stderr,
+				"%s: +c %d > what system provides (%d)\n",
+				Pn, CmdLim, MAXSYSCMDL);
+			    err = 1;
+			}
+#endif	/* defined(MAXSYSCMDL) */
+
+		    }
 		    break;
 		}
 		if (GOv && (*GOv == '/')) {
@@ -239,6 +250,20 @@ main(argc, argv)
 		} else {
 		    if (enter_str_lst("-c", GOv, &Cmdl))
 			err = 1;
+
+#if	defined(MAXSYSCMDL)
+		    else if (Cmdl->len > MAXSYSCMDL) {
+		        (void) fprintf(stderr, "%s: \"-c ", Pn);
+			(void) safestrprt(Cmdl->str, stderr, 2);
+			(void) fprintf(stderr, "\" length (%d) > what system",
+			    Cmdl->len);
+			(void) fprintf(stderr, " provides (%d)\n",
+			    MAXSYSCMDL);
+			Cmdl->len = 0;	/* (to avoid later error report) */
+			err = 1;
+		    }
+#endif	/* defined(MAXSYSCMDL) */
+
 		}
 		break;
 
@@ -294,6 +319,8 @@ main(argc, argv)
 #if	defined(HASFSTRUCT)
 		for (; *GOv; GOv++) {
 		    switch (*GOv) {
+
+# if	!defined(HASNOFSCOUNT)
 		    case 'c':
 		    case 'C':
 			if (GOp == '+')
@@ -301,6 +328,9 @@ main(argc, argv)
 			else
 			    Fsv &= (unsigned char)~FSV_CT;
 			break;
+# endif	/* !defined(HASNOFSCOUNT) */
+
+# if	!defined(HASNOFSADDR)
 		    case 'f':
 		    case 'F':
 			if (GOp == '+')
@@ -308,6 +338,9 @@ main(argc, argv)
 			else
 			    Fsv &= (unsigned char)~FSV_FA;
 			break;
+# endif	/* !defined(HASNOFSADDR) */
+
+# if	!defined(HASNOFSFLAGS)
 		    case 'g':
 		    case 'G':
 			if (GOp == '+')
@@ -316,6 +349,9 @@ main(argc, argv)
 			    Fsv &= (unsigned char)~FSV_FG;
 			FsvFlagX = (*GOv == 'G') ? 1 : 0;
 			break;
+# endif	/* !defined(HASNOFSFLAGS) */
+
+# if	!defined(HASNOFSNADDR)
 		    case 'n':
 		    case 'N':
 			if (GOp == '+')
@@ -323,6 +359,8 @@ main(argc, argv)
 			else
 			    Fsv &= (unsigned char)~FSV_NI;
 			break;
+# endif	/* !defined(HASNOFSNADDR */
+
 		    default:
 			(void) fprintf(stderr,
 			    "%s: unknown file struct option: %c\n", Pn, *GOv);
@@ -772,6 +810,9 @@ main(argc, argv)
 		err = 1;
 	    }
 	}
+/*
+ * Check for argument consistency.
+ */
 	if (Fsize && Foffset) {
 	    (void) fprintf(stderr, "%s: -o and -s are mutually exclusive\n",
 		Pn);
@@ -816,9 +857,9 @@ main(argc, argv)
 	    Selflags |= SELNFS;
 	if (Funix)
 	    Selflags |= SELUNX;
-	if (Npgid)
+	if (Npgid && Npgidi)
 	    Selflags |= SELPGID;
-	if (Npid)
+	if (Npid && Npidi)
 	    Selflags |= SELPID;
 	if (Nuid && Nuidincl)
 	    Selflags |= SELUID;
@@ -888,6 +929,10 @@ main(argc, argv)
 /*
  * Define the size and offset print formats.
  */
+	(void) snpf(options, sizeof(options), "%%%su", INODEPSPEC);
+	InodeFmt_d = sv_fmt_str(options);
+	(void) snpf(options, sizeof(options), "%%#%sx", INODEPSPEC);
+	InodeFmt_x = sv_fmt_str(options);
 	(void) snpf(options, sizeof(options), "0t%%%su", SZOFFPSPEC);
 	SzOffFmt_0t = sv_fmt_str(options);
 	(void) snpf(options, sizeof(options), "%%%su", SZOFFPSPEC);
@@ -989,8 +1034,7 @@ main(argc, argv)
 		    puts("=======");
 		(void) fflush(stdout);
 		(void) childx();
-/*		(void) sleep(RptTm);	*/
-		(void) usleep(RptTm * 1000000);
+		(void) sleep(RptTm);
 		Hdr = Nlproc = 0;
 		CkPasswd = 1;
 	    }
@@ -1131,9 +1175,9 @@ main(argc, argv)
 	for (i = 0; i < Npid; i++) {
 
 	/*
-	 * Check process ID specifications.
+	 * Check inclusionary process ID specifications.
 	 */
-	    if (Spid[i].f)
+	    if (Spid[i].f || Spid[i].x)
 		continue;
 	    rv = 1;
 	    if (Fverbose)
@@ -1164,9 +1208,9 @@ main(argc, argv)
 	for (i = 0; i < Npgid; i++) {
 
 	/*
-	 * Check process group ID specifications.
+	 * Check inclusionary process group ID specifications.
 	 */
-	    if (Spgid[i].f)
+	    if (Spgid[i].f || Spgid[i].x)
 		continue;
 	    rv = 1;
 	    if (Fverbose)

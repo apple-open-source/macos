@@ -12,6 +12,7 @@
             frame.h, 
             io.h, 
             limits.h, 
+            pio.h, 
             reg_help.h, 
             sel.h, 
             table.h, 

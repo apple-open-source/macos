@@ -390,7 +390,7 @@ IOUSBDeviceUserClient::open(bool seize)
     IOOptionBits	options = (seize ? (IOOptionBits)kIOServiceSeize : 0);
     IOReturn		ret = kIOReturnSuccess;
 	
-    USBLog(3, "+%s[%p]::open", getName(), this);
+    USBLog(7, "+%s[%p]::open", getName(), this);
     IncrementOutstandingIO();
 	
     if (fOwner && !isInactive())
@@ -404,7 +404,7 @@ IOUSBDeviceUserClient::open(bool seize)
         ret = kIOReturnNotAttached;
 	
     DecrementOutstandingIO();
-    USBLog(3, "-%s[%p]::open - returning %x", getName(), this, ret);    
+    USBLog(7, "-%s[%p]::open - returning %x", getName(), this, ret);    
     return ret;
 }
 
@@ -418,7 +418,7 @@ IOUSBDeviceUserClient::close()
 {
     IOReturn 	ret = kIOReturnSuccess;
     
-    USBLog(3, "+%s[%p]::close", getName(), this);
+    USBLog(7, "+%s[%p]::close", getName(), this);
     IncrementOutstandingIO();
     
     if (fOwner && !isInactive())
@@ -440,7 +440,7 @@ IOUSBDeviceUserClient::close()
         ret = kIOReturnNotAttached;
 	
     DecrementOutstandingIO();
-    USBLog(3, "-%s[%p]::close - returning %x", getName(), this, ret);
+    USBLog(7, "-%s[%p]::close - returning %x", getName(), this, ret);
     return ret;
 }
 
@@ -1303,7 +1303,7 @@ IOUSBDeviceUserClient::didTerminate( IOService * provider, IOOptionBits options,
     // this method comes at the end of the termination sequence. Hopefully, all of our outstanding IO is complete
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
     // hold on to the device and IOKit will terminate us when we close it later
-    USBLog(6, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
+    USBLog(6, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %ld", getName(), this, isInactive(), fOutstandingIO);
 
     if ( fOwner )
     {
@@ -1328,7 +1328,7 @@ IOUSBDeviceUserClient::DecrementOutstandingIO(void)
     {
 	if (!--fOutstandingIO && fNeedToClose)
 	{
-	    USBLog(3, "%s[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %d - closing device", getName(), this, isInactive(), fOutstandingIO);
+	    USBLog(3, "%s[%p]::DecrementOutstandingIO isInactive = %d, outstandingIO = %ld - closing device", getName(), this, isInactive(), fOutstandingIO);
 			if ( fOwner )
 			{
 				fOwner->close(this);
@@ -1365,19 +1365,19 @@ IOUSBDeviceUserClient::ChangeOutstandingIO(OSObject *target, void *param1, void 
     
     if (!me)
     {
-	USBLog(1, "IOUSBDeviceUserClient::ChangeOutstandingIO - invalid target");
-	return kIOReturnSuccess;
+		USBLog(1, "IOUSBDeviceUserClient::ChangeOutstandingIO - invalid target");
+		return kIOReturnSuccess;
     }
     switch (direction)
     {
-	case 1:
-	    me->fOutstandingIO++;
-	    break;
-	    
-	case -1:
-	    if (!--me->fOutstandingIO && me->fNeedToClose)
-	    {
-		USBLog(3, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %d - closing device", me->getName(), me, me->isInactive(), me->fOutstandingIO);
+		case 1:
+			me->fOutstandingIO++;
+			break;
+			
+		case -1:
+			if (!--me->fOutstandingIO && me->fNeedToClose)
+			{
+				USBLog(6, "%s[%p]::ChangeOutstandingIO isInactive = %d, outstandingIO = %ld - closing device", me->getName(), me, me->isInactive(), me->fOutstandingIO);
 				
 				if (me->fOwner) 
 				{
@@ -1388,11 +1388,11 @@ IOUSBDeviceUserClient::ChangeOutstandingIO(OSObject *target, void *param1, void 
 				
                 if ( me->fDead) 
 					me->release();
-	    }
-	    break;
-	    
-	default:
-	    USBLog(1, "%s[%p]::ChangeOutstandingIO - invalid direction", me->getName(), me);
+			}
+			break;
+			
+		default:
+			USBLog(1, "%s[%p]::ChangeOutstandingIO - invalid direction", me->getName(), me);
     }
     return kIOReturnSuccess;
 }

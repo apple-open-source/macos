@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -134,7 +134,7 @@ IOUSBMassStorageUFIDevice::AsyncReadWriteComplete( SCSITaskIdentifier request )
 	}
 	else
 	{
-		STATUS_LOG ( (4, "Error on read/write" ) );
+		STATUS_LOG(( 4, "%s[%p]::Error on read/write", taskOwner->getName(), taskOwner ));
 		status = kIOReturnError;
 	}
 
@@ -168,7 +168,7 @@ IOUSBMassStorageUFIDevice::InitializeDeviceSupport( void )
 	fMediumPresent			= false;
 	fMediumIsWriteProtected	= true;
 
-    STATUS_LOG((6,  "IOUSBMassStorageUFIDevice::InitializeDeviceSupport called"));
+    STATUS_LOG(( 6, "%s[%p]::InitializeDeviceSupport called", getName(), this ));
 
 	ClearNotReadyStatus();
 
@@ -189,7 +189,7 @@ IOUSBMassStorageUFIDevice::InitializeDeviceSupport( void )
 	bzero ( fIOUSBMassStorageUFIDeviceReserved,
 			sizeof ( IOUSBMassStorageUFIDeviceExpansionData ) );	
 #endif
-	STATUS_LOG((5, "IOUSBMassStorageUFIDevice::InitializeDeviceSupport setupSuccessful = %d", setupSuccessful));
+	STATUS_LOG(( 5, "%s[%p]::InitializeDeviceSupport setupSuccessful = %d", getName(), this, setupSuccessful ));
 	
 	setupSuccessful = true;
 	
@@ -281,7 +281,7 @@ IOUSBMassStorageUFIDevice::StopDeviceSupport( void )
 void 
 IOUSBMassStorageUFIDevice::TerminateDeviceSupport( void )
 {
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::cleanUp called."));
+    STATUS_LOG(( 6, "%s[%p]::cleanUp called.", getName(), this ));
 
     if ( fPollingThread != NULL )
     {
@@ -305,7 +305,7 @@ IOUSBMassStorageUFIDevice::ClearNotReadyStatus( void )
 	bool						result = true;
 	SCSIServiceResponse 		serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	
-	STATUS_LOG((6, "%s::%s called", getName(), __FUNCTION__));
+	STATUS_LOG(( 6, "%s[%p]::%s called", getName(), this,  __FUNCTION__));
 	
 	bufferDesc = IOMemoryDescriptor::withAddress( ( void * ) &senseBuffer,
 													kSenseDefaultSize,
@@ -356,7 +356,7 @@ IOUSBMassStorageUFIDevice::ClearNotReadyStatus( void )
 							( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER == 0x01 ) )
 					{
 						
-						STATUS_LOG((5, "%s::drive not ready", getName() ));
+						STATUS_LOG(( 5, "%s[%p]::drive not ready", getName(), this ));
 						driveReady = false;
 						IOSleep( 200 );
 						
@@ -374,10 +374,10 @@ IOUSBMassStorageUFIDevice::ClearNotReadyStatus( void )
 					else
 					{
 						driveReady = true;
-						STATUS_LOG((5, "%s::drive READY", getName() ));
+						STATUS_LOG((5, "%s[%p]::drive READY", getName(), this ));
 					}
 					
-					STATUS_LOG(( 5, "sense data: %01x, %02x, %02x",
+					STATUS_LOG(( 5, "%s[%p]:: sense data: %01x, %02x, %02x", getName(), this,
 							   ( senseBuffer.SENSE_KEY  & kSENSE_KEY_Mask ),
 								senseBuffer.ADDITIONAL_SENSE_CODE,
 								senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
@@ -468,19 +468,19 @@ IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
 	char							tempString[kINQUIRY_VENDOR_IDENTIFICATION_Length + 1]; // Maximum + 1 for null char
 	OSString *						string;
 
-	STATUS_LOG((6,  "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics called"));
+	STATUS_LOG(( 6,  "%s[%p]::DetermineDeviceCharacteristics called", getName(), this ));
 	
 	inquiryBuffer = ( SCSICmd_INQUIRY_StandardData * ) IOMalloc( inquiryBufferCount );
 	if( inquiryBuffer == NULL )
 	{
-		STATUS_LOG((1, "%s: Couldn't allocate Inquiry buffer.", getName() ));
+		STATUS_LOG((1, "%s[%p]: Couldn't allocate Inquiry buffer.", getName(), this ));
 		goto ErrorExit;
 	}
 
 	bufferDesc = IOMemoryDescriptor::withAddress( inquiryBuffer, inquiryBufferCount, kIODirectionIn );
 	if( bufferDesc == NULL )
 	{
-		STATUS_LOG((1, "%s: Couldn't alloc Inquiry buffer: ", getName() ));
+		STATUS_LOG(( 1, "%s[%p]: Couldn't alloc Inquiry buffer: ", getName(), this ));
 		goto ErrorExit;
 	}
 
@@ -500,14 +500,14 @@ IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
 	}
 	else
 	{
-		PANIC_NOW( ( "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics malformed command" ) );
+		PANIC_NOW(( "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics malformed command" ));
 		goto ErrorExit;
 	}
 	
 	if( ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE ) ||
 		( GetTaskStatus( request ) != kSCSITaskStatus_GOOD ) )
 	{
-		STATUS_LOG((2, "%s: Inquiry completed with an error: ", getName ( ) ) );
+		STATUS_LOG(( 2, "%s[%p]: Inquiry completed with an error: ", getName(), this ));
 		goto ErrorExit;
 	}
 	
@@ -589,7 +589,7 @@ IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
 
 ErrorExit:
 
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics exiting"));
+	STATUS_LOG(( 6, "%s[%p]::DetermineDeviceCharacteristics exiting", getName(), this ));
 
 	if( request )
 	{
@@ -620,13 +620,13 @@ ErrorExit:
 void 
 IOUSBMassStorageUFIDevice::SetMediumCharacteristics( UInt32 blockSize, UInt32 blockCount )
 {
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::SetMediumCharacteristics called"));
-	STATUS_LOG((5, "mediumBlockSize = %ld, blockCount = %ld", blockSize, blockCount));
+    STATUS_LOG(( 6, "%s[%p]::SetMediumCharacteristics called", getName(), this ));
+	STATUS_LOG(( 5, "%s[%p]::mediumBlockSize = %ld, blockCount = %ld", getName(), this, blockSize, blockCount));
 	
 	fMediumBlockSize	= blockSize;
 	fMediumBlockCount	= blockCount;
 	
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::SetMediumCharacteristics exiting"));
+	STATUS_LOG(( 6, "%s[%p]::SetMediumCharacteristics exiting", getName(), this ));
 }
 
 
@@ -638,12 +638,12 @@ IOUSBMassStorageUFIDevice::SetMediumCharacteristics( UInt32 blockSize, UInt32 bl
 void 
 IOUSBMassStorageUFIDevice::ResetMediumCharacteristics( void )
 {
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::ResetMediumCharacteristics called"));
+    STATUS_LOG(( 6, "%s[%p]::ResetMediumCharacteristics called", getName(), this ));
 	fMediumBlockSize		= 0;
 	fMediumBlockCount		= 0;
 	fMediumPresent			= false;
 	fMediumIsWriteProtected = true;
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::ResetMediumCharacteristics exiting"));
+	STATUS_LOG(( 6, "%s[%p]::ResetMediumCharacteristics exiting", getName(), this ));
 }
 
 
@@ -655,12 +655,12 @@ IOUSBMassStorageUFIDevice::ResetMediumCharacteristics( void )
 void 
 IOUSBMassStorageUFIDevice::CreateStorageServiceNub( void )
 {
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::CreateStorageServiceNub entering."));
+    STATUS_LOG(( 6, "%s[%p]::CreateStorageServiceNub entering.", getName(), this ));
 
 	IOService * 	nub = OSTypeAlloc ( IOUFIStorageServices );
 	if( nub == NULL )
 	{
-		STATUS_LOG((1, "IOUSBMassStorageUFIDevice::CreateStorageServiceNub failed"));
+		STATUS_LOG(( 1, "%s[%p]::CreateStorageServiceNub failed", getName(), this ));
 		PANIC_NOW(( "IOUSBMassStorageUFIDevice::CreateStorageServiceNub failed" ));
 		return;
 	}
@@ -675,7 +675,7 @@ IOUSBMassStorageUFIDevice::CreateStorageServiceNub( void )
 	}
 	
 	nub->registerService(kIOServiceAsynchronous);
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::CreateStorageServiceNub exiting."));
+	STATUS_LOG(( 6, "%s[%p]::CreateStorageServiceNub exiting.", getName(), this ));
 
 	nub->release();
 }
@@ -705,7 +705,7 @@ IOUSBMassStorageUFIDevice::ProcessPoll( void )
 		default:
 		{
 			// This is an unknown polling mode -- do nothing.
-			STATUS_LOG((1, "%s:ProcessPoll Unknown polling mode.", getName() ) );
+			STATUS_LOG(( 1, "%s[%p]:ProcessPoll Unknown polling mode.", getName(), this ));
 		}
 		break;
 	}
@@ -773,7 +773,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 	OSBoolean *					keySwitchLocked = NULL;
 
 
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::DetermineMediaPresence called"));
+	STATUS_LOG(( 6, "%s[%p]::DetermineMediaPresence called", getName(), this ));
 
 	keySwitchLocked = OSDynamicCast ( OSBoolean, getProperty ( kAppleKeySwitchProperty ) );
 
@@ -800,7 +800,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 	}
 	else
 	{
-		STATUS_LOG((1, "IOUSBMassStorageUFIDevice::DetermineMediaPresence malformed command" ));
+		STATUS_LOG(( 1, "%s[%p]::DetermineMediaPresence malformed command", getName(), this ));
 		goto CHECK_DONE;
 	}
 	
@@ -821,7 +821,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 															kIODirectionIn );
 			if( bufferDesc == NULL )
 			{
-				STATUS_LOG((1, "%s: could not allocate sense buffer descriptor.", getName() ) );
+				STATUS_LOG(( 1, "%s[%p]: could not allocate sense buffer descriptor.", getName(), this ));
 				goto CHECK_DONE;
 			}
 			
@@ -833,7 +833,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 			}
 			else
 			{
-				STATUS_LOG((1, "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
+				STATUS_LOG(( 1, "%s[%p]::PollForMedia malformed command", getName(), this ));
 				bufferDesc->release();
 				goto CHECK_DONE;
 			}
@@ -843,7 +843,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 			if ( ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE ) ||
 	 			( GetTaskStatus( request ) != kSCSITaskStatus_GOOD ) )
 	 		{
-				STATUS_LOG((2, "%s: REQUEST_SENSE failed", getName() ) );
+				STATUS_LOG(( 2, "%s[%p]: REQUEST_SENSE failed", getName(), this ));
 				goto CHECK_DONE;
 	 		}
 
@@ -865,15 +865,17 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 		else if( ( senseBuffer.ADDITIONAL_SENSE_CODE != 0x00 ) || 
 			( senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER != 0x00 ) )
 		{
-			STATUS_LOG((2, "ASC = 0x%02x, ASCQ = 0x%02x",
+			STATUS_LOG(( 2, "%s[%p]:: ASC = 0x%02x, ASCQ = 0x%02x", 
+                            getName(), 
+                            this,
 							senseBuffer.ADDITIONAL_SENSE_CODE,
-							senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ) );
+							senseBuffer.ADDITIONAL_SENSE_CODE_QUALIFIER ));
 			goto CHECK_DONE;
 		}
 	}
 	else
 	{
-		STATUS_LOG((2, "serviceResponse = %d", serviceResponse ) );
+		STATUS_LOG(( 2, "%s[%p]:: serviceResponse = %d", getName(), this, serviceResponse ));
 		goto CHECK_DONE;
 	}
 
@@ -885,7 +887,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 													kIODirectionIn );
 	if( formatDesc == NULL )
 	{
-		STATUS_LOG((1, "%s: could not allocate sense buffer descriptor.", getName() ) );
+		STATUS_LOG(( 1, "%s[%p]: could not allocate sense buffer descriptor.", getName(), this ));
 		goto CHECK_DONE;
 	}
 	
@@ -898,7 +900,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 	}
 	else
 	{
-		STATUS_LOG((1, "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
+		STATUS_LOG(( 1, "%s[%p]::PollForMedia malformed command", getName(), this ));
 		formatDesc->release();
 		goto CHECK_DONE;
 	}
@@ -922,7 +924,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 																kIODirectionIn );
 				if( bufferDesc == NULL )
 				{
-					STATUS_LOG((1, "%s: could not allocate sense buffer descriptor.", getName() ) );
+					STATUS_LOG(( 1, "%s[%p]: could not allocate sense buffer descriptor.", getName(), this ));
 					goto CHECK_DONE;
 				}
 				
@@ -934,7 +936,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 				}
 				else
 				{
-					STATUS_LOG((1, "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
+					STATUS_LOG(( 1, "%s[%p]::PollForMedia malformed command", getName(), this ));
 					bufferDesc->release();
 					goto CHECK_DONE;
 				}
@@ -946,7 +948,7 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 				if ( ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE ) ||
 		 			( GetTaskStatus( request ) != kSCSITaskStatus_GOOD ) )
 		 		{
-					STATUS_LOG((2, "%s: REQUEST_SENSE failed", getName() ) );
+					STATUS_LOG(( 2, "%s[%p]: REQUEST_SENSE failed", getName(), this ));
 					goto CHECK_DONE;
 		 		}
 
@@ -969,31 +971,31 @@ IOUSBMassStorageUFIDevice::DetermineMediaPresence( void )
 	}
 	else
 	{
-		STATUS_LOG((2, "serviceResponse = %d", serviceResponse ) );
+		STATUS_LOG(( 2, "%s[%p]:: serviceResponse = %d", getName(), this, serviceResponse ) );
 		goto CHECK_DONE;
 	}
 
-	STATUS_LOG((4, "%s: Formats data: ", getName() ));
+	STATUS_LOG(( 4, "%s[%p]:: Formats data: ", getName(), this ));
 	for ( int i=0; i < 12; i ++ )
 	{
-		STATUS_LOG((4, "%X : ", formatBuffer[i]));
+		STATUS_LOG(( 4, "%s[%p]:: %X : ", getName(), this, formatBuffer[i] ));
 	}
 
 	if( formatBuffer[8] == 0x01 )
 	{
-		STATUS_LOG((4, "%s: unformatted media was found.", getName() ));
+		STATUS_LOG(( 4, "%s[%p]: unformatted media was found.", getName(), this ));
 		// There is unformatted media in the drive, until format support
 		// is added, treat like no media is present.
 		goto CHECK_DONE;
 	}
 	else if ( formatBuffer[8] != 0x02 )
 	{
-		STATUS_LOG((5, "%s: no media was found.", getName() ));
+		STATUS_LOG(( 5, "%s[%p]: no media was found.", getName(), this ));
 		// There is no media in the drive, reset the poll.
 		goto CHECK_DONE;
 	}
 	
-	STATUS_LOG((5, "%s: media was found.", getName() ));
+	STATUS_LOG(( 5, "%s[%p]: media was found.", getName(), this ));
 	// At this point, it has been determined that there is usable media
 	// in the device.
 	mediaFound = true;
@@ -1048,7 +1050,7 @@ IOUSBMassStorageUFIDevice::DetermineMediumCapacity( UInt64 * blockSize, UInt64 *
 	}
 	else
 	{
-		STATUS_LOG((1, "IOUSBMassStorageUFIDevice::PollForMedia malformed command" ));
+		STATUS_LOG(( 1, "%s[%p]::PollForMedia malformed command", getName(), this ));
     	result = false;
     	goto isDone;
 	}
@@ -1058,13 +1060,13 @@ IOUSBMassStorageUFIDevice::DetermineMediumCapacity( UInt64 * blockSize, UInt64 *
 	{
 		*blockSize 	= ( UInt64 ) OSSwapBigToHostInt32 ( capacityData[1] );
 		*blockCount = ( UInt64 ) ( OSSwapBigToHostInt32 ( capacityData[0] ) + 1 );
-		STATUS_LOG((4, "%s: Media capacity: %x and block size: %x",
-						getName(), (UInt32) *blockCount, (UInt32) *blockSize ) );
+		STATUS_LOG(( 4, "%s[%p]: Media capacity: %lx and block size: %lx",
+						getName(), this, (UInt32) *blockCount, (UInt32) *blockSize ));
 		result = true;
 	}
 	else
 	{
-		STATUS_LOG((2, "%s: Read Capacity failed", getName() ) );
+		STATUS_LOG(( 2, "%s[%p]: Read Capacity failed", getName(), this ));
     	result = false;
 	}
 
@@ -1097,7 +1099,7 @@ IOUSBMassStorageUFIDevice::DetermineMediumWriteProtectState( void )
 	SCSITaskIdentifier		request = NULL;
 	bool					mediumIsProtected = true;
 
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::checkWriteProtection called" ));
+	STATUS_LOG(( 6, "%s[%p]::checkWriteProtection called", getName(), this ));
 		
 	request = GetSCSITask();
 	if( request == NULL )
@@ -1131,7 +1133,7 @@ IOUSBMassStorageUFIDevice::DetermineMediumWriteProtectState( void )
 	}
 	else
 	{
-		STATUS_LOG((1, "IOUSBMassStorageUFIDevice::CheckWriteProtection malformed command" ));
+		STATUS_LOG(( 1, "%s[%p]::CheckWriteProtection malformed command", getName(), this ));
 		goto WP_CHECK_DONE;
 	}
 
@@ -1211,7 +1213,7 @@ IOUSBMassStorageUFIDevice::PollForMediaRemoval( void )
 															kIODirectionIn );
 			if( bufferDesc == NULL )
 			{
-				STATUS_LOG((1, "%s: could not allocate sense buffer descriptor.", getName() ) );
+				STATUS_LOG(( 1, "%s[%p]: could not allocate sense buffer descriptor.", getName(), this ));
 				goto REMOVE_CHECK_DONE;
 			}
 			
@@ -1232,7 +1234,7 @@ IOUSBMassStorageUFIDevice::PollForMediaRemoval( void )
 			if( ( serviceResponse != kSCSIServiceResponse_TASK_COMPLETE ) ||
 	 			( GetTaskStatus( request ) != kSCSITaskStatus_GOOD ) )
 	 		{
-				STATUS_LOG((2, "%s: REQUEST_SENSE failed", getName() ) );
+				STATUS_LOG(( 2, "%s[%p]: REQUEST_SENSE failed", getName(), this ));
 				goto REMOVE_CHECK_DONE;
 	 		}
 
@@ -1339,7 +1341,7 @@ IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
 	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier		request;
 	
-	STATUS_LOG((7, "%s: syncRead Attempted", getName() ));
+	STATUS_LOG(( 7, "%s[%p]: syncRead Attempted", getName(), this ));
 
 	request = GetSCSITask ( );
 	
@@ -1386,7 +1388,7 @@ IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
 	IOReturn 				status = kIOReturnSuccess;
 	SCSITaskIdentifier		request;
 
-	STATUS_LOG((7, "%s: asyncRead Attempted", getName() ));
+	STATUS_LOG(( 7, "%s[%p]: asyncRead Attempted", getName(), this ));
 	
 	request = GetSCSITask();
 	
@@ -1401,7 +1403,7 @@ IOUSBMassStorageUFIDevice::IssueRead( 	IOMemoryDescriptor *	buffer,
     {
     	// The command was successfully built, now send it
     	SetApplicationLayerReference( request, clientData );
-		STATUS_LOG((7, "IOUSBMassStorageUFIDevice::IssueRead send command."));
+		STATUS_LOG(( 7, "%s[%p]::IssueRead send command.", getName(), this ));
     	SendCommand( request, 0, &this->AsyncReadWriteComplete );
 	}
 	else
@@ -1426,7 +1428,7 @@ IOUSBMassStorageUFIDevice::IssueWrite( 	IOMemoryDescriptor *	buffer,
 	SCSIServiceResponse 	serviceResponse = kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
 	SCSITaskIdentifier		request;
 	
-	STATUS_LOG((7, "%s: syncWrite Attempted", getName() ) );
+	STATUS_LOG(( 7, "%s[%p]: syncWrite Attempted", getName(), this ));
 	
 	request = GetSCSITask();
 	if ( WRITE_10( 	request,
@@ -1472,7 +1474,7 @@ IOUSBMassStorageUFIDevice::IssueWrite(	IOMemoryDescriptor *	buffer,
 	IOReturn				status = kIOReturnSuccess;
 	SCSITaskIdentifier		request;
 	
-	STATUS_LOG((7, "%s: asyncWrite Attempted", getName() ));
+	STATUS_LOG(( 7, "%s[%p]:: asyncWrite Attempted", getName(), this ));
 
 	request = GetSCSITask();
 	
@@ -1487,7 +1489,7 @@ IOUSBMassStorageUFIDevice::IssueWrite(	IOMemoryDescriptor *	buffer,
     {
     	// The command was successfully built, now send it
     	SetApplicationLayerReference( request, clientData );
-		STATUS_LOG((7, "IOUSBMassStorageUFIDevice::IssueWrite send command." ));
+		STATUS_LOG(( 7, "%s[%p]::IssueWrite send command.", getName(), this ));
     	SendCommand( request, 0, &this->AsyncReadWriteComplete );
 	}
 	else
@@ -1527,7 +1529,7 @@ IOUSBMassStorageUFIDevice::SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 	}
 	else
 	{
-		STATUS_LOG((1, "%s: doSyncReadWrite bad direction argument", getName() ) );
+		STATUS_LOG(( 1, "%s[%p]: doSyncReadWrite bad direction argument", getName(), this ));
 		theErr = kIOReturnBadArgument;
 	}
 	
@@ -1565,7 +1567,7 @@ IOUSBMassStorageUFIDevice::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
 	}
 	else
 	{
-		STATUS_LOG((1, "%s: doAsyncReadWrite bad direction argument", getName() ) );
+		STATUS_LOG(( 1, "%s[%p]: doAsyncReadWrite bad direction argument", getName(), this ));
 		theErr = kIOReturnBadArgument;
 	}
 	
@@ -1581,7 +1583,7 @@ IOUSBMassStorageUFIDevice::AsyncReadWrite (	IOMemoryDescriptor *	buffer,
 IOReturn 
 IOUSBMassStorageUFIDevice::EjectTheMedium( void )
 {
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::EjectTheMedium called" ));
+    STATUS_LOG(( 6, "%s[%p]::EjectTheMedium called", getName(), this ));
 	
 	ResetMediumCharacteristics();
 	
@@ -1606,7 +1608,7 @@ IOUSBMassStorageUFIDevice::FormatMedium( UInt64 blockCount, UInt64 blockSize )
 	
 	IOReturn	theErr = kIOReturnSuccess;
 
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::FormatMedium called" ));
+    STATUS_LOG(( 6, "%s[%p]::FormatMedium called", getName(), this ));
 
 	return theErr;	
 }
@@ -1623,7 +1625,7 @@ IOUSBMassStorageUFIDevice::GetFormatCapacities(	UInt64 * capacities,
 	UNUSED( capacities );
 	UNUSED( capacitiesMaxCount );
 	
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::doGetFormatCapacities called" ));
+    STATUS_LOG(( 6, "%s[%p]::doGetFormatCapacities called", getName(), this ));
 
 	return 0;
 }
@@ -1642,7 +1644,7 @@ IOUSBMassStorageUFIDevice::GetVendorString ( void )
 {
 	OSString *		vendorString;
 	
-	STATUS_LOG((6, "%s::%s", getName ( ), __FUNCTION__));
+	STATUS_LOG(( 6, "%s[%p]::%s", getName(), this, __FUNCTION__ ));
 	
 	vendorString = ( OSString * ) fDeviceCharacteristicsDictionary->getObject( kIOPropertyVendorNameKey );
 	if ( vendorString != NULL )
@@ -1665,7 +1667,7 @@ IOUSBMassStorageUFIDevice::GetProductString ( void )
 {
 	OSString *		productString;
 	
-	STATUS_LOG((6, "%s::%s", getName ( ), __FUNCTION__));
+	STATUS_LOG(( 6, "%s[%p]::%s", getName(), this, __FUNCTION__ ));
 	
 	productString = ( OSString * ) fDeviceCharacteristicsDictionary->getObject( kIOPropertyProductNameKey );
 	if ( productString != NULL )
@@ -1688,7 +1690,7 @@ IOUSBMassStorageUFIDevice::GetRevisionString ( void )
 {
 	OSString *		revisionString;
 	
-	STATUS_LOG((6, "%s::%s", getName ( ), __FUNCTION__));
+	STATUS_LOG(( 6, "%s[%p]::%s", getName(), this, __FUNCTION__ ));
 	
 	revisionString = ( OSString * ) fDeviceCharacteristicsDictionary->getObject( kIOPropertyProductRevisionLevelKey );
 	if ( revisionString )
@@ -1711,7 +1713,7 @@ IOUSBMassStorageUFIDevice::GetRevisionString ( void )
 OSDictionary *
 IOUSBMassStorageUFIDevice::GetProtocolCharacteristicsDictionary ( void )
 {
-	STATUS_LOG((7, "%s::%s", getName ( ), __FUNCTION__ ));
+	STATUS_LOG(( 6, "%s[%p]::%s", getName(), this, __FUNCTION__ ));
 	return ( OSDictionary * ) getProperty( kIOPropertyProtocolCharacteristicsKey );
 }
 
@@ -1725,7 +1727,7 @@ IOUSBMassStorageUFIDevice::GetProtocolCharacteristicsDictionary ( void )
 OSDictionary *
 IOUSBMassStorageUFIDevice::GetDeviceCharacteristicsDictionary ( void )
 {
-	STATUS_LOG((7, "%s::%s", getName ( ), __FUNCTION__));
+	STATUS_LOG(( 7, "%s[%p]::%s", getName(), this, __FUNCTION__ ));
 	return fDeviceCharacteristicsDictionary;
 }
 
@@ -1745,7 +1747,7 @@ IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksReadTransfer( void )
 {
 	UInt64	maxBlockCount;
 
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::reportMaxReadTransfer" ));
+    STATUS_LOG(( 6, "%s[%p]::%s", getName(), this, __FUNCTION__ ));
 
 	maxBlockCount = 256;
 
@@ -1764,7 +1766,7 @@ IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksWriteTransfer( void )
 {
 	UInt64	maxBlockCount;
 	
-    STATUS_LOG((6, "IOUSBMassStorageUFIDevice::reportMaxWriteTransfer." ));
+    STATUS_LOG(( 6, "%s[%p]::%s", getName(), this, __FUNCTION__ ));
 
 	maxBlockCount = 256;
 
@@ -1783,7 +1785,7 @@ IOUSBMassStorageUFIDevice::ReportDeviceMaxBlocksWriteTransfer( void )
 UInt64 
 IOUSBMassStorageUFIDevice::ReportMediumBlockSize( void )
 {
-    STATUS_LOG((5, "IOUSBMassStorageUFIDevice::ReportMediumBlockSize blockSize = %ld", ( UInt32 ) fMediumBlockSize));
+    STATUS_LOG(( 5, "%s[%p]::ReportMediumBlockSize blockSize = %ld", getName(), this, ( UInt32 ) fMediumBlockSize ));
 	return fMediumBlockSize;
 }
 
@@ -1796,7 +1798,7 @@ IOUSBMassStorageUFIDevice::ReportMediumBlockSize( void )
 UInt64
 IOUSBMassStorageUFIDevice::ReportMediumTotalBlockCount( void )
 {
-    STATUS_LOG((5, "IOUSBMassStorageUFIDevice::ReportMediumTotalBlockCount maxBlock = %ld", fMediumBlockCount));
+    STATUS_LOG(( 5, "%s[%p]::ReportMediumTotalBlockCount maxBlock = %ld", getName(), this, fMediumBlockCount ));
 	return fMediumBlockCount;
 }
 
@@ -1809,7 +1811,7 @@ IOUSBMassStorageUFIDevice::ReportMediumTotalBlockCount( void )
 bool
 IOUSBMassStorageUFIDevice::ReportMediumWriteProtection( void )
 {
-    STATUS_LOG((5, "IOUSBMassStorageUFIDevice::ReportMediumWriteProtection isWriteProtected = %d.", fMediumIsWriteProtected));
+    STATUS_LOG(( 5, "%s[%p]::ReportMediumWriteProtection isWriteProtected = %d.", getName(), this, fMediumIsWriteProtected ));
 	return fMediumIsWriteProtected;
 }
 
@@ -1830,11 +1832,11 @@ bool
 IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField1Byte param,
 										SCSICmdField1Byte mask )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::IsParameterValid called"));
+	STATUS_LOG(( 6, "%s[%p]::IsParameterValid called", getName(), this ));
 	
 	if( ( param | mask ) != mask )
 	{
-		STATUS_LOG((4, "param = %x not valid, mask = %x", param, mask));
+		STATUS_LOG(( 4, "%s[%p]:: param = %x not valid, mask = %x", getName(), this, param, mask ));
 		return false;
 	}
 	
@@ -1851,11 +1853,11 @@ bool
 IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField2Byte param,
 										SCSICmdField2Byte mask )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::IsParameterValid called"));
+	STATUS_LOG(( 6, "%s[%p]::IsParameterValid called", getName(), this ));
 	
 	if( ( param | mask ) != mask )
 	{
-		STATUS_LOG((4, "param = %x not valid, mask = %x", param, mask));
+		STATUS_LOG(( 4, "%s[%p]:: param = %x not valid, mask = %x", getName(), this, param, mask ));
 		return false;
 	}
 	
@@ -1872,11 +1874,12 @@ bool
 IOUSBMassStorageUFIDevice::IsParameterValid( SCSICmdField4Byte param,
 										SCSICmdField4Byte mask )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::IsParameterValid called"));
+	STATUS_LOG(( 6, "%s[%p]::IsParameterValid called", getName(), this ));
 	
 	if( ( param | mask ) != mask )
 	{
-		STATUS_LOG((4, "param = %x not valid, mask = %x", param, mask));
+		STATUS_LOG(( 4, "%s[%p]:: param = %x not valid, mask = %x", getName(), this, 
+						(unsigned int) param, (unsigned int) mask ));
 		return false;
 	}
 	
@@ -1902,18 +1905,18 @@ IOUSBMassStorageUFIDevice::FORMAT_UNIT(
 {
 	UNUSED( TRACK_NUMBER );
 	
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::FORMAT_UNIT called"));
+	STATUS_LOG(( 6, "%s[%p]::FORMAT_UNIT called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	// Do the pre-flight check on the passed in parameters
 	if( IsParameterValid( INTERLEAVE, kSCSICmdFieldMask2Byte ) == false )
 	{
-		STATUS_LOG((4, "INTERLEAVE = %x not valid", INTERLEAVE));
+		STATUS_LOG(( 4, "%s[%p]:: INTERLEAVE = %x not valid", getName(), this, INTERLEAVE ));
 		return false;
 	}
 
@@ -1924,8 +1927,8 @@ IOUSBMassStorageUFIDevice::FORMAT_UNIT(
 		if( IsMemoryDescriptorValid( dataBuffer, defectListSize  )
 				== false )
 		{
-			STATUS_LOG((4, "dataBuffer = %x not valid, defectListSize = %x",
-							dataBuffer, defectListSize));
+			STATUS_LOG(( 4, "%s[%p]:: dataBuffer = %x not valid, defectListSize = %x",
+							getName(), this, dataBuffer, defectListSize ));
 			return false;
 		}
 	}
@@ -1961,31 +1964,31 @@ IOUSBMassStorageUFIDevice::INQUIRY(
     						SCSICmdField1Byte 			PAGE_OR_OPERATION_CODE,
     						SCSICmdField1Byte 			ALLOCATION_LENGTH )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::INQUIRY called"));
+	STATUS_LOG(( 6, "%s[%p]::INQUIRY called", getName(), this ));
 
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	if ( IsParameterValid( PAGE_OR_OPERATION_CODE, kSCSICmdFieldMask1Byte ) == false )
 	{
-		STATUS_LOG((4, "PAGE_OR_OPERATION_CODE = %x not valid",
-						PAGE_OR_OPERATION_CODE));
+		STATUS_LOG(( 4, "%s[%p]:: PAGE_OR_OPERATION_CODE = %x not valid",
+						getName(), this, PAGE_OR_OPERATION_CODE ));
 		return false;
 	}
 	
 	if ( IsParameterValid( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ) == false )
 	{
-		STATUS_LOG((4, "ALLOCATION_LENGTH = %x not valid", ALLOCATION_LENGTH));
+		STATUS_LOG(( 4, "%s[%p]:: ALLOCATION_LENGTH = %x not valid", getName(), this, ALLOCATION_LENGTH ));
 		return false;
 	}
 	
 	if ( IsMemoryDescriptorValid( dataBuffer, ALLOCATION_LENGTH ) == false )
 	{
-		STATUS_LOG((4, "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x",
-						dataBuffer, ALLOCATION_LENGTH));
+		STATUS_LOG(( 4, "%s[%p]:: dataBuffer = %x not valid, ALLOCATION_LENGTH = %x",
+						getName(), this, dataBuffer, ALLOCATION_LENGTH ));
 		return false;
 	}
 		
@@ -2021,37 +2024,37 @@ IOUSBMassStorageUFIDevice::MODE_SELECT_10(
     						SCSICmdField1Bit 			SP,
     						SCSICmdField2Byte 			PARAMETER_LIST_LENGTH )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::MODE_SELECT_10 called"));
+	STATUS_LOG(( 6, "%s[%p]::MODE_SELECT_10 called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	if( IsParameterValid( PF, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "PF = %x not valid", PF));
+		STATUS_LOG(( 4, "%s[%p]:: PF = %x not valid", getName(), this, PF ));
 		return false;
 	}
 
 	if( IsParameterValid( SP, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "SP = %x not valid", SP ));
+		STATUS_LOG(( 4, "%s[%p]:: SP = %x not valid", getName(), this, SP ));
 		return false;
 	}
 
 	if( IsParameterValid( PARAMETER_LIST_LENGTH, kSCSICmdFieldMask2Byte ) == false )
 	{
-		STATUS_LOG((4, "PARAMETER_LIST_LENGTH = %x not valid",
-						PARAMETER_LIST_LENGTH));
+		STATUS_LOG(( 4, "%s[%p]:: PARAMETER_LIST_LENGTH = %x not valid",
+                        getName(), this, PARAMETER_LIST_LENGTH ));
 		return false;
 	}
 
 	if( IsMemoryDescriptorValid( dataBuffer, PARAMETER_LIST_LENGTH ) == false )
 	{
-		STATUS_LOG((4, "dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x",
-						dataBuffer, PARAMETER_LIST_LENGTH));
+		STATUS_LOG(( 4, "%s[%p]:: dataBuffer = %x not valid, PARAMETER_LIST_LENGTH = %x",
+						getName(), this, dataBuffer, PARAMETER_LIST_LENGTH ));
 		return false;
 	}
 	
@@ -2092,43 +2095,42 @@ IOUSBMassStorageUFIDevice::MODE_SENSE_10(
 	   						SCSICmdField6Bit 			PAGE_CODE,
 	   						SCSICmdField2Byte 			ALLOCATION_LENGTH )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::MODE_SENSE_10 called"));
+	STATUS_LOG(( 6, "%s[%p]::MODE_SENSE_10 called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	if( IsParameterValid( DBD, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "DBD = %x not valid", DBD));
+		STATUS_LOG(( 4, "%s[%p]:: DBD = %x not valid", getName(), this, DBD ));
 		return false;
 	}
 
 	if( IsParameterValid( PC, kSCSICmdFieldMask2Bit ) == false )
 	{
-		STATUS_LOG((4, "PC = %x not valid", PC));
+		STATUS_LOG(( 4, "%s[%p]:: PC = %x not valid", getName(), this, PC ));
 		return false;
 	}
 
 	if( IsParameterValid( PAGE_CODE, kSCSICmdFieldMask6Bit ) == false )
 	{
-		STATUS_LOG((4, "PAGE_CODE = %x not valid", PAGE_CODE));
+		STATUS_LOG(( 4, "%s[%p]:: PAGE_CODE = %x not valid", getName(), this, PAGE_CODE ));
 		return false;
 	}
 
 	if( IsParameterValid( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ) == false )
 	{
-		STATUS_LOG((4, "ALLOCATION_LENGTH = %x not valid",
-						ALLOCATION_LENGTH));
+		STATUS_LOG(( 4, "%s[%p]:: ALLOCATION_LENGTH = %x not valid", getName(), this, ALLOCATION_LENGTH ));
 		return false;
 	}
 
 	if( IsMemoryDescriptorValid( dataBuffer, ALLOCATION_LENGTH ) == false )
 	{
-		STATUS_LOG((4, "dataBuffer = %x not valid, ALLOCATION_LENGTH = %x",
-						dataBuffer, ALLOCATION_LENGTH));
+		STATUS_LOG((4, "%s[%p]:: dataBuffer = %x not valid, ALLOCATION_LENGTH = %x",
+						dataBuffer, ALLOCATION_LENGTH, getName(), this ));
 		return false;
 	}
 	
@@ -2165,17 +2167,17 @@ IOUSBMassStorageUFIDevice::PREVENT_ALLOW_MEDIUM_REMOVAL(
 							SCSITaskIdentifier			request,
 	     					SCSICmdField1Bit 			PREVENT )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::PREVENT_ALLOW_MEDIUM_REMOVAL called" ) );
+	STATUS_LOG(( 6, "%s[%p]::PREVENT_ALLOW_MEDIUM_REMOVAL called", getName(), this ));
 
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	if( IsParameterValid( PREVENT, kSCSICmdFieldMask2Bit ) == false )
 	{
-		STATUS_LOG((4, "PREVENT = %x not valid", PREVENT ) );
+		STATUS_LOG(( 4, "%s[%p]:: PREVENT = %x not valid", getName(), this, PREVENT ));
 		return false;
 	}
 	
@@ -2212,11 +2214,11 @@ IOUSBMassStorageUFIDevice::READ_10(
 {
 	UInt32					requestedByteCount;
 	
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::READ_10 called" ) );
+	STATUS_LOG(( 6, "%s[%p]::READ_10 called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
@@ -2250,33 +2252,33 @@ IOUSBMassStorageUFIDevice::READ_10(
 	// Do the pre-flight check on the passed in parameters
 	if( IsParameterValid( DPO, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "DPO = %x not valid", DPO ) );
+		STATUS_LOG(( 4, "%s[%p]:: DPO = %x not valid", getName(), this, DPO ));
 		return false;
 	}
 
 	if( IsParameterValid( FUA, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "FUA = %x not valid", FUA ) );
+		STATUS_LOG(( 4, "%s[%p]:: FUA = %x not valid", getName(), this, FUA ));
 		return false;
 	}
 
 	if( IsParameterValid( RELADR, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "RELADR = %x not valid", RELADR ) );
+		STATUS_LOG(( 4, "%s[%p]:: RELADR = %x not valid", getName(), this, RELADR ));
 		return false;
 	}
 
 	if( IsParameterValid( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ) == false )
 	{
-		STATUS_LOG((4, "LOGICAL_BLOCK_ADDRESS = %x not valid",
-						LOGICAL_BLOCK_ADDRESS ) );
+		STATUS_LOG(( 4, "%s[%p]:: LOGICAL_BLOCK_ADDRESS = %x not valid",
+						getName(), this, LOGICAL_BLOCK_ADDRESS ));
 		return false;
 	}
 
 	if( IsParameterValid( TRANSFER_LENGTH, kSCSICmdFieldMask2Byte ) == false )
 	{
-		STATUS_LOG((4, "TRANSFER_LENGTH = %x not valid",
-						TRANSFER_LENGTH ) );
+		STATUS_LOG(( 4, "%s[%p]:: TRANSFER_LENGTH = %x not valid",
+						getName(), this, TRANSFER_LENGTH ));
 		return false;
 	}
 
@@ -2321,11 +2323,11 @@ IOUSBMassStorageUFIDevice::READ_12(
 {
 	UInt32					requestedByteCount;
 
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::READ_12 called" ) );
+	STATUS_LOG(( 6, "%s[%p]::READ_12 called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
@@ -2359,33 +2361,33 @@ IOUSBMassStorageUFIDevice::READ_12(
 	// Do the pre-flight check on the passed in parameters
 	if( IsParameterValid( DPO, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "DPO = %x not valid", DPO ) );
+		STATUS_LOG(( 4, "%s[%p]:: DPO = %x not valid", getName(), this, DPO ));
 		return false;
 	}
 
 	if( IsParameterValid( FUA, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "FUA = %x not valid", FUA ) );
+		STATUS_LOG(( 4, "%s[%p]:: FUA = %x not valid", getName(), this, FUA ));
 		return false;
 	}
 
 	if( IsParameterValid( RELADR, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "RELADR = %x not valid", RELADR ) );
+		STATUS_LOG(( 4, "%s[%p]:: RELADR = %x not valid", getName(), this, RELADR ));
 		return false;
 	}
 
 	if( IsParameterValid( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ) == false )
 	{
-		STATUS_LOG((4, "LOGICAL_BLOCK_ADDRESS = %x not valid",
-						LOGICAL_BLOCK_ADDRESS ) );
+		STATUS_LOG(( 4, "%s[%p]:: LOGICAL_BLOCK_ADDRESS = %x not valid",
+						getName(), this, LOGICAL_BLOCK_ADDRESS ));
 		return false;
 	}
 
 	if( IsParameterValid( TRANSFER_LENGTH, kSCSICmdFieldMask4Byte ) == false )
 	{
-		STATUS_LOG((4, "TRANSFER_LENGTH = %x not valid",
-						TRANSFER_LENGTH));
+		STATUS_LOG(( 4, "%s[%p]:: TRANSFER_LENGTH = %x not valid",
+						getName(), this, TRANSFER_LENGTH ));
 		return false;
 	}
 
@@ -2427,11 +2429,11 @@ IOUSBMassStorageUFIDevice::READ_CAPACITY(
 							SCSICmdField4Byte 			LOGICAL_BLOCK_ADDRESS, 
 							SCSICmdField1Bit 			PMI )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::READ_CAPACITY called"));
+	STATUS_LOG(( 6, "%s[%p]::READ_CAPACITY called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
@@ -2444,20 +2446,20 @@ IOUSBMassStorageUFIDevice::READ_CAPACITY(
 	// Do the pre-flight check on the passed in parameters
 	if( IsParameterValid( RELADR, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "RELADR = %x not valid", RELADR ) );
+		STATUS_LOG(( 4, "%s[%p]:: RELADR = %x not valid", getName(), this, RELADR ));
 		return false;
 	}
 	
 	if( IsParameterValid( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ) == false )
 	{
-		STATUS_LOG((4, "LOGICAL_BLOCK_ADDRESS = %x not valid",
-						LOGICAL_BLOCK_ADDRESS ) );
+		STATUS_LOG(( 4, "%s[%p]:: LOGICAL_BLOCK_ADDRESS = %x not valid",
+						getName(), this, LOGICAL_BLOCK_ADDRESS ));
 		return false;
 	}
 
 	if( IsParameterValid( PMI, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "PMI = %x not valid", PMI ) );
+		STATUS_LOG(( 4, "%s[%p]:: PMI = %x not valid", getName(), this, PMI ));
 		return false;
 	}
 	
@@ -2493,11 +2495,11 @@ IOUSBMassStorageUFIDevice::READ_FORMAT_CAPACITIES(
 			    			IOMemoryDescriptor *		dataBuffer, 
 			    			SCSICmdField2Byte 			ALLOCATION_LENGTH )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::READ_CAPACITY called" ) );
+	STATUS_LOG(( 6, "%s[%p]::READ_CAPACITY called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
@@ -2510,7 +2512,7 @@ IOUSBMassStorageUFIDevice::READ_FORMAT_CAPACITIES(
 	// Do the pre-flight check on the passed in parameters
 	if( IsParameterValid( ALLOCATION_LENGTH, kSCSICmdFieldMask2Byte ) == false )
 	{
-		STATUS_LOG((4, "ALLOCATION_LENGTH = %x not valid", ALLOCATION_LENGTH ) );
+		STATUS_LOG((4, "%s[%p]:: ALLOCATION_LENGTH = %x not valid", getName(), this, ALLOCATION_LENGTH ));
 		return false;
 	}
 	
@@ -2547,18 +2549,18 @@ IOUSBMassStorageUFIDevice::REQUEST_SENSE(
    							IOMemoryDescriptor 			*dataBuffer,
 			    			SCSICmdField1Byte 			ALLOCATION_LENGTH )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::REQUEST_SENSE called" ) );
+	STATUS_LOG(( 6, "%s[%p]::REQUEST_SENSE called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	if( IsParameterValid( ALLOCATION_LENGTH, kSCSICmdFieldMask1Byte ) == false )
 	{
-		STATUS_LOG((4, "ALLOCATION_LENGTH = %x not valid",
-						ALLOCATION_LENGTH ) );
+		STATUS_LOG(( 4, "%s[%p]ALLOCATION_LENGTH = %x not valid",
+						getName(), this, ALLOCATION_LENGTH ));
 		return false;
 	}
 	
@@ -2624,35 +2626,35 @@ IOUSBMassStorageUFIDevice::SEND_DIAGNOSTICS(
 							SCSICmdField1Bit 			DEF_OFL, 
 							SCSICmdField1Bit 			UNIT_OFL )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::SEND_DIAGNOSTICS called" ) );
+	STATUS_LOG(( 6, "%s[%p]::SEND_DIAGNOSTICS called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	if( IsParameterValid( PF, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "PF = %x not valid", PF ) );
+		STATUS_LOG(( 4, "%s[%p]:: PF = %x not valid", getName(), this, PF ));
 		return false;
 	}
 	
 	if( IsParameterValid ( SELF_TEST, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "SELF_TEST = %x not valid", SELF_TEST ) );
+		STATUS_LOG(( 4, "%s[%p]:: SELF_TEST = %x not valid", getName(), this, SELF_TEST ));
 		return false;
 	}
 	
 	if( IsParameterValid( DEF_OFL, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "DEF_OFL = %x not valid", DEF_OFL ) );
+		STATUS_LOG(( 4, "%s[%p]:: DEF_OFL = %x not valid", getName(), this, DEF_OFL ));
 		return false;
 	}
 	
 	if( IsParameterValid( UNIT_OFL, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "UNIT_OFL = %x not valid", UNIT_OFL ) );
+		STATUS_LOG(( 4, "%s[%p]:: UNIT_OFL = %x not valid", getName(), this, UNIT_OFL ));
 		return false;
 	}
 	
@@ -2684,30 +2686,30 @@ IOUSBMassStorageUFIDevice::START_STOP_UNIT(
 							SCSICmdField1Bit 			LOEJ, 
 							SCSICmdField1Bit 			START )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::START_STOP_UNIT called" ) );
+	STATUS_LOG(( 6, "%s[%p]::START_STOP_UNIT called", getName(), this ));
 
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
 	// Do the pre-flight check on the passed in parameters
 	if( IsParameterValid( IMMED, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "IMMED = %x not valid", IMMED ) );
+		STATUS_LOG(( 4, "%s[%p]:: IMMED = %x not valid", getName(), this, IMMED ));
 		return false;
 	}
 
 	if( IsParameterValid( LOEJ, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "LOEJ = %x not valid", LOEJ ) );
+		STATUS_LOG(( 4, "%s[%p]:: LOEJ = %x not valid", getName(), this, LOEJ ));
 		return false;
 	}
 
 	if( IsParameterValid( START, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "START = %x not valid", START ) );
+		STATUS_LOG(( 4, "%s[%p]:: START = %x not valid", getName(), this, START ));
 		return false;
 	}
 
@@ -2735,11 +2737,11 @@ bool
 IOUSBMassStorageUFIDevice::TEST_UNIT_READY(  
 							SCSITaskIdentifier			request )
 {
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::TEST_UNIT_READY called" ) );
+	STATUS_LOG(( 6, "%s[%p]::TEST_UNIT_READY called", getName(), this ));
 	
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
@@ -2800,11 +2802,11 @@ IOUSBMassStorageUFIDevice::WRITE_10(
 {
 	UInt32					requestedByteCount;
 	
-	STATUS_LOG((6, "IOUSBMassStorageUFIDevice::WRITE_10 called" ) );
+	STATUS_LOG(( 6, "%s[%p]::WRITE_10 called", getName(), this ));
 
 	if ( ResetForNewTask( request ) == false )
 	{
-		STATUS_LOG((1, "ResetForNewTask on the request SCSITask failed." ) );
+		STATUS_LOG(( 1, "%s[%p]:: ResetForNewTask on the request SCSITask failed.", getName(), this ));
 		return false;
 	}
 	
@@ -2838,33 +2840,33 @@ IOUSBMassStorageUFIDevice::WRITE_10(
 	// Do the pre-flight check on the passed in parameters
 	if( IsParameterValid ( DPO, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "DPO = %x not valid", DPO ) );
+		STATUS_LOG(( 4, "%s[%p]:: DPO = %x not valid", getName(), this, DPO ));
 		return false;
 	}
 
 	if( IsParameterValid( FUA, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "FUA = %x not valid", FUA ) );
+		STATUS_LOG(( 4, "%s[%p]:: FUA = %x not valid", getName(), this, FUA ));
 		return false;
 	}
 
 	if( IsParameterValid( RELADR, kSCSICmdFieldMask1Bit ) == false )
 	{
-		STATUS_LOG((4, "RELADR = %x not valid", RELADR ) );
+		STATUS_LOG(( 4, "%s[%p]:: RELADR = %x not valid", getName(), this, RELADR ));
 		return false;
 	}
 
 	if( IsParameterValid( LOGICAL_BLOCK_ADDRESS, kSCSICmdFieldMask4Byte ) == false )
 	{
-		STATUS_LOG((4, "LOGICAL_BLOCK_ADDRESS = %x not valid",
-						LOGICAL_BLOCK_ADDRESS ) );
+		STATUS_LOG(( 4, "%s[%p]:: LOGICAL_BLOCK_ADDRESS = %x not valid",
+						getName(), this, LOGICAL_BLOCK_ADDRESS ));
 		return false;
 	}
 
 	if( IsParameterValid( TRANSFER_LENGTH, kSCSICmdFieldMask2Byte ) == false )
 	{
-		STATUS_LOG((4, "TRANSFER_LENGTH = %x not valid",
-						TRANSFER_LENGTH ) );
+		STATUS_LOG(( 4, "%s[%p]:: TRANSFER_LENGTH = %x not valid",
+						getName(), this, TRANSFER_LENGTH ));
 		return false;
 	}
 
@@ -2963,8 +2965,8 @@ IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
 	IOUSBMassStorageUFIDevice * 	ufiDevice = OSTypeAlloc ( IOUSBMassStorageUFIDevice );
 	if( ufiDevice == NULL )
 	{
-		STATUS_LOG((1, "IOUSBMassStorageUFISubclass::BeginProvidedServices failed" ) );
-		PANIC_NOW( ( "IOUSBMassStorageUFISubclass::BeginProvidedServices failed" ) );
+		STATUS_LOG(( 1, "%s[%p]::BeginProvidedServices failed", getName(), this ));
+		PANIC_NOW(( "IOUSBMassStorageUFISubclass::BeginProvidedServices failed" ));
 		return false;
 	}
 	
@@ -2982,7 +2984,7 @@ IOUSBMassStorageUFISubclass::BeginProvidedServices( void )
 		ufiDevice->detach( this );
 	}
 	
-	STATUS_LOG((4, "IOUSBMassStorageUFISubclass::BeginProvidedServices exiting." ) );
+	STATUS_LOG(( 4, "%s[%p]::BeginProvidedServices exiting.", getName(), this ));
 	
 	ufiDevice->release();
 	

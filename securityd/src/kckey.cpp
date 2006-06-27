@@ -190,6 +190,18 @@ void KeychainKey::changedAcl()
 
 
 //
+// Intercept Key validation and double-check that the keychain is (still) unlocked
+//
+void KeychainKey::validate(AclAuthorization auth, const AccessCredentials *cred,
+	Database *relatedDatabase)
+{
+	if (KeychainDatabase *db = dynamic_cast<KeychainDatabase *>(relatedDatabase))
+		db->unlockDb();
+	SecurityServerAcl::validate(auth, cred, relatedDatabase);
+}
+
+
+//
 // We're a key (duh)
 //
 AclKind KeychainKey::aclKind() const

@@ -45,21 +45,21 @@ class AppleUSBOHCIedMemoryBlock : public IOBufferMemoryDescriptor
 #define EDsPerBlock	(kOHCIPageSize / sizeof(OHCIEndpointDescriptorShared))
 
 private:
-    IOPhysicalAddress			_sharedPhysical;
-    OHCIEndpointDescriptorSharedPtr	_sharedLogical;
-    AppleUSBOHCIedMemoryBlock		*_nextBlock;
-    AppleOHCIEndpointDescriptor		_eds[EDsPerBlock];	// the non shared data
+    IOPhysicalAddress					_sharedPhysical;
+    OHCIEndpointDescriptorSharedPtr		_sharedLogical;
+    AppleUSBOHCIedMemoryBlock			*_nextBlock;
+    AppleOHCIEndpointDescriptor			_eds[EDsPerBlock];	// the non shared data
     
 public:
 
-    virtual void 			free();
+    virtual void						free();
     static AppleUSBOHCIedMemoryBlock 	*NewMemoryBlock(void);
-    void				SetNextBlock(AppleUSBOHCIedMemoryBlock *next);
-    AppleUSBOHCIedMemoryBlock		*GetNextBlock(void);
-    UInt32				NumEDs(void);
-    IOPhysicalAddress			GetSharedPhysicalPtr(UInt32 index);
-    OHCIEndpointDescriptorSharedPtr	GetSharedLogicalPtr(UInt32 index);
-    AppleOHCIEndpointDescriptorPtr	GetED(UInt32 index);
+    void								SetNextBlock(AppleUSBOHCIedMemoryBlock *next);
+    AppleUSBOHCIedMemoryBlock			*GetNextBlock(void);
+    UInt32								NumEDs(void);
+    IOPhysicalAddress					GetSharedPhysicalPtr(UInt32 index);
+    OHCIEndpointDescriptorSharedPtr		GetSharedLogicalPtr(UInt32 index);
+    AppleOHCIEndpointDescriptorPtr		GetED(UInt32 index);
 };
 
 
@@ -71,22 +71,22 @@ class AppleUSBOHCIgtdMemoryBlock : public IOBufferMemoryDescriptor
 #define GTDsPerBlock	((kOHCIPageSize / sizeof(OHCIGeneralTransferDescriptorShared)) - 1)
 
 private:
-    IOPhysicalAddress				_sharedPhysical;
-    OHCIGeneralTransferDescriptorSharedPtr	_sharedLogical;
-    AppleUSBOHCIgtdMemoryBlock			*_nextBlock;
-    AppleOHCIGeneralTransferDescriptor		_gtds[GTDsPerBlock];	// the non shared data
+    IOPhysicalAddress							_sharedPhysical;
+    OHCIGeneralTransferDescriptorSharedPtr		_sharedLogical;
+    AppleUSBOHCIgtdMemoryBlock					*_nextBlock;
+    AppleOHCIGeneralTransferDescriptor			_gtds[GTDsPerBlock];	// the non shared data
     
 public:
 
-    virtual void 					free();
-    static AppleUSBOHCIgtdMemoryBlock 			*NewMemoryBlock(void);
+    virtual void									free();
+    static AppleUSBOHCIgtdMemoryBlock				*NewMemoryBlock(void);
     static AppleOHCIGeneralTransferDescriptorPtr	GetGTDFromPhysical(IOPhysicalAddress addr, UInt32 blockType = 0);
-    void						SetNextBlock(AppleUSBOHCIgtdMemoryBlock *next);
-    AppleUSBOHCIgtdMemoryBlock				*GetNextBlock(void);
-    UInt32						NumGTDs(void);
-    IOPhysicalAddress					GetSharedPhysicalPtr(UInt32 index);
-    OHCIGeneralTransferDescriptorSharedPtr		GetSharedLogicalPtr(UInt32 index);
-    AppleOHCIGeneralTransferDescriptorPtr		GetGTD(UInt32 index);
+    void											SetNextBlock(AppleUSBOHCIgtdMemoryBlock *next);
+    AppleUSBOHCIgtdMemoryBlock						*GetNextBlock(void);
+    UInt32											NumGTDs(void);
+    IOPhysicalAddress								GetSharedPhysicalPtr(UInt32 index);
+    OHCIGeneralTransferDescriptorSharedPtr			GetSharedLogicalPtr(UInt32 index);
+    AppleOHCIGeneralTransferDescriptorPtr			GetGTD(UInt32 index);
 };
 
 
@@ -98,22 +98,22 @@ class AppleUSBOHCIitdMemoryBlock : public IOBufferMemoryDescriptor
 #define ITDsPerBlock	((kOHCIPageSize / sizeof(OHCIIsochTransferDescriptorShared)) - 1)
 
 private:
-    IOPhysicalAddress				_sharedPhysical;
-    OHCIIsochTransferDescriptorSharedPtr	_sharedLogical;
-    AppleUSBOHCIitdMemoryBlock			*_nextBlock;
-    AppleOHCIIsochTransferDescriptor		_itds[ITDsPerBlock];	// the non shared data
+    IOPhysicalAddress								_sharedPhysical;
+    OHCIIsochTransferDescriptorSharedPtr			_sharedLogical;
+    AppleUSBOHCIitdMemoryBlock						*_nextBlock;
+    AppleOHCIIsochTransferDescriptor				_itds[ITDsPerBlock];	// the non shared data
     
 public:
 
-    virtual void 				free();
-    static AppleUSBOHCIitdMemoryBlock 		*NewMemoryBlock(void);
-    static AppleOHCIIsochTransferDescriptorPtr	GetITDFromPhysical(IOPhysicalAddress addr, UInt32 blockType = 0);
-    void					SetNextBlock(AppleUSBOHCIitdMemoryBlock *next);
-    AppleUSBOHCIitdMemoryBlock			*GetNextBlock(void);
-    UInt32					NumITDs(void);
-    IOPhysicalAddress				GetSharedPhysicalPtr(UInt32 index);
-    OHCIIsochTransferDescriptorSharedPtr	GetSharedLogicalPtr(UInt32 index);
-    AppleOHCIIsochTransferDescriptorPtr		GetITD(UInt32 index);
+    virtual void									free();
+    static AppleUSBOHCIitdMemoryBlock				*NewMemoryBlock(void);
+    static AppleOHCIIsochTransferDescriptorPtr		GetITDFromPhysical(IOPhysicalAddress addr, UInt32 blockType = 0);
+    void											SetNextBlock(AppleUSBOHCIitdMemoryBlock *next);
+    AppleUSBOHCIitdMemoryBlock						*GetNextBlock(void);
+    UInt32											NumITDs(void);
+    IOPhysicalAddress								GetSharedPhysicalPtr(UInt32 index);
+    OHCIIsochTransferDescriptorSharedPtr			GetSharedLogicalPtr(UInt32 index);
+    AppleOHCIIsochTransferDescriptorPtr				GetITD(UInt32 index);
 };
 
 #endif

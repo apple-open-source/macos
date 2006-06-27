@@ -13,7 +13,7 @@ This file contains frequently asked questions about lsof and answers
 to them.
 
 Vic Abell <abe@purdue.edu>
-October 20, 2004
+April 10, 2006
 ______________________________________________________________________
 
 Table of Contents:
@@ -38,6 +38,7 @@ Table of Contents:
 1.10	Language locale support
 1.10.1	Does lsof support language locales?  How do I use the support?
 1.10.2	Does lsof support wide characters in language locales?
+1.11	Are any files in the lsof distribution copyrighted?
 
 2.0	Lsof Ports
 2.1	What ports exist?
@@ -60,6 +61,7 @@ Table of Contents:
 3.3.3	Why doesn't lsof report path names for unlinked (rm'd) files?
 3.3.4	Why doesn't lsof report the "correct" hard linked file path
 	name?
+3.3.5	Will lsof report path names for deleted files?
 3.4	Why is lsof so slow?
 3.5	Why doesn't lsof's setgid or setuid permission work?
 3.6	Does lsof have security problems?
@@ -78,6 +80,8 @@ Table of Contents:
 	dialect?
 3.14.1	Why doesn't lsof report socket options, socket states, and TCP
 	flags and values for my dialect?
+3.14.2	Why doesn't lsof report the partial listen queue connection
+	count for my dialect?
 3.15	What does "no more information" in the NAME column mean?
 3.16	Why doesn't lsof find a process that ps finds?
 3.17	Why doesn't -V report a search failure?
@@ -143,7 +147,7 @@ Table of Contents:
 3.43.1.4 Why do some tests always fail?
 3.43.1.5 Why does the test suite say it hasn't been validated on
 	 my dialect?
-3.43.3.41 Why do the tests complain they can't stat() or open()
+3.43.1.6 Why do the tests complain they can't stat() or open()
 	 /dev/mem or /dev/kmem?
 3.43.2	LTbigf test issues
 3.43.2.1 Why does the LTbigf test say that the dialect doesn't
@@ -193,7 +197,7 @@ Table of Contents:
 	CANTRCVMORE" in a socket file's NAME column?
 4.9	When the -X option is used on AIX 4.3.3, why does lsof disable
 	it, saying "WARNING: user struct mismatch; -X option disabled?"
-4.10	Why doesn't the -X option work on my AIX 5L or 5.[12] system?
+4.10	Why doesn't the -X option work on my AIX 5L or 5.[123] system?
 4.11	Why doesn't /usr/bin/oslevel report the correct AIX version?
 4.11.1	Why doesn't /usr/bin/oslevel report the correct AIX version
 	on AIX 5.1?
@@ -207,17 +211,24 @@ Table of Contents:
 4.16	Why does lsof report "system paging space is low" and exit?
 
 5.0	Apple Darwin Problems
-5.1	Why does Configure ask for a path to the Darwin XNU kernel
+5.1	What do /dev/kmem-based and libproc-based mean?
+5.2	/dev/kmem-based Apple Darwin Questions
+5.2.1	Why does Configure ask for a path to the Darwin XNU kernel
 	header files?
-5.1.1   Why does Configure complain that Darwin XNU kernel header
+5.2.1.1	Why does Configure complain that Darwin XNU kernel header
 	files are missing?
-5.2	Why doesn't Apple Darwin lsof report text file information?
-5.3	Why doesn't Apple Darwin lsof support IPv6?
-5.4     Why does lsof complain about a mismatch between the release
+5.2.2	Why doesn't Apple Darwin lsof report text file information?
+5.2.3	Why doesn't Apple Darwin lsof support IPv6?
+5.2.4     Why does lsof complain about a mismatch between the release
 	for which lsof was compiled and the booted Mac OS X release?
+5.2.5	Why does lsof for Apple Darwin 8 and higher report
+	"stat(...): ..." in the NAME column?
+5.2.6	What are the limitations of Apple Darwin lsof link count
+	reporting?
+5.3	Libproc-based Apple Darwin Questions
 
 6.0	BSD/OS BSDI Problems
-6.1	Why doesn't lsof report on open kernfs files?
+6.0.5	Statement of deprecation
 
 7.0	DEC OSF/1, Digital UNIX, and Tru64 UNIX Problems
 7.1	Why does lsof complain about non-existent /dev/fd entries?
@@ -236,6 +247,7 @@ Table of Contents:
 8.1	Why doesn't lsof report on open kernfs files?
 8.2	Why doesn't lsof work on my FreeBSD system?
 8.3	Why doesn't lsof work on the RELEASE version of CURRENT?
+8.4	Why can't kvm_open() can't find some file?
 
 9.0	HP-UX Problems
 9.1	What do /dev/kmem-based and PSTAT-based mean?
@@ -258,6 +270,8 @@ Table of Contents:
 	system type" for VxFS files?
 9.2.10	Why does the ANSI-C compiler complain about comments in HP-UX
 	11 header files?
+9.2.11  Why does dnode1.c cause the HP-UX 11 compiler to complain that
+	<sys/fs/vx_inode.h> is missing or incorrect?
 9.3	PSTAT-based HP-UX lsof Questions
 9.3.1	Why does PSTAT-based lsof complain about pst_static and
 	other PSTAT structures?
@@ -268,6 +282,13 @@ Table of Contents:
 9.3.4   Why doesn't PSTAT-based lsof report TCP addresses for
 	telnetd's open socket files?
 9.3.5   Why does PSTAT-based lsof cause an HP-UX 11.11 kernel panic?
+9.3.6   Why doesn't PSTAT-based lsof report a CWD that is on a loopback
+	(LOFS) file system?
+9.3.7	Why do some swinstall packages for PSTAT-based HP-UX 11.11
+	packages complain about setgid and setuid bits?
+9.3.8	Why won't the bundled C compiler build PSTAT-based lsof for
+	PA-RISC HP-UX 11.23?
+9.3.9	Why won't gcc build PSTAT-based lsof for PA-RISC HP-UX 11.23?
 
 10.0	Linux Problems
 10.1	What do /dev/kmem-based and /proc-based lsof mean?
@@ -286,6 +307,7 @@ Table of Contents:
 10.2.7.2 Why can't lsof find files on an inaccessible NFS file system?
 10.2.8	Why doesn't /proc-based Linux lsof report socket options and
 	values, socket state flags, and TCP options and values?
+10.2.9	Does /proc-based Linux lsof use a device cache?
 10.3	Special Linux file types
 10.3.1	Why is ``DEL'' reported as a Linux file type?
 10.3.2	Why is ``unknown'' reported as a Linux file type?
@@ -302,6 +324,10 @@ Table of Contents:
 10.6	Why is ``NOFD'' reported as a Linux file type?
 10.7    Why does Linux lsof report a NAME column value that begins with
 	``/proc''?
+10.8	Linux /proc/net/tcp* and /proc/net/udp* issues
+10.8.1	Why use the Linux -X option?
+10.8.2	Why does lsof say ``-i is useless when -X is specified''?
+10.8.3	Why does lsof say ``can't identify protocol (-X specified)''?
 
 11.0	NetBSD Problems
 11.1	Why doesn't lsof report on open kernfs files?
@@ -344,17 +370,12 @@ Table of Contents:
 14.5.1  Why is space considered a non-printable character in command
 	names?
 14.6	Why doesn't lsof print all the characters of a command name?
+14.7	Why does lsof reject some -c command names, saying their lengths
+	are "> what system provides (nn)"?
+14.8	Why does lsof sometimes print TYPE numbers instead of names?
 
 15.0	Pyramid Version Problems
 15.0.5	Statement of deprecation
-15.1	DC/OSx Problems
-15.2	Reliant UNIX Problems
-15.2.1	Why does lsof complain that it can't find /stand/unix?
-15.2.2	Why does lsof complain about bad kernel addresses?
-15.2.3	Why does the Reliant C compiler give so many warning messages
-	when compiling lsof?
-15.2.4	Why does the lsof compilation require -Klp64 for Reliant UNIX
-	5.44 and why does my compiler reject it?
 
 16.0	SCO Problems
 16.1	SCO OpenServer Problems
@@ -376,6 +397,8 @@ Table of Contents:
 	NonStop Cluster (NSC) nodes?
 16.2.7	Why doesn't lsof report the UnixWare 7.1.1 NonStop Cluster
 	(NSC) node a process is using?
+16.2.8  Why does the compiler complain about missing UnixWare 2.1[.x]
+	header files?
 
 17.0	Sun Problems
 17.0.5	Statement of deprecation
@@ -410,13 +433,17 @@ Table of Contents:
 17.13.2	Why does a COMMON Solaris VCHR file sometimes seem to have an
 	incorrect minor device number?
 17.14	Why don't lsof and Solaris pfiles reports always match?
-17.15	Why does lsof say, "kvm_open (namelist=default, core=default):
+17.15	Why does lsof say, "kvm_open(namelist=default, core=default):
 	Permission denied?"
 17.16	Why is lsof slow on my busy Solaris UFS file system?
 17.17	Why is lsof so slow on my Solaris 8 or 9 system?
-17.18   Why doesn't lsof support VxFS 3.4 on Solaris 2.6, 7, and 8?
-17.18.1	Why does lsof report "vx_inode: vxfsu_get_ioffsets error"
-	for open Solaris 2.6, 7, and 8 VxFS 3.4 files?
+17.18	Solaris and VxFS
+17.18.1	Why doesn't lsof support VxFS 3.4 on Solaris 2.6, and above?
+17.18.2	Why does lsof report "vx_inode: vxfsu_get_ioffsets error"
+	for open Solaris 2.6 and above VxFS 3.4 and above files?
+17.18.3	Why does Solaris Configure claim there is no VxFS library?
+17.18.4	Why doesn't Solaris lsof report VxFS path name components?
+17.18.5	Why does Solaris 10 lsof report scrambled VxFS paths?
 17.19	Large file problems
 17.19.1	Why does lsof complain it can't stat(2) a Solaris 2.5.1
 	large file?
@@ -433,6 +460,18 @@ Table of Contents:
 17.24.2	Why doesn't lsof work in a Solaris 10 zone?
 17.24.3 Why does lsof complain it can't stat() Solaris 10 zone file
 	systems?
+17.25	Solaris 10 problems
+17.25.1 Why does Solaris 10 lsof sometimes report the wrong path name?
+17.25.2 Why does Solaris 10 lsof sometimes report only the mounted-on
+	directory and device?
+17.25.3 What does "(deleted)" mean in the NAME column of a Solaris 10
+	open file?
+17.25.4 What does "(?)" mean in the NAME column of a Solaris 10 open
+	file?
+17.26	Solaris contract file problems
+17.26.1	Why doesn't lsof report size, link count and node number for
+	Solaris 10 contract files?
+17.26.2 Why can't lsof locate a Solaris 10 contract file by path name?
 
 18.0	Lsof Features
 18.1	Why doesn't lsof doesn't report on /proc entries on my
@@ -830,15 +869,29 @@ ______________________________________________________________________
 
 	    AIX >= 4.3.2
 	    Apple Darwin >= 7.3.0
-	    BSDI BSD/OS >= 4.3.1
-	    Caldera OpenUNIX >= 8
-	    DEC OSF/1, Digital UNIX, Tru64 UNIX >= 4.0
 	    FreeBSD >= 5.2
 	    HP-UX >= 11.00
 	    /proc-based Linux
 	    NetBSD >= 1.6
 	    SCO OpenServer >= 5.0.6
 	    Solaris >= 2.6
+	    Tru64 UNIX 5.1
+
+1.11	Are any files in the lsof distribution copyrighted?
+
+	Yes.  Most files carry the copyright of the Purdue Research
+	Foundation and may be redistributed under the terms that
+	accompany the copyright notice.  Those terms may also be found
+	in the answer to the question, "Is there an lsof license?")
+
+	A few files carry other copyright notices.  Some are BSD
+	notices and they explain the terms under which they are
+	included in the lsof distrbution.
+	
+	Those that carry vendor copyright notices have been reproduced
+	in their original or modified forms with permission from the
+	copyright owners.  That permission is indicated in the README
+	files that accompany the files.
 
 
 2.0	Lsof Ports
@@ -847,22 +900,22 @@ ______________________________________________________________________
 
 	The pub/lsof.README file carries the latest port information:
 
-	    AIX 5.[12]
-	    Apple Darwin 6.x, 7.x, and 8.x for Power Macintosh systems
-	    BSDI BSD/OS 4.3.1 for x86-based systems
-	    DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.1
-	    FreeBSD 4.[2-9], 4.10, 5.[012] and 6.0 for x86-based systems
-	    FreeBSD 5.[012] and 6.0 for Alpha, AMD64 and Sparc64 based systems
-	    HP-UX 11.00 and 11.11
+	    AIX 5.[123]
+	    Apple Darwin 7.x and 8.x for Power Macintosh systems
+	    FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
+	    FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
+		systems
+	    HP-UX 11.00, 11.11 and 11.23
 	    Linux 2.1.72 and above for x86-based systems
-	    NetBSD 1.[456] and 2.0 for Alpha, x86, and SPARC-based systems
+	    NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
+		systems
 	    NEXTSTEP 3.[13]
-	    OpenBSD 2.[89] and 3.[0123456] for x86-based systems
+	    OpenBSD 2.[89] and 3.[0-9] for x86-based systems
 	    OPENSTEP 4.x
-	    Caldera OpenUNIX 8
 	    SCO OpenServer Release 5.0.4 for x86-based systems
 	    SCO|Caldera UnixWare 7.1.4 for x86-based systems
 	    Solaris 2.6, 8, 9 and 10
+	    Tru64 UNIX 5.1
 
 	In the above list the only UNIX dialects present are ones
 	for which I could test the current lsof revision.  Lsof
@@ -1102,7 +1155,9 @@ ______________________________________________________________________
 	name lookup features -- e.g., some versions of AdvFS for
 	Digital and Tru64 UNIX.  The Linux /proc-based lsof reports
 	full path names, because the Linux /proc file system provides
-	them.
+	them.  Lsof on recent builds of Solaris 10 also report full
+	path names, because those Solaris kernels record the full path
+	name in the vnode structure.
 
 	Otherwise, lsof uses the kernel name cache, where it exists
 	and can be accessed, and reports some or all path name
@@ -1111,7 +1166,6 @@ ______________________________________________________________________
 
 		Apple Darwin
 		DC/OSx
-		DEC OSF/1, Digital UNIX, Tru64 UNIX
 		FreeBSD
 		HP-UX, /dev/kmem and PSTAT based
 		Linux, /dev/kmem-based
@@ -1120,19 +1174,25 @@ ______________________________________________________________________
 		OpenBSD
 		OPENSTEP
 		Reliant UNIX
-		Caldera OpenUNIX
 		SCO OpenServer
 		SCO|Caldera UnixWare
-		Solaris 2.x, 7, and 8
+		Solaris 2.x, 7, 8 and 9 (except for some VxFS versions;
+					 see the "Why doesn't Solaris
+					 lsof report VxFS path name
+					 components?" section for more
+					 information)
+		Solaris 10 (early builds) Tru64 UNIX
 
 	As far as I can determine, AFS path lookups don't share in
-	kernel name cache operations, so lsof can't identify open
-	AFS path name components.
-	
+	kernel name cache operations, so lsof can't identify open AFS
+	path name components.  Apparently Solaris VxFS versions 4 and
+	above don't share in kernel name cache operations, either, so
+	lsof can't display path name components for those open files.
+
 	Since the size of the kernel name cache is limited and the
-	cache is in constant flux, it does not always contain the
-	names of all components in an open file's path; sometimes
-	it contains none of them.
+	cache is in constant flux, it does not always contain the names
+	of all components in an open file's path; sometimes it contains
+	none of them.
 
 	Lsof reports the file system directory name and whatever
 	components of the file's path it finds in the cache, starting
@@ -1211,13 +1271,13 @@ ______________________________________________________________________
 	from its copy of the kernel name cache when they have the
 	same device and inode number, but different names.
 
-	This error is less likely to occur in UNIX dialects where
-	the keys to the name cache are node address and possibly
-	a capability ID.  The Apple Darwin, BSDI, Digital UNIX,
-	FreeBSD, HP-UX, NEXTSTEP, OPENSTEP, Solaris, Tru64 UNIX,
-	and UnixWare dialects use node address.  Apple Darwin,
-	BSDI, FreeBSD, NetBSD, OpenBSD, Tru64 UNIX, and also use
-	a capability ID to further identify name cache entries.
+	This error is less likely to occur in UNIX dialects where the
+	keys to the name cache are node address and possibly a
+	capability ID.  The Apple Darwin, Digital UNIX, FreeBSD, HP-UX,
+	NEXTSTEP, OPENSTEP, Solaris, Tru64 UNIX, and UnixWare dialects
+	use node address.  Apple Darwin, FreeBSD, NetBSD, OpenBSD,
+	Tru64 UNIX, and also use a capability ID to further identify
+	name cache entries.
 
 3.3.3	Why doesn't lsof report path names for unlinked (rm'd) files?
 
@@ -1255,6 +1315,18 @@ ______________________________________________________________________
 	not.  Remember, the file identification keys significant
 	to the kernel are the device and node numbers, and they're
 	the same for all the hard linked names.
+
+3.3.5	Will lsof report path names for deleted files?
+
+	Lsof will report path names for deleted files for two
+	dialects:  Linux and Solaris 10.
+
+	Deleted Linux path names are reported by default and have
+	"(deleted)" at their ends.
+
+	The display of Solaris 10 deleted path names may be selected
+	with the -X option.  When selected they are also reported with
+	"(deleted)" at their ends.
 
 3.4	Why is lsof so slow?
 
@@ -1547,25 +1619,23 @@ ______________________________________________________________________
 	revision 4.71 for the following UNIX dialects, providing the
 	indicated information:
 
-	    AIX 4.3.2 and 5.[12]
+	    AIX 4.3.2 and 5.1 and above
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
-	    Apple Darwin 7.2
-		All socket options and values, socket states, and TCP
-		flags and values described in lsof(8) are reported.
-	    BSDI BSD/OS 4.3.1
+	    Apple Darwin 7.2 and above
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
 	    Digital UNIX and Tru64 UNIX 4.0
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
-	    FreeBSD 4.9, 4.10, 5.2 and 6.0
+	    FreeBSD 4.9 and above
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
-	    HP-UX 11 (/dev/kmem-based lsof)
-		Only the TF_NODELAY TCP flag and the TF_MSS value are
-		reported.
-	    HP-UX 11i and 11.11 (PSTAT-based lsof)
+	    HP-UX 11.00 (/dev/kmem-based lsof)
+		All socket options and values are reported.  No socket
+		states are reported.  Only the TF_NODELAY TCP flag and
+		the TF_MSS value are reported.
+	    HP-UX 11.11 and iiiv2 (PSTAT-based lsof)
 		All socket options and values, and socket states are
 		reported.  No TCP flags or values are reported.
 	    Linux
@@ -1574,10 +1644,10 @@ ______________________________________________________________________
 		could not be added to Linux, because socket options,
 		socket states, and TCP flags and values are not
 		available via the /proc file system.
-	    NetBSD 1.6ZH
+	    NetBSD 1.6G and above
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
-	    OpenBSD 3.4
+	    OpenBSD 3.4 and above
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
 	    OPENSTEP 4.2
@@ -1589,7 +1659,7 @@ ______________________________________________________________________
 	    SCO OpenServer Release 5.0.6
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
-	    Solaris 2.6, 8, 9 and 10
+	    Solaris 2.6, 8 and above
 		The socket option display is limited to BROADCAST,
 		DEBUG, DGRAM_ERRIND, DONTROUTE and OOBINLINE.  Socket
 		values are limited to KEEPALIVE and LINGER.  No socket
@@ -1599,6 +1669,56 @@ ______________________________________________________________________
 	    UnixWare 7.1.[134]
 		All socket options and values, socket states, and TCP
 		flags and values described in lsof(8) are reported.
+
+3.14.2	Why doesn't lsof report the partial listen queue connection
+	count for my dialect?
+
+	The reporting of partial listen queue connections was added to
+	-Tf processing at lsof revision 4.76.  Currently it is reported
+	for these dialects:
+
+	    AIX 4.3.2
+		This dialect is no longer supported, so no attempt
+		was made to add partial listen queue length support
+		for it.
+	    AIX 5.1 and above
+		Partial listen queue information is available.
+	    Apple Darwin 7.2 and above
+		Partial listen queue information is available.
+	    Digital UNIX 4.0
+		This dialect is no longer supported, so no attempt
+		was made to add partial listen queue length support
+		for it.
+	    FreeBSD 4.9 and above
+		Partial listen queue information is available.
+	    HP-UX 11.00 (/dev/kmem-based lsof)
+		No partial listen queue information is available.
+	    HP-UX 11.11 and iiiv2 (PSTAT-based lsof)
+		No partial listen queue information is available.
+	    Linux
+		No partial listen queue information is available.
+	    NetBSD 1.6G and above
+		Partial listen queue information is available.
+	    OpenBSD 3.4 and above
+		Partial listen queue information is available.
+	    OPENSTEP 4.2
+		Partial listen queue information is available.
+	    OpenUNIX 8
+		This dialect is no longer supported, so no attempt
+		was made to add partial listen queue length support
+		for it.
+	    SCO OpenServer Release 5.0.6
+		No partial listen queue information is available.
+	    Solaris 2.6, 8 and above
+		Partial listen queue information is available.
+	    Tru64 UNIX 5.0
+		This dialect is no longer supported, so no attempt
+		was made to add partial listen queue length support
+		for it.
+	    Tru64 UNIX 5.1
+		Partial listen queue information is available.
+	    UnixWare 7.1.[134]
+		Partial listen queue information is available.
 
 
 3.15	What does "no more information" in the NAME column mean?
@@ -3004,9 +3124,19 @@ ______________________________________________________________________
 	directory, executable (if possible), and kernel memory file
 	(if applicable).
 
-	Failures to find those things result in error messages.
-	More information on their production can be found in the
-	LTbasic.c source file.
+	Failures to find those things result in the LTbasic error
+	messages.  More information on how LTbasic produces the error
+	messages may be found in the LTbasic.c source file.
+
+	On HP-UX 11.11 and higher, for example, if the test's current
+	working directory is on a loopback (LOFS) file system, LTbasic
+	won't be able to find the current working directory of the lsof
+	process because of a bug in the HP-UX kernel.
+
+	The solution for that HP-UX problem is to install an HP-UX
+	patch.  See the answer to the "Why doesn't PSTAT-based lsof
+	report a CWD that is on a loopback (LOFS) file system?"
+	question for more information on the patch.
 
 3.43.4	NFS test issues
 
@@ -3606,9 +3736,9 @@ ______________________________________________________________________
 	to run lsof.  Compiling lsof on the target system is the
 	preferred way to get a matching binary.
 
-4.10	Why doesn't the -X option work on my AIX 5L or 5.[12] system?
+4.10	Why doesn't the -X option work on my AIX 5L or 5.[123] system?
 
-	If your AIX 5L or 5.[12] system uses the ia64 architecture,
+	If your AIX 5L or 5.[123] system uses the ia64 architecture,
 	lsof needs setuid-root permission to be able to do the
 	processing that -X requires.
 
@@ -3776,35 +3906,54 @@ ______________________________________________________________________
 
 5.0	Apple Darwin Problems
 
-5.1	Why does Configure ask for a path to the Darwin XNU kernel
+5.1	What do /dev/kmem-based and libproc-based mean?
+
+	Lsof for Apple Darwin currently uses /dev/kmem to read kernel
+	data structures from which it gathers and reports open file
+	information.  That version of lsof is called /dev/kmem-based
+	lsof.
+
+	At an upcoming release lsof will use a library called libproc
+	to obtain information about open files.  That version of lsof
+	wil be called libproc-based lsof.
+
+	The /dev/kmem-based lsof sources may be found in the kmem
+	subdirectory of the dialects/darwin branch of the lsof source
+	tree.  When the supporting version of Apple Darwin is released,
+	the libproc-based lsof sources will be found in
+	.../dialects/darwin/libproc.
+
+5.2	/dev/kmem-based Apple Darwin Questions
+
+5.2.1	Why does Configure ask for a path to the Darwin XNU kernel
 	header files?
 
 	When lsof was ported to Apple Darwin by Allan Nathanson at
 	revision 4.53, some kernel header files needed by lsof
 	weren't being exported by the developers.  (That's still
-	true at lsof revision 4.73.)
+	true at lsof revision 4.76.)
 
 	At first a shell script that Allan provided would get the
 	missing header files by checking them out from the CVS
 	root.  Although the script was updated from time to time,
 	eventually the re-organization of Darwin sources has made
 	it impossible to update the script to do an automatic
-	dowload of the missing header files.
+	download of the missing header files.
 
-	At lsof revision 4.69 it is necessary for the Darwin
-	lsof builder to download the Darwin XNU kernel headers
-	before attempting to build lsof.  The download my be done
-	via a web browser, starting at this URL:
+	At lsof revision 4.69 and above it is necessary for the Darwin
+	lsof builder to download the Darwin XNU kernel headers before
+	attempting to build lsof.  The download my be done via a web
+	browser, starting at this URL:
 
 	    http://www.opensource.apple.com/darwinsource/index.html
 
 	Once there, select the link to the Mac OS X version that
 	matches the one on the system where lsof is to be built.
 
-	Follow that link's "[ Source ]" link.  Once there, select
-	the tar.gz link of the xnu* entry near the bottom of the
-	page.  That entry should have a name that matches the
-	xnu* name shown by `uname -a` -- e.g., if uname reports:
+	Follow that link's "[ Source ]" link.  Once there, select the
+	tar.gz link of the xnu* entry near the bottom of the page.
+	That entry should have a name that matches the xnu* name shown
+	by `uname -a` -- e.g., if uname reports:
 
 	    $ uname -a
 	    ... root:xnu/xnu-517.7.21 ...
@@ -3814,38 +3963,39 @@ ______________________________________________________________________
 	an Apple ID and password.
 
 	Enter them if they're available.  If an Apple ID and password
-	are not available, get them by following the instructions
-	on the page -- e.g., follow the signin.apple.com link.
+	are not available, get them by following the instructions on
+	the page -- i.e., follow the signin.apple.com link.
 
 	Once a valid Apple ID and its password have been entered,
 	the download will begin.  Select the saving of the downloaded
 	xnu*.tar.gz file in an appropriate place on the Mac OS X
 	system.
 
-	Once the download completes, gunzip and extract the tar
-	archive -- e.g.,
+	Once the download completes, install it.  Use gunzip to
+	decompress the download and tar to extract the archive -- e.g.,
 
 	    $ gunzip -c xnu-517.7.21.tar.gz | tar xf -
 	
-	Remember the absolute path to the extracted archive.  E.g.,
-	if the xnu-517.7.21.tar archive was extracted to the lsof
-	builder's home directory, its full path will be something
-	like:
+	Remember the absolute path to the extracted archive.  That is
+	its installed place.  E.g., if the xnu-517.7.21.tar archive was
+	extracted to the lsof builder's home directory, its full
+	installation path will be something like:
 
 	    ~/xnu-517.7.21
 
-	Now run the lsof Configure script.  When it asks for the
-	path to the Darwin XNU kernel header files, supply the path
-	to the extracted xnu* archive -- e.g., ~/xnu-517.7.21.
+	Now run the lsof Configure script.  When it asks for the path
+	to the installed Darwin XNU kernel header files, supply the
+	path to the gunzip'd and extracted xnu* archive -- e.g.,
+	~/xnu-517.7.21.
 
 	The path to the Darwin XNU kernel headers may also be
 	supplied to the Configure script in the DARWIN_XNUDIR
 	environment variable, eliminating the need to enter it
 	interactively -- e.g.,
 
-	    $ DARWIN_XNUDIR=~/xnu-517.7.21 ./Configure -n darwin
+	    $ DARWIN_XNUDIR=~/xnu-344.49 ./Configure -n darwin
 
-5.1.1   Why does Configure complain that Darwin XNU kernel header
+5.2.1.1	Why does Configure complain that Darwin XNU kernel header
 	files are missing?
 
 	These are some reasons why the lsof Configure script might
@@ -3869,7 +4019,7 @@ ______________________________________________________________________
 	Make sure "lsof" appears in the "Subject:" line so my e-mail
 	filter won't classify your letter as Spam.
 
-5.2	Why doesn't Apple Darwin lsof report text file information?
+5.2.2	Why doesn't Apple Darwin lsof report text file information?
 
 	At the first port of lsof to Apple Darwin, revision 4.53,
 	insufficient information was available -- logic and header
@@ -3879,14 +4029,14 @@ ______________________________________________________________________
 	Text file support will be added to Apple Darwin lsof after
 	the necessary information becomes available.
 
-5.3	Why doesn't Apple Darwin lsof support IPv6?
+5.2.3	Why doesn't Apple Darwin lsof support IPv6?
 
 	At the first port of lsof to Apple Darwin, revision 4.53,
 	Apple Darwin lacked IPv6 support.  IPv6 became available
 	in Apple Darwin version 1.5 and support for it was added
 	to lsof then.
 
-5.4     Why does lsof complain about a mismatch between the release
+5.2.4	Why does lsof complain about a mismatch between the release
 	for which lsof was compiled and the booted Mac OS X release?
 
 	When lsof is started on the "Gold Master" Darwin release
@@ -3905,14 +4055,65 @@ ______________________________________________________________________
 	lsof so its built-on and running-on Mac OS X release numbers
 	match.
 
+5.2.5	Why does lsof for Apple Darwin 8 and higher report
+	"stat(...): ..." in the NAME column?
+
+	Lsof for Apple Darwin 8 may report messages like these in the
+	NAME column:
+
+	    stat(/private/var/run/asl_prune): No such file or directory
+	 or
+	    stat(/private/var/db/netinfo/local.nidb/Config): Permission denied
+
+	Those messages indicate that lsof was unable to collect open
+	file information for the paths enclosed in "stat(...)" with the
+	stat(2) function, because the function encountered the reported
+	error.
+
+	A work-around for the "Permission denied" error is to run lsof
+	with elevated privileges -- e.g., when logged on as the super
+	user.
+
+	If the stat(2) error message is "No such file or directory",
+	the file probably has been unlinked (removed) and there is no
+	lsof work-around.
+
+5.2.6	What are the limitations of Apple Darwin lsof link count
+	reporting?
+
+	Lsof for Apple Darwin cannot report link count information
+	reliably.
+	
+	For Apple Darwin below 8 link count information is not always
+	available in the kernel node structures available to lsof.
+	When link count information is available, however, it includes
+	link counts of zero.  Thus, using lsof's +L1 option may result
+	in the finding of some files whose link counts are zero.
+
+	Lsof can report only some link count information for Apple
+	Darwin 8 and above.  Link count information is only available
+	for files where lsof can assemble the full file path and has
+	permission to apply stat(2) to it.  (See the answer to the "Why
+	does lsof for Apple Darwin 8 and higher report "stat(...): ..."
+	in the NAME column?" question for more information on stat(2)
+	failures.)
+
+	Apple Darwin 8 and above files that have been unlinked and thus
+	have a link count of zero cannot be found by stat(2) -- i.e.,
+	stat(2) returns a "No such file or directory" error.  As a
+	result lsof never displays link counts of zero and the use of
+	lsof's +L1 option to find them always fails.
+
+5.3	Libproc-based Apple Darwin Questions
+
 	
 6.0	BSD/OS BSDI Problems
 
-6.1	Why doesn't lsof report on open kernfs files?
+6.0.5	Statement of deprecation
 
-	Lsof doesn't report on open BSD/OS BSDI kernfs files because
-	the structures lsof needs aren't defined in the kernfs.h
-	header file in /sys/misc/kernfs.
+	As of lsof revision 4.76 support for BSDI BSD/OS has been
+	dropped.  The 4.76 distribution of lsof for BSDI BSD/OS may be
+	found on lsof.itap.purdue.edu in pub/tools/unix/lsof/OLD/src.
 
 
 7.0	DEC OSF/1, Digital UNIX, and Tru64 UNIX Problems
@@ -3938,11 +4139,11 @@ ______________________________________________________________________
 	replies from lstat(2), and complains about the paths.
 
 	Duncan McEwan discovered this error and has reported it to
-	DEC.  Duncan also supplied a work- an alternate readdir()
-	function as a work-around.  I've incorporated his readdir()
-	in dialects/osf/ddev.c (as the static ReadDir() function)
-	with some slight modifications, and enabled its use when
-	the USELOCALREADDIR symbol is defined.
+	DEC.  Duncan also supplied an alternate readdir() function
+	as a work-around.  I've incorporated his readdir() in
+	dialects/osf/ddev.c (as the static ReadDir() function) with
+	some slight modifications, and enabled its use when the
+	USELOCALREADDIR symbol is defined.
 
 	The Configure script defines USELOCALREADDIR for Digital
 	UNIX version and 3.2.  If you don't want to use Duncan's
@@ -4167,6 +4368,26 @@ ______________________________________________________________________
 	Make sure "lsof" appears in the "Subject:" line so my e-mail
 	filter won't classify your letter as Spam.
 
+8.4	Why does kvm_open() complain it can't find some file?
+
+	If lsof issues this complaint:
+
+	    lsof: kvm_open(execfile=/boot/kernel/kernel,
+		  corefile=/dev/mem: No such file or directory
+
+	Your FreeBSD system might not have a /dev/mem device.  If
+	not, create one -- e.g., as root do:
+
+	    # mknod /dev/mem c <major> 0
+	    # chmod 440 /dev/mem
+	    # chgrp kmem /dev/mem
+
+	For <major> use /dev/kmem's major device number.
+
+	You may have to run kldload, too -- again as root do:
+
+	    # kldload mem
+
 
 9.0	HP-UX Problems
 
@@ -4212,6 +4433,11 @@ ______________________________________________________________________
 	questions and answers specific to PSTAT-based HP-UX lsof.
 	The next section, "Why doesn't a /dev/kmem-based HP-UX lsof
 	compilation use -O?" covers /dev/kmem-based HP-UX lsof.
+
+	The /dev/kmem-based lsof sources may be found in the kmem
+	subdirectory of the dialects/hpux branch of the lsof source
+	tree.  The PSTAT-based lsof sources may be found in
+	.../dialects/hpux/pstat.
 
 9.2	/dev/kmem-based HP-UX lsof Questions
 
@@ -4556,6 +4782,20 @@ ______________________________________________________________________
 	The initial "/*" is not terminated by an ending "*/" before the
 	appearance of a second "/*".
 
+9.2.11  Why does dnode1.c cause the HP-UX 11 compiler to complain that
+	<sys/fs/vx_inode.h> is missing or incorrect?
+
+	If CFLAGS in the lsof Makefile for an HP-UX 11 compilation
+	includes HASONLINEJFS, indicating the system has OnlineJFS
+	support, lsof needs the <sys/fs/vx_inode.h> header file.
+	Sometimes it is missing from /usr/include/sys/fs.
+
+	<sys/fs/vx_inode.h> is a header file that must be obtained from
+	Veritas.  If that proves impossible, please contact me via
+	e-mail at <abe@purdue.edu>.  Make sure "lsof" appears in the
+	"Subject:" line so my e-mail filter won't classify your letter
+	as Spam.
+
 
 9.3	PSTAT-based HP-UX lsof Questions
 
@@ -4677,6 +4917,87 @@ ______________________________________________________________________
 	information in the answer to the "Why doesn't PSTAT-based
 	lsof report TCP addresses for telnetd's open socket files?"
 	question for information on how to obtain the patch.
+
+9.3.6   Why doesn't PSTAT-based lsof report a CWD that is on a loopback
+	(LOFS) file system?
+
+	When PSTAT-based lsof reports on processes whose current
+	working directory (CWD) is on a loopback file system, lsof
+	can't report the open CWD file.  The reason is that the HP-UX
+	11.11 and above kernel's loopback file system code is not
+	passing the CWD file ID to the kernel's pstat(2) code.  Hence
+	lsof is given no information on the lofs CWD.
+
+	The problem was first reported to me by Ermin Borovac and an
+	internal bug report was filed with the HP-UX file system group
+	on October 26, 2004.  That report has now been answered by the
+	patch PHKL_33200 -- s700_800 11.11 lofs cumulative patch.  The
+	HP IT Resource Center (http://itrc.hp.com) is a source for the
+	patch.
+
+9.3.7	Why do some swinstall packages for PSTAT-based HP-UX 11.11
+	packages complain about setgid and setuid bits?
+
+	First, let me explain that I do not provide lsof swinstall
+	packages for lsof.  Others provide them and they should be
+	contacted about problems with their packages.
+
+	However, I have become aware of a problem with one package
+	about which I have some information I can share.  The problem
+	shows up in these swinstall messages:
+
+	    ERROR:   Unknown owner and/or group for file
+		     "/usr/local/bin/lsof". SUID and/or SGID bit was
+		     not set. 
+	    ERROR:   Failed installing fileset "lsof.lsof-RUN,r=4.73".
+		     Check the above output for details.
+
+	The swpackage SUID/SGID functionality was restricted by changes
+	for POSIX compliance, breaking backward compatibility.  The
+	patch PHCO_27671 allows SUID/SGID for uid/gid of 0 only, as a
+	compromise between backward compatibility and POSIX conformance.
+
+	If the setuid bit is to be set on the executable, the UID and
+	GID of the executable must be 0 (zero).
+
+9.3.8	Why won't the bundled C compiler build PSTAT-based lsof for
+	PA-RISC HP-UX 11.23?
+
+	A PA-RISC HP-UX 11.23 bundled C compiler dated May 2005 or
+	later will not build PSTAT-based lsof.  It will deliver error
+	messages related to the system's <gssapi/gssapi.h> header
+	file.
+
+	There is nothing wrong with that header file or lsof.  The
+	problem is that the bundled C compiler can't cope with the
+	gssapi.h header file.
+
+	The work-around is to use the HP ANSI C compiler.   Using gcc
+	is not a satisfactory work-around.  See the answer to the "Why
+	won't gcc build PSTAT-based lsof for PA-RISC HP-UX 11.23?"
+	question for more information.
+
+9.3.9	Why won't gcc build PSTAT-based lsof for PA-RISC HP-UX 11.23?
+
+	Gcc will not even compile PSTAT-based lsof revisions below 4.77
+	for PA-RISC HP-UX 11.23 dated May 2005 or later.  It reports
+	errors in lsof's print.c fill_portmap() function about missing
+	members of the rpcent structure.  That happens because gcc
+	defines _XOPEN_SOURCE_EXTENDED which disables the definition of
+	the rpcent structure in <netdb.h>.
+	
+	Using the HP bundled C compiler is not a viable work-around.
+	That is explained in the answer to the "Why won't the bundled C
+	compiler build PSTAT-based lsof for PA-RISC HP-UX 11.23?"
+
+	While an lsof revision 4.77 or higher can be compiled with gcc,
+	the results are unreliable.  Lsof will compile, but it
+	occasionally produces segment faults when it runs.  I have not
+	been able to reproduce the failure reliably or locate a
+	debugger that will work with the gcc-compiled lsof.
+
+	The only reliable work-around is to use the HP ANSI C
+	compiler.
 
 
 10.0	Linux
@@ -4909,6 +5230,13 @@ ______________________________________________________________________
 	and values, socket states, and TCP options and values to
 	lsof.
 
+10.2.9	Does /proc-based Linux lsof use a device cache?
+
+	No.  The Linux /proc/<PID>/fd/* entries provide device names to
+	lsof via readlink(2).  It is not necessary to enable device
+	cache processing for /proc-based Linux lsof via the Customize
+	script or modifications to the Linux machine.h header file.
+
 10.3	Special Linux file types
 
 10.3.1	Why is ``DEL'' reported as a Linux file type?
@@ -5027,6 +5355,34 @@ ______________________________________________________________________
 	path name, or it can't access the /proc/<PID>/fd subdirectory
 	with opendir() -- it will report the /proc/<PID> path in the
 	NAME column.
+10.8	Linux /proc/net/tcp* and /proc/net/udp* issues
+
+10.8.1	Why use the Linux -X option?
+
+	If you're not interested in TCP/IP socket information for a
+	particular use of lsof, adding the -X option will make lsof run
+	more quickly, because -X inhibits the reading of the
+	/proc/net/tcp* and /proc/net/udp* files.  For example, you may
+	only be interested in knowing what process has a particular
+	file open.
+
+	When the Linux system has a large number of open TCP/IP socket
+	files, the time savings provided by -X can be significant.
+
+10.8.2	Why does lsof say ``-i is useless when -X is specified''?
+
+	If -X is specified, lsof can't report much information on open
+	TCP/IP socket files.  However, lsof's -i option requests that
+	information.  Hence, the two options conflict and can't be used
+	together.
+
+10.8.3	Why does lsof say ``can't identify protocol (-X specified)''?
+
+	If the Linux lsof -X option is specified and an open socket
+	file can't be identified without accessing the /proc/net/tcp*
+	and /proc/net/udp* files, lsof will report that it can't
+	identify the socket's protocol and that the failure may be
+	caused by the -X specification
 
 
 11.0	NetBSD Problems
@@ -5120,20 +5476,19 @@ ______________________________________________________________________
 
 11.4.1	Why can't the compiler find some NetBSD header files?
 
-	If the compiler's pre-processor complains it can't find
-	some header files when it compiles lsof source files,
-	/usr/include may not have all the header files lsof needs.
-	Some may be elsewhere -- most likely in /sys.
+	If the compiler's pre-processor complains it can't find some
+	header files when it compiles lsof source files, /usr/include
+	and /usr/src may not have all the header files lsof needs.
 
 	As a work-around use the NETBSD_SYS environment variable
 	to specify to lsof the location of the additional header
 	files -- e.g.,
 
-	    % setenv NETBSD_SYS /sys
+	    % setenv NETBSD_SYS /my_source
 	    % ./Configure -n netbsd
 	
 	 or
-	     $ NETBSD_SYS=/sys ./Configure -n netbsd
+	     $ NETBSD_SYS=/mys_source ./Configure -n netbsd
 
 	Caution: using this work-around may cause the lsof Configure
 	script to activate or omit different features, depending
@@ -5142,19 +5497,27 @@ ______________________________________________________________________
 
 11.4.2	Why does NetBSD lsof produce incorrect output?
 
-	If the NetBSD system's kernel was built from header files
-	that don't match those in /usr/include -- e.g., /sys has
-	the ones from which the kernel was built -- lsof may build,
-	but won't produce correct output.
+	If the NetBSD system's kernel was built from header files that
+	don't match those in /usr/include -- e.g., //usr/src has the
+	ones from which the kernel was built -- lsof may build, but
+	won't produce correct output.
 
-	As a work-around, try using the NETBSD_SYS environment
-	variable to request that lsof be compiled with header files
-	in /sys in place of /usr/include, when ones in /sys are
-	available.
+	As a possible work-around, try directing the C compiler to
+	select header files from /usr/src before it selects them from
+	/usr/include.  That can be done with the DEBUG make string --
+	e.g.,
 
-	Instructions for using that NETBSD_STS work-around may be
-	found in the answer to the "Why can't the compiler find
-	some NetBSD header files?" question.
+	    $ make DEBUG="-I/usr/src -I/usr/include"
+	
+	If that work-around fails, try using the LSOF_INCLUDE and
+	NETBSD_SYS environment variables to swap /usr/include and
+	/usr/src when running the Configure script, then use the make
+	DEBUG string when running make -- e.g.,
+
+	    $ LSOF_INCLUDE=/usr/src; export LSOF_INCLUDE
+	    $ NETBSD_SYS=/usr/include; export NETBSD_SYS
+	    $ ./Configure -n netbsd
+	    $ make DEBUG="-I/usr/src -I/usr/include"
 
 11.5	Why isn't lsof feature xxx enabled for NetBSD?
 
@@ -5464,14 +5827,46 @@ ______________________________________________________________________
 	may be used to specify a larger width.
 	
 	If "w" is zero ('0') lsof will print all characters of all
-	command names, replacing non-printable characters as
-	discussed in the answer to " Why does lsof output \x, ^x,
-	or \xnn for characters sometimes?"
-	
+	command names up to the limit of the number of characters
+	supplied by the particular UNIX dialect.  When reporting
+	command names, lsof replaces non-printable characters as
+	discussed in the answer to " Why does lsof output \x, ^x, or
+	\xnn for characters sometimes?"
+
 	See the answer to the "Why is space considered a non-printable
-	character in command names?" question for an explanation
-	of why spaces are replaced by the ``\x20'' representation
-	in command names.
+	character in command names?" question for an explanation of why
+	spaces are replaced by the ``\x20'' representation in command
+	names.
+
+	The number of command name characters supplied to lsof by UNIX
+	dialects in files and structures varies by dialect.  For
+	example, Linux 2.4.27 supplies lsof the first 15 characters of
+	command names and Solaris 9 supplies 16.  Thus, even if "w" is
+	zero ('0'), lsof can't report more characters for command names
+	on those two UNIX dialects than they provide lsof.
+
+14.7	Why does lsof reject some -c command names, saying their lengths
+	are "> what system provides (nn)"?
+
+	The command name length that a specific system provides varies
+	from dialect to dialect.  As noted in the answer to the "Why
+	doesn't lsof print all the characters of a command name?"
+	question, Linux and Solaris provide a limited number of command
+	name characters.
+
+	When more characters are specified in the parameter to the -c
+	option, lsof considers it an error and issues a fatal error
+	message -- e.g.,
+
+	   lsof: "-c xxxxyyyy" length (8) > what system provides (7)
+
+	The only work-around is to specify no more characters to -c
+	that the system provides to lsof.
+
+14.8	Why does lsof sometimes print TYPE numbers instead of names?
+
+	When lsof can't convert a type number to a name for printing in
+	the TYPE column, it will report the number as four octets.
 
 
 15.0	Pyramid Version Problems
@@ -5483,87 +5878,6 @@ ______________________________________________________________________
 	obtaining the last lsof Pyramid distribution.  Make sure "lsof"
 	appears in the "Subject:" line so my e-mail filter won't
 	classify your letter as Spam.
-
-15.1	DC/OSx Problems
-
-15.2	Reliant UNIX Problems
-
-15.2.1	Why does lsof complain that it can't find /stand/unix?
-
-	When you attempt to run lsof on a Reliant UNIX multi-
-	processor, it may complain that it can't find the kernel
-	boot file, /stand/unix.  That's because normally the
-	/stand/unix file is only located on one node's root file
-	system.  Lsof needs the file to obtain kernel data addresses.
-
-	The work-around is to copy /stand/unix to each node.
-
-15.2.2	Why does lsof complain about bad kernel addresses?
-
-	Lsof may complain that some Reliant UNIX kernel addresses
-	aren't usable -- e.g., it may issue a warning like this:
-
-	    lsof: WARNING: can't read kernel's name cache: 0x00000000
-
-	This is usually the result  of having a /stand/unix file
-	on a Reliant multi-processor that isn't the booted kernel
-	file.  Because it doesn't have symbol addresses that match
-	those of the running kernel, lsof has problems reading
-	kernel values.
-
-	One work-around is to copy the correct boot file to
-	/stand/unix.  If the booted kernel file is available under
-	another name -- e.g., /stand/unix.myboot -- another
-	work-around is to use lsof's -k flag to specify the alternate
-	name as the source of kernel name list values:
-
-	    $ lsof -k /stand/unix.myboot ...
-
-15.2.3	Why does the Reliant C compiler give so many warning messages
-	when compiling lsof?
-
-	The Reliant Unix Pyramid C compiler issues warning messages
-	that I haven't found a convenient way to suppress.  You
-	can ignore warning messages about casts and conversions
-	that lose bits.  The message "warning: undefining __STDC__"
-	is intentionally caused by the lsof MkKernOpts configuration
-	script to suppress warning messages about cast and conversion
-	problems in standard system header files, such as <stdio.h>
-	and <string.h>.
-
-15.2.4	Why does the lsof compilation require -Klp64 for Reliant UNIX
-	5.44 and why does my compiler reject it?
-
-	The -Klp64 flag enables the 64 bit data model lsof requires
-	for handling Reliant Unix 5.44 and above 64 bit kernel
-	pointers.  Some compilers don't support -Klp64.
-
-	If lsof's Configure script detects that -Kl64 is required,
-	it test-compiles a null program to see if the compiler
-	supports -Klp64.  If the compiler doesn't support -Klp64,
-	Configure echoes this message and quits:
-
-	    /usr/ccs/bin/cc doesn't support -Klp64.  Consult 00FAQ.
-
-	You can't proceed until you have a compiler that supports
-	-Klp64.  Hint: if you have a compiler that does support
-	it, but the compiler is located at a path other than
-	/usr/ccs/bin/cc, supply its path to Configure via the
-	LSOF_CC environment variable -- e.g., if the compiler that
-	supports -Klp64 is in /opt/C/bin/cc, you might use this
-	Configure command:
-
-	    $ LSOF_CC=/opt/C/bin/cc Configure pyramid
-
-	I have used both these compilers successfully on Reliant
-	Unix 5.44 and above:
-
-	    Pyramid C Compiler 06.0A00
-
-	    CDS++ Version 02.A00
-
-	Compilers known to lack support for -Klp64 include C-DS-MI
-	V1.2 and gcc.
 
 
 16.0	SCO Problems
@@ -5800,6 +6114,25 @@ ______________________________________________________________________
 	 or
 	    $ onnode node-number lsof [options] 2>&1 | less
 
+16.2.8  Why does the compiler complain about missing UnixWare 2.1[.x]
+	header files?
+
+	SCO|Caldera didn't ship the following header files with
+	UnixWare 2.1 through 2.1.3:
+
+	    <fs/proc/prdata.h>
+	    <fs/procfs/prdata.h>
+	    <sys/fs/fifonode.h>
+	    <sys/fs/namenode.h>
+
+	Lsof needs those header files for its compilation.  Contact
+	SCO|Caldera to get copies of those header files.
+	
+	If you can't get the header files from SCO|Caldera, please
+	contact me via e-mail at <abe@purdue.edu>.  Make sure "lsof"
+	appears in the "Subject:" line so my e-mail filter won't
+	classify your letter as Spam.
+
 
 17.0	Sun Problems
 
@@ -5897,17 +6230,15 @@ ______________________________________________________________________
 	If you have these two patches installed, contact Sun and
 	complain about the mis-match.
 
-	The lsof Configure script attempts to work around the
-	mis-matched patches by including a modified <sys/auxv.h>
-	header file from ./dialects/sun/include/sys.  That auxv.h
-	has these alternate definitions:
+	You may be able to work around the problem by editing
+	/usr/include/sys/auxv.h to have the following NUM_*_VECTORS
+	definitions:
 
 		    #define NUM_GEN_VECTORS 4
 		    #define NUM_SUN_VECTORS 8
 	
-	The Configure script issues a prominent WARNING that it is
-	putting this work-around into effect.  If it doesn't succeed
-	for you, please contact me.
+	The Configure script issues a prominent WARNING that you should
+	try the work-around.
 
 	I thank Leif Hedstrom for identifying the offending patches.
 
@@ -6357,7 +6688,7 @@ ______________________________________________________________________
 	find that character device number in /devices with ls(1)
 	or stat(2).
 
-17.15	Why does lsof say, "kvm_open (namelist=default, core=default):
+17.15	Why does lsof say, "kvm_open(namelist=default, core=default):
 	Permission denied?"
 
 	Lsof needs permission to read from the /dev/kmem and /dev/mem
@@ -6437,16 +6768,18 @@ ______________________________________________________________________
 	When ``-c'' is used, lsof will continue to report file
 	system and character device paths.
 
-17.18	Why doesn't lsof support VxFS 3.4 on Solaris 2.6, 7, and 8?
+17.18	Solaris and VxFS
 
-	Lsof will not support VxFS version 3.4 on Solaris 2.6, 7,
-	or 8 unless some files from VxFS Update 2 have been installed.
-	VxFS 3.4 FCS and VxFS 3.4 update 1 lack the header files
-	lsof normally uses to obtain information from the VxFS 3.4
-	kernel node structure, vx_inode.  VxFS 3.4 Update 2 provides
-	a method whereby lsof can obtain the necessary vx_inode
-	information from the vxfsu_get_ioffsets() function in
-	Veritas utility libraries.
+17.18.1	Why doesn't lsof support VxFS 3.4 on Solaris 2.6, and above?
+
+	Lsof will not support VxFS version 3.4 on Solaris 2.6 and above
+	unless some files from VxFS Update 2 have been installed.  VxFS
+	3.4 FCS and VxFS 3.4 update 1 lack the header files lsof
+	normally uses to obtain information from the VxFS 3.4 kernel
+	node structure, vx_inode.  VxFS 3.4 Update 2 provides a method
+	whereby lsof can obtain the necessary vx_inode information from
+	the vxfsu_get_ioffsets() function in Veritas utility
+	libraries.
 
 	The utility libraries (32 bit and 64 bit versions) may be
 	found in /opt/VRTSvxfs/lib.  An ancillary header file may
@@ -6505,12 +6838,12 @@ ______________________________________________________________________
 	for the making of an lsof that will properly display open
 	VxFS 3.4 file information.
 
-17.18.1	Why does lsof report "vx_inode: vxfsu_get_ioffsets error"
-	for open Solaris 2.6, 7, and 8 VxFS 3.4 files?
+17.18.2	Why does lsof report "vx_inode: vxfsu_get_ioffsets error"
+	for open Solaris 2.6 and above VxFS 3.4 and above files?
 
-	Even when lsof supports VxFS 3.4 on Solaris 2.6, 7, or 8,
-	it may report "vx_inode: vxfsu_get_ioffsets error" in the
-	NAME column for all VxFS files.
+	Even when lsof supports VxFS 3.4 and above on Solaris 2.6 and
+	above, it may report "vx_inode: vxfsu_get_ioffsets error" in
+	the NAME column for all VxFS files.
 
 	The usual cause is that lsof doesn't have permission to
 	read the file at the end of the /dev/vxportal symbolic
@@ -6520,7 +6853,120 @@ ______________________________________________________________________
 
 	Update 2 for VxFS 3.4 sets the modes of the /dev/vxportal
 	symbolic link destination to 0640 and the group ownership
-	to sys.
+	to sys.  But I have had a report that the modes are wrong
+	in a VxFS 4.0 installation.
+
+	Another cause may be that the system has more than one version
+	of VxFS installed (Only one can be active.), and lsof's
+	Configure script did not choose the header files and libraries
+	for the active VxFS version.  Configure opts for VxFS 4.0 and
+	above header files and libraries (in /opt/VRTS) in preference
+	to those for VxFS below 4.0 (in /opt/VRTSvxfs).
+
+	Look for the directories /opt/VRTS and /opt/VRTSvxfs.  If you
+	have /opt/VRTS, make sure its header and library symbolic links
+	point to those of the active VxFS version.
+	
+	If you have both directories, look at the CFLAGS that Configure
+	constructed for making lsof and see which directory path
+	follows a -I option.  If that doesn't match the directory path
+	of the active VxFS version, try pointing Configure at the
+	correct directory with the SOLARIS_VXFSINCL environment
+	variable -- e.g.,
+
+	    $ SOLARIS_VXFSINCL=/opt/.../include ./Configure -n solaris
+
+17.18.3	Why does Solaris Configure claim there is no VxFS library?
+
+	The lsof Configure script, when configuring for Solaris, may
+	report:
+
+	    FATAL: no VxFS .../libvxfsutil.a
+	
+	That fatal error message indicates lsof has found the VxFS
+	utility library's header files, but can't find the library
+	itself in the expected location adjacent to the header files.
+
+	One possible cause is an incorrect symbolic link from
+	/opt/VRTS/lib/sparcv9/libvxfsutil.a to the library's real
+	location.  (Some VxFS distributions declared the link
+	incorrectly.)  Use `ls -lL` on that path to see if it exists.
+	If it doesn't exist, the link may be missing an additional
+	leading "../" component.
+
+	If the problem is a missing "../" from the library's link, you
+	can correct the link or check with Veritas/Symantec for the
+	patch that corrects it.
+
+	If the problem is not a missing "../", and you know the
+	libvxfsutil.a location, you can define its path in the
+	SOLARIS_VXFSLIB environment variable before running the lsof
+	Configure script.  (See 00XCONFIG for information about using
+	the SOLARIS_VXFSLIB environment variable.)
+
+	If you have no libvxfsutil.a, you must obtain it from
+	Veritas/Symantec or find it in your VxFS installation package.
+
+17.18.4 Why doesn't Solaris lsof report VxFS path name components?
+
+	Solaris lsof will report path name components for VxFS versions
+	that use the common Solaris Dynamic Name Lookup Cache (DNLC) or
+	on some file systems of VxFS versions that support the VxFS
+	Reverse Name Lookup (RNL) facility.
+
+	VxFS versions 3.3 (approximately) and below use the common
+	Solaris DNLC.  (I haven't been able to determine exactly when
+	VxFS stopped using the DNLC.)  For versions above that boundary,
+	but below 4.0, lsof can't report path name components.
+
+	At VxFS 4.0 and above, lsof can be compiled to use the VxFS RNL
+	facility for reporting path names.  If "-DHASVXFSRNL" appears
+	in the compiler flags section of lsof "-v" option output, then
+	the lsof Configure script detected the VxFS RNL facility and
+	lsof has been compiled to use it.
+
+	Lsof's use of the RNL facility can fail when the VxFS file
+	system disk layout version is below 6.  In that case, lsof can
+	report no path name components.  For more information, see the
+	vxfs_inotopath(3) manual page.  any of the following commands
+	will show the disk layout version for a VxFS file system, when
+	supplied the block device or mount point on which the file
+	system is mounted.
+
+	    fstyp -v <block_device>
+	 or
+	    mkfs -m <block_device>
+	 or
+	    vxupgrade <mount_point>
+
+	You must have permission to read the block device -- e.g., be
+	the root user.
+
+	You may also be able to upgrade an older disk layout to one
+	that will work with the RNL.  See the vxupgrade(1M) man page
+	for more information on that.
+
+	When lsof can't report VxFS path name components, it reports
+	the file system mount point and the path name of device on
+	which it is mounted.  The device path name is enclosed in
+	parentheses.
+
+17.18.5	Why does Solaris 10 lsof report scrambled VxFS paths?
+
+	Solaris 10 lsof may report a bogus, scrambled path for an open
+	VxFS file, when lsof obtains the path from a vnode's cached
+	path.  Veritas/Symantec reports that their Solaris 10
+	implementation has bugs in the way it handles the Solaris 10
+	vnode cached path and those bugs will be fixed in an upcoming
+	patch some time after August 15, 2005.
+
+	When Solaris 10 lsof reports a path for an open VxFs file
+	obtained via the VxFS Reverse Name Lookup facility, the path
+	will be correct.
+
+	Also see the answers to the questions "Why does Solaris 10 lsof
+	sometimes report the wrong path name?" and "Why doesn't Solaris
+	lsof report VxFS path name components?"
 
 17.19	Large file problems
 
@@ -6606,7 +7052,7 @@ ______________________________________________________________________
 	When lsof is started on some Solaris 7, 8, and 9 systems
 	it may report:
 
-	    lsof: kvm_open (namelist=default, core=default): \
+	    lsof: kvm_open(namelist=default, corefile=default): \
 		  No such file or directory
 
 	Lsof revisions 4.65 and later will first report:
@@ -6710,6 +7156,134 @@ ______________________________________________________________________
 	the suppression of all warning messages, leading to the
 	possibility that some non-stat() warning messages will be
 	suppressed.
+
+17.25	Solaris 10 problems
+
+17.25.1 Why does Solaris 10 lsof sometimes report the wrong path name?
+
+	When a path name component is renamed -- e.g., with mv(1) --
+	Solaris 10 lsof may report the old component for an open file
+	that used the component in its path before the rename.  That's
+	because Solaris 10 lsof reports the path name cached in the
+	open file's vnode and the Solaris 10 kernel doesn't update the
+	open vnode's cached path name when a component of it is changed.
+
+	When an open file is deleted -- e.g., with rm(1) -- the path
+	name by which it was opened remains cached in the vnode.  Lsof
+	can be instructed to display that path name with the -X option.
+	The path name might be incorrect because of the rename problem
+	described above.  See the answer to the 'What does "(deleted)"
+	mean in the NAME column of a Solaris 10 open file?' question
+	for more information.
+
+	Lsof is sometimes able to detect that cached path name is
+	incorrect.  In that case lsof may report only the mounted-on
+	directory and device of the file system or it may report that
+	the path name is of questionable accuracy by appending a
+	trailing "(?)" to it in the NAME column.
+
+	See the answer to the "Why does Solaris 10 lsof sometimes
+	report only the mounted-on directory and device?" and 'What
+	does "(?)" mean in the NAME column of a Solaris 10 open file?'
+	questions for more information.
+
+17.25.2 Why does Solaris 10 lsof sometimes report only the mounted-on
+	directory and device?
+
+	For some regular open files lsof may report only the mounted-on
+	directory and device of the file system on which the file
+	resides.  That's because lsof was able to determine that the
+	path name cached in the open file's vnode is incorrect.
+
+	Lsof detects the cached path name is incorrect by applying
+	stat(2) to it, provided that no error was detected when stat(2)
+	was applied to the file system mounted-on directory during lsof
+	setup.  If a mounted-on directory stat(2) error was detected
+	during setup, lsof does no cached path name analysis and simply
+	reports it.
+
+	When the application of stat(2) to the cached path name returns
+	a no-entry reply (the ENOENT error number), lsof concludes the
+	path no longer exists (i.e., has been unlinked) and reports the
+	mounted-on directory and device of the file system.  That
+	behavior can be modified with the -X option in lsof revisions
+	4.77 and above.  See the answer to the 'What does "(deleted)"
+	mean in the NAME column of a Solaris 10 open file?' for more
+	information.
+
+	When the application of stat(2) to the cached path name returns
+	a permission error reply (the EACCES or EPERM error numbers),
+	lsof reports the cached path name and adds a trailing "(?)" to
+	indicate the reported path name is of questionable accuracy.
+	See the answer to the question 'What does "(?)" mean in the
+	NAME column of a Solaris 10 open file?' for more information.
+
+	If the application of stat(2) to the cached path name yields
+	any other error reply, lsof reports the mounted-on directory
+	and device of the file system.
+
+	When the application of stat(2) to the cached path name
+	succeeds, lsof compares the reported device and node numbers to
+	what it has obtained for the open file from kernel structures.
+	If they match, lsof reports the cached path name.  If they
+	don't match, lsof instead reports the mounted-on directory and
+	device of the file system.
+
+	A work-around that allows lsof to apply stat(2) successfully to
+	cached path names is to give lsof sufficient permission to do
+	it -- i.e., run lsof as the root user.
+
+17.25.3	What does "(deleted)" mean in the NAME column of a Solaris 10
+	open file?
+
+	When the -X option is specified to Solaris 10 lsof, it will
+	report in its NAME column the path name cached for a deleted
+	file in its vnode.  The path name will be followed by
+	"(deleted)".
+
+	Note that the path name cached in a file's vnode is the path
+	name by which the file was opened.  It is not updated by the
+	Solaris kernel when any path name component is changed.  Hence,
+	it may not represent the final path name the open file had.
+
+	See the answer to the "Why does Solaris 10 lsof sometimes
+	report the wrong path name?" question for more information on
+	how changing a path name component affects the correctness of a
+	what lsof reports.
+
+17.25.4 What does "(?)" mean in the NAME column of a Solaris 10 open
+	file?
+
+	When lsof encounters a path name cached in the open file's
+	vnode that stat(2) reports lsof lacks permission to access,
+	lsof adds "(?)" to the path name reported in the NAME column to
+	indicate the path name is of questionable accuracy.
+
+	See the answers to the "Why does Solaris 10 lsof sometimes
+	report the wrong path name?" and "Why does Solaris 10 lsof
+	sometimes report only the mounted-on directory and device?"
+	questions for more information on why lsof may report a path
+	name of questionable accuracy.
+
+	A work-around that allows lsof to apply stat(2) successfully to
+	cached path names is to give lsof sufficient permission to do
+	it -- i.e., run lsof as the root user.
+
+17.26	Solaris contract file problems
+
+17.26.1	Why doesn't lsof report size, link count and node number for
+	Solaris 10 contract files?
+
+	Lsof doesn't report size, link count or node number for Solaris
+	10 contract files because I don't know how to obtain them from
+	contract file kernel structures.
+
+17.26.2	Why can't lsof locate a Solaris 10 contract file by path name?
+
+	Because lsof can't find the node number of Solaris contract
+	files, it can't match the device and node numbers it gets from
+	applying stat(2) to the contract file path name with what it
+	finds in kernel data.
 
 
 18.0	Lsof Features

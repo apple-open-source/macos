@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -95,14 +95,16 @@ typedef struct IOUSBLowLatencyUserClientBufferInfo  IOUSBLowLatencyUserClientBuf
 
 struct IOUSBLowLatencyUserClientBufferInfo
 {
-    UInt32				cookie;
-    UInt32				bufferType;
-    void *				bufferAddress;
-    UInt32				bufferSize;
-    IOMemoryDescriptor *		bufferDescriptor;
-    IOMemoryDescriptor *		frameListDescriptor;
-    IOMemoryMap *			frameListMap;
-    IOVirtualAddress			frameListKernelAddress;
+    UInt32									cookie;
+    UInt32									bufferType;
+    void *									bufferAddress;
+    UInt32									bufferSize;
+    IOMemoryDescriptor *					bufferDescriptor;
+    IOMemoryDescriptor *					frameListDescriptor;
+    IOMemoryMap *							frameListMap;
+    IOVirtualAddress						frameListKernelAddress;
+	IOBufferMemoryDescriptor *				writeDescritporForUHCI;
+	IOMemoryMap *							writeMapForUHCI;
     IOUSBLowLatencyUserClientBufferInfo * 	nextBuffer;
 };
 
@@ -203,6 +205,7 @@ private:
     struct IOUSBInterfaceUserClientExpansionData 
     {
 		bool									clientRunningUnderRosetta;				// True if our user space client is running PPC code under Rosetta
+		bool									needContiguousMemoryForLowLatencyIsoch;
     };
     
     IOUSBInterfaceUserClientExpansionData *        fIOUSBInterfaceUserClientExpansionData;
@@ -297,8 +300,8 @@ public:
 
     // Low Latency Buffer methods
     //
-    virtual IOReturn                            LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *dataBuffer);
-    virtual IOReturn                            LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *dataBuffer);
+    virtual IOReturn                            LowLatencyPrepareBuffer(LowLatencyUserBufferInfoV2 *bufferData, UInt32 * addrOut, IOByteCount inCount, IOByteCount *outCount);
+    virtual IOReturn                            LowLatencyReleaseBuffer(LowLatencyUserBufferInfoV2 *dataBuffer);
     virtual void                                AddDataBufferToList( IOUSBLowLatencyUserClientBufferInfo * insertBuffer );
     virtual IOUSBLowLatencyUserClientBufferInfo *	FindBufferCookieInList( UInt32 cookie);
     virtual bool                                RemoveDataBufferFromList( IOUSBLowLatencyUserClientBufferInfo *removeBuffer);

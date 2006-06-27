@@ -33,7 +33,6 @@ namespace khtml {
 class VisiblePosition;
 
 enum EWordSide { RightWordIfOnBoundary = false, LeftWordIfOnBoundary = true };
-enum EIncludeLineBreak { DoNotIncludeLineBreak = false, IncludeLineBreak = true };
 
 // words
 VisiblePosition startOfWord(const VisiblePosition &, EWordSide = RightWordIfOnBoundary);
@@ -43,7 +42,7 @@ VisiblePosition nextWordPosition(const VisiblePosition &);
 
 // lines
 VisiblePosition startOfLine(const VisiblePosition &);
-VisiblePosition endOfLine(const VisiblePosition &, EIncludeLineBreak = DoNotIncludeLineBreak);
+VisiblePosition endOfLine(const VisiblePosition &);
 VisiblePosition previousLinePosition(const VisiblePosition &, int x);
 VisiblePosition nextLinePosition(const VisiblePosition &, int x);
 bool inSameLine(const VisiblePosition &, const VisiblePosition &);
@@ -58,7 +57,7 @@ VisiblePosition nextSentencePosition(const VisiblePosition &);
 
 // paragraphs (perhaps a misnomer, can be divided by line break elements)
 VisiblePosition startOfParagraph(const VisiblePosition &);
-VisiblePosition endOfParagraph(const VisiblePosition &, EIncludeLineBreak = DoNotIncludeLineBreak);
+VisiblePosition endOfParagraph(const VisiblePosition &);
 VisiblePosition previousParagraphPosition(const VisiblePosition &, int x);
 VisiblePosition nextParagraphPosition(const VisiblePosition &, int x);
 bool inSameParagraph(const VisiblePosition &, const VisiblePosition &);
@@ -67,7 +66,7 @@ bool isEndOfParagraph(const VisiblePosition &);
 
 // blocks (true paragraphs; line break elements don't break blocks)
 VisiblePosition startOfBlock(const VisiblePosition &);
-VisiblePosition endOfBlock(const VisiblePosition &, EIncludeLineBreak = DoNotIncludeLineBreak);
+VisiblePosition endOfBlock(const VisiblePosition &);
 bool inSameBlock(const VisiblePosition &, const VisiblePosition &);
 bool isStartOfBlock(const VisiblePosition &);
 bool isEndOfBlock(const VisiblePosition &);

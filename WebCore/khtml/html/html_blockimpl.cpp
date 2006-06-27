@@ -36,7 +36,7 @@
 using namespace khtml;
 using namespace DOM;
 
-HTMLBlockquoteElementImpl::HTMLBlockquoteElementImpl(DocumentPtr *doc)
+HTMLBlockquoteElementImpl::HTMLBlockquoteElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -52,7 +52,7 @@ NodeImpl::Id HTMLBlockquoteElementImpl::id() const
 
 // -------------------------------------------------------------------------
 
-HTMLDivElementImpl::HTMLDivElementImpl(DocumentPtr *doc)
+HTMLDivElementImpl::HTMLDivElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -99,7 +99,7 @@ void HTMLDivElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 
 // -------------------------------------------------------------------------
 
-HTMLHRElementImpl::HTMLHRElementImpl(DocumentPtr *doc)
+HTMLHRElementImpl::HTMLHRElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -192,14 +192,14 @@ void HTMLHRElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 
 // -------------------------------------------------------------------------
 
-HTMLHeadingElementImpl::HTMLHeadingElementImpl(DocumentPtr *doc, ushort _tagid)
+HTMLHeadingElementImpl::HTMLHeadingElementImpl(DocumentImpl *doc, ushort _tagid)
     : HTMLGenericElementImpl(doc, _tagid)
 {
 }
 
 // -------------------------------------------------------------------------
 
-HTMLParagraphElementImpl::HTMLParagraphElementImpl(DocumentPtr *doc)
+HTMLParagraphElementImpl::HTMLParagraphElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -242,7 +242,7 @@ void HTMLParagraphElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 
 // -------------------------------------------------------------------------
 
-HTMLPreElementImpl::HTMLPreElementImpl(DocumentPtr *doc, unsigned short _tagid)
+HTMLPreElementImpl::HTMLPreElementImpl(DocumentImpl *doc, unsigned short _tagid)
     : HTMLGenericElementImpl(doc, _tagid)
 {
 }
@@ -263,7 +263,7 @@ void HTMLPreElementImpl::setWidth( long /*w*/ )
  // WinIE uses 60ms as the minimum delay by default.
 const int defaultMinimumDelay = 60;
 
-HTMLMarqueeElementImpl::HTMLMarqueeElementImpl(DocumentPtr *doc)
+HTMLMarqueeElementImpl::HTMLMarqueeElementImpl(DocumentImpl *doc)
 : HTMLElementImpl(doc),
   m_minimumDelay(defaultMinimumDelay)
 {
@@ -358,7 +358,7 @@ void HTMLMarqueeElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
 
 // ------------------------------------------------------------------------
 
-HTMLLayerElementImpl::HTMLLayerElementImpl(DocumentPtr *doc)
+HTMLLayerElementImpl::HTMLLayerElementImpl(DocumentImpl *doc)
     : HTMLDivElementImpl( doc )
 {
 }

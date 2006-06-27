@@ -69,6 +69,7 @@ __RCSID("$FreeBSD: src/bin/mv/mv.c,v 1.39 2002/07/09 17:45:13 johan Exp $");
 
 #ifdef __APPLE__
 #include <copyfile.h>
+#include <sys/mount.h>
 #endif
 
 #include "pathnames.h"
@@ -322,6 +323,27 @@ fastcopy(char *from, char *to, struct stat *sbp)
 		(void)close(from_fd);
 		return (1);
 	}
+#ifdef __APPLE__
+	{
+		struct statfs sfs;
+
+		/*
+		 * Pre-allocate blocks for the destination file if it
+		 * resides on Xsan.
+		 */
+		if (fstatfs(to_fd, &sfs) == 0 &&
+		    strcmp(sfs.f_fstypename, "acfs") == 0) {
+			fstore_t fst;
+
+			fst.fst_flags = 0;
+			fst.fst_posmode = F_PEOFPOSMODE;
+			fst.fst_offset = 0;
+			fst.fst_length = sbp->st_size;
+
+			(void) fcntl(to_fd, F_PREALLOCATE, &fst);
+		}
+	}
+#endif /* __APPLE__ */
 	while ((nread = read(from_fd, bp, (size_t)blen)) > 0)
 		if (write(to_fd, bp, (size_t)nread) != nread) {
 			warn("%s", to);

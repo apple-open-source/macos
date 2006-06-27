@@ -239,9 +239,8 @@ void KJSProxyImpl::appendSourceFile(QString url, QString code)
 }
 
 // Implementation of the debug() function
-class TestFunctionImp : public ObjectImp {
+class TestFunctionImp : public DOMObject {
 public:
-  TestFunctionImp() : ObjectImp() {}
   virtual bool implementsCall() const { return true; }
   virtual Value call(ExecState *exec, Object &thisObj, const List &args);
 };

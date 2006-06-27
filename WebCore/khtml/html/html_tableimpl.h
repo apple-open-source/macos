@@ -70,7 +70,7 @@ public:
         Box    = 0x0f
     };
 
-    HTMLTableElementImpl(DocumentPtr *doc);
+    HTMLTableElementImpl(DocumentImpl *doc);
     ~HTMLTableElementImpl();
 
     virtual Id id() const;
@@ -134,7 +134,7 @@ class HTMLTablePartElementImpl : public HTMLElementImpl
 
 {
 public:
-    HTMLTablePartElementImpl(DocumentPtr *doc)
+    HTMLTablePartElementImpl(DocumentImpl *doc)
         : HTMLElementImpl(doc)
         { }
 
@@ -147,7 +147,7 @@ public:
 class HTMLTableSectionElementImpl : public HTMLTablePartElementImpl
 {
 public:
-    HTMLTableSectionElementImpl(DocumentPtr *doc, ushort tagid, bool implicit);
+    HTMLTableSectionElementImpl(DocumentImpl *doc, ushort tagid, bool implicit);
 
     ~HTMLTableSectionElementImpl();
 
@@ -169,7 +169,7 @@ protected:
 class HTMLTableRowElementImpl : public HTMLTablePartElementImpl
 {
 public:
-    HTMLTableRowElementImpl(DocumentPtr *doc)
+    HTMLTableRowElementImpl(DocumentImpl *doc)
         : HTMLTablePartElementImpl(doc) {}
 
     virtual Id id() const;
@@ -191,7 +191,7 @@ protected:
 class HTMLTableCellElementImpl : public HTMLTablePartElementImpl
 {
 public:
-    HTMLTableCellElementImpl(DocumentPtr *doc, int tagId);
+    HTMLTableCellElementImpl(DocumentImpl *doc, int tagId);
     ~HTMLTableCellElementImpl();
 
     // ### FIX these two...
@@ -232,7 +232,7 @@ protected:
 class HTMLTableColElementImpl : public HTMLTablePartElementImpl
 {
 public:
-    HTMLTableColElementImpl(DocumentPtr *doc, ushort i);
+    HTMLTableColElementImpl(DocumentImpl *doc, ushort i);
 
     virtual Id id() const;
 
@@ -258,7 +258,7 @@ protected:
 class HTMLTableCaptionElementImpl : public HTMLTablePartElementImpl
 {
 public:
-    HTMLTableCaptionElementImpl(DocumentPtr *doc)
+    HTMLTableCaptionElementImpl(DocumentImpl *doc)
         : HTMLTablePartElementImpl(doc) {}
 
     virtual Id id() const;

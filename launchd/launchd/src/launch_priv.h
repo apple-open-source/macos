@@ -39,6 +39,8 @@
 #define LAUNCH_KEY_GETRUSAGESELF                "GetResourceUsageSelf"
 #define LAUNCH_KEY_GETRUSAGECHILDREN            "GetResourceUsageChildren"
 
+#define LAUNCH_KEY_WORKAROUNDBONJOUR		"WorkaroundBonjour"
+
 #define LAUNCHD_SOCKET_ENV		"LAUNCHD_SOCKET"
 #define LAUNCHD_SOCK_PREFIX		"/var/launchd"
 #define LAUNCHD_TRUSTED_FD_ENV		"__LAUNCHD_FD"

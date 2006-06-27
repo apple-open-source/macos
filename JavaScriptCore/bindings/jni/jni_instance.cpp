@@ -50,7 +50,6 @@ JavaInstance::JavaInstance (jobject instance, const RootObject *r)
 
 JavaInstance::~JavaInstance () 
 {
-    _instance->deref();
     delete _class; 
 }
 
@@ -338,10 +337,10 @@ KJS::Value JavaInstance::valueOf() const
 };
 
 JObjectWrapper::JObjectWrapper(jobject instance)
+: _refCount(0)
 {
     assert (instance != 0);
 
-    _ref = 1;
     // Cache the JNIEnv used to get the global ref for this java instanace.
     // It'll be used to delete the reference.
     _env = getJNIEnv();

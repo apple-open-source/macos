@@ -1,0 +1,77 @@
+#!/bin/sh
+#
+# Check for installed MySLQ configruration and upgrade as needed.
+#
+# If a custom MySQL configuration is not installed in the system, install 
+# the appropriate sample configuration as the default.  The sample
+# configuration selected is based on the system memory size:
+#   If memory size is...   Default configuration is....
+#      less than 1GB         /usr/share/mysql/my-large.cnf
+#      1GB or more           /usr/share/mysql/my-huge.cnf
+#
+
+__cnfname="my.cnf"
+__defcnfname="${__cnfname}.default"
+__altcnfdir="/usr/share/mysql"
+__hugecnf="${__altcnfdir}/my-huge.cnf"
+__largecnf="${__altcnfdir}/my-large.cnf"
+__destdir="/etc"
+__homedir="/var/root"
+
+__progname=`/usr/bin/basename ${0}`
+__datadir=`/usr/libexec/mysqld --verbose --help | grep datadir | grep \/ | sed s/datadir\ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ \ //`
+
+# check for presence of existing MySQL config file
+__found=0
+__cnfdirs="${__destdir} ${__datadir} ${__homedir}"
+for __cnfdir in ${__cnfdirs}; do
+   if ( test -e "${__cnfdir}/${__cnfname}" ); then
+      __oldcnf="${__cnfdir}/${__cnfname}"
+	  __found=1
+	  break
+   fi
+done
+if ( test ${__found} == 1 ); then
+   __newcnf="${__defcnfname}"
+else
+   __newcnf="${__cnfname}"
+fi
+
+# check if this has already been done before
+if ( test -e "${__destdir}/${__newcnf}" ); then
+   exit
+fi
+
+# check if the required resources are present
+if ( ! test -e "${__altcnfdir}" ); then
+   logger -t ${__progname} "Error -- unable to upgrade MySQL configuration.  Required directory ${__altcnfdir} cannot be found."
+   exit
+fi
+
+# determine the installed memory
+__memsize=`sysctl hw.memsize | sed s/hw\.memsize\:\ //`
+if ( test ${__memsize} -lt 1073741824 ); then
+   __altcnf="${__largecnf}"
+else
+   __altcnf="${__hugecnf}"
+fi
+
+# just one more check to see if we've already done this before
+if ( test -e "${__destdir}/${__cnfname}" ); then
+   __diff=`diff "${__destdir}/${__cnfname}" "${__altcnf}"`
+   if ( test -z "${__diff}" ); then
+	  exit
+   fi
+fi
+
+# install the selected configuration
+cp ${__altcnf} ${__destdir}/${__newcnf}
+chown mysql:admin ${__destdir}/${__newcnf}
+chmod 750 ${__destdir}/${__newcnf}
+logger -t ${__progname} "A new MySQL configuration (${__destdir}/${__newcnf}) has been installed to improve performance."
+if ( test "${__newcnf}" == "${__defcnfname}" ); then
+   logger -t ${__progname} "WARNING -- The previous MySQL configuration (${__oldcnf}) is still in effect. "
+   logger -t ${__progname} "To activate the new MySLQ settings, rename ${__destdir}/${__defcnfname}"
+   logger -t ${__progname} "to ${__destdir}/${__cnfname} and restart the MySQL service."
+fi
+exit

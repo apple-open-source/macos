@@ -23,6 +23,13 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.20 release (the cctools-590.23.3 release):
+- Fixed two places in layout_segments() in layout.c that were calling
+  lookup_symbol() and were not updated with the changes to Radar bug #4299546 on
+  how the check for an undefined symbol is made.  Both the lookup of the entry
+  point and the shared library init routine name code needed a fix to use
+  merged_symbol->name_len == 0 not merged_symbol != NULL.  Radar bug #4401068.
+
 Changes for the 5.20 release (the cctools-590.23.1 release):
 - Fixed a bug that caused a crash in remove_merged_symbols() in symbols.c when
   looping through the merged_symbol_list.  The fix was really likely with the

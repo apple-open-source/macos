@@ -129,11 +129,6 @@ HTMLDocumentImpl::~HTMLDocumentImpl()
 {
 }
 
-ElementImpl* HTMLDocumentImpl::documentElement() const
-{
-    return static_cast<ElementImpl*>(_first);
-}
-
 DOMString HTMLDocumentImpl::referrer() const
 {
     if ( part() )
@@ -238,7 +233,7 @@ void HTMLDocumentImpl::setBody(HTMLElementImpl *_body, int &exceptioncode)
 
 Tokenizer *HTMLDocumentImpl::createTokenizer()
 {
-    return new HTMLTokenizer(docPtr(),m_view);
+    return new HTMLTokenizer(this, m_view);
 }
 
 // --------------------------------------------------------------------------

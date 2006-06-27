@@ -32,7 +32,7 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: ucdata.h,v 1.6 2005/07/21 03:29:10 jtownsen Exp $ */
+/* $Id: ucdata.h,v 1.4 2004/03/30 01:32:51 jtownsen Exp $ */
 
 #ifndef _h_ucdata
 #define _h_ucdata

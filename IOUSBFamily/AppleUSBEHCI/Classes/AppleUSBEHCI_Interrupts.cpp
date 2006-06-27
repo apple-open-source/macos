@@ -48,7 +48,7 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		//
 		if ( ++_errors.hostSystemError == (UInt32) (1L << _errors.displayed) )
 		{
-			USBLog(1, "%s[%p]::PollInterrupts - Host System Error Occurred - not restarted", getName(), this);
+			USBLog(1, "AppleUSBEHCI[%p]::PollInterrupts - Host System Error Occurred - not restarted",  this);
 			_errors.displayed++;
 		}
 
@@ -82,7 +82,7 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 				IOReturn err = CreateRootHubDevice( _device, &_rootHubDevice );
 				if ( err != kIOReturnSuccess )
 				{
-					USBError(1,"%s[%p] Could not create root hub device upon wakeup (%x)!",getName(), this, err);
+					USBError(1,"AppleUSBEHCI[%p] Could not create root hub device upon wakeup (%x)!", this, err);
 				}
 				else
 				{
@@ -97,14 +97,14 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     {
         _errorInterrupt = 0;
         
-        USBLog(7, "%s[%p]::PollInterrupts - completion (_errorInterrupt) interrupt", getName(), this);
+        USBLog(7, "AppleUSBEHCI[%p]::PollInterrupts - completion (_errorInterrupt) interrupt",  this);
         scavengeCompletedTransactions(safeAction);
     }
 	
     if (_completeInterrupt & kEHCICompleteIntBit)
     {
         _completeInterrupt = 0;
-        USBLog(7, "%s[%p]::PollInterrupts - completion (_completeInterrupt) interrupt", getName(), this);
+        USBLog(7, "AppleUSBEHCI[%p]::PollInterrupts - completion (_completeInterrupt) interrupt",  this);
         scavengeCompletedTransactions(safeAction);
     }
 	
@@ -118,10 +118,10 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		// Clear status change.
 		_remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
 		
-		USBLog(3, "%s[%p]::PollInterrupts - port change detect interrupt", getName(), this);
+		USBLog(3, "AppleUSBEHCI[%p]::PollInterrupts - port change detect interrupt",  this);
         if ( _idleSuspend )
 		{
-			USBLog(1, "%s[%p]::PollInterrupts - port change detect interrupt while in idlesuspend - restarting bus", getName(), this);
+			USBLog(2, "AppleUSBEHCI[%p]::PollInterrupts - port change detect interrupt while in idlesuspend - restarting bus",  this);
             setPowerState(kEHCISetPowerLevelRunning, self);
 		}
 	    
@@ -134,8 +134,8 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     {
         _asyncAdvanceInterrupt = 0;
 		_errors.ownershipChange++;
-		_pEHCIRegisters->USBSTS = USBToHostLong(kEHCIAAEIntBit);
-		USBLog(3, "%s[%p]::PollInterrupts - async advance interrupt", getName(), this);
+		_pEHCIRegisters->USBSTS = HostToUSBLong(kEHCIAAEIntBit);
+		USBLog(3, "AppleUSBEHCI[%p]::PollInterrupts - async advance interrupt",  this);
     }
 }
 
@@ -179,14 +179,7 @@ AppleUSBEHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
     //
     if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ehciAvailable)
         return false;
-	
-    if (controller->_ehciBusState == kEHCIBusStateSuspended)
-    {
-		// Unexpected interrupt while bus is suspended.  What's up with that? 
-		//
-		return true;
-    }
-	
+
     // Process this interrupt
     //
     controller->_filterInterruptActive = true;
@@ -203,7 +196,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
     
     register UInt32			activeInterrupts;
     register UInt32			enabledInterrupts;
-    Boolean				needSignal = false;
+    Boolean					needSignal = false;
     AbsoluteTime			timeStamp;
     
     enabledInterrupts = USBToHostLong(_pEHCIRegisters->USBIntr);
@@ -288,7 +281,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 			// only do this if the periodic schedule is enabled
 			if (!_inAbortIsochEP && (_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable)) && (_outSlot < kEHCIPeriodicListEntries))
 			{
-				AppleEHCIIsochListElement *		cachedHead;
+				IOUSBControllerIsochListElement *cachedHead;
 				UInt32							cachedProducer;
 				UInt32							frIndex;
 				UInt16							curSlot, testSlot, nextSlot;
@@ -298,14 +291,14 @@ AppleUSBEHCI::FilterInterrupt(int index)
 				curSlot = (frIndex >> 3) & (kEHCIPeriodicListEntries-1);
 				curMicroFrame = frIndex & 7;
 				
-				cachedHead = (AppleEHCIIsochListElement*)_savedDoneQueueHead;
+				cachedHead = (IOUSBControllerIsochListElement*)_savedDoneQueueHead;
 				cachedProducer = _producerCount;
 				testSlot = _outSlot;
 				
 				while (testSlot != curSlot)
 				{
-					AppleEHCIListElement					*thing, *prevThing, *nextThing;
-					AppleEHCIIsochListElement				*isochEl;
+					IOUSBControllerListElement				*thing, *prevThing, *nextThing;
+					IOUSBControllerIsochListElement			*isochEl;
 					AppleEHCISplitIsochTransferDescriptor	*splitTD;
 					bool									needToRescavenge = false;
 					
@@ -315,7 +308,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 					while(thing != NULL)
 					{
 						nextThing = thing->_logicalNext;
-						isochEl = OSDynamicCast(AppleEHCIIsochListElement, thing);
+						isochEl = OSDynamicCast(IOUSBControllerIsochListElement, thing);
 
 						if (!isochEl)
 							break;						// only care about Isoch in this list - if we get here we are at the interrupt TDs
@@ -327,7 +320,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						// 2 - the TD wraps around (useBackPtr == true)
 						// 3 - the slot after this one is the curslot
 						// 4 - we have not gotten to microframe 2 of the curSlot
-						if (splitTD && (splitTD->_pEndpoint->useBackPtr) && (nextSlot == curSlot) && (curMicroFrame < 2))
+						if (splitTD && (((AppleEHCIIsochEndpoint*)(splitTD->_pEndpoint))->useBackPtr) && (nextSlot == curSlot) && (curMicroFrame < 2))
 						{
 							prevThing = thing;
 							thing = nextThing;
@@ -339,7 +332,7 @@ AppleUSBEHCI::FilterInterrupt(int index)
 						if (!prevThing)
 						{
 							_logicalPeriodicList[testSlot] = nextThing;
-							_periodicList[testSlot] = thing->GetPhysicalLink();
+							_periodicList[testSlot] = HostToUSBLong(thing->GetPhysicalLink());
 						}
 						else
 						{

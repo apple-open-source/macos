@@ -22,6 +22,16 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
+#include <IOKit/usb/IOUSBInterfaceUserClient.h>
+#include <IOKit/IOKitKeys.h>
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/IOService.h>
@@ -34,11 +44,23 @@
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBLog.h>
 
+//================================================================================================
+//
+//   Local Definitions
+//
+//================================================================================================
+//
 #define super OSObject
 
-#define	_device	_expansionData->_device
-#define	_correctStatus	_expansionData->_correctStatus
-#define	_speed	_expansionData->_speed
+#ifndef kIOUserClientCrossEndianCompatibleKey
+#define kIOUserClientCrossEndianCompatibleKey "IOUserClientCrossEndianCompatible"
+#endif
+
+#define	_device				_expansionData->_device
+#define	_correctStatus		_expansionData->_correctStatus
+#define	_speed				_expansionData->_speed
+#define	_interface			_expansionData->_interface
+#define	_crossEndianCompatible			_expansionData->_crossEndianCompatible
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -100,7 +122,7 @@ IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDeviceAddress address, IOUSBController *controller)
 {
     IOUSBPipe *me = new IOUSBPipe;
-    USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method called");
+    USBLog(1, "IOUSBPipe[%p]::ToEndpoint, obsolete method called", me);
 
     if ( me && !me->InitToEndpoint(ed, speed, address, (IOUSBController *) controller) ) 
     {
@@ -115,7 +137,7 @@ IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, IOUSBController *controller)
 {
     IOUSBPipe *me = new IOUSBPipe;
-    USBLog(7, "IOUSBPipe::ToEndpoint, new method called for device %p", device);
+    USBLog(7, "IOUSBPipe[%p]::ToEndpoint, new method called for device %p", me, device);
 
     if ( me && !me->InitToEndpoint(ed, device->GetSpeed(), device->GetAddress(), controller) ) 
     {
@@ -124,6 +146,45 @@ IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, I
     }
     me->_device = device;
 
+    return me;
+}
+
+IOUSBPipe *
+IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, IOUSBController *controller, IOUSBInterface * interface)
+{
+    IOUSBPipe *me = new IOUSBPipe;
+    USBLog(6, "IOUSBPipe[%p]::ToEndpoint, new 2 method called for device %p", me, device);
+	
+    if ( me && !me->InitToEndpoint(ed, device->GetSpeed(), device->GetAddress(), controller) ) 
+    {
+        me->release();
+        return NULL;
+    }
+    me->_device = device;
+	me->_interface = interface;
+
+    if ( me->_interface )
+    {
+        // If our interface has the CrossEndianCompatible property, set our boolean
+		OSObject * propertyObj = me->_interface->copyProperty(kIOUserClientCrossEndianCompatibleKey);
+        OSBoolean * boolObj = OSDynamicCast( OSBoolean, propertyObj );
+        if ( boolObj )
+		{
+			if (boolObj->isTrue() )
+			{
+				USBLog(6,"IOUSBPipe[%p]::ToEndpoint CrossEndianProperty exists and is TRUE", me);
+				me->_crossEndianCompatible = true;
+			}
+			else
+			{
+				USBLog(6,"IOUSBPipe[%p]::ToEndpoint CrossEndianProperty exists and is FALSE", me);
+				me->_crossEndianCompatible = false;
+			}
+		}
+		if (propertyObj)
+			propertyObj->release();
+    }
+	
     return me;
 }
 
@@ -218,6 +279,11 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
         return kIOReturnNoBandwidth;
     }
 
+	// The following is a hack to tell the UIM that this request is coming from a Rosetta client.  We set the high bit of the endpoint transfer type here
+	// and in IsocIO we will clear it and set a flag in the IOUSBCommand
+	if ( _crossEndianCompatible )
+		_endpoint.direction |= 0x80;
+
     if (completion == 0)
     {
         // put in our own completion routine if none was specified to
@@ -260,6 +326,11 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
         USBLog(2, "IOUSBPipe[%p]::Write - no bandwidth on an isoc pipe", this);
         return kIOReturnNoBandwidth;
     }
+
+	// The following is a hack to tell the UIM that this request is coming from a Rosetta client.  We set the high bit of the endpoint transfer type here
+	// and in IsocIO we will clear it and set a flag in the IOUSBCommand
+	if ( _crossEndianCompatible )
+		_endpoint.direction |= 0x80;
 
     if (completion == 0)
     {
@@ -497,16 +568,16 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
 {
     IOReturn	err = kIOReturnSuccess;
 
-    USBLog(7, "IOUSBPipe[%p]::Read #3 (addr %d:%d type %d) - reqCount = %d", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
+    USBLog(7, "IOUSBPipe[%p]::Read #3 (addr %d:%d type %d) - reqCount = %ld", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
-        USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
+        USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
 	return kIOReturnBadArgument;
     }
 
     if (!buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %d < reqCount %d)", this, buffer, buffer->getLength(), reqCount);
+        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %ld < reqCount %ld)", this, buffer, buffer->getLength(), reqCount);
         return kIOReturnBadArgument;
     }
 
@@ -564,16 +635,16 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
 {
     IOReturn	err = kIOReturnSuccess;
 
-    USBLog(7, "IOUSBPipe[%p]::Write #3 (addr %d:%d type %d) - reqCount = %d", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
+    USBLog(7, "IOUSBPipe[%p]::Write #3 (addr %d:%d type %d) - reqCount = %ld", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
+        USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
 	return kIOReturnBadArgument;
     }
 
     if (!buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %d < reqCount %d)", this, buffer, buffer->getLength(), reqCount);
+        USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %ld < reqCount %ld)", this, buffer, buffer->getLength(), reqCount);
 	return kIOReturnBadArgument;
     }
 
@@ -701,7 +772,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 	    }
 	    params.options = deviceAddress + (endpointNum <<8) + (endpointType << 16) + (in << 24);
 	    
-	    USBLog(5, "[%p] ClearPipeStall, calling device messageClients (kIOUSBMessageHubPortClearTT) with options: %X", this, params.options);
+	    USBLog(5, "[%p] ClearPipeStall, calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%lx", this, params.options);
 	    _device->_expansionData->_usbPlaneParent->retain();
 	    (void) _device->_expansionData->_usbPlaneParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
 	    _device->_expansionData->_usbPlaneParent->release();
@@ -709,7 +780,7 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     }
     else
     {
-	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Int or Isoc endpoint, don't clear TT (or err:%p)",this, err);
+	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Int or Isoc endpoint, don't clear TT (or err: 0x%x)",this, err);
     }
     
     if (!err && withDeviceRequest)
@@ -820,6 +891,11 @@ IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
         return kIOReturnNoBandwidth;
     }
 
+	// The following is a hack to tell the UIM that this request is coming from a Rosetta client.  We set the high bit of the endpoint transfer type here
+	// and in IsocIO we will clear it and set a flag in the IOUSBCommand
+	if ( _crossEndianCompatible )
+		_endpoint.direction |= 0x80;
+	
     if (completion == 0)
     {
         // put in our own completion routine if none was specified to
@@ -863,6 +939,11 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
         return kIOReturnNoBandwidth;
     }
 
+	// The following is a hack to tell the UIM that this request is coming from a Rosetta client.  We set the high bit of the endpoint transfer type here
+	// and in IsocIO we will clear it and set a flag in the IOUSBCommand
+	if ( _crossEndianCompatible )
+		_endpoint.direction |= 0x80;
+
     if (completion == 0)
     {
         // put in our own completion routine if none was specified to
@@ -903,16 +984,16 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
         return kIOReturnUnsupported;
     }
     
-    USBLog(7, "IOUSBPipe[%p]::Read #4 (addr %d:%d type %d) - reqCount = %d", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
+    USBLog(7, "IOUSBPipe[%p]::Read #4 (addr %d:%d type %d) - reqCount = %ld", this, _address, _endpoint.number , _endpoint.transferType, reqCount);
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
-        USBLog(5, "IOUSBPipe[%p]::Read #4 - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %d || completionTimeout: %d)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
+        USBLog(5, "IOUSBPipe[%p]::Read #4 - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
         return kIOReturnBadArgument;
     }
     
     if (!buffer || (buffer->getLength() < reqCount))
     {
-        USBLog(5, "IOUSBPipe[%p]::Read #4- bad buffer: (buffer %p) || ( length %d < reqCount %d)", this, buffer, buffer->getLength(), reqCount);
+        USBLog(5, "IOUSBPipe[%p]::Read #4- bad buffer: (buffer %p) || ( length %ld < reqCount %ld)", this, buffer, buffer->getLength(), reqCount);
         return kIOReturnBadArgument;
     }
 

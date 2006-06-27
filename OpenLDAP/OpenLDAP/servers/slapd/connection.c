@@ -1090,8 +1090,26 @@ connection_operation( void *ctx, void *arg_v )
 		break;
 
 	default:
+#ifdef ASSERT_INVALID_OP
 		/* not reachable */
 		assert( 0 );
+#else
+#ifdef NEW_LOGGING
+		LDAP_LOG( CONNECTION, INFO, 
+			   "connection_operation: conn %lu  unknown LDAP request 0x%lx\n",
+			   conn->c_connid, tag, 0  );
+#else
+		Debug( LDAP_DEBUG_ANY, "unknown LDAP request 0x%lx\n",
+		    tag, 0, 0 );
+#endif
+		op->o_tag = LBER_ERROR;
+		rs.sr_err = LDAP_PROTOCOL_ERROR;
+		rs.sr_text = "unknown LDAP request";
+		send_ldap_disconnect( op, &rs );
+		rc = SLAPD_DISCONNECT;
+
+#endif
+		break;
 	}
 
 operations_error:
@@ -1132,9 +1150,11 @@ operations_error:
 	case LDAP_REQ_EXTENDED:
 		num_ops_completed_[SLAP_OP_EXTENDED]++;
 		break;
+#ifdef ASSERT_INVALID_OP
 	default:
 		/* not reachable */
 		assert( 0 );
+#endif
 	}
 #endif /* SLAPD_MONITOR */
 	ldap_pvt_thread_mutex_unlock( &num_ops_mutex );

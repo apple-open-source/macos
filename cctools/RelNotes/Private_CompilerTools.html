@@ -1,21 +1,21 @@
 <HTML>
-<!--This file created 12/12/05 11:18 AM by Claris Home Page version 3.0-->
+<!--This file created 4/17/06 6:10 PM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Private Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
-   <X-CLARIS-WINDOW TOP=104 BOTTOM=993 LEFT=95 RIGHT=842>
+   <X-CLARIS-WINDOW TOP=114 BOTTOM=1003 LEFT=707 RIGHT=1454>
    <X-CLARIS-TAGVIEW MODE=minimal>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<P><FONT SIZE="-1">Mac OS X Xcode 2.2.1 Developer Release Copyright
-2005 by Apple Computer, Inc. All Rights Reserved.</FONT></P>
+<P><FONT SIZE="-1">Mac OS X Xcode 2.2.1.1 Developer Release Copyright
+2006 by Apple Computer, Inc. All Rights Reserved.</FONT></P>
 
-<H2>Private Mac OS X Xcode 2.2.1 Developer Release:<BR>
-Compiler Tools (cctools-590.23.2)</H2>
+<H2>Private Mac OS X Xcode 2.2.1.1 Developer Release:<BR>
+Compiler Tools (cctools-590.23.6</H2>
 
-<P>This file contains release notes for the 5.20 release of the
-Compiler Tools for the Mac OS X Xcode 2.2.1 Developer Release. This
+<P>This file contains release notes for the 5.20.1 release of the
+Compiler Tools for the Mac OS X Xcode 2.2.1.1 Developer Release. This
 file contains information about the following topics:</P>
 
 <UL>
@@ -27,11 +27,49 @@ file contains information about the following topics:</P>
    on)&nbsp;</LI>
 </UL>
 
-<H2>Notes Specific to Release 5.20 (Mac OS X Xcode 2.2.1 Developer
-Release)</H2>
+<H2>Notes Specific to Release 5.20.1 (Mac OS X Xcode 2.2.1.1
+Developer Release)</H2>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.23.5
+for the 5.20.1 Mac OS X Xcode 2.2.1.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug in the redo_prebinding code that was causing a
+   memory leak. Radar bug #4503576.</LI>
+   
+   <LI>Fixed a bug in the redo_prebinding code that unnecessarily
+   calling chmod(2) and chown(2) when no output_file is specified.
+   Radar bug #4503724.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.23.4
+for the 5.20.1 Mac OS X Xcode 2.2.1.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the source code of cctools-590.23.5 to add macros that
+   rename structure members of the i386_thread_state_t for building
+   with Unix conformance headers. Radar bug #4438650.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.23.3
+for the 5.20.1 Mac OS X Xcode 2.2.1.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Changed the source code of cctools-590.23.4 to add macros that
+   rename structure members of the ppc_thread_state_t for building
+   with Unix conformance headers. Radar bug #4340681.</LI>
+</UL>
+
+<H5><FONT SIZE="+1">Changes since the last release (cctools-590.23.2
+for the 5.20.1 Mac OS X Xcode 2.2.1.1 Developer release)</FONT></H5>
+
+<UL>
+   <LI>Fixed a bug that caused the ld(1) to crash if the argument to
+   -int or -e were an undefined symbol. Radar bug #4401068.</LI>
+</UL>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.23.1
-for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
+for the 5.20 Mac OS X Xcode 2.2.1.1 Developer release)</FONT></H5>
 
 <UL>
    <LI>Fixed a bug that caused the ld(1) and libkld to not be built
@@ -45,6 +83,9 @@ for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>
    <LI>Fixed a bug that caused the code in libkld to crash. Radar bug
    #4367423.</LI>
 </UL>
+
+<H2>Notes Specific to Release 5.20 (Mac OS X Xcode 2.2.1 Developer
+Release)</H2>
 
 <H5><FONT SIZE="+1">Changes since the last release (cctools-590.22
 for the 5.20 Mac OS X Xcode 2.2.1 Developer release)</FONT></H5>

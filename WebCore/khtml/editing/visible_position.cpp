@@ -73,90 +73,48 @@ void VisiblePosition::init(const Position &pos, EInitHint initHint, EAffinity af
 {
     m_affinity = affinity;
 
-    // A first step toward eliminating the initHint parameter.
-    // For <br> 0, it's important not to move past the <br>.
-    if (pos.node() && pos.node()->id() == ID_BR && pos.offset() == 0)
-        initHint = INIT_UP;
-
-    switch (initHint) {
-        case INIT_UP:
-            initUpstream(pos);
-            break;
-        case INIT_DOWN:
-            initDownstream(pos);
-            break;
-        default:
-            ASSERT_NOT_REACHED();
-            break;
+    if (pos.isNull()) {
+        m_deepPosition = Position();
+        return;
     }
-}
 
-void VisiblePosition::initUpstream(const Position &pos)
-{
+    pos.node()->getDocument()->updateLayoutIgnorePendingStylesheets();
     Position deepPos = deepEquivalent(pos);
-
-    if (isCandidate(deepPos)) {
-        m_deepPosition = deepPos;
-        Position next = nextVisiblePosition(deepPos);
-        if (next.isNotNull()) {
-            Position previous = previousVisiblePosition(next);
-            if (previous.isNotNull())
-                m_deepPosition = previous;
-        }
-    }
-    else {
-        Position previous = previousVisiblePosition(deepPos);
-        if (previous.isNotNull()) {
-            m_deepPosition = previous;
-        } else {
-            Position next = nextVisiblePosition(deepPos);
-            if (next.isNotNull())
-                m_deepPosition = next;
-        }
-    }
-}
-
-static bool isRenderedBR(NodeImpl *node)
-{
-    if (!node)
-        return false;
-
-    RenderObject *renderer = node->renderer();
-    if (!renderer)
-        return false;
+    // If two visually equivalent positions are both candidates for being made the m_deepPosition,
+    // (this can happen when two rendered positions have only collapsed whitespace between them),
+    // we always choose the one that occurs first in the DOM to canonicalize VisiblePositions.
+    m_deepPosition = deepPos.upstream(StayInBlock);
+    if (isCandidate(m_deepPosition))
+        return;
     
-    if (renderer->style()->visibility() != VISIBLE)
-        return false;
+    m_deepPosition = deepPos;
+    if (isCandidate(m_deepPosition))
+        return;
 
-    if (renderer->isBR())
-        return true;
-
-    return false;
-}
-
-void VisiblePosition::initDownstream(const Position &pos)
-{
-    Position deepPos = deepEquivalent(pos);
-
-    if (isCandidate(deepPos)) {
-        m_deepPosition = deepPos;
-        Position previous = previousVisiblePosition(deepPos);
-        if (previous.isNotNull()) {
-            Position next = nextVisiblePosition(previous);
-            if (next.isNotNull())
-                m_deepPosition = next;
-        }
-    } else {
-        Position next = nextVisiblePosition(deepPos);
-        if (next.isNotNull()) {
+    m_deepPosition = deepPos.downstream(StayInBlock);
+    if (isCandidate(m_deepPosition))
+        return;
+        
+    // Do something rational for an input position inside unrendered whitespace that isn't really 
+    // equivalent to any rendered position, such as: <div>foo</div>{unrendered whitespace}<div>bar</div>
+    Position next = nextVisiblePosition(deepPos);
+    Position prev = previousVisiblePosition(deepPos);
+    
+    if (next.isNull() && prev.isNull())
+        m_deepPosition = Position();
+    else if (next.isNull())
+        m_deepPosition = prev;
+    else if (prev.isNull())
+        m_deepPosition = next;
+    else {
+        NodeImpl *originalBlock = pos.node()->enclosingBlockFlowElement();
+        bool nextIsOutsideOriginalBlock = !next.node()->isAncestor(originalBlock) && next.node() != originalBlock;
+        bool prevIsOutsideOriginalBlock = !prev.node()->isAncestor(originalBlock) && prev.node() != originalBlock;
+        
+        if (nextIsOutsideOriginalBlock && !prevIsOutsideOriginalBlock)
+            m_deepPosition = prev;
+        else
             m_deepPosition = next;
-        } else if (isRenderedBR(deepPos.node()) && deepPos.offset() == 1) {
-            m_deepPosition = deepPos;
-        } else {
-            Position previous = previousVisiblePosition(deepPos);
-            if (previous.isNotNull())
-                m_deepPosition = previous;
-        }
     }
 }
 

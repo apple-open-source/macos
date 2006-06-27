@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# $Id: Customize,v 1.8 2002/12/09 13:51:33 abe Exp $
+# $Id: Customize,v 1.9 2005/05/11 13:02:18 abe Exp $
 #
 # Customize: customize dialect's machine.h header file.
 #
@@ -72,6 +72,16 @@ then
 else
   EC=""
   EO="-n"
+fi
+
+# Decide how to use tail(1).
+
+TMP1=`tail -n 1 $0 2> /dev/null`
+if test $? -eq 0 -a "X$TMP1" = "X#LAST_LINE"
+then
+  TA="-n 1"
+else
+  TA="-1"
 fi
 
 # Display the introduction and basic explanation.
@@ -185,7 +195,7 @@ open files.
 
 .CAT_MARK
 
-grep HASSECURITY $OLD | tail -1 | egrep "^#define" > /dev/null
+grep HASSECURITY $OLD | tail $TA | egrep "^#define" > /dev/null
 if test $? -eq 0
 then
   echo "HASSECURITY is enabled."
@@ -248,7 +258,7 @@ This option is useful with ntop (http://www.ntop.org).
 
 .CAT_MARK
 
-  grep HASNOSOCKSECURITY $OLD | tail -1 | egrep "^#define" > /dev/null
+  grep HASNOSOCKSECURITY $OLD | tail $TA | egrep "^#define" > /dev/null
   if test $? -eq 0
   then
     echo "HASNOSOCKSECURITY is enabled."
@@ -309,7 +319,7 @@ disables warning state and +w enables it.
 
 .CAT_MARK
 
-grep WARNINGSTATE $OLD | tail -1 | egrep "^#define" > /dev/null
+grep WARNINGSTATE $OLD | tail $TA | egrep "^#define" > /dev/null
 if test $? -eq 0
 then
   echo "WARNINGSTATE is disabled."
@@ -378,7 +388,7 @@ When WARNDEVACCESS is disabled, lsof will silently skip nodes in
 
 .CAT_MARK
 
-  grep WARNDEVACCESS $OLD | tail -1 | egrep "^#define" > /dev/null
+  grep WARNDEVACCESS $OLD | tail $TA | egrep "^#define" > /dev/null
   if test $? -eq 0
   then
     echo "WARNDEVACCESS is enabled."
@@ -461,7 +471,7 @@ more information.
 
 .CAT_MARK
 
-  grep HASDCACHE $OLD | tail -1 | egrep "^#define" > /dev/null
+  grep HASDCACHE $OLD | tail $TA | egrep "^#define" > /dev/null
   if test $? -eq 0
   then
     echo "HASDCACHE is enabled."
@@ -526,10 +536,10 @@ The current path options are:
   
 .CAT_MARK
 
-    grep HASENVDC $OLD | tail -1 | egrep "^#define"
-    egrep "HASPERSDC$|HASPERSDC[ 	]" $OLD | tail -1 | egrep "^#define"
-    grep HASPERSDCPATH $OLD | tail -1 | egrep "^#define"
-    grep HASSYSDC $OLD | tail -1 | egrep "^#define"
+    grep HASENVDC $OLD | tail $TA | egrep "^#define"
+    egrep "HASPERSDC$|HASPERSDC[ 	]" $OLD | tail $TA | egrep "^#define"
+    grep HASPERSDCPATH $OLD | tail $TA | egrep "^#define"
+    grep HASSYSDC $OLD | tail $TA | egrep "^#define"
     END=0
     while test $END -eq 0
     do
@@ -575,7 +585,7 @@ users.  Press ENTER to use the current value of HASENVDC:
 .CAT_MARK
 
     echo $EO "        $EC"
-    TMP1=`grep HASENVDC $OLD | tail -1 | egrep "^#define"`
+    TMP1=`grep HASENVDC $OLD | tail $TA | egrep "^#define"`
     if test "X$TMP1" != "X"
     then
       TMP1=`echo "$TMP1" | sed 's/^#define[ 	]HASENVDC[ 	]"\([^"]*\)".*$/\1/'`
@@ -636,7 +646,7 @@ HASPERSDC.  Press ENTER to use the curent HASPERSDC format:
 .CAT_MARK
 
     echo $EO "        $EC"
-    TMP1=`egrep "HASPERSDC$|HASPERSDC[ 	]" $OLD | tail -1 | egrep "^#define"`
+    TMP1=`egrep "HASPERSDC$|HASPERSDC[ 	]" $OLD | tail $TA | egrep "^#define"`
     if test "X$TMP1" != "X"
     then
       TMP1=`echo "$TMP1" | sed 's/^#define[ 	]HASPERSDC[ 	]"\([^"]*\)".*$/\1/'`
@@ -700,7 +710,7 @@ Press ENTER to use the current value for HASPERSDCPATH:
 .CAT_MARK
 
     echo $EO "        $EC"
-    TMP1=`grep HASPERSDCPATH $OLD | tail -1 | egrep "^#define"`
+    TMP1=`grep HASPERSDCPATH $OLD | tail $TA | egrep "^#define"`
     if test "X$TMP1" != "X"
     then
       TMP1=`echo "$TMP1" | sed 's/^#define[ 	]HASPERSDCPATH[ 	]"\([^"]*\)".*$/\1/'`
@@ -753,7 +763,7 @@ ENTER to use the current HASSYSDC value:
 .CAT_MARK
 
     echo $EO "        $EC"
-    TMP1=`grep HASSYSDC $OLD | tail -1 | egrep "^#define"`
+    TMP1=`grep HASSYSDC $OLD | tail $TA | egrep "^#define"`
     if test "X$TMP1" != "X"
     then
       TMP1=`echo "$TMP1" | sed 's/^#define[ 	]HASSYSDC[ 	]"\([^"]*\)".*$/\1/'`
@@ -808,7 +818,7 @@ fi
 # ask about changing HASXOPT_ROOT.
 
 HXRC=0
-grep HASXOPT $OLD | tail -1 | egrep "^#define" > /dev/null
+grep HASXOPT $OLD | tail $TA | egrep "^#define" > /dev/null
 if test $? -eq 0
 then
   grep HASXOPT_ROOT $OLD > /dev/null
@@ -834,7 +844,7 @@ whose real user ID is root, or enable use of it by all user IDs.
 
 .CAT_MARK
 
-    grep HASXOPT_ROOT $OLD | tail -1 | egrep "^#define" > /dev/null
+    grep HASXOPT_ROOT $OLD | tail $TA | egrep "^#define" > /dev/null
     if test $? -eq 0
     then
       echo "HASXOPT_ROOT is defined."
@@ -898,7 +908,7 @@ an inappropriate lsof executable.
 
 .CAT_MARK
 
-    grep HASKERNIDCK $OLD | tail -1 | grep "^#define" > /dev/null
+    grep HASKERNIDCK $OLD | tail $TA | grep "^#define" > /dev/null
     if test $? -eq 0
     then
       echo "HASKERNIDCK is enabled."
@@ -1138,3 +1148,4 @@ echo ""
 echo "        $ make"
 echo ""
 exit 0
+#LAST_LINE

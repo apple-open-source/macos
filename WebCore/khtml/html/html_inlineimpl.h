@@ -33,7 +33,7 @@ class DOMString;
 class HTMLAnchorElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLAnchorElementImpl(DocumentPtr *doc);
+    HTMLAnchorElementImpl(DocumentImpl *doc);
     ~HTMLAnchorElementImpl();
 
 #if APPLE_CHANGES
@@ -57,7 +57,7 @@ protected:
 class HTMLBRElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLBRElementImpl(DocumentPtr *doc);
+    HTMLBRElementImpl(DocumentImpl *doc);
     ~HTMLBRElementImpl();
 
     virtual Id id() const;
@@ -73,7 +73,7 @@ public:
 class HTMLFontElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLFontElementImpl(DocumentPtr *doc);
+    HTMLFontElementImpl(DocumentImpl *doc);
     ~HTMLFontElementImpl();
 
     virtual Id id() const;

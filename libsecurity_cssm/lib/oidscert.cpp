@@ -33,6 +33,7 @@
  */
 
 #include <Security/oidscert.h>
+#include <Security/cssmapplePriv.h>
 
 /* required until PR-3347430 Security/cdsa/cdsa/oidscert.h is checked
  * into TOT - pending public API review */
@@ -209,6 +210,7 @@ static const uint8
 	/* Other Apple extended key usage values */
 	OID_APPLE_EKU_CODE_SIGNING[]		= { APPLE_EKU_CODE_SIGNING },
 	OID_APPLE_EKU_CODE_SIGNING_DEV[]	= { APPLE_EKU_CODE_SIGNING, 1 },
+	OID_APPLE_EKU_RESOURCE_SIGNING[]	= { APPLE_EKU_CODE_SIGNING, 4 },
 	OID_APPLE_EKU_ICHAT_SIGNING[]		= { APPLE_EKU_OID, 2 },
 	OID_APPLE_EKU_ICHAT_ENCRYPTION[]	= { APPLE_EKU_OID, 3 },
 	/* Apple cert policies */
@@ -267,6 +269,8 @@ CSSMOID_APPLE_EKU_CODE_SIGNING		= { APPLE_EKU_CODE_SIGNING_LENGTH,
 										(uint8 *)OID_APPLE_EKU_CODE_SIGNING },
 CSSMOID_APPLE_EKU_CODE_SIGNING_DEV	= { APPLE_EKU_CODE_SIGNING_LENGTH + 1,
 										(uint8 *)OID_APPLE_EKU_CODE_SIGNING_DEV },
+CSSMOID_APPLE_EKU_RESOURCE_SIGNING	= { APPLE_EKU_CODE_SIGNING_LENGTH + 1,
+										(uint8 *)OID_APPLE_EKU_RESOURCE_SIGNING },
 CSSMOID_APPLE_EKU_ICHAT_SIGNING		= { APPLE_EKU_OID_LENGTH + 1,
 										(uint8 *)OID_APPLE_EKU_ICHAT_SIGNING },
 CSSMOID_APPLE_EKU_ICHAT_ENCRYPTION	= { APPLE_EKU_OID_LENGTH + 1,

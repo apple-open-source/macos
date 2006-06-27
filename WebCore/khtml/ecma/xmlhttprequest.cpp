@@ -150,8 +150,7 @@ Value XMLHttpRequest::getValueProperty(ExecState *exec, int token) const
         mimeType = MIMETypeOverride;
       }
       
-      if (mimeType == "text/xml" || mimeType == "application/xml" || mimeType == "application/xhtml+xml" ||
-          mimeType == "text/xsl" || mimeType == "application/rss+xml" || mimeType == "application/atom+xml") {
+      if (khtml::isXMLMIMEType(mimeType)) {
 	responseXML = DOM::Document(doc->implementation()->createDocument());
 
 	DOM::DocumentImpl *docImpl = static_cast<DOM::DocumentImpl *>(responseXML.handle());
@@ -250,7 +249,12 @@ void XMLHttpRequest::changeState(XMLHttpRequestState newState)
 {
   if (state != newState) {
     state = newState;
-    
+    callReadyStateChangeListener();
+  }
+}
+   
+void XMLHttpRequest::callReadyStateChangeListener()
+{
     if (doc && doc->part() && onReadyStateChangeListener.notNull()) {
       DOM::Event ev = doc->part()->document().createEvent("HTMLEvents");
       ev.initEvent("readystatechange", true, true);
@@ -262,7 +266,6 @@ void XMLHttpRequest::changeState(XMLHttpRequestState newState)
       ev.initEvent("load", true, true);
       onLoadListener->handleEvent(ev, true);
     }
-  }
 }
 
 bool XMLHttpRequest::urlMatchesDocumentDomain(const KURL& _url) const
@@ -349,7 +352,16 @@ void XMLHttpRequest::send(const QString& _body)
     KURL finalURL;
     QString headers;
 
+    // avoid deadlock in case the loader wants to use JS on a background thread
+    int lockCount = Interpreter::lockCount();
+    for (int i = 0; i < lockCount; i++)
+      Interpreter::unlock();
+
     data = KWQServeSynchronousRequest(khtml::Cache::loader(), doc->docLoader(), job, finalURL, headers);
+
+    for (int i = 0; i < lockCount; i++)
+      Interpreter::lock();
+    
     job = 0;
     processSyncLoadResults(data, finalURL, headers);
     
@@ -593,7 +605,11 @@ void XMLHttpRequest::slotData(KIO::Job*, const QByteArray &_data)
   response += decoded;
 
   if (!aborted) {
-    changeState(Interactive);
+    if (state != Interactive)
+        changeState(Interactive);
+    else
+        // Firefox calls readyStateChanged every time it receives data, 4449442
+        callReadyStateChangeListener();
   }
 }
 

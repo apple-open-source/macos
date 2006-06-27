@@ -1,5 +1,5 @@
 /*
- * "$Id: client.c,v 1.24.2.1 2005/07/27 18:22:02 jlovell Exp $"
+ * "$Id: client.c,v 1.24.2.3 2006/02/27 21:19:13 jlovell Exp $"
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -464,7 +464,9 @@ CloseClient(client_t *con)	/* I - Client to close */
     free(conn);
 
 #  elif defined(HAVE_CDSASSL)
-    status = (*SSLCloseProc)((SSLContextRef)con->http.tls);
+    while ((status = (*SSLCloseProc)((SSLContextRef)con->http.tls)) == errSSLWouldBlock)
+      usleep(1000);
+
     (*SSLDisposeContextProc)((SSLContextRef)con->http.tls);
 #  endif /* HAVE_LIBSSL */
 
@@ -753,11 +755,8 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
     * Perform SSL/TLS handshake
     */
 
-    do
-    {
-      error = (*SSLHandshakeProc)(conn);
-    }
-    while (error == errSSLWouldBlock);
+    while ((error = (*SSLHandshakeProc)(conn)) == errSSLWouldBlock)
+      usleep(1000);
   }
 
   if (error)
@@ -3706,5 +3705,5 @@ CDSAWriteFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
 
 
 /*
- * End of "$Id: client.c,v 1.24.2.1 2005/07/27 18:22:02 jlovell Exp $".
+ * End of "$Id: client.c,v 1.24.2.3 2006/02/27 21:19:13 jlovell Exp $".
  */

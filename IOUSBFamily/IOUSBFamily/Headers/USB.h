@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -916,13 +916,14 @@ enum {
     kUSBHighSpeedMicrosecondsInFrame		= 125
 };
 
-//  This is a debugging tool used for low latency transfers
+//  During low latency transfers, the stack will set the frStatus for each frame to this value.  A client can check that to see if the transfer has completed.  We set the frStatus to a 
+//  valid return code when the transfer completes.
 //
 enum {
         kUSBLowLatencyIsochTransferKey	= 'llit'	// Set frStatus field of first frame in isoch transfer to designate as low latency
     };
     
-// This structure is used to pass information for the low latency calls between user space and the kernel.  
+// This structure is DEPRECATED.  See the LowLatencyUserBufferInfoV2  
 //
 typedef struct LowLatencyUserBufferInfo LowLatencyUserBufferInfo;
 
@@ -933,6 +934,21 @@ struct LowLatencyUserBufferInfo {
     UInt32				bufferType;
     Boolean				isPrepared;
     LowLatencyUserBufferInfo *	nextBuffer;
+};
+
+// This structure is used to pass information for the low latency calls between user space and the kernel.  
+//
+typedef struct LowLatencyUserBufferInfoV2 LowLatencyUserBufferInfoV2;
+
+struct LowLatencyUserBufferInfoV2 
+{
+    UInt32							cookie;
+    void *							bufferAddress;
+    IOByteCount						bufferSize;
+    UInt32							bufferType;
+    Boolean							isPrepared;
+	void *							mappedUHCIAddress;
+    LowLatencyUserBufferInfoV2 *	nextBuffer;
 };
 
 
@@ -966,8 +982,10 @@ enum {
 #define kUSBDevicePropertyBusPowerAvailable     "Bus Power Available"
 #define kUSBDevicePropertyAddress               "USB Address"
 #define kUSBDevicePropertyLocationID            "locationID"
-#define kUSBProductIDMask			"idProductMask"
-
+#define kUSBProductIDMask						"idProductMask"
+#define kUSBPreferredConfiguration				"Preferred Configuration"
+#define kUSBSuspendPort							"kSuspendPort"
+#define kUSBControllerNeedsContiguousMemoryForIsoch	"Need contiguous memory for isoch"
 /*!
 @enum USBReEnumerateOptions
  @discussion Options used when calling ReEnumerateDevice. 

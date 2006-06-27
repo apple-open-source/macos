@@ -39,6 +39,7 @@
 		d.  UID to Login Name Conversion Delays
 	    15. Output for Other Programs
 	    16. The Lsof Exit Code and Shell Scripts
+	    17. Strange messages in the NAME column
 
 			Options
 
@@ -69,7 +70,7 @@
   syscall returns different file parameters -- particularly device
   and inode numbers -- than lsof finds in kernel node structures.
   This condition is rare and is usually documented in the 00FAQ
-  file of this lsof distribution.
+  file of the lsof distribution.
 
   $ lsof /etc/security/passwd
   lsof: status error on /etc/security/passwd: Permission denied
@@ -749,6 +750,48 @@
     fi
 
 
+17. Strange messages in the NAME column
+=======================================
+
+  When lsof encounters problems analyzing a particular file, it may
+  put a message in the file's NAME column.  Many of those messages
+  are explained in the 00FAQ file of the lsof distribution.
+
+  So consult 00FAQ first if you encounter a NAME column message you
+  don't understand.  (00FAQ is a possible source of information
+  about other unfamiliar things in lsof output, too.)
+  
+  If you can't find help in 00FAQ, you can use grep to look in the
+  lsof source files for the message -- e.g.,
+
+    $ cd .../lsof_4.76_src
+    $ grep "can't identify protocol" *.[ch]
+
+  The code associated with the message will usually make clear the
+  reason for the message.
+
+  If you have an lsof source tree that has been processed by the
+  lsof Configure script, you need grep only there.  If, however,
+  your source tree hasn't been processed by Configure, you may
+  have to look in the top-level lsof source directory and in the
+  dialects sub-directory for the UNIX dialect you are using - e.g.,
+
+    $ cd .../lsof_4.76_src
+    $ grep "can't identify protocol" *.[ch]
+    $ cd dialects/Linux
+    $ grep "can't identify protocol" *.[ch]
+
+  In rare cases you may have to look in the lsof library, too --
+  e.g.,
+
+    $ cd .../lsof_4.76_src
+    $ grep "can't identify protocol" *.[ch]
+    $ cd dialects/Linux
+    $ grep "can't identify protocol" *.[ch]
+    $ cd ../../lib
+    $ grep "can't identify protocol" *.[ch]
+
+
 Options
 =======
 
@@ -962,4 +1005,4 @@ D.  Miscellaneous Lsof Options
 
 
 Vic Abell <abe@purdue.edu>
-March 25, 2003
+March 27, 2006

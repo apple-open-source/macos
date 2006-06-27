@@ -299,7 +299,7 @@ IOUSBController::start( IOService * provider )
         _terminatePCCardThread = thread_call_allocate((thread_call_func_t)TerminatePCCard, (thread_call_param_t)this);
         if ( !_terminatePCCardThread )
         {
-            USBError(1, "[%p] %s could not allocate thread functions.  Aborting start", this, getName());
+            USBError(1, "IOUSBController::start could not allocate thread functions.  Aborting start");
         }
         
         for (i = 1; i < kUSBMaxDevices; i++)
@@ -347,7 +347,7 @@ IOUSBController::start( IOService * provider )
         {
             gIOUSBPlane = IORegistryEntry::makePlane(kIOUSBPlane);
             if ( gIOUSBPlane == 0 )
-                USBError(1,"%s: unable to create IOUSB plane");
+                USBError(1,"IOUSBController::start unable to create IOUSB plane");
         }
 
         err = CreateRootHubDevice( provider, &_rootHubDevice );
@@ -407,7 +407,7 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
                                 UInt32			powerAvailable)
 {
 
-    USBLog(5,"%s: CreateDevice: addr=%d, speed=%s, power=%d", getName(), 
+    USBLog(5,"%s[%p]::CreateDevice: addr=%d, speed=%s, power=%d", getName(), this,
              deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : "high"), (int)powerAvailable*2);
     
     _addressPending[deviceAddress] = true;			// in case the INIT takes a long time
@@ -849,7 +849,7 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
     if (command == 0)
         return;
 
-    USBLog(7,"%s[%p]::InterruptPacketHandler: addr %d:%d(%s) complete status=0x%x bufferSizeRemaining = %d (%d)",  me->getName(), me, command->GetAddress(), command->GetEndpoint(), command->GetDirection() == kUSBIn ? "in" : "out", status, (int)bufferSizeRemaining, command->GetReqCount());
+    USBLog(7,"%s[%p]::InterruptPacketHandler: addr %d:%d(%s) complete status=0x%x bufferSizeRemaining = %d (%ld)",  me->getName(), me, command->GetAddress(), command->GetEndpoint(), command->GetDirection() == kUSBIn ? "in" : "out", status, (int)bufferSizeRemaining, command->GetReqCount());
 
     if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
@@ -922,7 +922,7 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
     if (command == 0)
         return;
 
-    USBLog(7,"%s[%p]::BulkPacketHandler: addr %d:%d(%s) complete status=0x%x bufferSizeRemaining = %d (%d)", me->getName(), me, command->GetAddress(), command->GetEndpoint(), command->GetDirection() == kUSBIn ? "in" : "out", status, (int)bufferSizeRemaining, command->GetReqCount());
+    USBLog(7,"%s[%p]::BulkPacketHandler: addr %d:%d(%s) complete status=0x%x bufferSizeRemaining = %d (%ld)", me->getName(), me, command->GetAddress(), command->GetEndpoint(), command->GetDirection() == kUSBIn ? "in" : "out", status, (int)bufferSizeRemaining, command->GetReqCount());
 
      if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
@@ -1088,24 +1088,33 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 {
     IOUSBIsocCompletion		completion;
     IOReturn				err = kIOReturnSuccess;
-
+	UInt8					direction;
 
     completion.target 	 = (void *)this;
     completion.action 	 = (IOUSBIsocCompletionAction) &IOUSBController::IsocCompletionHandler;
     completion.parameter = (void *)command;
 
+	// Overload the direction by setting the high bit is our client is a rosetta client
+	//
+	direction = command->GetDirection();
+	if ( command->GetIsRosettaClient() )
+		direction |= 0x80;
+	
+	_activeIsochTransfers++;
     err = UIMCreateIsochTransfer(   command->GetAddress(),		// functionAddress
 									command->GetEndpoint(),		// endpointNumber
 									completion,					// completion
-									command->GetDirection(),	// direction
+									direction,					// direction
 									command->GetStartFrame(),   // Start frame
 									command->GetBuffer(),		// buffer
 									command->GetNumFrames(),	// number of frames
 									command->GetFrameList()		// transfer for each frame
 									);
 
-    if (err) {
+    if (err) 
+	{
         USBLog(3,"%s[%p]::IsocTransaction: error queueing isoc transfer (0x%x)", getName(), this, err);
+		_activeIsochTransfers--;
     }
     return(err);
 }
@@ -1117,16 +1126,23 @@ IOUSBController::LowLatencyIsocTransaction(IOUSBIsocCommand *command)
 {
     IOUSBIsocCompletion	completion;
     IOReturn		err = kIOReturnSuccess;
-
+	UInt8			direction;
 
     completion.target 	 = (void *)this;
     completion.action 	 = (IOUSBIsocCompletionAction) &IOUSBController::IsocCompletionHandler;
     completion.parameter = (void *)command;
 
+	// Overload the direction by setting the high bit is our client is a rosetta client
+	//
+	direction = command->GetDirection();
+	if ( command->GetIsRosettaClient() )
+		direction |= 0x80;
+
+	_activeIsochTransfers++;
     err = UIMCreateIsochTransfer(   command->GetAddress(),									// functionAddress
 									command->GetEndpoint(),									// endpointNumber
 									completion,												// completion
-									command->GetDirection(),								// direction
+									direction,												// direction
 									command->GetStartFrame(),								// Start frame
 									command->GetBuffer(),									// buffer
 									command->GetNumFrames(),								// number of frames
@@ -1134,8 +1150,10 @@ IOUSBController::LowLatencyIsocTransaction(IOUSBIsocCommand *command)
 									command->GetUpdateFrequency()							// How often do we update frameList
 									);
 
-    if (err) {
+    if (err) 
+	{
         USBLog(3,"%s[%p]::IsocTransaction: error queueing isoc transfer (0x%x)", getName(), this, err);
+		_activeIsochTransfers--;
     }
     return(err);
 }
@@ -1806,7 +1824,7 @@ IOUSBController::PolledRead(
     command->SetBufferRounding(bufferRounding);
 
     for (i=0; i < 10; i++)
-	command->SetUIMScratch(i, 0);
+		command->SetUIMScratch(i, 0);
 	
     uslCompletion.target    = (void *)this;
     uslCompletion.action    = (IOUSBCompletionAction) &IOUSBController::InterruptPacketHandler;
@@ -1837,7 +1855,7 @@ IOUSBController::message( UInt32 type, IOService * provider,  void * argument )
         case kIOPCCardCSEventMessage:
             pccardevent = (UInt32) argument;
             
-            USBLog(5,"+%s[%p]: Received kIOPCCardCSEventMessage event %d",getName(),this, (UInt32) pccardevent);
+            USBLog(5,"+%s[%p]: Received kIOPCCardCSEventMessage event %ld",getName(),this, (UInt32) pccardevent);
             if ( pccardevent == CS_EVENT_CARD_REMOVAL )
             {
                 _pcCardEjected = true;
@@ -1847,7 +1865,7 @@ IOUSBController::message( UInt32 type, IOService * provider,  void * argument )
                     thread_call_enter(_terminatePCCardThread);
                 }
             }
-            USBLog(5,"-%s[%p]: Received kIOPCCardCSEventMessage event %d",getName(),this, (UInt32) pccardevent);
+            USBLog(5,"-%s[%p]: Received kIOPCCardCSEventMessage event %ld",getName(),this, (UInt32) pccardevent);
             break;
              
         default:
@@ -2048,7 +2066,7 @@ IOUSBController::TerminatePCCard(OSObject *target)
     USBLog(5,"%s[%p]::TerminatePCCard Terminating RootHub", me->getName(),me);
     ok = me->_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
     if ( !ok )
-        USBLog(3,"%s[%p]::TerminatePCCard Could not terminate RootHub device",me->getName());
+        USBLog(3,"%s[%p]::TerminatePCCard Could not terminate RootHub device", me->getName(), me);
     
     me->_rootHubDevice->detachAll(gIOUSBPlane);
     me->_rootHubDevice->release();
@@ -2132,13 +2150,13 @@ void IOUSBController::UIMCheckForTimeouts(void)
 
 OSMetaClassDefineReservedUsed(IOUSBController,  1);
 IOReturn
-IOUSBController::UIMCreateControlTransfer(  short		functionNumber, 
-					    short 		endpointNumber, 
-					    IOUSBCommand* 	command, 
-					    void*		CBP,
-                                            bool		bufferRounding,
-                                            UInt32		bufferSize,
-                                            short		direction)
+IOUSBController::UIMCreateControlTransfer(  short			functionNumber, 
+											short			endpointNumber, 
+											IOUSBCommand* 	command, 
+											void*			CBP,
+                                            bool			bufferRounding,
+                                            UInt32			bufferSize,
+                                            short			direction)
 {
     // This would normally be a pure virtual function which is implemented only in the UIM. However, we didn't
     // do it that way in release 1.8 of IOUSBFamily. So to maintain binary compatibility, I am implementing it
@@ -2152,13 +2170,13 @@ IOUSBController::UIMCreateControlTransfer(  short		functionNumber,
 
 OSMetaClassDefineReservedUsed(IOUSBController,  2);
 IOReturn
-IOUSBController::UIMCreateControlTransfer(   short			functionNumber,
-                                             short			endpointNumber,
-                                             IOUSBCommand*		command,
+IOUSBController::UIMCreateControlTransfer(   short					functionNumber,
+                                             short					endpointNumber,
+                                             IOUSBCommand*			command,
                                              IOMemoryDescriptor*	CBP,
-                                             bool			bufferRounding,
-                                             UInt32			bufferSize,
-                                             short			direction)
+                                             bool					bufferRounding,
+                                             UInt32					bufferSize,
+                                             short					direction)
 {
     // This would normally be a pure virtual function which is implemented only in the UIM. However, we didn't
     // do it that way in release 1.8 of IOUSBFamily. So to maintain binary compatibility, I am implementing it
@@ -2264,12 +2282,12 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
         command->SetSelector(DEVICE_REQUEST);
         command->SetRequest(request);
         command->SetAddress(address);
-	command->SetEndpoint(ep);
+		command->SetEndpoint(ep);
         command->SetType(kUSBControl);
         command->SetBuffer(0); // no buffer for device requests
         command->SetClientCompletion(*completion);
-	command->SetNoDataTimeout(noDataTimeout);
-	command->SetCompletionTimeout(completionTimeout);
+		command->SetNoDataTimeout(noDataTimeout);
+		command->SetCompletionTimeout(completionTimeout);
 
 	/* Set the USL completion to NULL, so the high speed controller can do its own thing. */
         nullCompletion.target = (void *) NULL;
@@ -2474,7 +2492,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
         if ( gUsedBusIDs[bus] )
         {
             //
-            USBError(1,"Bus %d already taken",bus);
+            USBError(1,"IOUSBController::CreateRootHubDevice  Bus %ld already taken",bus);
             
             for ( busIndex = kMaxNumberUSBBusses - 1; busIndex >= 0; busIndex-- )
             {

@@ -246,13 +246,14 @@ void IOFireWireAVCUserClient::stop( IOService * provider )
     
     fStarted = false;
     
-	// TODO: Deal with the fUCAsyncCommands array, deal with any outstanding commands and release it
+	// Deal with the fUCAsyncCommands array, deal with any outstanding commands and release it
 	IOTakeLock(fAsyncAVCCmdLock);
 	while (fUCAsyncCommands->getCount())
 	{
 		pUCAsyncCommand = (IOFireWireAVCUserClientAsyncCommand *)fUCAsyncCommands->getObject(0);
 		if (pUCAsyncCommand)
 		{
+			pUCAsyncCommand->pAsyncCommand->cancel();	// Cancel, just in case it's still pending!
 			pUCAsyncCommand->pAsyncCommand->release();
 			
 			// Get rid of the memory descriptor for the shared buf
@@ -995,6 +996,7 @@ IOReturn IOFireWireAVCUserClient::ReleaseAVCAsyncCommand(UInt32 commandHandle)
 	
 	if (found == true)
 	{
+		pUCAsyncCommand->pAsyncCommand->cancel();	// Cancel, just in case it's still pending!
 		pUCAsyncCommand->pAsyncCommand->release();
 		
 		// Get rid of the memory descriptor for the shared buf

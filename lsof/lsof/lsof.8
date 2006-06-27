@@ -1,4 +1,4 @@
-.ds VN 4.73
+.ds VN 4.77
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -61,21 +61,22 @@ following UNIX dialects:
 .PP
 .nf
 	AIX 5.[123]
-	Apple Darwin 6.x and 7.x for Power Macintosh systems
-	BSDI BSD/OS 4.3.1 for x86-based systems
-	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.1
-	FreeBSD 4.[2-9], 4.10, 5.[012] and 6.0 for x86-based systems
-	FreeBSD 5.[012] and 6.0 for Alpha, AMD64 and Sparc64 based systems
-	HP-UX 11.00 and 11.11
+	Apple Darwin 7.x and 8.x for Power Macintosh and x86-based
+	    systems
+	FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
+	FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
+	    systems
+	HP-UX 11.00, 11.11 and 11.23
 	Linux 2.1.72 and above for x86-based systems
-	NetBSD 1.[456] and 2.0 for Alpha, x86, and SPARC-based systems
+	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
+	    systems
 	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	OpenBSD 2.[89] and 3.[0123456] for x86-based systems
+	OpenBSD 2.[89] and 3.[0-9] for x86-based systems
 	OPENSTEP 4.x
-	Caldera OpenUNIX 8
 	SCO OpenServer Release 5.0.6 for x86-based systems
 	SCO|Caldera UnixWare 7.1.4 for x86-based systems
 	Solaris 2.6, 8, 9 and 10
+	Tru64 UNIX 5.1
 .fi
 .PP
 (See the
@@ -132,12 +133,18 @@ specifying the
 option without an address and the \fB\-u\fPfoo option produces a
 listing of all network files OR files belonging to processes owned
 by user ``foo''.
-One exception is the `^' (negated) login name or user ID (UID)
+Three exceptions are: 1) the `^' (negated) login name or user ID (UID),
 specified with the
 .B \-u
+option;
+2) the `^' (negated) process ID (PID), specified with the
+.B \-p
+option;
+and 3) the `^' (negated) process group ID (PGID), specified with the
+.B \-g
 option.
-Since it is an exclusion, it is applied without ORing or ANDing
-and takes effect before any other selection criteria are applied.
+Since they represent exclusions, they are applied without ORing or ANDing
+and take effect before any other selection criteria are applied.
 .PP
 The
 .B \-a
@@ -268,7 +275,7 @@ AND option selection.
 If
 .I c
 begins and ends with a slash ('/'), the characters between the slashes
-is interpreted as a regular expression.
+are interpreted as a regular expression.
 Shell meta\-characters in the regular expression must be quoted to prevent 
 their interpretation by the shell.
 The closing slash may be followed by these modifiers:
@@ -299,14 +306,28 @@ when lsof's
 option is specified.
 .TP \w'names'u+4
 .BI +c " w"
-This option defines the maximum number of initial characters of the name
-of the UNIX command associated with a process to be printed in the COMMAND
-column.
-(The default is nine.)
+This option defines the maximum number of initial characters of the name,
+supplied by the UNIX dialect, of the UNIX command associated with a process
+to be printed in the COMMAND column.
+(The
+.I lsof
+default is nine.)
+.IP
+Note that many UNIX dialects do not supply all command name characters
+to
+.I lsof
+in the files and structures from which
+.I lsof
+obtains command name.
+Often dialects limit the number of characters supplied in those sources.
+For example, Linux 2.4.27 and Solaris 9 both limit command name length to
+16 characters.
 .IP
 If
 .I w
-is zero ('0'), all command characters will be printed.
+is zero ('0'), all command characters supplied to
+.I lsof
+by the UNIX dialect will be printed.
 .IP
 If
 .I w
@@ -676,15 +697,19 @@ will display a help list of the field identification characters.
 (Escape the `?' character as your shell requires.)
 .TP \w'names'u+4
 .BI \-g " [s]"
-This option selects the listing of files for the processes whose optional
-process group IDentification (PGID) numbers are in the comma\-separated
-set
+This option excludes or selects the listing of files for the processes
+whose optional process group IDentification (PGID) numbers are in the
+comma\-separated set
 .I s
-\&\- e.g., ``123'' or ``123,456''.
+\&\- e.g., ``123'' or ``123,^456''.
 (There should be no spaces in the set.)
+.IP
+PGID numbers that begin with `^' (negation) represent exclusions.
 .IP
 Multiple PGID numbers are joined in a single ORed set before participating
 in AND option selection.
+However, PGID exclusions are applied without ORing or ANDing
+and take effect before other selection criteria are applied.
 .IP
 The
 .B \-g
@@ -843,7 +868,7 @@ and whose numeric range entries are separated by minus signs.
 There may be no embedded spaces, and all service names must belong to
 the specified
 .IR protocol .
-Since service names may contain embedded minus signs, the staring entry
+Since service names may contain embedded minus signs, the starting entry
 of a range can't be a service name; it can be a port number, however.
 .IP
 Here are some sample addresses:
@@ -866,8 +891,7 @@ Here are some sample addresses:
 	tcp@foo:1-10,smtp,99 \- TCP, ports 1 through 10,
 		service name \fIsmtp\fP, port 99, host name foo
 .br
-	tcp@bar:smtp-nameserver \- TCP, ports \fIsmtp\fP through
-		\fInameserver\fP, host bar
+	tcp@bar:1-smtp \- TCP, ports 1 through \fIsmtp\fP, host bar
 .br
 	:time \- either TCP or UDP time service port
 .fi
@@ -985,7 +1009,6 @@ or
 option will report the default mode.
 Disabling portmapper registration when it is already disabled or
 enabling it when already enabled is acceptable.
-in a warning.
 .IP
 When portmapper registration reporting is enabled,
 .I lsof
@@ -1117,14 +1140,19 @@ to hang when the kernel doesn't respond to a function.
 Use this option cautiously.
 .TP \w'names'u+4
 .BI \-p " s"
-This option selects the listing of files for the processes whose ID numbers
-are in the comma\-separated set
+This option excludes or selects the listing of files for the processes
+whose optional process IDentification (PID) numbers are in the
+comma\-separated set
 .I s
-\&\- e.g., ``123'' or ``123,456''.
+\&\- e.g., ``123'' or ``123,^456''.
 (There should be no spaces in the set.)
+.IP
+PID numbers that begin with `^' (negation) represent exclusions.
 .IP
 Multiple process ID numbers are joined in a single ORed set before
 participating in AND option selection.
+However, PID exclusions are applied without ORing or ANDing
+and take effect before other selection criteria are applied.
 .TP \w'names'u+4
 .B \-P
 This option inhibits the conversion of port numbers to port
@@ -1132,7 +1160,7 @@ names for network files.
 Inhibiting the conversion may make
 .I lsof
 run a little faster.
-It is also useful when host name lookup is not working properly.
+It is also useful when port name lookup is not working properly.
 .TP \w'names'u+4
 .BI +|\-r " [t]"
 This option puts
@@ -1322,8 +1350,9 @@ The following seven values may be reported:
 	KEEPALIVE	keep alive time (SO_KEEPALIVE)
 	LINGER	linger time (SO_LINGER)
 	MSS		maximum segment size (TCP_MAXSEG)
-	QLEN		listen queue length
-	QLIM		listen queue limit
+	PQLEN	partial listen queue connections
+	QLEN		established listen queue connections
+	QLIM		established listen queue limit
 	RCVBUF	receive buffer length (SO_RCVBUF)
 	SNDBUF	send buffer length (SO_SNDBUF)
 .fi
@@ -1331,8 +1360,9 @@ The following seven values may be reported:
 Details on what socket options and values, socket states, and TCP flags
 and values may be displayed for particular UNIX dialects may be found in
 the answer to the ``Why doesn't lsof report socket options, socket states,
-and TCP flags and values for my dialect?''
-question in the
+and TCP flags and values for my dialect?'' and ``Why doesn't lsof report
+the partial listen queue connection count for my dialect?''
+questions in the
 .I lsof
 FAQ (The \fBFAQ\fP section gives its location.)
 .TP \w'names'u+4
@@ -1407,7 +1437,7 @@ containing the located search item.
 For example, ``lsof -V -iTCP@foobar -a -d 999'' may not report a
 failure to locate open files at ``TCP@foobar'' and may not list
 any, if none have a file descriptor number of 999.
-A similar situtation arises when HASSECURITY and HASNOSOCKSECURITY are
+A similar situation arises when HASSECURITY and HASNOSOCKSECURITY are
 defined at compile time and they prevent the listing of open files.
 .TP \w'names'u+4
 .B +|\-w
@@ -1533,6 +1563,47 @@ file of the
 distribution for a more complete description of the Stale Segment ID bug,
 its APAR, and methods for defining readx() use when compiling
 .IR lsof .
+.HP \w'names'u+4
+\ \ \ \ Linux:
+.br
+This Linux option requests that
+.I lsof
+skip the reporting of information on all open TCP and UDP IPv4 and IPv6 files.
+.IP
+This Linux option is most useful when the system has an extremely
+large number of open TCP and UDP files, the processing of whose
+information in the
+.I /proc/net/tcp*
+and
+.I /proc/net/udp*
+files would take
+.I lsof
+a long time, and whose reporting is not of interest.
+.IP
+Use this option with care and only when you are sure that the
+information you want
+.I lsof
+to display isn't associated with open TCP or UDP socket files.
+.HP \w'names'u+4
+\ \ \ \ Solaris 10 and above:
+.br
+This Solaris 10 and above option requests the reporting of cached
+paths for files that have been deleted \- i.e., removed with
+.IR rm (1)
+or
+.IR unlink (2).
+.IP
+The cached path is followed by the string ``\ (deleted)'' to indicate
+that the path by which the file was opened has been deleted.
+.IP
+Because intervening changes made to the path \- i.e., renames with
+.IR mv (1)
+or
+.IR rename (2)
+\- are not recorded in the cached path, what
+.I lsof
+reports is only the path by which the file was opened, not its
+possibly different final path.
 .TP \w'names'u+4
 .BI \-z " [z]"
 specifies how Solaris 10 and higher zone information is to be handled.
@@ -1608,7 +1679,7 @@ If a
 is the base name of a family of multiplexed files \- e. g, AIX's
 .IR /dev/pt[cs] " \-"
 .I lsof
-will list all the associated multipled files on the device that
+will list all the associated multiplexed files on the device that
 are open \- e.g.,
 .IR /dev/pt[cs]/1 ,
 .IR /dev/pt[cs]/2 ,
@@ -1792,7 +1863,7 @@ option, gives the status of the HASSECURITY and HASNOSOCKSECURITY definitions.
 See the
 .B Security
 section of the
-.I 0README
+.I 00README
 file of the
 .I lsof
 distribution for information on building
@@ -1943,7 +2014,16 @@ value is specified to the
 .BI +c " w"
 option, the column contains the first
 .I w
-characters of the name of the UNIX command associated with the process.
+characters of the name of the UNIX command associated with the process
+up to the limit of characters supplied to
+.I lsof
+by the UNIX dialect.
+(See the description of the
+.BI +c " w"
+command or the
+.I lsof
+FAQ for more information.
+The \fBFAQ\fP section gives its location.)
 .IP
 If
 .I w
@@ -2010,6 +2090,8 @@ is the File Descriptor number of the file or:
 	\fBcwd\fP	current working directory;
 .br
 	\fBL\fInn\fR	library references (AIX);
+.br
+	\fBerr\fR	FD information error (see NAME column);
 .br
 	\fBjld\fR	jail directory (FreeBSD);
 .br
@@ -2290,7 +2372,7 @@ or ``PSTA'' for a
 .I /proc
 status file;
 .IP
-or ``PSXSEM'' for a POSIX sempahore file;
+or ``PSXSEM'' for a POSIX semaphore file;
 .IP
 or ``PSXSHM'' for a POSIX shared memory file;
 .IP
@@ -2318,7 +2400,9 @@ or ``XNAM'' for an OpenServer Xenix special file of unknown type;
 .IP
 or ``XSEM'' for an OpenServer Xenix semaphore file;
 .IP
-or ``XSD'' for an OpenServer Xenix shared data file.
+or ``XSD'' for an OpenServer Xenix shared data file;
+.IP
+or the four type number octets if the corresponding name isn't known.
 .TP
 FILE\-ADDR
 contains the kernel file structure address when
@@ -2357,6 +2441,7 @@ the following table:
 	BL		use block offsets
 	BSK		block seek
 	CA		copy avoid
+	CIO		concurrent I/O
 	CLON		clone
 	CLRD		CL read
 	CR		create
@@ -2367,6 +2452,7 @@ the following table:
 	DLY		delay
 	DOCL		do clone
 	DSYN		data\-only integrity
+	EVO		event only
 	EX		open for exec
 	EXCL		exclusive open
 	FSYN		synchronous writes
@@ -2403,6 +2489,7 @@ the following table:
 	RSH		shared read
 	RSYN		read synchronization
 	SL		shared lock
+	SNAP		cooked snapshot
 	SOCK		socket
 	SQSH		Sequent shared set on open
 	SQSV		Sequent SVM set on open
@@ -2437,8 +2524,9 @@ for kernel per\-process open file flags from this table:
 	BW		the file has been written
 	CLSG		closing
 	CX		close\-on-exec (see fcntl(F_SETFD))
-	MP		memory\-mapped
 	LCK		lock was applied
+	MP		memory\-mapped
+	OPIP		open pending \- in progress
 	RSVW		reserved wait
 	SHMT		UF_FSHMAT set (AIX)
 	USE		in use (multi\-threaded)
@@ -2457,8 +2545,7 @@ DEVICE
 contains the device numbers, separated by commas, for a character special,
 block special, regular, directory or NFS file;
 .IP
-or ``memory'' for a memory file system node under DEC OSF/1, Digital
-UNIX, or Tru64 UNIX;
+or ``memory'' for a memory file system node under Tru64 UNIX;
 .IP
 or the address of the private data area of a Solaris socket
 stream;
@@ -2469,8 +2556,8 @@ or a kernel reference address that identifies the file
 or
 the base address or device name of a Linux AX.25 socket device.
 .IP
-Usually only the lower thirty two bits of DEC OSF/1, Digital UNIX,
-or Tru64 UNIX kernel addresses are displayed.
+Usually only the lower thirty two bits of Tru64 UNIX kernel addresses
+are displayed.
 .TP
 SIZE, SIZE/OFF, or OFFSET
 is the size of the file or the file offset in bytes.
@@ -2541,6 +2628,11 @@ on a disk device \-
 will display appropriate information about the current size or
 position of the file if it is available in the kernel structures
 that define the file.
+.TP
+NLINK
+contains the file link count when
+.B +L
+has been specified;
 .TP
 NODE
 is the node number of a local file;
@@ -2624,9 +2716,8 @@ comma\-separated bytes of a non\-Internet raw socket address;
 or the HP\-UX x.25 local address, followed by the virtual connection
 number (if any), followed by the remote address (if any);
 .IP
-or ``(dead)'' for disassociated DEC OSF/1, Digital UNIX, or Tru64 UNIX
-files \- typically terminal files that have been flagged with the TIOCNOTTY
-ioctl and closed by daemons;
+or ``(dead)'' for disassociated Tru64 UNIX files \- typically terminal files
+that have been flagged with the TIOCNOTTY ioctl and closed by daemons;
 .IP
 or ``rd=<offset>'' and ``wr=<offset>'' for the values of the
 read and write offsets of a FIFO;
@@ -2669,6 +2760,22 @@ this vnode whose address is <address1>;
 and ``->'' if <address1>, the vnode address of this vnode, has been
 fattach'ed to <address2>.
 <address1> may be omitted if it already appears in the DEVICE column.
+.PP
+.I
+Lsof
+may add two parenthetical notes to the NAME column for open Solaris 10 files:
+\&``(?)'' if
+.I lsof
+considers the path name of questionable accuracy;
+and ``(deleted)'' if the
+.B \-X
+option has been specified and
+.I lsof
+detects the open file's path name has been deleted.
+Consult the
+.I lsof
+FAQ (The \fBFAQ\fP section gives its location.)
+for more information on these NAME column additions.
 .SH LOCKS
 .I Lsof
 can't adequately report the wide variety of UNIX dialect file locks
@@ -3113,8 +3220,7 @@ or
 .I /etc/mnttab
 file for the mount table may still provide an alternative device number
 in their internal mount tables.
-This includes AIX, Apple Darwin, DEC OSF/1, Digital UNIX,
-FreeBSD, NetBSD, OpenBSD, and Tru64 UNIX.
+This includes AIX, Apple Darwin, FreeBSD, NetBSD, OpenBSD, and Tru64 UNIX.
 .I Lsof
 knows how to obtain the alternative device number for these dialects
 and uses it when its attempt to
@@ -3138,9 +3244,10 @@ begin ``assuming "dev=xxxx" from ...''.
 .I Lsof
 is able to examine the kernel's name cache or use other kernel
 facilities (e.g., the ADVFS 4.x tag_to_path() function under
-Digital UNIX or Tru64 UNIX) on some dialects for most file system types,
+Tru64 UNIX) on some dialects for most file system types,
 excluding AFS, and extract recently used path name components from it.
-(AFS file system path lookups don't use the kernel's name cache.)
+(AFS file system path lookups don't use the kernel's name cache; some
+Solaris VxFS file system operations apparently don't use it, either.)
 .PP
 .I Lsof
 reports the complete paths it finds in the NAME column.
@@ -3164,7 +3271,7 @@ remove entries from its name cache and replace them with others.
 use of the kernel name cache to identify the paths of files
 can lead it to report incorrect components under some circumstances.
 This can happen when the kernel name cache uses device and node
-number as a key (e.g., Linux and SCO OpenServer) and a key on a rapidly
+number as a key (e.g., SCO OpenServer) and a key on a rapidly
 changing file system is reused.
 If the UNIX dialect's kernel doesn't purge the name cache entry for
 a file when it is unlinked,
@@ -3179,8 +3286,6 @@ has more information on this situation.
 can report path name components for these dialects:
 .PP
 .nf
-	BSDI BSD/OS
-	DEC OSF/1, Digital UNIX, Tru64 UNIX
 	FreeBSD
 	HP\-UX
 	Linux
@@ -3188,10 +3293,10 @@ can report path name components for these dialects:
 	NEXTSTEP
 	OpenBSD
 	OPENSTEP
-	Caldera OpenUNIX
 	SCO OpenServer
 	SCO|Caldera UnixWare
 	Solaris
+	Tru64 UNIX
 .fi
 .PP
 .I Lsof
@@ -3320,7 +3425,7 @@ The
 distribution recommends that versions for these dialects run setuid\-root.
 .PP
 .nf
-	HP-UX 11.11
+	HP-UX 11.11 and 11.23
 	Linux
 .fi
 .PP
@@ -3345,20 +3450,20 @@ and be allowed to surrender setgid permission.
 .PP
 .nf
 	AIX 5.[123]
-	Apple Darwin 6.x and 7.x for Power Macintosh systems
-	BSDI BSD/OS 4.3.1 for x86-based systems
-	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.1
-	FreeBSD 4.[1-9], 4.10, 5.[012] and 6.0 for x86-based systems
-	FreeBSD 5.[012] and 6.0 for Alpha, AMD64 and Sparc64 based systems
+	Apple Darwin 7.x for Power Macintosh systems
+	FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
+	FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
+	    systems
 	HP\-UX 11.00 
-	NetBSD 1.[456] and 2.0 for Alpha, x86, and SPARC-based systems
+	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
+	    systems
 	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	OpenBSD 2.[89] and 3.[0123456] for x86-based systems
+	OpenBSD 2.[89] and 3.[0\-9] for x86-based systems
 	OPENSTEP 4.x
-	Caldera OpenUNIX 8
 	SCO OpenServer Release 5.0.6 for x86-based systems
 	SCO|Caldera UnixWare 7.1.4 for x86-based systems
 	Solaris 2.6, 8, 9 and 10
+	Tru64 UNIX 5.1
 .fi
 .PP
 (Note:
@@ -3862,9 +3967,9 @@ CD-ROM files are mounted (typically
 .PP
 The support for
 .I /proc
-file systems is available only for BSD, DEC OSF/1, Digital UNIX, and Tru64
-UNIX dialects, Linux, and dialects derived from SYSV R4 \- e.g., FreeBSD,
-NetBSD, OpenBSD, Solaris, UnixWare.
+file systems is available only for BSD and Tru64 UNIX dialects, Linux, and
+dialects derived from SYSV R4 \- e.g., FreeBSD, NetBSD, OpenBSD, Solaris,
+UnixWare.
 .PP
 Some
 .I /proc
@@ -3882,9 +3987,9 @@ the root directory, and numerical file descriptors are labeled
 descriptors.
 .PP
 .I Lsof
-can't search for DEC OSF/1, Digital UNIX, and Tru64 UNIX named pipes
-by name, because their kernel implementation of lstat(2) returns an
-improper device number for a named pipe.
+can't search for Tru64 UNIX named pipes by name, because their kernel
+implementation of lstat(2) returns an improper device number for a
+named pipe.
 .PP
 .I Lsof
 can't report fully or correctly on HP\-UX 9.01, 10.20, and 11.00 locks

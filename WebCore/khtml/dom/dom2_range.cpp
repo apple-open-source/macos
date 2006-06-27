@@ -41,7 +41,7 @@ Range::Range(const Document rootContainer)
 {
     if(rootContainer.handle())
     {
-	impl = new RangeImpl(rootContainer.handle()->docPtr());
+	impl = new RangeImpl(rootContainer.handle()->getDocument());
 	impl->ref();
     }
     else
@@ -65,7 +65,7 @@ Range::Range(const Node startContainer, const long startOffset, const Node endCo
         throw DOMException(DOMException::WRONG_DOCUMENT_ERR);
     }
 
-    impl = new RangeImpl(startContainer.handle()->docPtr(),startContainer.handle(),startOffset,endContainer.handle(),endOffset);
+    impl = new RangeImpl(startContainer.handle()->getDocument(),startContainer.handle(),startOffset,endContainer.handle(),endOffset);
     impl->ref();
 }
 

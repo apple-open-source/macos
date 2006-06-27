@@ -60,6 +60,7 @@ extern KernelDebugLevel	    gKernelDebugLevel;
 
 #define _gate			_expansionData->_gate
 #define _workLoop		_expansionData->_workLoop
+#define _needToClose	_expansionData->_needToClose
 
 
 //================================================================================================
@@ -173,7 +174,8 @@ IOUSBInterface::SetProperties(void)
 	{
 		// Mass Storage Class device. Let's see if we can put generate a GUID
 		//
-		OSString* serialNumberRef = OSDynamicCast(OSString, _device->getProperty("USB Serial Number"));
+		OSObject * propertyObj = _device->copyProperty("USB Serial Number");
+		OSString* serialNumberRef = OSDynamicCast(OSString, propertyObj);
 		if ( serialNumberRef )
 		{
 			UInt32		length = serialNumberRef->getLength();
@@ -196,13 +198,13 @@ IOUSBInterface::SetProperties(void)
 					//
 					if ( (serial[j] < 0x30) || (serial[j] > 0x46) )
 					{
-						USBLog(4, "%s[%p]::SetProperties  Serial #%s character %d (0x%x) out of range #1", getName(), this, serial, j, serial[j]);
+						USBLog(4, "%s[%p]::SetProperties  Serial #%s character %ld (0x%x) out of range #1", getName(), this, serial, j, serial[j]);
 						valid = false;
 						break;
 					}
 					if ( (serial[j] > 0x39) && (serial[j] < 0x41) )
 					{
-						USBLog(4, "%s[%p]::SetProperties  Serial #%s character %d (0x%x) out of range #2", getName(), this, serial, j, serial[j]);
+						USBLog(4, "%s[%p]::SetProperties  Serial #%s character %ld (0x%x) out of range #2", getName(), this, serial, j, serial[j]);
 						valid = false;
 						break;
 					}
@@ -228,8 +230,10 @@ IOUSBInterface::SetProperties(void)
 				}
 			}
 			else
-				USBLog(4, "%s[%p]::SetProperties  Mass Storage device but serial # is only %d characters", getName(), this, length);
+				USBLog(4, "%s[%p]::SetProperties  Mass Storage device but serial # is only %ld characters", getName(), this, length);
 		}
+		if (propertyObj)
+			propertyObj->release();
 	}
 }
 
@@ -268,9 +272,20 @@ IOUSBInterface::start(IOService *provider)
 
     if ( _device )
     {
-        OSNumber *	locationID = (OSNumber *) _device->getProperty(kUSBDevicePropertyLocationID);
+		OSObject * propertyObj = _device->copyProperty(kUSBDevicePropertyLocationID);
+        OSNumber *	locationID = OSDynamicCast( OSNumber, propertyObj );
         if ( locationID )
             setProperty(kUSBDevicePropertyLocationID,locationID->unsigned32BitValue(), 32);
+		
+		if (propertyObj)
+			propertyObj->release();
+		
+		if (_device != provider)
+		{
+			USBError(1, "IOUSBInterface::start - _device[%p] != provider[%p]", _device, provider);
+		}
+		USBLog(6, "IOUSBInterface[%p]::start - opening device[%p]", this, _device);
+		_device->open(this);
     }
 
     return true;
@@ -301,7 +316,7 @@ IOUSBInterface::attach(IOService *provider)
     IOUSBDevice * device = OSDynamicCast(IOUSBDevice, provider);
     
     if(!device)
-	return false;
+		return false;
         
     if( !super::attach(provider))
         return false;
@@ -420,7 +435,7 @@ IOUSBInterface::ClosePipes(void)
         }
     }
 
-    USBLog(7,"-%s::ClosePipes", getName(), this);
+    USBLog(7,"-%s[%p]::ClosePipes", getName(), this);
 }
 
 
@@ -436,7 +451,7 @@ IOUSBInterface::CreatePipes(void)
     {
         // Don't open twice!
         if(_pipeList[i] == NULL) 
-            _pipeList[i] = _device->MakePipe((const IOUSBEndpointDescriptor *)pos);
+            _pipeList[i] = _device->MakePipe((const IOUSBEndpointDescriptor *)pos, this);
         
         if(_pipeList[i] == NULL) 
         {
@@ -453,9 +468,9 @@ IOUSBInterface::CreatePipes(void)
     if ( (i != _bNumEndpoints) && !makePipeFailed )
     {
         if (i < _bNumEndpoints)
-            USBLog(3, "%s: NOTE: Interface descriptor defines more endpoints (bNumEndpoints = %d, descriptors = %d) than endpoint descriptors", getName(), this, _bNumEndpoints, i);
+            USBLog(3, "%s[%p]: NOTE: Interface descriptor defines more endpoints (bNumEndpoints = %d, descriptors = %d) than endpoint descriptors", getName(), this, _bNumEndpoints, i);
         else
-            USBLog(3, "%s: NOTE: Interface descriptor defines less endpoints (bNumEndpoints = %d, descriptors = %d) than endpoint descriptors", getName(), this, _bNumEndpoints, i);
+            USBLog(3, "%s[%p]: NOTE: Interface descriptor defines less endpoints (bNumEndpoints = %d, descriptors = %d) than endpoint descriptors", getName(), this, _bNumEndpoints, i);
     }
 
     if ( makePipeFailed )
@@ -474,22 +489,30 @@ IOUSBInterface::CreatePipes(void)
 bool 
 IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
 {
-    bool	res = true;
-    IOReturn	error = kIOReturnSuccess;
-    bool	useGate = false;
-
+    bool			res = true;
+    IOReturn		error = kIOReturnSuccess;
+    bool			useGate = false;
+    OSObject *		propertyObj = NULL;
+	OSBoolean *		boolObj = NULL;
+	
     // Check to see if we need to open the driver while holding the gate.  The USB Device Nub should
     // have the kCallInterfaceOpenWithGate property set.
     //
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, _device->getProperty(kCallInterfaceOpenWithGate) );
-    if ( boolObj && boolObj->isTrue() )
-    {
-        useGate = true;
-    }
+	if ( _device )
+	{
+		propertyObj = _device->copyProperty(kCallInterfaceOpenWithGate);
+		boolObj = OSDynamicCast( OSBoolean, propertyObj);
+		if ( boolObj && boolObj->isTrue() )
+		{
+			useGate = true;
+		}
+		if (propertyObj)
+			propertyObj->release();
+	}
     
     if ( _gate && useGate )
     {
-        USBLog(6,"%+s[%p]::open calling super::open with gate", getName(), this);
+        USBLog(6,"%s[%p]::open calling super::open with gate", getName(), this);
         error = _gate->runAction( CallSuperOpen, (void *)forClient, (void *)options, (void *)arg );
         if ( error != kIOReturnSuccess )
         {
@@ -499,7 +522,7 @@ IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
     }
     else
     {
-        USBLog(6,"%+s[%p]::open calling super::open with NO gate", getName(), this);
+        USBLog(6,"%s[%p]::open calling super::open with NO gate", getName(), this);
         res = super::open(forClient, options, arg);
     }
     
@@ -557,26 +580,34 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
 void 
 IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 {
-    IOReturn	error = kIOReturnSuccess;
-    bool	useGate = false;
+    IOReturn		error = kIOReturnSuccess;
+    bool			useGate = false;
+    OSObject *		propertyObj = NULL;
+	OSBoolean *		boolObj = NULL;
     
     // Check to see if we need to open the driver while holding the gate.  The USB Device Nub should
     // have the kCallInterfaceOpenWithGate property set.
     //
-    OSBoolean * boolObj = OSDynamicCast( OSBoolean, _device->getProperty(kCallInterfaceOpenWithGate) );
-    if ( boolObj && boolObj->isTrue() )
-    {
-        useGate = true;
-    }
-   
+	if ( _device )
+	{
+		propertyObj = _device->copyProperty(kCallInterfaceOpenWithGate);
+		boolObj = OSDynamicCast( OSBoolean, propertyObj);
+		if ( boolObj && boolObj->isTrue() )
+		{
+			useGate = true;
+		}
+		if (propertyObj)
+			propertyObj->release();
+	}
+
     if ( _gate && useGate )
     {
-        USBLog(6,"%+s[%p]::close calling super::close with gate", getName(), this);
+        USBLog(6,"%s[%p]::close calling super::close with gate", getName(), this);
         (void) _gate->runAction( CallSuperClose, (void *)forClient, (void *)options);
     }
     else
     {
-        USBLog(6,"%+s[%p]::close calling super::close with NO gate", getName(), this);
+        USBLog(6,"%s[%p]::close calling super::close with NO gate", getName(), this);
         super::close(forClient, options);
     }
 }
@@ -592,7 +623,7 @@ IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
 
     // however, we do want to go ahead and abort any transactions left on those pipes.
     //
-    USBLog(7,"+%s[%p]::handleClose", getName(), this);
+    USBLog(7,"+IOUSBInterface[%p]::handleClose", this);
 
     for( i=0; i < kUSBMaxPipes; i++) 
         if( (pipe = _pipeList[i])) 
@@ -600,7 +631,13 @@ IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
     
     super::handleClose(forClient, options);
 
-    USBLog(7,"-%s[%p]::handleClose", getName(), this);
+	if (_needToClose)
+	{
+		USBLog(3,"IOUSBInterface[%p]::handleClose - now closing our provider from deferred close", this);
+		_device->close(this);
+		_needToClose = false;
+	}
+    USBLog(7,"-IOUSBInterface[%p]::handleClose", this);
 }
 
 
@@ -734,7 +771,7 @@ IOUSBInterface::SetAlternateInterface(IOService *forClient, UInt16 alternateSett
     //
     if (!isOpen(forClient))
     {
-	res = kIOReturnExclusiveAccess;
+		res = kIOReturnExclusiveAccess;
         goto ErrorExit;
     }
     
@@ -893,8 +930,6 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 	productPropertyMatches = IsWildCardMatch(table, kUSBProductID);
 	if ( productPropertyMatches ) 
 	{
-	    USBLog(5,"productID is wildcard!!!", getName());
-
 	    productIsWildCard++; 
 	}
     }
@@ -978,7 +1013,8 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     
     // Get the class to see if it's vendor-specific later on.
     //
-    OSNumber *	interfaceClass = (OSNumber *) getProperty(kUSBInterfaceClass);
+	OSObject *interfaceClassProp = copyProperty(kUSBInterfaceClass);
+    OSNumber *interfaceClass = OSDynamicCast(OSNumber, interfaceClassProp);
 
     if ( vendorPropertyMatches && productPropertyMatches && deviceReleasePropertyMatches &&
             configurationValuePropertyMatches &&  interfaceNumberPropertyMatches &&
@@ -999,7 +1035,7 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
         *score = 90000;
         wildCardMatches = vendorIsWildCard + productIsWildCard + configurationValueIsWildCard + interfaceNumberIsWildCard;
     }
-    else if ( interfaceClass->unsigned32BitValue() == kUSBVendorSpecificClass )
+    else if ( interfaceClass && (interfaceClass->unsigned32BitValue() == kUSBVendorSpecificClass ))
     {
         if (  vendorPropertyMatches && interfaceSubClassPropertyMatches && interfaceProtocolPropertyMatches && 
                 (!interfaceClassPropertyExists || interfaceClassPropertyMatches) && 
@@ -1081,7 +1117,7 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 	bool		match;
 	
 	if (identifier)
-	    USBLog(5,"Finding driver for interface #%d of %s, matching personality using %s, score: %ld, wildCard = %d", _bInterfaceNumber, _device->getName(), identifier->getCStringNoCopy(), *score, wildCardMatches);
+	    USBLog(5,"Finding driver for interface #%d of %s, matching personality using %s, score: %ld, wildCard = %ld", _bInterfaceNumber, _device->getName(), identifier->getCStringNoCopy(), *score, wildCardMatches);
 	else
 	    USBLog(6,"Finding driver for interface #%d of %s, matching user client dictionary, score: %ld", _bInterfaceNumber, _device->getName(), *score);
 	
@@ -1160,8 +1196,11 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
 	    USBLog(6,logString);
 	}
     }
-    
-   return returnValue;
+	
+	if (interfaceClassProp)
+		interfaceClassProp->release();
+		
+	return returnValue;
 }
 
 IOReturn 
@@ -1197,6 +1236,31 @@ IOUSBInterface::message( UInt32 type, IOService * provider,  void * argument )
     }
     
     return err;
+}
+
+
+
+bool
+IOUSBInterface::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
+{
+	if (_device && (_device == provider))
+	{
+		USBLog(6, "IOUSBInterface[%p]::didTerminate - closing _device", this);
+		if (isOpen())
+		{
+			USBLog(3, "IOUSBInterface[%p]::didTerminate - deferring close because someone still has us open", this);
+			_needToClose = true;
+		}
+		else
+		{
+			_device->close(this);
+		}
+	}
+	else
+	{
+		USBError(1, "IOUSBInterface[%p]::didTerminate - not closing device[%p] provider[%p]", this, _device, provider);
+	}
+	return true;
 }
 
 

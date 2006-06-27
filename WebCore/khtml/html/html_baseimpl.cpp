@@ -48,7 +48,7 @@
 using namespace DOM;
 using namespace khtml;
 
-HTMLBodyElementImpl::HTMLBodyElementImpl(DocumentPtr *doc)
+HTMLBodyElementImpl::HTMLBodyElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc), m_linkDecl(0)
 {
 }
@@ -233,7 +233,7 @@ bool HTMLBodyElementImpl::isURLAttribute(AttributeImpl *attr) const
 
 // -------------------------------------------------------------------------
 
-HTMLFrameElementImpl::HTMLFrameElementImpl(DocumentPtr *doc)
+HTMLFrameElementImpl::HTMLFrameElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
     frameBorder = true;
@@ -552,7 +552,7 @@ bool HTMLFrameElementImpl::isURLAttribute(AttributeImpl *attr) const
 
 // -------------------------------------------------------------------------
 
-HTMLFrameSetElementImpl::HTMLFrameSetElementImpl(DocumentPtr *doc)
+HTMLFrameSetElementImpl::HTMLFrameSetElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
     // default value for rows and cols...
@@ -615,16 +615,16 @@ void HTMLFrameSetElementImpl::parseHTMLAttribute(HTMLAttributeImpl *attr)
             frameborder = false;
         break;
     case ATTR_ONLOAD:
-        setHTMLEventListener(EventImpl::LOAD_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+        getDocument()->setHTMLWindowEventListener(EventImpl::LOAD_EVENT,
+        getDocument()->createHTMLEventListener(attr->value().string(), NULL));
         break;
     case ATTR_ONBEFOREUNLOAD:
-        setHTMLEventListener(EventImpl::BEFOREUNLOAD_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+        getDocument()->setHTMLWindowEventListener(EventImpl::BEFOREUNLOAD_EVENT,
+        getDocument()->createHTMLEventListener(attr->value().string(), NULL));
         break;
     case ATTR_ONUNLOAD:
-        setHTMLEventListener(EventImpl::UNLOAD_EVENT,
-	    getDocument()->createHTMLEventListener(attr->value().string(), this));
+        getDocument()->setHTMLWindowEventListener(EventImpl::UNLOAD_EVENT,
+        getDocument()->createHTMLEventListener(attr->value().string(), NULL));
         break;
     default:
         HTMLElementImpl::parseHTMLAttribute(attr);
@@ -683,7 +683,7 @@ void HTMLFrameSetElementImpl::recalcStyle( StyleChange ch )
 
 // -------------------------------------------------------------------------
 
-HTMLHeadElementImpl::HTMLHeadElementImpl(DocumentPtr *doc)
+HTMLHeadElementImpl::HTMLHeadElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -699,7 +699,7 @@ NodeImpl::Id HTMLHeadElementImpl::id() const
 
 // -------------------------------------------------------------------------
 
-HTMLHtmlElementImpl::HTMLHtmlElementImpl(DocumentPtr *doc)
+HTMLHtmlElementImpl::HTMLHtmlElementImpl(DocumentImpl *doc)
     : HTMLElementImpl(doc)
 {
 }
@@ -715,7 +715,7 @@ NodeImpl::Id HTMLHtmlElementImpl::id() const
 
 // -------------------------------------------------------------------------
 
-HTMLIFrameElementImpl::HTMLIFrameElementImpl(DocumentPtr *doc) : HTMLFrameElementImpl(doc)
+HTMLIFrameElementImpl::HTMLIFrameElementImpl(DocumentImpl *doc) : HTMLFrameElementImpl(doc)
 {
     frameBorder = false;
     marginWidth = -1;

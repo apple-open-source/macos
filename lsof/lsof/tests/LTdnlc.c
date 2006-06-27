@@ -67,7 +67,9 @@ static char copyright[] =
  * Darwin-specific items
  */
 
+# if	LT_VERS<800
 #undef        DO_TEST
+# endif	/* LT_VERS<800 */
 #endif        /* defined(LT_DIAL_darwin) */
 
 
@@ -198,7 +200,7 @@ main(argc, argv)
     /*
      * Call lsof to look up its own CWD -- i.e., this one.
      */
-	if (em = FindLsofCwd(&ff, &cwddc, ibuf)) {
+	if ((em = FindLsofCwd(&ff, &cwddc, ibuf))) {
 
 	/*
 	 * FindLsofCwd() returned a message.  Decode it via ff.
@@ -255,6 +257,7 @@ main(argc, argv)
  * Exit successfully.
  */
     (void) PrtMsgX("OK", Pn, cleanup, 0);
+    return(0);
 }
 
 
@@ -278,7 +281,7 @@ FindLsofCwd(ff, cwddc, ibuf)
     LTdev_t *cwddc;			/* CWD device components */
     char *ibuf;				/* CWD inode number in ASCII */
 {
-    char buf[2048], *cp;		/* temporary buffer */
+    char *cp;				/* temporary character pointer */
     char *cem;				/* current error message pointer */
     LTfldo_t *cmdp;			/* command pointer */
     LTdev_t devdc;			/* devp->v device components */
@@ -291,7 +294,6 @@ FindLsofCwd(ff, cwddc, ibuf)
     char *pem = (char *)NULL;		/* previous error message pointer */
     pid_t pid;				/* PID */
     int pids = 0;			/* PID found status */
-    char *tcp;				/* temporary character pointer */
     int ti;				/* temporary integer */
     LTfldo_t *typ;			/* file type pointer */
 /*

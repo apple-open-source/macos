@@ -200,7 +200,7 @@ void RenderFormElement::slotClicked()
 
     QMouseEvent e2(QEvent::MouseButtonRelease, m_mousePos, m_button, m_state);
     element()->dispatchMouseEvent(&e2, EventImpl::CLICK_EVENT, m_clickCount);
-    element()->dispatchMouseEvent(&e2, m_isDoubleClick ? EventImpl::KHTML_DBLCLICK_EVENT : EventImpl::KHTML_CLICK_EVENT, m_clickCount);
+    element()->dispatchMouseEvent(&e2, m_isDoubleClick ? EventImpl::DBLCLICK_EVENT : EventImpl::CLICK_EVENT, m_clickCount);
 #endif
 
     deref(arena);

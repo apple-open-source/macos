@@ -1,0 +1,13 @@
+--- mysqld_safe	2006-04-20 16:38:11.000000000 -0700
++++ ../../mysqld_safe	2006-04-20 16:56:33.000000000 -0700
+@@ -16,6 +16,10 @@
+ 
+ umask 007
+ 
++if ( test -e "/usr/libexec/applemysqlcheckcnf" ); then
++   /usr/libexec/applemysqlcheckcnf
++fi
++
+ defaults=
+ case "$1" in
+     --no-defaults|--defaults-file=*|--defaults-extra-file=*)

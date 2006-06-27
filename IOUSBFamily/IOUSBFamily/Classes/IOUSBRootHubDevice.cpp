@@ -94,8 +94,6 @@ IOUSBRootHubDevice::start(IOService *provider)
 		_commandGate = NULL;
 		return false;
 	}
-	// we need to do all of the above before we start our superclass, because IOUSBDevice::start
-	// will make DeviceRequests, which require the command gate now
 	return super::start(provider);
 }
 

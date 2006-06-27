@@ -35,8 +35,8 @@
 #ifndef	_ARCHITECTURE_ADB_KB_MAP_
 #define _ARCHITECTURE_ADB_KB_MAP_
 
-#import <architecture/ascii_codes.h>
-#import <architecture/adb_bus.h>
+#include <architecture/ascii_codes.h>
+#include <architecture/adb_bus.h>
 
 /*
  * Each key down event maps to an unsigned short. The first 128 possible

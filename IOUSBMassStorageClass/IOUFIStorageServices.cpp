@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,7 +80,7 @@ OSDefineMetaClassAndStructors ( IOUFIStorageServices, IOBlockStorageDevice );
 bool
 IOUFIStorageServices::attach( IOService * provider )
 {
-	STATUS_LOG((6, "IOUFIStorageServices: attach called" ) );
+	STATUS_LOG(( 6, "%s[%p]:: attach called", getName(), this ));
 	
 	if ( !super::attach ( provider ) )
 	{
@@ -90,7 +90,7 @@ IOUFIStorageServices::attach( IOService * provider )
 	fProvider = OSDynamicCast ( IOUSBMassStorageUFIDevice, provider );
 	if ( fProvider == NULL )
 	{
-		STATUS_LOG((1, "IOUFIStorageServices: attach; wrong provider type!" ) );
+		STATUS_LOG(( 1, "%s[%p]:: attach; wrong provider type!", getName(), this ));
 		return false;
 	}
 	
@@ -103,7 +103,7 @@ IOUFIStorageServices::attach( IOService * provider )
 	fMaxReadBlocks 	= fProvider->ReportDeviceMaxBlocksReadTransfer();
 	fMaxWriteBlocks = fProvider->ReportDeviceMaxBlocksWriteTransfer();
 	
-	STATUS_LOG((6, "IOUFIStorageServices: attach exiting" ) );
+	STATUS_LOG(( 6, "%s[%p]:: attach exiting", getName(), this ));
 	return true;
 }
 
@@ -115,11 +115,11 @@ IOUFIStorageServices::attach( IOService * provider )
 void
 IOUFIStorageServices::detach( IOService * provider )
 {
-	STATUS_LOG((6, "IOUFIStorageServices: detach called" ) );
+	STATUS_LOG(( 6, "%s[%p]: detach called", getName(), this ));
 		
 	super::detach( provider );
 
-	STATUS_LOG((6, "IOUFIStorageServices: detach exiting" ) );
+	STATUS_LOG(( 6, "%s[%p]: detach exiting", getName(), this ));
 }
 
 
@@ -134,18 +134,18 @@ IOUFIStorageServices::message( 	UInt32 			type,
 {
 	IOReturn 	status = kIOReturnSuccess;
 	
-	STATUS_LOG((6, "IOUFIStorageServices::message called" ) );
+	STATUS_LOG(( 6, "%s[%p]::message called", getName(), this ));
 		
 	switch ( type )
 	{
 		case kIOMessageMediaStateHasChanged:
 		{
-			STATUS_LOG((5, "type = kIOMessageMediaStateHasChanged, nub = %p", nub ) );
+			STATUS_LOG(( 5, "%s[%p]:: type = kIOMessageMediaStateHasChanged, nub = %p", getName(), this, nub ));
 			
 			fMediaChanged	= true;
 			fMediaPresent	= true;
 			status = messageClients ( type, arg, sizeof ( IOMediaState ) );
-			STATUS_LOG((5, "status = %ld", ( UInt32 ) status ) );
+			STATUS_LOG(( 5, "%s[%p]:: status = %ld", getName(), this, ( UInt32 ) status ));
 		}
 		break;
 				
@@ -180,14 +180,14 @@ IOUFIStorageServices::AsyncReadWriteComplete(	void * 			clientData,
 	returnData 		= servicesData->completionData;
 	owner 			= servicesData->owner;
 
-	STATUS_LOG((5, "IOUFIStorageServices: AsyncReadWriteComplete; command status %x", status ));
+	STATUS_LOG(( 5, "%s[%p]:: AsyncReadWriteComplete; command status %x", owner->getName(), owner, status ));
 	// Check to see if an error occurred that on which the request should be retried.
 	if ((( status != kIOReturnNotAttached ) && ( status != kIOReturnOffline ) &&
 		( status != kIOReturnSuccess )) && ( servicesData->retriesLeft > 0 ))
 	{
 		IOReturn 	requestStatus;
 
-		STATUS_LOG((5, "IOUFIStorageServices: AsyncReadWriteComplete; retry command"));
+		STATUS_LOG((5, "%s[%p]:: AsyncReadWriteComplete; retry command", owner->getName(), owner ));
 		// An error occurred, but it is one on which the command should be retried.  Decrement
 		// the retry counter and try again.
 		servicesData->retriesLeft--;
@@ -252,7 +252,7 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 	clientData = (BlockServicesClientData *) IOMalloc( sizeof( BlockServicesClientData ) );
 	if ( clientData == NULL )
 	{
-		STATUS_LOG((1, "IOUFIStorageServices: doAsyncReadWrite; clientData malloc failed!" ) );
+		STATUS_LOG(( 1, "%s[%p]:: doAsyncReadWrite; clientData malloc failed!", getName(), this ));
 		return kIOReturnNoResources;
 	}
 
@@ -262,7 +262,7 @@ IOUFIStorageServices::doAsyncReadWrite (	IOMemoryDescriptor *	buffer,
 
 	requestBlockSize = fProvider->ReportMediumBlockSize();
 	
-	STATUS_LOG((5, "IOUFIStorageServices: doAsyncReadWrite; save completion data!" ) );
+	STATUS_LOG(( 5, "%s[%p]:: doAsyncReadWrite; save completion data!", getName(), this ));
 
 	// Set the owner of this request.
 	clientData->owner = this;
@@ -612,7 +612,7 @@ IOReturn
 IOUFIStorageServices::reportMediaState ( 	bool * mediaPresent,
 												bool * changed )	
 {
-    STATUS_LOG((6, "IOSCSIBlockCommandsDevice::reportMediaState." ) );
+    STATUS_LOG(( 6, "%s[%p]::reportMediaState.", getName(), this ));
 	
 	*mediaPresent 	= fMediaPresent;
 	*changed 		= fMediaChanged;

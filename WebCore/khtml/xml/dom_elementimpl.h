@@ -105,7 +105,7 @@ class AttrImpl : public NodeBaseImpl
     friend class NamedAttrMapImpl;
 
 public:
-    AttrImpl(ElementImpl* element, DocumentPtr* docPtr, AttributeImpl* a);
+    AttrImpl(ElementImpl* element, DocumentImpl* docPtr, AttributeImpl* a);
     ~AttrImpl();
 
 private:
@@ -156,7 +156,7 @@ class ElementImpl : public NodeBaseImpl
     friend class NodeImpl;
     friend class khtml::CSSStyleSelector;
 public:
-    ElementImpl(DocumentPtr *doc);
+    ElementImpl(DocumentImpl *doc);
     ~ElementImpl();
 
     // Used to quickly determine whether or not an element has a given CSS class.
@@ -251,8 +251,8 @@ class XMLElementImpl : public ElementImpl
 {
 
 public:
-    XMLElementImpl(DocumentPtr *doc, DOMStringImpl *_tagName);
-    XMLElementImpl(DocumentPtr *doc, DOMStringImpl *_qualifiedName, DOMStringImpl *_namespaceURI);
+    XMLElementImpl(DocumentImpl *doc, DOMStringImpl *_tagName);
+    XMLElementImpl(DocumentImpl *doc, DOMStringImpl *_qualifiedName, DOMStringImpl *_namespaceURI);
     ~XMLElementImpl();
 
     // DOM methods overridden from  parent classes

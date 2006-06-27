@@ -146,7 +146,7 @@ typedef char*            NPMIMEType;
 /*             Structures and definitions             */
 /*----------------------------------------------------------------------*/
 
-#ifdef XP_MAC
+#if defined(XP_MAC) || defined(XP_MACOSX)
 #pragma options align=mac68k
 #endif
 
@@ -438,7 +438,7 @@ typedef struct NP_Port
 
 #define NP_MAXREADY    (((unsigned)(~0)<<1)>>1)
 
-#ifdef XP_MAC
+#if defined(XP_MAC) || defined(XP_MACOSX)
 #pragma options align=reset
 #endif
 

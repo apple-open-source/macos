@@ -42,6 +42,7 @@
 #import "htmlattrs.h"
 #import "htmlediting.h"
 #import "htmltags.h"
+#import "htmltokenizer.h"
 #import "khtml_part.h"
 #import "khtmlview.h"
 #import "kjs_proxy.h"
@@ -132,6 +133,7 @@ using khtml::ReplaceSelectionCommand;
 using khtml::Selection;
 using khtml::setAffinityUsingLinePosition;
 using khtml::Tokenizer;
+using khtml::HTMLTokenizer;
 using khtml::TextIterator;
 using khtml::TypingCommand;
 using khtml::UPSTREAM;
@@ -397,7 +399,14 @@ static bool initializedKJS = FALSE;
         doc->setInPageCache(NO);
     }
     KWQPageState *state = [pageCache objectForKey:WebCorePageCacheStateKey];
-    [state invalidate];
+
+    // FIXME: This is a grotesque hack to fix <rdar://problem/4059059> Crash in RenderFlow::detach
+    // Somehow the KWQPageState object is not properly updated, and is holding onto a stale document
+    // both Xcode and FileMaker see this crash, Safari does not.
+    // This if check MUST be removed as part of re-writing the loader down in WebCore
+    ASSERT(!state || ([state document] == doc));
+    if ([state document] == doc)
+        [state invalidate];
 }
 
 - (BOOL)canLoadURL:(NSURL *)URL fromReferrer:(NSString *)referrer hideReferrer:(BOOL *)hideReferrer
@@ -405,8 +414,11 @@ static bool initializedKJS = FALSE;
     BOOL referrerIsWebURL = hasCaseInsensitivePrefix(referrer, @"http:") || hasCaseInsensitivePrefix(referrer, @"https:");
     BOOL referrerIsLocalURL = hasCaseInsensitivePrefix(referrer, @"file:") || hasCaseInsensitivePrefix(referrer, @"applewebdata:");
     BOOL URLIsFileURL = [URL scheme] != NULL && [[URL scheme] compare:@"file" options:(NSCaseInsensitiveSearch|NSLiteralSearch)] == NSOrderedSame;
+    BOOL referrerIsSecureURL = hasCaseInsensitivePrefix(referrer, @"https:");
+    BOOL URLIsSecureURL = [URL scheme] != NULL && [[URL scheme] compare:@"https" options:(NSCaseInsensitiveSearch|NSLiteralSearch)] == NSOrderedSame;
+
     
-    *hideReferrer = !referrerIsWebURL;
+    *hideReferrer = !referrerIsWebURL || (referrerIsSecureURL && !URLIsSecureURL);
     return !URLIsFileURL || referrerIsLocalURL;
 }
 
@@ -2327,6 +2339,16 @@ static HTMLFormElementImpl *formElementFromDOMElement(DOMElement *element)
 - (NSMutableDictionary *)dashboardRegions
 {
     return _part->dashboardRegionsDictionary();
+}
+
++ (BOOL)includesCommentsInDOM
+{
+    return HTMLTokenizer::includesComments();
+}
+
++ (void)setIncludesCommentsInDOM:(BOOL)include
+{
+    HTMLTokenizer::setIncludesComments(include);
 }
 
 @end

@@ -59,7 +59,7 @@ public:
 	Token &token() const;
 	
 	uint32 subservice() const { return token().subservice(); }
-	std::string dbName() const;
+	const std::string &dbName() const;
 
 	Adornable &store();
 	void resetAcls();

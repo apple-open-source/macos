@@ -116,7 +116,7 @@ private:
 class HTMLElementImpl : public ElementImpl
 {
 public:
-    HTMLElementImpl(DocumentPtr *doc);
+    HTMLElementImpl(DocumentImpl *doc);
 
     virtual ~HTMLElementImpl();
 
@@ -203,7 +203,7 @@ protected:
 class HTMLGenericElementImpl : public HTMLElementImpl
 {
 public:
-    HTMLGenericElementImpl(DocumentPtr *doc, ushort i);
+    HTMLGenericElementImpl(DocumentImpl *doc, ushort i);
 
     virtual ~HTMLGenericElementImpl();
 

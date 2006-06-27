@@ -357,9 +357,9 @@
 			);
 			buildSettings = {
 				BUILD_VARIANTS = "normal debug";
-				CURRENT_PROJECT_VERSION = 25966;
+				CURRENT_PROJECT_VERSION = 27566;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 25966;
+				DYLIB_CURRENT_VERSION = 27566;
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
 				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Components/Security /usr/local/SecurityPieces/Frameworks";
 				FRAMEWORK_VERSION = A;
@@ -403,7 +403,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Security</string>
 	<key>CFBundleGetInfoString</key>
-	<string>4.3,  Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
+	<string>4.4,  Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -413,11 +413,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.3</string>
+	<string>4.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>25966</string>
+	<string>27566</string>
 </dict>
 </plist>
 ";
@@ -519,6 +519,8 @@
 				40A2A721066FE6B300858603,
 				05D0BC8406A87338001F9A43,
 				05D0BC8506A87338001F9A43,
+				D609443609F0462500A10B59,
+				D609443709F0462500A10B59,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1514,6 +1516,8 @@
 				4CA9BEC9063726BD0013F16F,
 				4C596A25058115A0001507D4,
 				4C596A26058115A0001507D4,
+				D609443409F0462500A10B59,
+				D609443509F0462500A10B59,
 				4C596A27058115A0001507D4,
 				053C8C8D06503DD80047C7CA,
 				05792F4E065082C100C80DB3,
@@ -2953,6 +2957,40 @@
 //D62
 //D63
 //D64
+		D609443409F0462500A10B59 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = SecureDownload.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D609443509F0462500A10B59 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = SecureDownloadInternal.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D609443609F0462500A10B59 = {
+			fileRef = D609443409F0462500A10B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		D609443709F0462500A10B59 = {
+			fileRef = D609443509F0462500A10B59;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
 		D6FB4E6805F934DC0015312A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;

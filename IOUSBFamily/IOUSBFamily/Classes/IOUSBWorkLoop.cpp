@@ -50,9 +50,13 @@ void IOUSBWorkLoop::closeGate()
 {
     IOWorkLoop::closeGate();
     // do not do this if we are on the actual workloop/interrupt thread
-    if(fSleepToken) 
+    if(fSleepToken ) 
     {
         IOReturn res;
+		if (onThread())
+		{
+			IOLog("IOUSBWorkLoop::closeGate - interrupt Thread being held off");
+		}
         do 
         {
             res = sleepGate(fSleepToken, THREAD_ABORTSAFE);

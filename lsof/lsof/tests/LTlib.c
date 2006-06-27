@@ -191,8 +191,6 @@ int MsgStat = 0;			/* message status: 1 means prefix needs
  */
 
 static int Afo = 0;			/* Fo[] structures allocated */
-static int GObk[] = { 1, 1 };		/* option backspace values */
-static char GOp;			/* option prefix -- '+' or '-' */
 static char *GOv = (char *)NULL;	/* option `:' value pointer */
 static int GOx1 = 1;			/* first opt[][] index */
 static int GOx2 = 0;			/* second opt[][] index */
@@ -258,7 +256,7 @@ CanRdKmem()
     struct stat sb;			/* memory device stat(2) buffer */
     int ti;				/* temporary integer */
 /*
- * Get the lsof path.  If it is not the default, cgeck no further.
+ * Get the lsof path.  If it is not the default, check no further.
  */
     (void) getlsofpath();
     if (!strcmp(LsofPath, LT_DEF_LSOF_PATH))
@@ -339,14 +337,9 @@ ConvLsofDev(dev, ldev)
 				 * (see lsof_fields.h) */
     LTdev_t *ldev;		/* results are returned to this structure */
 {
-    char buf[2048];		/* temporary buffer */
     char *dp;			/* device pointer */
     char *em;			/* error message pointer */
-    int ti;			/* temporary integer */
     int tlen;			/* temporary length */
-    unsigned int tmaj;		/* temporary major device number */
-    unsigned int tmin;		/* temporary minor device number */
-    unsigned int tunit;		/* temporary unit number */
 /*
  * Check function arguments.
  *
@@ -386,8 +379,6 @@ ConvStatDev(dev, ldev)
     dev_t *dev;			/* device number to be converted */
     LTdev_t *ldev;		/* results are returned to this structure */
 {
-    char buf[2048];		/* temporary buffer */
-    int ti;			/* temporary integer */
 
 /*
  * Check function arguments.
@@ -426,7 +417,6 @@ ExecLsof(opt)
     int optc;				/* option count */
     int nf;				/* number of files */
     int p[2];				/* pipe FDs */
-    char *tcp;				/* temporary character pointer */
     char **tcpp;			/* temporary character pointer
 					 * pointer */
     int ti;				/* temporary integer */
@@ -619,7 +609,6 @@ GetOpt(ct, opt, rules, em, pn)
 	    GOx1++;
 	    return(EOF);
 	}
-	GOp = opt[GOx1][0];
 	GOx2 = 1;
     }
 /*
@@ -658,12 +647,6 @@ GetOpt(ct, opt, rules, em, pn)
     /*
      * The option may have a following value.  The caller decides if it does.
      *
-     * Save the position of the possible value in case the caller decides it
-     * does not belong to the option and wants it reconsidered as an option
-     * character.  The caller does that with:
-     *
-     *		GOx1 = GObk[0]; GOx2 = GObk[1];
-     *
      * Don't indicate that an option of ``--'' is a possible value.
      *
      * Finally, on the assumption that the caller will decide that the possible
@@ -671,14 +654,10 @@ GetOpt(ct, opt, rules, em, pn)
      * possible value, so that the next call to GetOpt() will find it.
      */
 	if(opt[GOx1][GOx2 + 1] != '\0') {
-	    GObk[0] = GOx1;
-	    GObk[1] = ++GOx2;
 	    GOv = &opt[GOx1++][GOx2];
 	} else if (++GOx1 >= ct)
 	    GOv = (char *)NULL;
 	else {
-	    GObk[0] = GOx1;
-	    GObk[1] = 0;
 	    GOv = opt[GOx1];
 	    if (strcmp(GOv, "--") == 0)
 		GOv = (char *)NULL;
@@ -1079,7 +1058,6 @@ x2dev(x, em)
 {
     char buf[2048];			/* temporary message buffer */
     int c;				/* character holder */
-    char *cp, *cp1;			/* working character pointers */
     X2DEV_T dev;			/* device number result */
     char *wx;				/* working hex string pointer */
     int xl;				/* hex string length */

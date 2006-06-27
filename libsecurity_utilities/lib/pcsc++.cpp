@@ -29,6 +29,7 @@
 #include <security_utilities/debugging.h>
 #include <PCSC/pcsclite.h>
 #include <PCSC/wintypes.h>
+#include <Security/cssmapple.h>
 
 namespace Security {
 namespace PCSC {
@@ -76,7 +77,14 @@ void Error::throwMe(unsigned long err)
 
 OSStatus Error::osStatus() const
 {
-	return -1;	//@@@ preliminary
+	switch (error)
+	{
+	// @@@ more errors should be mapped here
+	case SCARD_W_RESET_CARD:
+		return CSSMERR_CSP_DEVICE_RESET;
+	default:
+		return CSSMERR_CSP_INTERNAL_ERROR;
+	}
 }
 
 int Error::unixError() const

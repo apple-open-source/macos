@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -29,16 +29,23 @@
 
 #include "AppleUSBEHCI.h"
 
+#ifndef APPLEEHCIROOTHUB_USE_KPRINTF
+#define APPLEEHCIROOTHUB_USE_KPRINTF 0
+#endif
 
-
-#define nil (0)
-#define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
-
-#define self this
+#if APPLEEHCIROOTHUB_USE_KPRINTF
+#undef USBLog
+#undef USBError
+void kprintf(const char *format, ...)
+__attribute__((format(printf, 1, 2)));
+#define USBLog( LEVEL, FORMAT, ARGS... )  if ((LEVEL) <= 5) { kprintf( FORMAT "\n", ## ARGS ) ; }
+#define USBError( LEVEL, FORMAT, ARGS... )  { kprintf( FORMAT "\n", ## ARGS ) ; }
+#endif
 
 enum {
 	kAppleVendorID		= 0x05AC,	/* Assigned by USB-if*/
-	kPrdRootHubAppleE	= 0x8006	/* Apple ASIC root hub*/
+	kPrdRootHubAppleE	= 0x8006,	/* Apple ASIC root hub*/
+	kEHCIRootHubPollingInterval = 32	// Polling interval for Root Hub
 };
 
 
@@ -49,7 +56,6 @@ enum {
 IOReturn 
 AppleUSBEHCI::GetRootHubDeviceDescriptor(IOUSBDeviceDescriptor *desc)
 {
-	//    IOLog("EHCIUIM -- GetRootHubDeviceDescriptor may be \n");
     IOUSBDeviceDescriptor newDesc =
 {
 	sizeof(IOUSBDeviceDescriptor),	// UInt8 length;
@@ -94,19 +100,19 @@ AppleUSBEHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
 	
 	HCSParams = USBToHostLong(_pEHCICapRegisters->HCSParams);
 	
-#if (DEBUGGING_LEVEL > 2)
-	IOLog("UIM - EHCIGetRootDescriptor HCSParams %lx \n", HCSParams);
-#endif
-	
 	hubDesc.numPorts = HCSParams & kEHCINumPortsMask;
-#if (DEBUGGING_LEVEL > 0)
-	IOLog("UIM - EHCIGetRootDescriptor numPorts %d \n", hubDesc.numPorts);
-#endif
+	
 	pps = (HCSParams & kEHCIPPCMask) != 0;
 	
     hubDesc.characteristics = 0;
     hubDesc.characteristics |= (pps  ? kPerPortSwitchingBit   : 0);
     
+	if ( !(hubDesc.characteristics & ( kNoOverCurrentBit | kPerPortOverCurrentBit)) )
+	{
+		// We have Global overcurrent protection
+		_gangedOvercurrent = true;
+	}
+	
     // Everything else is zero
     
     hubDesc.characteristics = HostToUSBWord(hubDesc.characteristics);
@@ -147,54 +153,54 @@ IOReturn
 AppleUSBEHCI::GetRootHubConfDescriptor(OSData *desc)
 {
     IOUSBConfigurationDescriptor confDesc =
-{
-	sizeof(IOUSBConfigurationDescriptor),//UInt8 length;
-	kUSBConfDesc,               //UInt8 descriptorType;
-	HostToUSBWord(sizeof(IOUSBConfigurationDescriptor) +
-				  sizeof(IOUSBInterfaceDescriptor) +
-				  sizeof(IOUSBEndpointDescriptor)),   //UInt16 totalLength;
-	1,                          //UInt8 numInterfaces;
-	1,                          //UInt8 configValue;
-	0,                          //UInt8 configStrIndex;
-	0x60,                       //UInt8 attributes; self powered,
-								//      supports remote wkup
-	0,                          //UInt8 maxPower;
-};
-IOUSBInterfaceDescriptor intfDesc =
-{
-	sizeof(IOUSBInterfaceDescriptor),//UInt8 length;
-	kUSBInterfaceDesc,      //UInt8 descriptorType;
-	0,                      //UInt8 interfaceNumber;
-	0,                      //UInt8 alternateSetting;
-	1,                      //UInt8 numEndpoints;
-	kUSBHubClass,           //UInt8 interfaceClass;
-	kUSBHubSubClass,        //UInt8 interfaceSubClass;
-	1,                      //UInt8 interfaceProtocol;
-	0                       //UInt8 interfaceStrIndex;
-};
-IOUSBEndpointDescriptor endptDesc =
-{
-	sizeof(IOUSBEndpointDescriptor),//UInt8 length;
-	kUSBEndpointDesc,       //UInt8 descriptorType;
-	0x81,                   //UInt8  endpointAddress; In, 1
-	kUSBInterrupt,          //UInt8 attributes;
-	HostToUSBWord(8),      	//UInt16 maxPacketSize;
-	12,                     //UInt8 interval;
-};
+	{
+		sizeof(IOUSBConfigurationDescriptor),//UInt8 length;
+		kUSBConfDesc,               //UInt8 descriptorType;
+		HostToUSBWord(sizeof(IOUSBConfigurationDescriptor) +
+					  sizeof(IOUSBInterfaceDescriptor) +
+					  sizeof(IOUSBEndpointDescriptor)),   //UInt16 totalLength;
+		1,                          //UInt8 numInterfaces;
+		1,                          //UInt8 configValue;
+		0,                          //UInt8 configStrIndex;
+		0x60,                       //UInt8 attributes; self powered,
+									//      supports remote wkup
+		0,                          //UInt8 maxPower;
+	};
+	IOUSBInterfaceDescriptor intfDesc =
+	{
+		sizeof(IOUSBInterfaceDescriptor),//UInt8 length;
+		kUSBInterfaceDesc,      //UInt8 descriptorType;
+		0,                      //UInt8 interfaceNumber;
+		0,                      //UInt8 alternateSetting;
+		1,                      //UInt8 numEndpoints;
+		kUSBHubClass,           //UInt8 interfaceClass;
+		kUSBHubSubClass,        //UInt8 interfaceSubClass;
+		1,                      //UInt8 interfaceProtocol;
+		0                       //UInt8 interfaceStrIndex;
+	};
+	IOUSBEndpointDescriptor endptDesc =
+	{
+		sizeof(IOUSBEndpointDescriptor),//UInt8 length;
+		kUSBEndpointDesc,       //UInt8 descriptorType;
+		0x81,                   //UInt8  endpointAddress; In, 1
+		kUSBInterrupt,          //UInt8 attributes;
+		HostToUSBWord(8),      	//UInt16 maxPacketSize;
+		12,                     //UInt8 interval;
+	};
 
-if (!desc)
-return(kIOReturnNoMemory);
+	if (!desc)
+		return(kIOReturnNoMemory);
 
-if (!desc->appendBytes(&confDesc,  confDesc.bLength))
-return(kIOReturnNoMemory);
+	if (!desc->appendBytes(&confDesc,  confDesc.bLength))
+		return(kIOReturnNoMemory);
 
-if (!desc->appendBytes(&intfDesc,  intfDesc.bLength))
-return(kIOReturnNoMemory);
+	if (!desc->appendBytes(&intfDesc,  intfDesc.bLength))
+		return(kIOReturnNoMemory);
 
-if (!desc->appendBytes(&endptDesc, endptDesc.bLength))
-return(kIOReturnNoMemory);
+	if (!desc->appendBytes(&endptDesc, endptDesc.bLength))
+		return(kIOReturnNoMemory);
 
-return kIOReturnSuccess;
+	return kIOReturnSuccess;
 }
 
 
@@ -202,7 +208,7 @@ return kIOReturnSuccess;
 IOReturn 
 AppleUSBEHCI::SetRootHubDescriptor(OSData * /*buffer*/)
 {
-    USBLog(3,"%s[%p]::SetRootHubDescriptor unimplemented", getName(), this);
+    USBLog(3,"AppleUSBEHCI[%p]::SetRootHubDescriptor unimplemented",  this);
     return kIOReturnSuccess;
 }
 
@@ -224,17 +230,17 @@ AppleUSBEHCI::SetRootHubFeature(UInt16 wValue)
     switch(wValue)
     {
         case kUSBHubLocalPowerChangeFeature :
-			USBLog(3,"%s[%p]: unimplemented Set Power Change Feature", getName(), this);
+			USBLog(3,"AppleUSBEHCI[%p]: unimplemented Set Power Change Feature",  this);
             // EHCIRootHubLPSChange(true);  // not implemented yet
             break;
 			
         case kUSBHubOverCurrentChangeFeature :
-            USBLog(3,"%s[%p]: unimplemented Set Overcurrent Change Feature", getName(), this);
+            USBLog(3,"AppleUSBEHCI[%p]: unimplemented Set Overcurrent Change Feature",  this);
             // EHCIRootHubOCChange(true);  // not implemented yet
             break;
             
         default:
-            USBLog(3,"%s[%p]: Unknown hub set (%d) in root hub", getName(), this, wValue);
+            USBLog(3,"AppleUSBEHCI[%p]: Unknown hub set (%d) in root hub",  this, wValue);
             break;
     }
 	
@@ -249,17 +255,17 @@ AppleUSBEHCI::ClearRootHubFeature(UInt16 wValue)
     switch(wValue)
     {
         case kUSBHubLocalPowerChangeFeature :
-            USBLog(3,"%s[%p]: unimplemented Clear Power Change Feature", getName(), this);
+            USBLog(3,"AppleUSBEHCI[%p]: unimplemented Clear Power Change Feature",  this);
             // EHCIRootHubLPSChange(false);  // not implemented yet
             break;
 			
         case kUSBHubOverCurrentChangeFeature :
-            USBLog(3,"%s[%p]: unimplemented Clear Overcurrent Change Feature", getName(), this);
+            USBLog(3,"AppleUSBEHCI[%p]: unimplemented Clear Overcurrent Change Feature",  this);
             // EHCIRootHubOCChange(false);  // not implemented yet
             break;
 			
         default:
-            USBLog(3,"%s[%p]: Unknown hub clear (%d) in root hub", getName(), this, wValue);
+            USBLog(3,"AppleUSBEHCI[%p]: Unknown hub clear (%d) in root hub",  this, wValue);
             break;
     }
 	
@@ -277,10 +283,7 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 	
     if ( _ehciBusState == kEHCIBusStateSuspended )
         return kIOReturnNotResponding;
-
-#if (DEBUGGING_LEVEL > 2)
-    IOLog("EHCIUIM -- GetRootHubPortStatus port %d",port);
-#endif
+	
     if (port < 1 || port > 15)
         return(kIOReturnBadArgument);  // FIXME change error code
 	
@@ -288,6 +291,7 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     port--;
 	
     portSC = USBToHostLong (_pEHCIRegisters->PortSC[port]);
+    USBLog(7,"AppleUSBEHCI[%p]::GetRootHubPortStatus for port %d, current: 0x%x, previous: 0x%x",  this, port+1, (unsigned int)portSC, (unsigned int)_rhPrevStatus[port] );
 	
     
     // translate EHCI's random flag order into same order as hub report (and OHCI reg)
@@ -338,8 +342,9 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     {
 	    portFlags |= kHubPortEnabled;
     }
-    if( (portSCChange & kEHCIPortSC_Suspend) != 0)
+    if( (portSCChange & (kEHCIPortSC_Suspend | kEHCIPortSC_Resume)) != 0)
     {
+		// If either the suspend bit has transitioned or the resume bit has transitioned, we are coming out of suspend
 	    _rhChangeBits[port] |= kHubPortSuspend;
     }
     if(_rhChangeBits[port] & kHubPortSuspend)
@@ -364,13 +369,34 @@ AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 	//    portFlags |= kHubPortHighSpeed;		// Anything connected to EHCI is always high speed
 	// If its not high speed, its on the companion
 	
+	// If we need to debounce the overcurrent bit, do it here before we change the status flags
+	if ( (portFlags & kHubPortOverCurrent) && (_errataBits & kErrataNeedsOvercurrentDebounce) )
+	{
+		UInt32		portSC2;
+		
+		USBLog(3,"AppleUSBEHCI[%p]::GetRootHubPortStatus Have an overcurrent on port (%d), but need to debounce it",  this, port + 1);
+		// Wait for 10ms and check the stuff again
+		IOSleep(10);
+		
+		// Now, check the Overcurrent ACTIVE bit, not the changed bit.
+		
+		portSC2 = USBToHostLong (_pEHCIRegisters->PortSC[port]);
+		
+		if( (portSC2 & kEHCIPortSC_OverCurrent) == 0)
+		{
+			USBLog(3,"AppleUSBEHCI[%p]::GetRootHubPortStatus Overcurrent on port (%d) has gone away, clearing the change",  this, port + 1);
+			// This indicates that the overcurrent is not there anymore, so clear the bit from the change flags
+			portFlags &= ~kHubPortOverCurrent;
+			
+			// Now, clear the Over-current Change bit
+			EHCIRootHubResetOverCurrentChange(port+1);
+		}
+	}
     status->changeFlags = HostToUSBWord(portFlags);
 	
     _rhPrevStatus[port] = portSC;
 	
-#if (DEBUGGING_LEVEL > 2)
-    IOLog(", statusFlags %x, changeFlags %x \n",status->statusFlags, status->changeFlags);
-#endif
+    USBLog(6,"AppleUSBEHCI[%p]::GetRootHubPortStatus for port %d, status: 0x%x, change: 0x%x, ganged: %d",  this, port+1, status->statusFlags, status->changeFlags, _gangedOvercurrent );
 	
     return kIOReturnSuccess;
 }
@@ -383,6 +409,11 @@ AppleUSBEHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
     IOReturn	err;
     UInt16	port = wIndex;
     
+	if ( _idleSuspend )
+	{
+		USBLog(4, "AppleUSBEHCI[%p]::SetRootHubPortFeature - in _idleSuspend - restarting",  this);
+		setPowerState(kEHCISetPowerLevelRunning, this);
+	}
     switch(wValue)
     {
         case kUSBHubPortSuspendFeature :
@@ -403,7 +434,7 @@ AppleUSBEHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
             break;
 			
         default:
-            USBLog(3,"%s[%p]::SetRootHubPortFeature unknown wValue %d, wIndex %d", getName(), this, wValue, wIndex);
+            USBLog(3,"AppleUSBEHCI[%p]::SetRootHubPortFeature unknown wValue %d, wIndex %d",  this, wValue, wIndex);
             err = kIOReturnUnsupported;
             break;
     }
@@ -419,6 +450,11 @@ AppleUSBEHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
     IOReturn	err;
     UInt16	port = wIndex;
 	
+	if ( _idleSuspend )
+	{
+		USBLog(4, "AppleUSBEHCI[%p]::ClearRootHubPortFeature - in _idleSuspend - restarting",  this);
+		setPowerState(kEHCISetPowerLevelRunning, this);
+	}
     switch(wValue)
     {
         case kUSBHubPortEnableFeature :
@@ -457,7 +493,7 @@ AppleUSBEHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
             break;
 			
         default:
-            USBLog(3,"%s[%p]::ClearRootHubPortFeature unknown wValue %d, wIndex %d", getName(), this, wValue, wIndex);
+            USBLog(3,"AppleUSBEHCI[%p]::ClearRootHubPortFeature unknown wValue %d, wIndex %d",  this, wValue, wIndex);
             err = kIOReturnUnsupported;
             break;
     }
@@ -469,7 +505,7 @@ AppleUSBEHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
 IOReturn 
 AppleUSBEHCI::GetRootHubPortState(UInt8 *state, UInt16 port)
 {
-    USBLog(3,"%s[%p]::GetRootHubPortState for port %d", getName(), this, port);
+    USBLog(5,"AppleUSBEHCI[%p]::GetRootHubPortState for port %d",  this, port);
     return kIOReturnSuccess;
 }
 
@@ -542,7 +578,7 @@ AppleUSBEHCI::EHCIRootHubResetResetChange(UInt16 port)
     port--;
     if(port >= kMaxPorts)
     {
-        USBLog(3, "%s[%p]::EHCIRootHubResetResetChange Too many ports specified(%d > %d)", getName(), this, port, kMaxPorts);
+        USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetResetChange Too many ports specified(%d > %d)",  this, port, kMaxPorts);
 		return kIOReturnBadArgument;
     }
     
@@ -558,7 +594,7 @@ AppleUSBEHCI::EHCIRootHubResetSuspendChange(UInt16 port)
     port--;
     if(port >= kMaxPorts)
     {
-        USBLog(3, "%s[%p]::EHCIRootHubResetSuspendChange Too many ports specified(%d > %d)", getName(), this, port, kMaxPorts);
+        USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetSuspendChange Too many ports specified(%d > %d)",  this, port, kMaxPorts);
         return kIOReturnBadArgument;
     }
     
@@ -608,7 +644,7 @@ AppleUSBEHCI::EHCIRootHubResetOverCurrentChange(UInt16 port)
     value = getPortSCForWriting(_pEHCIRegisters,port);
 	
     value |= kEHCIPortSC_OCChange;					// clear status change
-		
+	
 	_pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);
 	IOSync();
 	
@@ -645,7 +681,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     UInt32		count, resetCount, portSC = 0;
 	
 	
-    USBLog(5, "%s[%p]::EHCIRootHubResetPort begin", getName(), this);
+    USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort begin",  this);
 	
     value = getPortSCForWriting(_pEHCIRegisters, port);
     
@@ -656,14 +692,14 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		// when next device is connected. That consfuses hub logic which skips the reset
 		// state. So no device is enumerated if that happens.
 		// This is all because EHCI is so miserly, they can't have a proper reset state machine like OHCI.
-	USBLog(1, "%s[%p]::EHCIRootHubResetPort - Not resetting port, beacuse device is unplugged of powered off (%x).", getName(), this, (unsigned int)value);
+		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Not resetting port, beacuse device is unplugged of powered off (%x).",  this, (unsigned int)value);
 		return kIOReturnNotResponding;	
     }
 	
     if( ((value & kEHCIPortSC_LineSt) >> kEHCIPortSC_LineStPhase) == kEHCILine_Low)
     {
 		value |= kEHCIPortSC_Owner;
-		USBLog(5, "%s[%p]::EHCIRootHubResetPort: LS device detected (portSC = %p) - writing value (%p) to release the device", getName(), this, (void*)portSC, (void*)value);
+		USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort: LS device detected (portSC = %p) - writing value (%p) to release the device",  this, (void*)portSC, (void*)value);
 		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
 		IOSync();
 		IOSleep(1);
@@ -730,7 +766,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		
 		if (!(portSC & kEHCIPortSC_Reset))
 		{
-			USBLog(5, "%s[%p]::EHCIRootHubResetPort reset took extra %d", getName(), this, (int)count);
+			USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort reset took extra %d",  this, (int)count);
 		}
 		else
 			USBError(1, "EHCIRootHubResetPort - clear reset didn't take - retrying");
@@ -740,33 +776,33 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     
     if ( portSC != USBToHostLong(_pEHCIRegisters->PortSC[port-1]) )
     {
-        USBLog(1, "%s[%p]::EHCIRootHubResetPort-  portSC is not equal to value of register! (%p)(%p)", getName(), this, (void*)portSC, (void*)USBToHostLong(_pEHCIRegisters->PortSC[port-1]));
+        USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  portSC is not equal to value of register! (%p)(%p)",  this, (void*)portSC, (void*)USBToHostLong(_pEHCIRegisters->PortSC[port-1]));
 		// use the updated value instead of the cached one
 		portSC = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
     }
 	
     if( ((portSC & kEHCIPortSC_Reset) != 0) || (count >= 2000) )
     {
-	USBLog(4, "%s[%p]::EHCIRootHubResetPort-  port slow to come out of reset %d", getName(), this, (int)count);
+		USBLog(4, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  port slow to come out of reset %d",  this, (int)count);
     }
 	
     if( (portSC & (kEHCIPortSC_Connect | kEHCIPortSC_Power)) != (kEHCIPortSC_Connect | kEHCIPortSC_Power) )
     {
 		// Have been disconnected or powered off, pretend reset never happened.
 		
-	USBLog(1, "%s[%p]::EHCIRootHubResetPort - Not resetting port 2, beacuse device is unplugged of powered off (%p).", getName(), this, (void*)portSC);
+		USBLog(1, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Not resetting port 2, beacuse device is unplugged of powered off (%p).",  this, (void*)portSC);
 		return kIOReturnNotResponding;	
     }
 	
-    USBLog(5, "%s[%p]::EHCIRootHubResetPort - Setting port reset change bit to %x.", getName(), this, value);
+    USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Setting port reset change bit to 0x%lx.",  this, value);
     _rhChangeBits[port-1] |= kHubPortBeingReset;
 	
     if( (portSC & kEHCIPortSC_Enabled) == 0)
     {
-		// USBLog(2, "%s[%p]::EHCIRootHubResetPort-  full speed device (no enable) releasing device %x", getName(), this, portSC);
+		// USBLog(2, "AppleUSBEHCI[%p]::EHCIRootHubResetPort-  full speed device (no enable) releasing device %x",  this, portSC);
 		value = getPortSCForWriting(_pEHCIRegisters, port);
 		value |= kEHCIPortSC_Owner;
-		USBLog(5, "%s[%p]::EHCIRootHubResetPort: FS device detected (portSC = %p) - writing value (%p) to release the device", getName(), this, portSC, value);
+		USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort: FS device detected (portSC = 0x%lx) - writing value (0x%lx) to release the device",  this, portSC, value);
 		_pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
 		IOSync();
 		IOSleep(1);
@@ -793,16 +829,16 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
 		portSC = USBToHostLong(_pEHCIRegisters->PortSC[port-1]);
 		if( (portSC & kEHCIPortSC_Enabled) == 0)
 		{
-			USBLog(3, "%s[%p]::EHCIRootHubResetPort *********** Port disabled after 1 frame******* %x", getName(), this, portSC);
+			USBLog(3, "AppleUSBEHCI[%p]::EHCIRootHubResetPort *********** Port disabled after 1 frame******* 0x%lx",  this, portSC);
 		}
     }
 	
-    USBLog(5, "%s[%p]::EHCIRootHubResetPort done", getName(), this);
+    USBLog(5, "AppleUSBEHCI[%p]::EHCIRootHubResetPort done",  this);
     
     // Make the status change interrupt happen, of Reset will hang waiting for it
     // I think this is safe as the root hub runs outside the lock.
 	
-    USBLog(5, "%s[%p]::EHCIRootHubResetPort - Call UIMRootHubStatusChange",  getName(), this);
+    USBLog(6, "AppleUSBEHCI[%p]::EHCIRootHubResetPort - Call UIMRootHubStatusChange",   this);
 	
     UIMRootHubStatusChange();
     
@@ -816,11 +852,11 @@ AppleUSBEHCI::EHCIRootHubPortEnable(UInt16 port, bool enable)
 {
     UInt32 		value;
 	
-    USBLog(3,"%s[%p]::EHCIRootHubPortEnable port: %d, on: %d", getName(), this, port, enable);
+    USBLog(5,"AppleUSBEHCI[%p]::EHCIRootHubPortEnable port: %d, on: %d",  this, port, enable);
 	
     if (enable)
     {
-        USBLog(1,"%s[%p]::EHCIRootHubPortEnable enabling port illegal.", getName(), this);
+        USBLog(1,"AppleUSBEHCI[%p]::EHCIRootHubPortEnable enabling port illegal.",  this);
         return kIOReturnUnsupported;
     }
 	
@@ -853,17 +889,23 @@ AppleUSBEHCI::EHCIRootHubPortSuspend(UInt16 port, bool suspend)
 {
     UInt32 		value, newValue, count;
     
-    USBLog(3,"%s[%p]::EHCIRootHubPortSuspend port: %d, on: %d", getName(), this, port, suspend);
+    USBLog(5,"AppleUSBEHCI[%p]::EHCIRootHubPortSuspend port: %d, %s",  this, port, suspend ? "SUSPEND" : "RESUME");
 	
     value = getPortSCForWriting(_pEHCIRegisters, port);
     
     if (suspend)
+	{
         value |= kEHCIPortSC_Suspend;					// suspend port
+		
+		// Update our previous statuas so next time we don't see a suspend change (which would get reported as a resume)
+		_rhPrevStatus[port-1] = value;
+	}
     else
         value |= kEHCIPortSC_Resume;					// resume port
 	
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong(value);
     IOSync();
+	
 	IOSleep(1);											// allow it to kick in
 	if (_errataBits & kErrataNECIncompleteWrite)
 	{
@@ -901,9 +943,9 @@ AppleUSBEHCI::EHCIRootHubPortSuspend(UInt16 port, bool suspend)
 				IOSleep(3);											// allow it to kick in
 			}
 		}
-		_rhChangeBits[port-1] |= kHubPortBeingReset;
-		UIMRootHubStatusChange();
-    }
+    	UIMRootHubStatusChange();
+	}
+	
 	
     return kIOReturnSuccess;
 }
@@ -985,20 +1027,24 @@ AppleUSBEHCI::UIMRootHubStatusChange(void)
 
 
 OSMetaClassDefineReservedUsed(IOUSBController,  10);
-void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
+void 
+AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
 {
-    UInt8		numPorts = 0;
-    UInt32 		HCSParams;
-    UInt16 		statusChangedBitmap;   /* only have 15 ports in EHCI */
-    IOUSBHubPortStatus  portStatus;
-    UInt32 		hubStatus, statusBit, tempStatus;
-    unsigned int      	index, port, move;
+    UInt8						numPorts = 0;
+    UInt32						HCSParams;
+    UInt16						statusChangedBitmap;   /* only have 15 ports in EHCI */
+    IOUSBHubPortStatus			portStatus;
+    UInt32						hubStatus, statusBit, tempStatus;
+    unsigned int				index, port, move;
     struct InterruptTransaction last;
+	bool						overCurrentReported = false;
     
-	
-    // turn off RHSC interrupt
-    _pEHCIRegisters->USBIntr = _pEHCIRegisters->USBIntr & ~HostToUSBLong(kEHCIPortChangeIntBit);
-    IOSync();
+	if (_ehciAvailable)
+	{
+		// turn off RHSC interrupt
+		_pEHCIRegisters->USBIntr = _pEHCIRegisters->USBIntr & ~HostToUSBLong(kEHCIPortChangeIntBit);
+		IOSync();
+	}
 	
 	/*
      * Encode the status change bitmap.  The format of the bitmap:
@@ -1012,7 +1058,7 @@ void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
     statusChangedBitmap = 0;
     statusBit = 1;
 	
-    if (!abort && GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess)
+    if (!abort && _ehciAvailable && !_wakingFromHibernation && (GetRootHubStatus((IOUSBHubStatus *)&tempStatus) == kIOReturnSuccess))
     {
         hubStatus = USBToHostLong( tempStatus );
         if ((hubStatus & (kHubLocalPowerStatus | kHubOverCurrentIndicator) ) != 0)
@@ -1021,7 +1067,7 @@ void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
         HCSParams = USBToHostLong(_pEHCICapRegisters->HCSParams);
         numPorts = HCSParams & kEHCINumPortsMask;
 		
-        USBLog(3,"%s[%p]::UIMRootHubStatusChange numPorts %d ", getName(), this, numPorts);
+        USBLog(5,"AppleUSBEHCI[%p]::UIMRootHubStatusChange numPorts %d _wakingFromHibernation(%s)",  this, numPorts, _wakingFromHibernation ? "true" : "false");
         
         for (port = 1; port <= numPorts; port++)
         {
@@ -1029,6 +1075,19 @@ void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
 			
             GetRootHubPortStatus(&portStatus, port);
             portStatus.changeFlags = USBToHostWord(portStatus.changeFlags);
+			
+			// If we have ganged overcurrent AND we already have a port that is reporting overcurrent, then don't report it on this
+			// port.  Just clear it and go to the next port.
+			if ( _gangedOvercurrent &&  overCurrentReported && ( portStatus.changeFlags & kHubPortOverCurrent) )
+			{
+				USBLog(3,"AppleUSBEHCI[%p]::UIMRootHubStatusChange port %d had an overcurrent, but another port already reported it",  this, port);
+				
+				// Clear the change in the RH register
+				portStatus.changeFlags &= ~kHubPortOverCurrent;
+				
+				EHCIRootHubResetOverCurrentChange(port);
+			}
+			
 			// if ( (portStatus.changeFlags & kHubPortConnection) || (portStatus.changeFlags & kHubPortEnabled))
 			// This should use a symbolic constant, but there doesn't seem to be one handy.
 			// 1f is all the possible change bits. It needs to be masked because get status
@@ -1036,7 +1095,14 @@ void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
 			// The first fix (above) stopped all but connect and enabled status changes getting through
 			if (portStatus.changeFlags & kHubPortStateChangeMask) 
             {
-                USBLog(3,"%s[%p]::UIMRootHubStatusChange port %d status 0x%x", getName(), this, port, portStatus.changeFlags);
+                USBLog(4,"AppleUSBEHCI[%p]::UIMRootHubStatusChange port %d status 0x%x",  this, port, portStatus.changeFlags);
+				
+				if ( portStatus.changeFlags & kHubPortOverCurrent )
+				{
+					USBLog(3,"AppleUSBEHCI[%p]::UIMRootHubStatusChange port %d had an overcurrent",  this, port);
+					overCurrentReported = true;
+				}
+				
                 statusChangedBitmap |= statusBit; 	// Hub status change bit
             }
         }
@@ -1052,7 +1118,7 @@ void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
         for (index = 1; index < kMaxOutstandingTrans ; index++)
         {
             _outstandingTrans[index-1] = _outstandingTrans[index];
-            if (_outstandingTrans[index].completion.action == nil)
+            if (_outstandingTrans[index].completion.action == NULL)
                 break;
         }
 		
@@ -1075,7 +1141,7 @@ void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
     // If we are aborting, we do not need to enable the RHSC.  If there is a transaction pending in the queue,
     // or the RHSC did not involve a status change, we need to enable the RHSC interrupt
     //
-    if ( !abort && ((_outstandingTrans[0].completion.action != NULL) || (statusChangedBitmap == 0)) )
+    if ( !abort && _ehciAvailable && ((_outstandingTrans[0].completion.action != NULL) || (statusChangedBitmap == 0)) )
     {
         // Turn on RHSC interrupt
         //
@@ -1095,13 +1161,14 @@ void AppleUSBEHCI::UIMRootHubStatusChange(bool abort)
  * dequeueing.
  */
 void 
-AppleUSBEHCI::SimulateRootHubInt(
-								 UInt8					endpoint,
-								 IOMemoryDescriptor *			buf,
+AppleUSBEHCI::SimulateRootHubInt(UInt8						endpoint,
+								 IOMemoryDescriptor *		buf,
 								 UInt32 					bufLen,
-								 IOUSBCompletion				completion)
+								 IOUSBCompletion			completion)
 {
     int 		index;
+	AbsoluteTime	lastRootHubChangeTime, currentTime;
+	UInt64			elapsedTime = 0;
 	
     if (endpoint != 1)
     {
@@ -1113,7 +1180,7 @@ AppleUSBEHCI::SimulateRootHubInt(
     
     for (index = 0; index < kMaxOutstandingTrans; index++)
     {
-        if (_outstandingTrans[index].completion.action == nil)
+        if (_outstandingTrans[index].completion.action == NULL)
         {
             // found free trans
             _outstandingTrans[index].buf = buf;
@@ -1121,9 +1188,30 @@ AppleUSBEHCI::SimulateRootHubInt(
             _outstandingTrans[index].completion = completion;
             IOUnlock(_intLock); 		// Unlock the queue
 			
-            // turn on port change interrupt
-            _pEHCIRegisters->USBIntr = _pEHCIRegisters->USBIntr + HostToUSBLong(kEHCIPortChangeIntBit);
-            IOSync();
+			// 4483045 - We used to just enable the Port Change interrupt here, expecting that if there were any changes pending
+			// the interrupt would just get processed immediately. However, it is possible that there is a pending change, but the interrupt
+			// will not be asserted, possibly because it was already asserted for a different change, and it only gets asserted on a 
+			// transition. So what we will do now is call the UIMRootHubStatusChange method, which will check for any pending changes, and
+			// report them immediately if they exist. If not, that method will enable the interrupt
+            // OLD: turn on port change interrupt
+            // OLD: _pEHCIRegisters->USBIntr = _pEHCIRegisters->USBIntr + HostToUSBLong(kEHCIPortChangeIntBit);
+            // OLD: IOSync();
+			
+			// Calculate how long it's been since the last status change and wait until the pollingRate to call the UIMRootHubStatusChange()
+			lastRootHubChangeTime = LastRootHubPortStatusChanged( false );
+			
+			clock_get_uptime( &currentTime );
+			SUB_ABSOLUTETIME(&currentTime, &lastRootHubChangeTime );
+			absolutetime_to_nanoseconds(currentTime, &elapsedTime);
+			elapsedTime /= 1000000;  // convert it to ms
+			
+			if ( elapsedTime < kEHCIRootHubPollingInterval )
+			{
+				USBLog(5, "AppleUSBEHCI[%p]::SimulateRootHubInt  Last change was %qd ms ago.  IOSleep'ing for %qd ms",  this, elapsedTime, kEHCIRootHubPollingInterval - elapsedTime );
+				IOSleep( kEHCIRootHubPollingInterval - elapsedTime );
+			}
+				
+			UIMRootHubStatusChange(false);
 			
             return;
         }
@@ -1151,10 +1239,10 @@ AppleUSBEHCI::SimulateEDAbort (short endpointNumber, short direction)
     {
 		if(direction != kUSBIn)
 		{
-			USBLog(1, "%s[%p]::SimulateEDAbort - Root hub wrong direction Int pipe %d", getName(), this, direction);
+			USBLog(3, "AppleUSBEHCI[%p]::SimulateEDAbort - Root hub wrong direction Int pipe %d",  this, direction);
 			return(-1);
 		}
-		USBLog(1, "%s[%p]::SimulateEDAbort Root hub aborting int transactions", getName(), this);
+		USBLog(5, "AppleUSBEHCI[%p]::SimulateEDAbort Root hub aborting int transactions",  this);
 		for( i=0; i < kMaxOutstandingTrans; i++)
 		{
 			UIMRootHubStatusChange(true);
@@ -1162,7 +1250,7 @@ AppleUSBEHCI::SimulateEDAbort (short endpointNumber, short direction)
     }
     else
     {
-		USBLog(1, "%s[%p]::SimulateEDAbort Root hub aborting control pipe", getName(), this);
+		USBLog(5, "AppleUSBEHCI[%p]::SimulateEDAbort Root hub aborting control pipe",  this);
 		
 		UIMRootHubStatusChange(false);
     }
@@ -1275,6 +1363,7 @@ AppleUSBEHCI::LastRootHubPortStatusChanged( bool resetTime )
 }
 
 
+
 void
 AppleUSBEHCI::GetNumberOfPorts( UInt8 * numPorts )
 {
@@ -1291,13 +1380,15 @@ AppleUSBEHCI::GetNumberOfPorts( UInt8 * numPorts )
 }
 
 
+
 bool	
-AppleUSBEHCI::RootHubAreAllPortsDisconnected( )
+AppleUSBEHCI::RootHubAreAllPortsDisconnectedOrSuspended( )
 {
     UInt8	numPorts = 0;
     UInt32	portStat;
     int		i;
-    
+    bool	result = true;
+	
     GetNumberOfPorts( &numPorts );
 	
     if ( numPorts == 0 )
@@ -1306,18 +1397,39 @@ AppleUSBEHCI::RootHubAreAllPortsDisconnected( )
     for (i=0; i < numPorts; i++)
     {
 		portStat = USBToHostLong(_pEHCIRegisters->PortSC[i]);
-		if (portStat & kEHCIPortSC_Owner)
+		if ((portStat & kEHCIPortSC_Enabled) && !(portStat & kEHCIPortSC_Suspend))
 		{
-			USBLog(7, "%s[%p]::RootHubAreAllPortsDisconnected - port %d owned by OHCI", getName(), this, i);
-			return false;
+			USBLog(6, "AppleUSBEHCI[%p]::RootHubAreAllPortsDisconnectedOrSuspended - port %d enabled and not suspended",  this, i+1);
+			result = false;
 		}
-		else if (portStat & kEHCIPortSC_Enabled)
+		if ((portStat & kEHCIPortSC_Connect) && !(portStat & kEHCIPortSC_Suspend))
 		{
-			USBLog(7, "%s[%p]::RootHubAreAllPortsDisconnected - port %d enabled", getName(), this, i);
+			USBLog(6, "AppleUSBEHCI[%p]::RootHubAreAllPortsDisconnectedOrSuspended - port %d CONNECTED, NOT ENABLED and not suspended - we used to allow this but no more",  this, i+1);
+			USBLog(6, "AppleUSBEHCI::RHAPDOS: USBCMD(0x%x) USBSTS(0x%x) USBIntr(0x%x) PortSC(0x%x 0x%x 0x%x 0x%x 0x%x)",
+					 USBToHostLong(_pEHCIRegisters->USBCMD),
+					 USBToHostLong(_pEHCIRegisters->USBSTS),
+					 USBToHostLong(_pEHCIRegisters->USBIntr),
+					 USBToHostLong(_pEHCIRegisters->PortSC[0]),
+					 USBToHostLong(_pEHCIRegisters->PortSC[1]),
+					 USBToHostLong(_pEHCIRegisters->PortSC[2]),
+					 USBToHostLong(_pEHCIRegisters->PortSC[3]),
+					 USBToHostLong(_pEHCIRegisters->PortSC[4]));
+							
 			return false;
 		}
     }
 	
-    return true;
+	// If we have pending bulk or control transactions, then force the result to false
+	if ( result )
+	{
+		if ( _controlBulkTransactionsOut != 0 )
+		{
+            USBLog(2, "AppleUSBEHCI[%p]::RHAreAllPortsDisconnectedOrSuspended  everything disconnected, but %ld control/bulk transactions are pending. ", this, _controlBulkTransactionsOut);
+			result = false;
+		}
+	}
+
+	USBLog(6, "AppleUSBEHCI[%p]::RootHubAreAllPortsDisconnectedOrSuspended - YES THEY ARE",  this);
+    return result;
 }
 

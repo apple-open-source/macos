@@ -68,7 +68,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
             [self dealloc];
             self = nil;
         } else if (! [self registerForUSBNotifications]) {
-            NSLog(@"IORegInfoGatherer was unable to register for USB notifications");
+            NSLog(@"USB Prober: IORegInfoGatherer was unable to register for USB notifications");
             [self dealloc];
             self = nil;
         } else {
@@ -143,7 +143,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
     kernResult = IOMasterPort(bootstrap_port, &iokitPort);
     
     if (KERN_SUCCESS != kernResult)
-        NSLog(@"IOMasterPort returned 0x%08x\n", kernResult);
+        NSLog(@"USB Prober: IOMasterPort returned 0x%08x\n", kernResult);
     else {
         switch (_plane) {
             case kIOUSB_Plane:
@@ -153,7 +153,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
                 kernResult = findUSBPCIDevice(iokitPort, &intfIterator);
                 
                 if (KERN_SUCCESS != kernResult)
-                    NSLog(@"FindUSBNode returned 0x%08x\n", kernResult);
+                    NSLog(@"USB Prober: FindUSBNode returned 0x%08x\n", kernResult);
                 else
                 {
                     scanUSBDevices(intfIterator, _rootNode, kIOServicePlane);
@@ -272,11 +272,11 @@ kern_return_t findUSBPCIDevice(mach_port_t masterPort, io_iterator_t * matchingS
     classesToMatch = IOServiceMatching("IOPCIDevice");
     
     if (classesToMatch == NULL)
-        NSLog(@"IOServiceMatching returned a NULL dictionary.\n");
+        NSLog(@"USB Prober: IOServiceMatching returned a NULL dictionary.\n");
     
     kernResult = IOServiceGetMatchingServices(masterPort, classesToMatch, matchingServices);
     if (KERN_SUCCESS != kernResult)
-        NSLog(@"IOServiceGetMatchingServices returned %d\n", kernResult);
+        NSLog(@"USB Prober: IOServiceGetMatchingServices returned %d\n", kernResult);
     
     return kernResult;
 }

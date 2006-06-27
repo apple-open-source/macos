@@ -93,13 +93,21 @@ IOUSBNub::USBCompareProperty( OSDictionary   * matching, const char     * key )
     // We return success iff we match the key in the dictionary with the key in
     // the property table.
     //
-    OSObject 	* value;
+    OSObject 	*value;
     bool		matches;
+	OSObject	*myProperty = NULL;
 
     value = matching->getObject( key );
-
+	
     if( value)
-        matches = value->isEqualTo( getProperty( key ));
+	{
+		myProperty = copyProperty(key);
+		if (myProperty)
+		{
+			matches = value->isEqualTo( myProperty);
+			myProperty->release();
+		}
+	}
     else
         matches = false;
 

@@ -33,6 +33,7 @@ after-install:
 	chown root:wheel $(DSTROOT)/usr/local/bin
 	ln -s /bin/bash $(DSTROOT)/usr/local/bin/bash
 	$(INSTALL_PROGRAM) -c $(DSTROOT)$(BINDIR)/bash $(DSTROOT)$(BINDIR)/sh
+	cp $(OBJROOT)/bash $(SYMROOT)
 	mkdir -p $(DSTROOT)/private/etc
 	cp $(SRCROOT)/bashrc $(DSTROOT)/private/etc/bashrc
 	cp $(SRCROOT)/profile $(DSTROOT)/private/etc/profile

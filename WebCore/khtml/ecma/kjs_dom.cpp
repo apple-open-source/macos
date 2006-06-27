@@ -121,11 +121,9 @@ void DOMNode::mark()
     root = current;
   }
 
-  static QPtrDict<NodeImpl> markingRoots;
-
   // If we're already marking this tree, then we can simply mark this wrapper
   // by calling the base class; our caller is iterating the tree.
-  if (markingRoots.find(root)) {
+  if (root->m_inSubtreeMark) {
     DOMObject::mark();
     return;
   }
@@ -133,7 +131,7 @@ void DOMNode::mark()
   DocumentImpl *document = node.handle()->getDocument();
 
   // Mark the whole tree; use the global set of roots to avoid reentering.
-  markingRoots.insert(root, root);
+  root->m_inSubtreeMark = true;
   for (NodeImpl *nodeToMark = root; nodeToMark; nodeToMark = nodeToMark->traverseNextNode()) {
     DOMNode *wrapper = ScriptInterpreter::getDOMNodeForDocument(document, nodeToMark);
     if (wrapper) {
@@ -149,11 +147,10 @@ void DOMNode::mark()
         mark();
     }
   }
-  markingRoots.remove(root);
+  root->m_inSubtreeMark = false;
 
   // Double check that we actually ended up marked. This assert caught problems in the past.
   assert(marked());
-
 }
 
 bool DOMNode::toBoolean(ExecState *) const
@@ -284,11 +281,11 @@ Value DOMNode::getValueProperty(ExecState *exec, int token) const
   case OnChange:
     return getListener(DOM::EventImpl::CHANGE_EVENT);
   case OnClick:
-    return getListener(DOM::EventImpl::KHTML_CLICK_EVENT);
+    return getListener(DOM::EventImpl::CLICK_EVENT);
   case OnContextMenu:
     return getListener(DOM::EventImpl::CONTEXTMENU_EVENT);
   case OnDblClick:
-    return getListener(DOM::EventImpl::KHTML_DBLCLICK_EVENT);
+    return getListener(DOM::EventImpl::DBLCLICK_EVENT);
   case OnDragDrop:
     return getListener(DOM::EventImpl::KHTML_DRAGDROP_EVENT);
   case OnError:
@@ -436,13 +433,13 @@ void DOMNode::putValue(ExecState *exec, int token, const Value& value, int /*att
     setListener(exec,DOM::EventImpl::CHANGE_EVENT,value);
     break;
   case OnClick:
-    setListener(exec,DOM::EventImpl::KHTML_CLICK_EVENT,value);
+    setListener(exec,DOM::EventImpl::CLICK_EVENT,value);
     break;
   case OnContextMenu:
     setListener(exec,DOM::EventImpl::CONTEXTMENU_EVENT,value);
     break;
   case OnDblClick:
-    setListener(exec,DOM::EventImpl::KHTML_DBLCLICK_EVENT,value);
+    setListener(exec,DOM::EventImpl::DBLCLICK_EVENT,value);
     break;
   case OnDragDrop:
     setListener(exec,DOM::EventImpl::KHTML_DRAGDROP_EVENT,value);
@@ -1658,7 +1655,7 @@ Value KJS::getRuntimeObject(ExecState *exec, const DOM::Node &node)
             
             if (appletElement->getAppletInstance()) {
                 // The instance is owned by the applet element.
-                RuntimeObjectImp *appletImp = new RuntimeObjectImp(appletElement->getAppletInstance(), false);
+                RuntimeObjectImp *appletImp = new RuntimeObjectImp(appletElement->getAppletInstance());
                 return Value(appletImp);
             }
         }
@@ -1666,7 +1663,7 @@ Value KJS::getRuntimeObject(ExecState *exec, const DOM::Node &node)
             DOM::HTMLEmbedElementImpl *embedElement = static_cast<DOM::HTMLEmbedElementImpl *>(element.handle());
             
             if (embedElement->getEmbedInstance()) {
-                RuntimeObjectImp *runtimeImp = new RuntimeObjectImp(embedElement->getEmbedInstance(), false);
+                RuntimeObjectImp *runtimeImp = new RuntimeObjectImp(embedElement->getEmbedInstance());
                 return Value(runtimeImp);
             }
         }
@@ -1674,7 +1671,7 @@ Value KJS::getRuntimeObject(ExecState *exec, const DOM::Node &node)
             DOM::HTMLObjectElementImpl *objectElement = static_cast<DOM::HTMLObjectElementImpl *>(element.handle());
             
             if (objectElement->getObjectInstance()) {
-                RuntimeObjectImp *runtimeImp = new RuntimeObjectImp(objectElement->getObjectInstance(), false);
+                RuntimeObjectImp *runtimeImp = new RuntimeObjectImp(objectElement->getObjectInstance());
                 return Value(runtimeImp);
             }
         }

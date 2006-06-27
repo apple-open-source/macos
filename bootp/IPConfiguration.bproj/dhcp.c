@@ -77,6 +77,8 @@
 #define SUGGESTED_LEASE_LENGTH		(60 * 60 * 24 * 30 * 3) /* 3 months */
 #define DEFAULT_LEASE_LENGTH		(60 * 60)		/* 1 hour */
 #define MIN_LEASE_LENGTH		(3) 			/* 3 seconds */
+#define MIN_T1_VAL			(2)			/* 2 seconds */
+#define MIN_T2_VAL			(2)			/* 2 seconds */
 
 typedef struct {
     boolean_t			valid;
@@ -233,9 +235,15 @@ get_lease(dhcpol_t * options, time_interval_t * lease,
     }
     if (t1_opt != NULL) {
 	*t1 = ntohl(*t1_opt);
+	if (*t1 < MIN_T1_VAL) {
+	    *t1 = MIN_T1_VAL;
+	}
     }
     if (t2_opt != NULL) {
 	*t2 = ntohl(*t2_opt);
+	if (*t2 < MIN_T2_VAL) {
+	    *t2 = MIN_T2_VAL;
+	}
     }
     if (lease_opt == NULL) {
 	if (t1_opt != NULL) {

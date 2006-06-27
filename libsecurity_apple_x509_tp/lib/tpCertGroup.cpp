@@ -32,6 +32,7 @@
 #include "tpCrlVerify.h"
 #include <Security/oidsalg.h>
 #include <Security/cssmapple.h>
+#include <Security/cssmapplePriv.h>
 
 /*-----------------------------------------------------------------------------
  * CertGroupConstruct
@@ -444,7 +445,7 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		crlGroup = new TPCrlGroup(&VerifyContext->Crls,
 			clHand, cspHand, 
 			*this,				// alloc
-			cssmTimeStr,
+			NULL, 				// cssmTimeStr - we want CRLs that are valid 'now'
 			TGO_Group);
 	}
 	catch(const CssmError &cerr) {
@@ -522,6 +523,10 @@ void AppleTPSession::CertGroupVerify(CSSM_CL_HANDLE clHand,
 		}
 		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_CODE_SIGN)) {
 			tpPolicy = kTP_CodeSign;
+			doPolicyVerify = true;
+		}
+		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_RESOURCE_SIGN)) {
+			tpPolicy = kTP_ResourceSign;
 			doPolicyVerify = true;
 		}
 		else if(tpCompareOids(oid, &CSSMOID_APPLE_TP_IP_SEC)) {

@@ -730,9 +730,6 @@ void KURL::setUser(const QString &user)
         QString u;
         int end = userEndPos;
         if (!user.isEmpty()) {
-            // Untested code, but this is never used.
-            ASSERT_NOT_REACHED();
-#if 0
             u = user;
             if (userStartPos == schemeEndPos + 1) {
                 u = "//" + u;
@@ -741,7 +738,6 @@ void KURL::setUser(const QString &user)
             if (end == hostEndPos || (end == passwordEndPos && urlString[end] != '@')) {
                 u += '@';
             }
-#endif
         } else {
             // Remove '@' if we now have neither user nor password.
             if (userEndPos == passwordEndPos && end != hostEndPos && urlString[end] == '@') {
@@ -759,9 +755,6 @@ void KURL::setPass(const QString &password)
         QString p;
         int end = passwordEndPos;
         if (!password.isEmpty()) {
-            // Untested code, but this is never used.
-            ASSERT_NOT_REACHED();
-#if 0
             p = ':' + password + '@';
             if (userEndPos == schemeEndPos + 1) {
                 p = "//" + p;
@@ -770,7 +763,6 @@ void KURL::setPass(const QString &password)
             if (end != hostEndPos && urlString[end] == '@') {
                 end += 1;
             }
-#endif
         } else {
             // Remove '@' if we now have neither user nor password.
             if (userStartPos == userEndPos && end != hostEndPos && urlString[end] == '@') {

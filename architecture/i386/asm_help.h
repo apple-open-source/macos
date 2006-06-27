@@ -40,7 +40,7 @@
 #ifndef	_ARCH_I386_ASM_HELP_H_
 #define	_ARCH_I386_ASM_HELP_H_
 
-#import	<architecture/i386/reg_help.h>
+#include	<architecture/i386/reg_help.h>
 
 
 #ifdef	__ASSEMBLER__

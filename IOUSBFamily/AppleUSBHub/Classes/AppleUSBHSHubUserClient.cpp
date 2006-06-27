@@ -249,7 +249,7 @@ AppleUSBHSHubUserClient::GetNumberOfPorts(UInt32 *numPorts)
         return kIOReturnNotAttached;
 
     *numPorts = fOwner->_hubDescriptor.numPorts;
-    USBLog(1, "%s[%p]::GetNumberOfPorts - returning %d", getName(), this, *numPorts);
+    USBLog(1, "%s[%p]::GetNumberOfPorts - returning %ld", getName(), this, *numPorts);
     return kIOReturnSuccess;
 }
 

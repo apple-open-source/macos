@@ -642,7 +642,7 @@ static CFIndex parseChunkedHeader(const UInt8 *buffer, CFIndex bufferLength, Boo
             return MID_CHUNK_HEADER_PARSE;
         } else if (*(curr + 1) == '\n') {
             *firstDataByte = curr + 2 - buffer;
-            return size;
+            return ((size >= 0) ? size : -1);
         } else {
             // Parse failure
             return -1;

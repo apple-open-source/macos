@@ -33,7 +33,10 @@
  * 18 August 1992 Jack Greenfield at NeXT
  *	Created.
  */
- 
+
+#ifndef _ARCH_I386_ALIGNMENT_H_
+#define _ARCH_I386_ALIGNMENT_H_
+
 /*
  * NOP
  */
@@ -63,3 +66,5 @@ put_align_long(unsigned long ivalue, void *ovalue)
 {
     return *((unsigned long *) ovalue) = ivalue;
 }
+
+#endif	/* _ARCH_I386_ALIGNMENT_H_ */

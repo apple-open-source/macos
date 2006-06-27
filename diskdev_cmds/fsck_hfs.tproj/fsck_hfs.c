@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2002-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,6 +39,7 @@
 #include <stdlib.h>
 
 #include "fsck_hfs.h"
+#include "fsck_debug.h"
 #include "dfalib/CheckHFS.h"
 
 /*
@@ -104,10 +106,18 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-	while ((ch = getopt(argc, argv, "dfglm:npqruy")) != EOF) {
+	while ((ch = getopt(argc, argv, "D:dfglm:npqruy")) != EOF) {
 		switch (ch) {
 		case 'd':
 			debug++;
+			break;
+
+		case 'D':
+			/* Input value should be in hex example: -D 0x5 */
+			cur_debug_level = strtoul(optarg, NULL, 0);
+			if (cur_debug_level == 0) {
+				(void) fprintf (stderr, "%s: invalid debug development argument.  Assuming zero\n", progname);
+			}
 			break;
 
 		case 'f':
@@ -239,7 +249,7 @@ checkfilesys(char * filesys)
 	if (setup( filesys, &blockDevice_fd, &canWrite ) == 0) {
 		if (preen)
 			pfatal("CAN'T CHECK FILE SYSTEM.");
-		result = 0;
+		result = EEXIT;
 		goto ExitThisRoutine;
 	}
 
@@ -405,8 +415,12 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 	if (preen == 0 && !guiControl)
 		printf("\n");
 
+	/* Get device block size to initialize cache */
+	if (ioctl(fsreadfd, DKIOCGETBLOCKSIZE, &devBlockSize) < 0) {
+		pfatal ("Can't get device block size\n");
+		return (0);
+	}
 	/* Initialize the cache */
-	ioctl(fsreadfd, DKIOCGETBLOCKSIZE, &devBlockSize);
 	if (CacheInit (&fscache, fsreadfd, fswritefd, devBlockSize,
 			CACHE_IOSIZE, CACHE_BLOCKS, CACHE_HASHSIZE) != EOK) {
 		pfatal("Can't initialize disk cache\n");

@@ -68,19 +68,18 @@ static launch_data_t CF2launch_data(CFTypeRef);
 static launch_data_t read_plist_file(const char *file, bool editondisk, bool load);
 static CFPropertyListRef CreateMyPropertyListFromFile(const char *);
 static void WriteMyPropertyListToFile(CFPropertyListRef, const char *);
-static void readpath(const char *, launch_data_t, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
-static void readfile(const char *, launch_data_t, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
+static void readpath(const char *, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
+static void readfile(const char *, launch_data_t, launch_data_t, bool editondisk, bool load, bool forceload);
 static int _fd(int);
 static int demux_cmd(int argc, char *const argv[]);
-static launch_data_t do_rendezvous_magic(const struct addrinfo *res, const char *serv);
+static void do_rendezvous_magic(const struct addrinfo *res, const char *serv, const char *label);
+static void workaround_bonjour_asynchronously(void);
 static void submit_job_pass(launch_data_t jobs);
 static void submit_mach_jobs(launch_data_t jobs);
 static void let_go_of_mach_jobs(void);
 static void do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup);
 static void print_jobs(launch_data_t j, const char *label, void *context);
 static bool is_legacy_mach_job(launch_data_t obj);
-static bool delay_to_second_pass(launch_data_t o);
-static void delay_to_second_pass2(launch_data_t o, const char *key, void *context);
 
 static int load_and_unload_cmd(int argc, char *const argv[]);
 //static int reload_cmd(int argc, char *const argv[]);
@@ -341,46 +340,7 @@ read_plist_file(const char *file, bool editondisk, bool load)
 }
 
 void
-delay_to_second_pass2(launch_data_t o, const char *key, void *context)
-{
-	bool *res = context;
-	size_t i;
-
-	if (key && 0 == strcmp(key, LAUNCH_JOBSOCKETKEY_BONJOUR)) {
-		*res = true;
-		return;
-	}
-
-	switch (launch_data_get_type(o)) {
-	case LAUNCH_DATA_DICTIONARY:
-		launch_data_dict_iterate(o, delay_to_second_pass2, context);
-		break;
-	case LAUNCH_DATA_ARRAY:
-		for (i = 0; i < launch_data_array_get_count(o); i++)
-			delay_to_second_pass2(launch_data_array_get_index(o, i), NULL, context);
-		break;
-	default:
-		break;
-	}
-}
-
-bool
-delay_to_second_pass(launch_data_t o)
-{
-	bool res = false;
-
-	launch_data_t socks = launch_data_dict_lookup(o, LAUNCH_JOBKEY_SOCKETS);
-
-	if (NULL == socks)
-		return false;
-
-	delay_to_second_pass2(socks, NULL, &res);
-
-	return res;
-}
-
-void
-readfile(const char *what, launch_data_t pass0, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
+readfile(const char *what, launch_data_t pass0, launch_data_t pass1, bool editondisk, bool load, bool forceload)
 {
 	launch_data_t tmpd, thejob;
 	bool job_disabled = false;
@@ -412,14 +372,11 @@ readfile(const char *what, launch_data_t pass0, launch_data_t pass1, launch_data
 		return;
 	}
 
-	if (delay_to_second_pass(thejob))
-		launch_data_array_append(pass2, thejob);
-	else
-		launch_data_array_append(pass1, thejob);
+	launch_data_array_append(pass1, thejob);
 }
 
 void
-readpath(const char *what, launch_data_t pass0, launch_data_t pass1, launch_data_t pass2, bool editondisk, bool load, bool forceload)
+readpath(const char *what, launch_data_t pass0, launch_data_t pass1, bool editondisk, bool load, bool forceload)
 {
 	char buf[MAXPATHLEN];
 	struct stat sb;
@@ -430,7 +387,7 @@ readpath(const char *what, launch_data_t pass0, launch_data_t pass1, launch_data
 		return;
 
 	if (S_ISREG(sb.st_mode) && !(sb.st_mode & S_IWOTH)) {
-		readfile(what, pass0, pass1, pass2, editondisk, load, forceload);
+		readfile(what, pass0, pass1, editondisk, load, forceload);
 	} else {
 		if ((d = opendir(what)) == NULL) {
 			fprintf(stderr, "%s: opendir() failed to open the directory\n", getprogname());
@@ -442,7 +399,7 @@ readpath(const char *what, launch_data_t pass0, launch_data_t pass1, launch_data
 				continue;
 			snprintf(buf, sizeof(buf), "%s/%s", what, de->d_name);
 
-			readfile(buf, pass0, pass1, pass2, editondisk, load, forceload);
+			readfile(buf, pass0, pass1, editondisk, load, forceload);
 		}
 		closedir(d);
 	}
@@ -498,8 +455,12 @@ static void sock_dict_cb(launch_data_t what, const char *key, void *context)
 static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data_t fdarray, launch_data_t thejob)
 {
 	launch_data_t a, val;
+	const char *joblabel;
 	int sfd, st = SOCK_STREAM;
 	bool passive = true;
+
+	assert((val = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LABEL)) != NULL);
+	joblabel = launch_data_get_string(val);
 
 	if ((val = launch_data_dict_lookup(tmp, LAUNCH_JOBSOCKETKEY_TYPE))) {
 		if (!strcasecmp(launch_data_get_string(val), "stream")) {
@@ -630,7 +591,6 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 		}
 
 		for (res = res0; res; res = res->ai_next) {
-			launch_data_t rvs_fd = NULL;
 			if ((sfd = _fd(socket(res->ai_family, res->ai_socktype, res->ai_protocol))) == -1) {
 				fprintf(stderr, "socket(): %s\n", strerror(errno));
 				return;
@@ -667,30 +627,22 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 				}
 				if (rendezvous && (res->ai_family == AF_INET || res->ai_family == AF_INET6) &&
 						(res->ai_socktype == SOCK_STREAM || res->ai_socktype == SOCK_DGRAM)) {
-					launch_data_t rvs_fds = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_BONJOURFDS);
-					if (NULL == rvs_fds) {
-						rvs_fds = launch_data_alloc(LAUNCH_DATA_ARRAY);
-						launch_data_dict_insert(thejob, rvs_fds, LAUNCH_JOBKEY_BONJOURFDS);
-					}
 					if (NULL == rnames) {
-						rvs_fd = do_rendezvous_magic(res, serv);
-						if (rvs_fd)
-							launch_data_array_append(rvs_fds, rvs_fd);
+						do_rendezvous_magic(res, serv, joblabel);
 					} else if (LAUNCH_DATA_STRING == launch_data_get_type(rnames)) {
-						rvs_fd = do_rendezvous_magic(res, launch_data_get_string(rnames));
-						if (rvs_fd)
-							launch_data_array_append(rvs_fds, rvs_fd);
+						do_rendezvous_magic(res, launch_data_get_string(rnames), joblabel);
 					} else if (LAUNCH_DATA_ARRAY == launch_data_get_type(rnames)) {
 						size_t rn_i, rn_ac = launch_data_array_get_count(rnames);
 
 						for (rn_i = 0; rn_i < rn_ac; rn_i++) {
 							launch_data_t rn_tmp = launch_data_array_get_index(rnames, rn_i);
 
-							rvs_fd = do_rendezvous_magic(res, launch_data_get_string(rn_tmp));
-							if (rvs_fd)
-								launch_data_array_append(rvs_fds, rvs_fd);
+							do_rendezvous_magic(res, launch_data_get_string(rn_tmp), joblabel);
 						}
 					}
+					/* <rdar://problem/3964648> Launchd should not register the same service more than once */
+					/* <rdar://problem/3965154> Switch to DNSServiceRegisterAddrInfo() */
+					rendezvous = false;
 				}
 			} else {
 				if (connect(sfd, res->ai_addr, res->ai_addrlen) == -1) {
@@ -699,11 +651,6 @@ static void sock_dict_edit_entry(launch_data_t tmp, const char *key, launch_data
 				}
 			}
 			val = launch_data_new_fd(sfd);
-			if (rvs_fd) {
-				/* <rdar://problem/3964648> Launchd should not register the same service more than once */
-				/* <rdar://problem/3965154> Switch to DNSServiceRegisterAddrInfo() */
-				rendezvous = false;
-			}
 			launch_data_array_append(fdarray, val);
 		}
 	}
@@ -754,36 +701,87 @@ static void do_mgroup_join(int fd, int family, int socktype, int protocol, const
 	freeaddrinfo(res0);
 }
 
+struct bonjour_magic {
+	SLIST_ENTRY(bonjour_magic) sle;
+	char *str;
+	int port;
+	char label[0];
+};
 
-static launch_data_t do_rendezvous_magic(const struct addrinfo *res, const char *serv)
+static SLIST_HEAD(, bonjour_magic) bm_later = { NULL };
+
+void
+do_rendezvous_magic(const struct addrinfo *res, const char *serv, const char *joblabel)
 {
-	struct stat sb;
-	DNSServiceRef service;
+	struct bonjour_magic *bm = calloc(1, sizeof(struct bonjour_magic) + strlen(joblabel) + 1);
+	const char *typestr = "udp";
+
+	if (res->ai_socktype == SOCK_STREAM)
+		typestr = "tcp";
+
+	strcpy(bm->label, joblabel);
+
+	asprintf(&bm->str, "_%s._%s.", serv, typestr);
+
+	if (res->ai_family == AF_INET) {
+		bm->port = ((struct sockaddr_in *)res->ai_addr)->sin_port;
+	} else {
+		bm->port = ((struct sockaddr_in6 *)res->ai_addr)->sin6_port;
+	}
+
+	SLIST_INSERT_HEAD(&bm_later, bm, sle);
+}
+
+
+void
+workaround_bonjour_asynchronously(void)
+{
+	launch_data_t resp, msg, msgpayload, tmpa;
+	struct bonjour_magic *bm;
 	DNSServiceErrorType error;
-	char rvs_buf[200];
-	short port;
-	static int statres = 1;
+	DNSServiceRef service;
+	int fd;
 
-	if (1 == statres)
-		statres = stat("/usr/sbin/mDNSResponder", &sb);
+	if (fork() != 0)
+		return;
+	
+	signal(SIGHUP, SIG_IGN);
+	setsid();
+	sleep(30);
 
-	if (-1 == statres)
-		return NULL;
+	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+	msgpayload = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 
-	sprintf(rvs_buf, "_%s._%s.", serv, res->ai_socktype == SOCK_STREAM ? "tcp" : "udp");
+	SLIST_FOREACH(bm, &bm_later, sle) {
+		service = NULL;
+		error = DNSServiceRegister(&service, 0, 0, NULL, bm->str, NULL, NULL, bm->port, 0, NULL, NULL, NULL);
+		if (error != kDNSServiceErr_NoError) {
+			fprintf(stderr, "DNSServiceRegister(\"%s\"): %d\n", bm->str, error);
+			continue;
+		}
+		fd = DNSServiceRefSockFD(service);
+		tmpa = launch_data_dict_lookup(msgpayload, bm->label);
+		if (!tmpa) {
+			tmpa = launch_data_alloc(LAUNCH_DATA_ARRAY);
+			launch_data_dict_insert(msgpayload, tmpa, bm->label);
+		}
+		launch_data_array_append(tmpa, launch_data_new_fd(fd));
+	}
 
-	if (res->ai_family == AF_INET)
-		port = ((struct sockaddr_in *)res->ai_addr)->sin_port;
-	else
-		port = ((struct sockaddr_in6 *)res->ai_addr)->sin6_port;
+	launch_data_dict_insert(msg, msgpayload, LAUNCH_KEY_WORKAROUNDBONJOUR);
 
-	error = DNSServiceRegister(&service, 0, 0, NULL, rvs_buf, NULL, NULL, port, 0, NULL, NULL, NULL);
+	resp = launch_msg(msg);
 
-	if (error == kDNSServiceErr_NoError)
-		return launch_data_new_fd(DNSServiceRefSockFD(service));
+	launch_data_free(msg);
 
-	fprintf(stderr, "DNSServiceRegister(\"%s\"): %d\n", serv, error);
-	return NULL;
+	if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
+		errno = launch_data_get_errno(resp);
+		fprintf(stderr, "Workaround Bonjour: %s\n", strerror(errno));
+	}
+
+	launch_data_free(resp);
+
+	_exit(EXIT_SUCCESS);
 }
 
 static CFPropertyListRef CreateMyPropertyListFromFile(const char *posixfile)
@@ -928,7 +926,7 @@ static int _fd(int fd)
 
 static int load_and_unload_cmd(int argc, char *const argv[])
 {
-	launch_data_t pass0, pass1, pass2;
+	launch_data_t pass0, pass1;
 	int i, ch;
 	bool wflag = false;
 	bool lflag = false;
@@ -954,7 +952,7 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 		return 1;
 	}
 
-	/* I wish I didn't need to do three passes, but I need to load mDNSResponder and use it too.
+	/* I wish I didn't need to do multiple passes, but I need to load mDNSResponder and use it too.
 	 * And loading legacy mach init jobs is extra fun.
 	 *
 	 * In later versions of launchd, I hope to load everything in the first pass,
@@ -965,33 +963,27 @@ static int load_and_unload_cmd(int argc, char *const argv[])
 
 	pass0 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 	pass1 = launch_data_alloc(LAUNCH_DATA_ARRAY);
-	pass2 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 
 	for (i = 0; i < argc; i++)
-		readpath(argv[i], pass0, pass1, pass2, wflag, lflag, Fflag);
+		readpath(argv[i], pass0, pass1, wflag, lflag, Fflag);
 
 	if (launch_data_array_get_count(pass0) == 0 &&
-			launch_data_array_get_count(pass1) == 0 &&
-			launch_data_array_get_count(pass2) == 0) {
+			launch_data_array_get_count(pass1) == 0) {
 		fprintf(stderr, "nothing found to %s\n", lflag ? "load" : "unload");
 		launch_data_free(pass0);
 		launch_data_free(pass1);
-		launch_data_free(pass2);
 		return 1;
 	}
 	
 	if (lflag) {
 		distill_jobs(pass1);
 		submit_mach_jobs(pass0);
+		workaround_bonjour_asynchronously();
 		submit_job_pass(pass1);
 		let_go_of_mach_jobs();
-		distill_jobs(pass2);
-		submit_job_pass(pass2);
 	} else {
 		for (i = 0; i < (int)launch_data_array_get_count(pass1); i++)
 			unloadjob(launch_data_array_get_index(pass1, i));
-		for (i = 0; i < (int)launch_data_array_get_count(pass2); i++)
-			unloadjob(launch_data_array_get_index(pass2, i));
 	}
 
 	return 0;

@@ -328,6 +328,67 @@ rl_expand_prompt (prompt)
     }
 }
 
+static void block_sigwinch PARAMS((void));
+static void release_sigwinch PARAMS((void));
+
+#if defined (HAVE_POSIX_SIGNALS)
+static sigset_t sigwinch_set, sigwinch_oset;
+#else /* !HAVE_POSIX_SIGNALS */
+#  if defined (HAVE_BSD_SIGNALS)
+static int sigwinch_oldmask;
+#  endif /* HAVE_BSD_SIGNALS */
+#endif /* !HAVE_POSIX_SIGNALS */
+
+static int sigwinch_blocked;
+
+/* Cause SIGWINCH to not be delivered until the corresponding call to
+   release_sigwinch(). */
+static void
+block_sigwinch ()
+{
+  if (sigwinch_blocked)
+    return;
+
+#if defined (HAVE_POSIX_SIGNALS)
+  sigemptyset (&sigwinch_set);
+  sigemptyset (&sigwinch_oset);
+  sigaddset (&sigwinch_set, SIGWINCH);
+  sigprocmask (SIG_BLOCK, &sigwinch_set, &sigwinch_oset);
+#else /* !HAVE_POSIX_SIGNALS */
+#  if defined (HAVE_BSD_SIGNALS)
+  sigwinch_oldmask = sigblock (sigmask (SIGWINCH));
+#  else /* !HAVE_BSD_SIGNALS */
+#    if defined (HAVE_USG_SIGHOLD)
+  sighold (SIGWINCH);
+#    endif /* HAVE_USG_SIGHOLD */
+#  endif /* !HAVE_BSD_SIGNALS */
+#endif /* !HAVE_POSIX_SIGNALS */
+
+  sigwinch_blocked = 1;
+}
+
+/* Allow SIGWINCH to be delivered. */
+static void
+release_sigwinch ()
+{
+  if (sigwinch_blocked == 0)
+    return;
+
+#if defined (HAVE_POSIX_SIGNALS)
+  sigprocmask (SIG_SETMASK, &sigwinch_oset, (sigset_t *)NULL);
+#else
+#  if defined (HAVE_BSD_SIGNALS)
+  sigsetmask (sigwinch_oldmask);
+#  else /* !HAVE_BSD_SIGNALS */
+#    if defined (HAVE_USG_SIGHOLD)
+  sigrelse (SIGWINCH);
+#    endif /* HAVE_USG_SIGHOLD */
+#  endif /* !HAVE_BSD_SIGNALS */
+#endif /* !HAVE_POSIX_SIGNALS */
+
+  sigwinch_blocked = 0;
+}
+
 /* Initialize the VISIBLE_LINE and INVISIBLE_LINE arrays, and their associated
    arrays of line break markers.  MINSIZE is the minimum size of VISIBLE_LINE
    and INVISIBLE_LINE; if it is greater than LINE_SIZE, LINE_SIZE is
@@ -339,6 +400,8 @@ init_line_structures (minsize)
 {
   register int n;
 
+
+  block_sigwinch();
   if (invisible_line == 0)	/* initialize it */
     {
       if (line_size < minsize)
@@ -372,6 +435,7 @@ init_line_structures (minsize)
 #endif
       inv_lbreaks[0] = vis_lbreaks[0] = 0;
     }
+  release_sigwinch();
 }
   
 /* Basic redisplay algorithm. */

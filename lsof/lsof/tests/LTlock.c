@@ -325,7 +325,7 @@ print_file_error:
     if (write(Fd, buf, sizeof(buf)) != sizeof(buf)) {
 	(void) fprintf(stderr,
 	    "ERROR!!!  can't write %d bytes to the beginning of %s\n",
-	    sizeof(buf), Path);
+	    (int)sizeof(buf), Path);
 	goto print_file_error;
     }
 /*
@@ -402,6 +402,7 @@ print_file_error:
 	xv = 0;
     }
     (void) PrtMsgX(tcp, Pn, cleanup, xv);
+    return(0);
 }
 
 
@@ -542,7 +543,6 @@ tstwlsof(opt, xlk)
     char *tcp;				/* temporary character pointer */
     int ti;				/* temporary integer */
     LTfldo_t *typ;			/* file type pointer */
-    int xv = 0;				/* exit value */
 /*
  * Make sure there is an expected lock value.
  */

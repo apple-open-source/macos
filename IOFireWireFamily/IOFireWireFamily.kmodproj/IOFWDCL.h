@@ -6,6 +6,9 @@
 *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
 *
 *	$Log: IOFWDCL.h,v $
+*	Revision 1.12.8.1  2006/04/19 17:48:13  ayanowit
+*	Merged in changes for Leopard
+*	
 *	Revision 1.12  2005/02/18 03:19:03  niels
 *	fix isight
 *	
@@ -153,7 +156,10 @@ class IOFWDCL : public OSObject
 		
 		virtual IOReturn				compile( IODCLProgram & , bool & ) = 0 ;
 		virtual void					link () = 0 ;
-		virtual void					relink ( IOFWDCL * ) = 0 ;
+		
+		OSMetaClassDeclareReservedUnused ( IOFWDCL, 4 ) ;		// used to be relink()
+		
+	public:
 		virtual bool					interrupt( bool &, IOFWDCL * & ) = 0 ;
 		virtual void					finalize ( IODCLProgram & ) ;
 		virtual IOReturn				importUserDCL (

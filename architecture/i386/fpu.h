@@ -35,6 +35,9 @@
  *	Created.
  */
 
+#ifndef _ARCH_I386_FPU_H_
+#define _ARCH_I386_FPU_H_
+
 /*
  * Data register.
  */
@@ -121,7 +124,7 @@ typedef struct fp_control {
 					:3;
 } fp_control_t;
 
-#import <architecture/i386/sel.h>
+#include <architecture/i386/sel.h>
 
 /*
  * Floating point 'environment'
@@ -148,7 +151,21 @@ typedef struct fp_env {
  * used by FSAVE/FRSTOR instructions.
  */
  
+/*
+ * To allow the the common idiom of:
+ *     #define environ (*_NSGetEnviron())
+ * to be used these fields were renamed.  Old code that that does
+ * not use this idiom can use the old field names by defining
+ * _ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_ .
+ */
 typedef struct fp_state {
+#if _ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
     fp_env_t			environ;
     fp_stack_t			stack;
+#else
+    fp_env_t			fp_environ;
+    fp_stack_t			fp_stack;
+#endif
 } fp_state_t;
+
+#endif	/* _ARCH_I386_FPU_H_ */

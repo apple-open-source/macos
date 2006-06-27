@@ -561,14 +561,13 @@ static Boolean kextd_find_rom_mkexts(void)
 *
 *******************************************************************************/
 
-#define REBUILDMKEXT_COMMAND	"/usr/sbin/kextcache -elF -a "
+#define REBUILDMKEXT_COMMAND	"/usr/sbin/kextcache -elF -a ppc -a i386"
 
 static void check_extensions_mkext(void)
 {
     struct stat extensions_stat_buf;
     struct stat mkext_stat_buf;
     Boolean rebuild;
-    char rebuildmkext_cmd[1 + strlen(REBUILDMKEXT_COMMAND) + 64];
 
     rebuild = (0 != stat(kKXCSystemExtensionsFolder ".mkext", &mkext_stat_buf));
     if (!rebuild && (0 == stat(kKXCSystemExtensionsFolder, &extensions_stat_buf)))
@@ -586,14 +585,11 @@ static void check_extensions_mkext(void)
 	    break;
 	}
 
-	strcpy(rebuildmkext_cmd, REBUILDMKEXT_COMMAND);
-	strcat(rebuildmkext_cmd, arch->name);
+	// kextd_error_log(REBUILDMKEXT_COMMAND);
 
-	// kextd_error_log(rebuildmkext_cmd);
-
-	if (0 != system(rebuildmkext_cmd))
+	if (0 != system(REBUILDMKEXT_COMMAND))
 	{
-	    kextd_error_log(rebuildmkext_cmd);
+	    kextd_error_log(REBUILDMKEXT_COMMAND);
 	    kextd_error_log("failed");
 	    break;
 	}

@@ -450,6 +450,9 @@ typedef enum
 
 - (void)clear;
 
++ (BOOL)includesCommentsInDOM;
++ (void)setIncludesCommentsInDOM:(BOOL)include;
+
 @end
 
 // The WebCoreBridge protocol contains methods for use by the WebCore side of the bridge.

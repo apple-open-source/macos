@@ -363,7 +363,7 @@ static tDirStatus opendirectory_smb_pwd_check_ntlmv1(tDirReference dirRef, tDirN
 		return eDSAuthFailed;
 	}
 
- 	if (user_sess_key != NULL)
+ 	if ((user_sess_key != NULL) && (strcmp(inAuthMethod,kDSStdAuthSMB_NT_Key) == 0) )
 	{
 		*user_sess_key = data_blob(NULL, 16);
 		become_root();
@@ -371,7 +371,7 @@ static tDirStatus opendirectory_smb_pwd_check_ntlmv1(tDirReference dirRef, tDirN
 		unbecome_root();
 	}
 	
-	if (eDSAuthMethodNotSupported == status || eNotHandledByThisNode == status)
+	if (eDSAuthMethodNotSupported == status || eNotHandledByThisNode == status || (strcmp(inAuthMethod,kDSStdAuthSMB_LM_Key) == 0))
 	{
    		status = opendirectory_auth_user(dirRef, userNode,(const char*) user, sec_blob->data, nt_response->data, inAuthMethod);
 		DEBUG(1, ("opendirectory_smb_pwd_check_ntlmv1: [%d]opendirectory_auth_user\n", status));	

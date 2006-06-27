@@ -141,9 +141,12 @@ enum {
     kUHCI_FRAME_T   =   0x00000001
 };
 
-/* Transaction descriptor. */
+// Transfer descriptor
+typedef struct UHCITransferDescriptorShared
+UHCITransferDescriptorShared,
+*UHCITransferDescriptorSharedPtr;
 
-struct UHCITD {
+struct UHCITransferDescriptorShared {
     volatile UInt32  link;
     volatile UInt32  ctrlStatus;
     volatile UInt32  token;
@@ -189,11 +192,16 @@ enum {
 #define UHCI_TD_GET_MAXLEN(n)   ((((n) >> 21) + 1) & 0x7FF)
 #define UHCI_TD_SET_MAXLEN(n)   ((((n) - 1) & 0x7FF) << 21)
 
-/* Queue head. */
 
-struct UHCIQH {
+// Queue head
+typedef struct UHCIQueueHeadShared
+UHCIQueueHeadShared,
+*UHCIQueueHeadSharedPtr;
+
+struct UHCIQueueHeadShared {
     volatile UInt32  hlink;
     volatile UInt32  elink;
+	UInt32 			 pad[2];				// 4358445 - need to make sure these get 16 byte aligned
 };
 
 enum {
@@ -221,6 +229,15 @@ enum {
      */
     kUHCI_QH_REMOVE_DELAY = 5
 };
+
+enum
+{
+    kUHCIPageSize			= 4096,
+};
+#define kUHCIPageOffsetMask	( kUHCIPageSize - 1 )		// mask off just the offset bits (low 12)
+#define kUHCIPageMask 		(~(kUHCIPageOffsetMask))	// mask off just the page number (high 20)
+#define kUHCIPtrMask		( 0xFFFFFFF0 )				// mask for list element pointers
+
 
 #endif /*  _IOKIT_UHCI_H_ */
 

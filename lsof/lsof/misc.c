@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: misc.c,v 1.23 2004/10/17 21:39:23 abe Exp $";
+static char *rcsid = "$Id: misc.c,v 1.24 2005/08/08 19:43:41 abe Exp $";
 #endif
 
 
@@ -224,9 +224,9 @@ compdev(a1, a2)
 	    return(-1);
 	if ((dev_t)((*p1)->rdev) > (dev_t)((*p2)->rdev))
 	    return(1);
-	if ((ino_t)((*p1)->inode) < (ino_t)((*p2)->inode))
+	if ((INODETYPE)((*p1)->inode) < (INODETYPE)((*p2)->inode))
 	    return(-1);
-	if ((ino_t)((*p1)->inode) > (ino_t)((*p2)->inode))
+	if ((INODETYPE)((*p1)->inode) > (INODETYPE)((*p2)->inode))
 	    return(1);
 	return(strcmp((*p1)->name, (*p2)->name));
 }
@@ -290,7 +290,7 @@ doinchild(fn, fp, rbuf, rbln)
 		 */
 
 		    int fd, nd, r_al, r_rbln;
-		    char r_arg[MAXPATHLEN], r_rbuf[MAXPATHLEN];
+		    char r_arg[MAXPATHLEN+1], r_rbuf[MAXPATHLEN+1];
 		    int (*r_fn)();
 		/*
 		 * Close all open file descriptors except Pipes[0] and
@@ -337,7 +337,7 @@ doinchild(fn, fp, rbuf, rbln)
 			||  write(Pipes[3], r_rbuf, r_rbln) != r_rbln)
 			    break;
 		    }
-		    _exit(0);
+		    (void) _exit(0);
 		}
 	    /*
 	     * Continue in the parent process to finish the setup.
@@ -800,18 +800,18 @@ char *
 Readlink(arg)
 	char *arg;			/* argument to be interpreted */
 {
-	char abuf[MAXPATHLEN];
+	char abuf[MAXPATHLEN+1];
 	int alen;
 	char *ap;
 	char *argp1, *argp2;
 	int i, len, llen, slen;
-	char lbuf[MAXPATHLEN];
+	char lbuf[MAXPATHLEN+1];
 	static char *op = (char *)NULL;
 	static int ss = 0;
 	char *s1;
 	static char **stk = (char **)NULL;
 	static int sx = 0;
-	char tbuf[MAXPATHLEN];
+	char tbuf[MAXPATHLEN+1];
 /*
  * See if avoiding kernel blocks.
  */
@@ -835,7 +835,7 @@ Readlink(arg)
 	for (alen = 0, ap = abuf, argp1 = argp2 = arg; *argp2; argp1 = argp2 ) {
 	    for (argp2 = argp1 + 1; *argp2 && *argp2 != '/'; argp2++)
 		;
-	    if ((len = argp2 - arg) >= MAXPATHLEN) {
+	    if ((len = argp2 - arg) >= (int)sizeof(tbuf)) {
 
 path_too_long:
 		if (!Fwarn) {
@@ -905,7 +905,7 @@ path_too_long:
 	/*
 	 * Add to the path assembly.
 	 */
-	    if ((alen + llen + slen) > (int)sizeof(abuf))
+	    if ((alen + llen + slen) >= (int)sizeof(abuf))
 		goto path_too_long;
 	    if (slen == 2)
 		*ap++ = '/';

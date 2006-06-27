@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.53 2004/07/06 19:09:10 abe Exp $
+ * $Id: lsof.h,v 1.58 2006/03/27 23:04:25 abe Exp $
  */
 
 
@@ -65,9 +65,15 @@
  * Definitions and structures that may be needed by dlsof.h
  */
 
+# if	!defined(INODETYPE)
+#define	INODETYPE	unsigned long	/* node number storage type */
+#define	INODEPSPEC	"l"		/* node number printf specification
+					 * modifier */
+# endif	/* !defined(INODETYPE) */
+
 struct l_dev {
 	dev_t rdev;			/* device */
-	ino_t inode;			/* inode number */
+	INODETYPE inode;		/* inode number */
 	char *name;			/* name */
 	int v;				/* has been verified
 					 * (when DCUnsafe == 1) */
@@ -84,6 +90,7 @@ struct l_dev {
 #define	FF_BLKANDSET	"BAS"
 #define	FF_BLKINUSE	"BKIU"
 #define	FF_BLKSEEK	"BSK"
+#define	FF_CIO		"CIO"
 #define	FF_CLONE	"CLON"
 #define	FF_CLREAD	"CLRD"
 #define	FF_COPYAVOID	"CA"
@@ -95,6 +102,7 @@ struct l_dev {
 #define	FF_DIRECT	"DIR"
 #define	FF_DOCLONE	"DOCL"
 #define	FF_DSYNC	"DSYN"
+#define	FF_EVTONLY	"EVO"
 #define	FF_EXCL		"EXCL"
 #define	FF_EXEC		"EX"
 #define	FF_EXLOCK	"XL"
@@ -134,6 +142,7 @@ struct l_dev {
 #define	FF_RSYNC	"RSYN"
 #define	FF_SETBLK	"BL"
 #define	FF_SHLOCK	"SL"
+#define	FF_SNAP		"SNAP"
 #define	FF_SOCKET	"SOCK"
 #define	FF_SQTSH1	"SQS1"
 #define	FF_SQTSH2	"SQS2"
@@ -167,6 +176,7 @@ struct l_dev {
 #define	POF_INUSE	"USE"
 #define	POF_MAPPED	"MP"
 #define	POF_FSHMAT	"SHMT"
+#define	POF_RESERVED	"OPIP"
 #define	POF_RSVWT	"RSVW"
 
 
@@ -205,7 +215,6 @@ extern int optind;
 #define	CRC_TBLL	256		/* crc table length for software */
 #define	CRC_BITS	8		/* number of bits contributing */
 # endif	/* defined(HASDCACHE) */
-
 #define	CMDL		9		/* maximum number of characters from
 					 * command name to print in COMMAND
 					 * column */
@@ -286,31 +295,45 @@ static struct utmp dummy_utmp;		/* to get login name length */
 #define	N_CFS		8		/* CFS node */
 #define	N_CHR		9		/* character device node */
 #define	N_COM		10		/* streams common device node */
-#define	N_DEV		11		/* DEV FS node */
-#define	N_DOOR		12		/* DOOR node */
-#define	N_FD		13		/* FD node */
-#define	N_FIFO		14		/* FIFO node */
-#define	N_HSFS		15		/* High Sierra node */
-#define	N_KERN		16		/* BSD /kern node */
-#define	N_LOFS		17		/* loopback node */
-#define	N_MNT		18		/* mount file system device node */
-#define	N_MPC		19		/* multiplexed device node */
-#define	N_MVFS		20		/* multi-volume file system node (?) */
-#define	N_NFS		21		/* NFS node */
-#define	N_NM		22		/* named file system node */
-#define	N_OBJF		23		/* objfs file system node */
-#define	N_PCFS		24		/* PC file system node */
-#define	N_PIPE		25		/* pipe device node */
-#define	N_PROC		26		/* /proc node */
-#define	N_PSEU		27		/* pseudofs node */
-#define	N_SAMFS		28		/* Solaris SAM-FS */
-#define	N_SOCK		29		/* sock_vnodeops node */
-#define	N_SPEC		30		/* spec_vnodeops node */
-#define	N_STREAM	31		/* stream node */
-#define	N_TMP		32		/* tmpfs node */
-#define	N_UFS		33		/* UNIX file system node */
-#define	N_VXFS		34		/* Veritas file system node */
-#define	N_XFS		35		/* XFS node */
+#define	N_CTFSADIR	11		/* Solaris CTFS adir node */
+#define	N_CTFSBUND	12		/* Solaris CTFS bundle node */
+#define	N_CTFSCDIR	13		/* Solaris CTFS cdir node */
+#define	N_CTFSCTL	14		/* Solaris CTFS ctl node */
+#define	N_CTFSEVT	15		/* Solaris CTFS events node */
+#define	N_CTFSLATE	16		/* Solaris CTFS latest node */
+#define	N_CTFSROOT	17		/* Solaris CTFS root node */
+#define	N_CTFSSTAT	18		/* Solaris CTFS status node */
+#define	N_CTFSSYM	19		/* Solaris CTFS symbolic node */
+#define	N_CTFSTDIR	20		/* Solaris CTFS type node */
+#define	N_CTFSTMPL	21		/* Solaris CTFS template node */
+#define	N_DEV		22		/* DEV FS node */
+#define	N_DOOR		23		/* DOOR node */
+#define	N_FD		24		/* FD node */
+#define	N_FIFO		25		/* FIFO node */
+#define	N_HSFS		26		/* High Sierra node */
+#define	N_KERN		27		/* BSD /kern node */
+#define	N_LOFS		28		/* loopback node */
+#define	N_MNT		29		/* mount file system device node */
+#define	N_MPC		30		/* multiplexed device node */
+#define	N_MVFS		31		/* multi-volume file system node (?) */
+#define	N_NFS		32		/* NFS node */
+#define	N_NFS4		33		/* NFS version 4 node */
+#define	N_NM		34		/* named file system node */
+#define	N_OBJF		35		/* objfs file system node */
+#define	N_PCFS		36		/* PC file system node */
+#define	N_PIPE		37		/* pipe device node */
+#define	N_PORT		38		/* port node */
+#define	N_PROC		39		/* /proc node */
+#define	N_PSEU		49		/* pseudofs node */
+#define	N_SAMFS		41		/* Solaris SAM-FS */
+#define	N_SANFS		42		/* AIX SANFS */
+#define	N_SOCK		43		/* sock_vnodeops node */
+#define	N_SPEC		44		/* spec_vnodeops node */
+#define	N_STREAM	45		/* stream node */
+#define	N_TMP		46		/* tmpfs node */
+#define	N_UFS		47		/* UNIX file system node */
+#define	N_VXFS		48		/* Veritas file system node */
+#define	N_XFS		49		/* XFS node */
 
 # if	!defined(OFFDECDIG)
 #define	OFFDECDIG	8		/* maximum number of digits in the
@@ -437,7 +460,7 @@ struct afsnode {			/* AFS pseudo-node structure */
 	dev_t dev;
 	unsigned char ino_st;		/* 1 if inode has a value */
 	unsigned char nlink_st;		/* 1 if nlink has a value */
-	unsigned long inode;
+	INODETYPE inode;
 	unsigned long size;
 	long nlink;
 };
@@ -466,7 +489,9 @@ extern struct drive_Nl Drive_Nl[];	/* defined in dstore.c */
 
 struct int_lst {
 	int i;				/* integer argument */
-	int f;				/* find state */
+	int f;				/* find state -- meaningful only if
+					 * x == 0 */
+	int x;				/* excluded state */
 };
 
 typedef struct lsof_rx {		/* regular expression table entry */
@@ -591,6 +616,8 @@ extern struct fieldsel FieldSel[];
 extern int Hdr;
 
 enum IDType {PGID, PID};
+extern char *InodeFmt_d;
+extern char *InodeFmt_x;
 
 struct lfile {
 	char access;
@@ -612,6 +639,11 @@ struct lfile {
 
 	unsigned char lmi_srch;		/* local mount info search status:
 					 * 1 = printname() search required */
+
+# if	defined(HASMNTSTAT)
+	unsigned char mnt_stat;		/* mount point stat(2) status */
+# endif	/* defined(HASMNTSTAT) */
+
 	unsigned char nlink_def;	/* link count definition status */
 	unsigned char off_def;		/* offset definition status */
 	unsigned char rdev_def;		/* rdev definition status */
@@ -631,14 +663,14 @@ struct lfile {
 	SZOFFTYPE sz;
 	dev_t dev;
 	dev_t rdev;
-	unsigned long inode;
+	INODETYPE inode;
 	long nlink;			/* link count */
 	char *dev_ch;
 	char *fsdir;			/* file system directory */
 	char *fsdev;			/* file system device */
 
 # if	defined(HASFSINO)
-	unsigned long fs_ino;		/* file system inode number */
+	INODETYPE fs_ino;		/* file system inode number */
 # endif	/* defined HASFSINO) */
 
 	struct linaddr {		/* local Internet address information */
@@ -666,13 +698,15 @@ struct lfile {
 	    } state;
 
 # if	defined(HASSOOPT)
-	    unsigned char qlens;	/* qlen status: 0 = none */
-	    unsigned char qlims;	/* qlim status: 0 = none */
-	    unsigned char rbszs;	/* rbsz status: 0 = none */
-	    unsigned char sbszs;	/* sbsz status: 0 = none */
+	    unsigned char pqlens;	/* pqlen status: 0 = none */
+	    unsigned char qlens;	/* qlen status:  0 = none */
+	    unsigned char qlims;	/* qlim status:  0 = none */
+	    unsigned char rbszs;	/* rbsz status:  0 = none */
+	    unsigned char sbszs;	/* sbsz status:  0 = none */
 	    int kai;			/* TCP keep-alive interval */
 	    int ltm;			/* TCP linger time */
 	    unsigned int opt;		/* socket options */
+	    unsigned int pqlen;		/* partial connection queue length */
 	    unsigned int qlen;		/* connection queue length */
 	    unsigned int qlim;		/* connection queue limit */
 	    unsigned long rbsz;		/* receive buffer size */
@@ -784,7 +818,11 @@ extern long Nlink;
 extern int Nlproc;
 extern char *Nmlst;
 extern int Npgid;
+extern int Npgidi;
+extern int Npgidx;
 extern int Npid;
+extern int Npidi;
+extern int Npidx;
 extern int Npuns;
 extern int Ntype;
 extern int Nuid;
@@ -819,7 +857,7 @@ struct procfsid {
 	unsigned char f;		/* match found if == 1 */
 
 #  if	defined(HASPINODEN)
-	unsigned long inode;		/* search inode number */
+	INODETYPE inode;		/* search inode number */
 #  endif	/* defined(HASPINODEN) */
 
 	struct procfsid *next;		/* forward link */

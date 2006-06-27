@@ -124,7 +124,7 @@ IOUSBCompositeDriver::message( UInt32 type, IOService * provider,  void * argume
         case kIOUSBMessagePortHasBeenReset:
             // Should we do something here if we get an error?
             //
-            USBLog(3, "%s[%p]::message - received kIOUSBMessagePortHasBeenReset",getName(), this);
+            USBLog(5, "%s[%p]::message - received kIOUSBMessagePortHasBeenReset",getName(), this);
             err = ReConfigureDevice();
             break;
             
@@ -210,7 +210,7 @@ IOUSBCompositeDriver::ConfigureDevice()
     
    // Find if we have a Preferred Configuration
     //
-    prefConfig = (OSNumber *) getProperty("Preferred Configuration");
+    prefConfig = (OSNumber *) getProperty(kUSBPreferredConfiguration);
     if ( prefConfig )
     {
         prefConfigValue = prefConfig->unsigned32BitValue();
@@ -251,7 +251,7 @@ IOUSBCompositeDriver::ConfigureDevice()
             }
             else
             {
-                USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d cannot be used (available: %d, previous %d)", getName(), this, fDevice->getName(), i, cdTemp->MaxPower, fDevice->GetBusPowerAvailable(), maxPower );
+                USBLog(5,"%s[%p](%s) ConfigureDevice Config %d with MaxPower %d cannot be used (available: %ld, previous %d)", getName(), this, fDevice->getName(), i, cdTemp->MaxPower, fDevice->GetBusPowerAvailable(), maxPower );
             }
         }
         
@@ -337,7 +337,7 @@ IOUSBCompositeDriver::ConfigureDevice()
     
 	// If we have a property that tells us that we should suspend the port, do it now
 	//
-	suspendPropertyRef = OSDynamicCast( OSBoolean, fDevice->getProperty("kSuspendPort") );
+	suspendPropertyRef = OSDynamicCast( OSBoolean, fDevice->getProperty(kUSBSuspendPort) );
 	if ( suspendPropertyRef && suspendPropertyRef->isTrue() )
 	{
 		USBLog(3, "%s[%p](%s) Need to suspend the port", getName(), this, fDevice->getName() );
@@ -438,7 +438,7 @@ IOUSBCompositeDriver::ReConfigureDevice()
     
 	// If we have a property that tells us that we should suspend the port, do it now
 	//
-	suspendPropertyRef = OSDynamicCast( OSBoolean, fDevice->getProperty("kSuspendPort") );
+	suspendPropertyRef = OSDynamicCast( OSBoolean, fDevice->getProperty(kUSBSuspendPort) );
 	if ( suspendPropertyRef && suspendPropertyRef->isTrue() )
 	{
 		USBLog(3, "%s[%p](%s) Need to suspend the port", getName(), this, fDevice->getName() );
@@ -501,7 +501,7 @@ IOUSBCompositeDriver::CompositeDriverInterestHandler(  void * target, void * ref
             break;
             
         case kIOMessageServiceWasClosed:
-            USBLog(3, "CompositeDriverInterestHandler received kIOMessageServiceWasClosed (expecting close = %d)", me->fExpectingClose);
+            USBLog(5, "CompositeDriverInterestHandler received kIOMessageServiceWasClosed (expecting close = %d)", me->fExpectingClose);
             me->fExpectingClose = false;
             break;
             

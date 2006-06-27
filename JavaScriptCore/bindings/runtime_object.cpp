@@ -41,23 +41,9 @@ using namespace Bindings;
 
 const ClassInfo RuntimeObjectImp::info = {"RuntimeObject", 0, 0, 0};
 
-RuntimeObjectImp::RuntimeObjectImp(ObjectImp *proto)
-  : ObjectImp(proto)
+RuntimeObjectImp::RuntimeObjectImp(Bindings::Instance *i)
+: instance(i)
 {
-    instance = 0;
-}
-
-RuntimeObjectImp::~RuntimeObjectImp()
-{
-    if (ownsInstance) {
-        delete instance;
-    }
-}
-
-RuntimeObjectImp::RuntimeObjectImp(Bindings::Instance *i, bool oi) : ObjectImp ((ObjectImp *)0)
-{
-    ownsInstance = oi;
-    instance = i;
 }
 
 Value RuntimeObjectImp::get(ExecState *exec, const Identifier &propertyName) const
@@ -71,14 +57,14 @@ Value RuntimeObjectImp::get(ExecState *exec, const Identifier &propertyName) con
     if (aClass) {
         
         // See if the instance have a field with the specified name.
-        Field *aField = aClass->fieldNamed(propertyName.ascii(), instance);
+        Field *aField = aClass->fieldNamed(propertyName.ascii(), instance.get());
         if (aField) {
             result = instance->getValueOfField (exec, aField); 
         }
         else {
             // Now check if a method with specified name exists, if so return a function object for
             // that method.
-            MethodList methodList = aClass->methodsNamed(propertyName.ascii(), instance);
+            MethodList methodList = aClass->methodsNamed(propertyName.ascii(), instance.get());
             if (methodList.length() > 0) {
                 result = Object (new RuntimeMethodImp(exec, propertyName, methodList));
             }
@@ -86,7 +72,7 @@ Value RuntimeObjectImp::get(ExecState *exec, const Identifier &propertyName) con
 	
         if (result.type() == UndefinedType) {
             // Try a fallback object.
-            result = aClass->fallbackObject (exec, instance, propertyName);
+            result = aClass->fallbackObject (exec, instance.get(), propertyName);
         }
     }
         
@@ -102,7 +88,7 @@ void RuntimeObjectImp::put(ExecState *exec, const Identifier &propertyName,
     instance->begin();
 
     // Set the value of the property.
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance);
+    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance.get());
     if (aField) {
         getInternalInstance()->setValueOfField(exec, aField, value);
     }
@@ -121,7 +107,7 @@ bool RuntimeObjectImp::canPut(ExecState *exec, const Identifier &propertyName) c
 
     instance->begin();
 
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance);
+    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance.get());
 
     instance->end();
 
@@ -138,13 +124,13 @@ bool RuntimeObjectImp::hasOwnProperty(ExecState *exec,
     
     instance->begin();
 
-    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance);
+    Field *aField = instance->getClass()->fieldNamed(propertyName.ascii(), instance.get());
     if (aField) {
         instance->end();
         return true;
     }
         
-    MethodList methodList = instance->getClass()->methodsNamed(propertyName.ascii(), instance);
+    MethodList methodList = instance->getClass()->methodsNamed(propertyName.ascii(), instance.get());
 
     instance->end();
 
