@@ -94,7 +94,15 @@ static BOOL become_gid(gid_t gid)
 
 static BOOL become_id(uid_t uid, gid_t gid)
 {
+#ifdef WITH_PTHREAD_NP
+	if (uid == 0)
+		uid = KAUTH_UID_NONE;
+	if (gid == 0)
+		gid = KAUTH_GID_NONE;
+	return pthread_setugid_np(uid, gid);
+#else 
 	return become_gid(gid) && become_uid(uid);
+#endif
 }
 
 /****************************************************************************
@@ -106,7 +114,10 @@ static void gain_root(void)
 	if (non_root_mode()) {
 		return;
 	}
-
+	
+#ifdef WITH_PTHREAD_NP
+	become_id(KAUTH_UID_NONE,KAUTH_GID_NONE);
+#else
 	if (geteuid() != 0) {
 		set_effective_uid(0);
 
@@ -126,6 +137,7 @@ static void gain_root(void)
 			       "gid system\n"));
 		}
 	}
+#endif
 }
 
 /****************************************************************************

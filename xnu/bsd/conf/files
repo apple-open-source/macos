@@ -258,6 +258,7 @@ bsd/netinet/raw_ip.c			standard
 bsd/netinet/tcp_debug.c			optional tcpdebug
 bsd/netinet/tcp_input.c			standard
 bsd/netinet/tcp_output.c		standard
+bsd/netinet/tcp_sack.c			standard
 bsd/netinet/tcp_subr.c			standard
 bsd/netinet/tcp_timer.c			standard
 bsd/netinet/tcp_usrreq.c		standard

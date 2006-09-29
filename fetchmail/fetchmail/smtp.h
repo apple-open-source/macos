@@ -7,7 +7,7 @@
 #ifndef _POPSMTP_
 #define _POPSMTP_
 
-#include <time.h>
+#include "config.h"
 
 #define         SMTPBUFSIZE     256
 
@@ -25,16 +25,15 @@
 
 extern time_t last_smtp_ok;
 
-void SMTP_setmode(char);
-int SMTP_helo(int socket,const char *host);
-int SMTP_ehlo(int socket,const char *host, char *name, char *passwd, int *opt);
-int SMTP_from(int socket,const char *from,const char *opts);
-int SMTP_rcpt(int socket,const char *to);
-int SMTP_data(int socket);
-int SMTP_eom(int socket);
-int SMTP_rset(int socket);
-int SMTP_quit(int socket);
-int SMTP_ok(int socket);
+int SMTP_helo(int socket, char smtp_mode, const char *host);
+int SMTP_ehlo(int socket, char smtp_mode, const char *host, char *name, char *passwd, int *opt);
+int SMTP_from(int socket, char smtp_mode, const char *from,const char *opts);
+int SMTP_rcpt(int socket, char smtp_mode, const char *to);
+int SMTP_data(int socket, char smtp_mode);
+int SMTP_eom(int socket, char smtp_mode);
+int SMTP_rset(int socket, char smtp_mode);
+int SMTP_quit(int socket, char smtp_mode);
+int SMTP_ok(int socket, char smtp_mode);
 
 extern char smtp_response[MSGBUFSIZE];
 

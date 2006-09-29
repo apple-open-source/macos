@@ -1,4 +1,4 @@
-/* $Id: auth-pam.h,v 1.25 2004/03/08 12:04:07 dtucker Exp $ */
+/* $Id: auth-pam.h,v 1.27 2004/09/11 12:17:26 dtucker Exp $ */
 
 /*
  * Copyright (c) 2000 Damien Miller.  All rights reserved.
@@ -45,5 +45,6 @@ void free_pam_environment(char **);
 void sshpam_thread_cleanup(void);
 void sshpam_cleanup(void);
 int sshpam_auth_passwd(Authctxt *, const char *);
+int is_pam_session_open(void);
 
 #endif /* USE_PAM */

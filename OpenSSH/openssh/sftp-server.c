@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include "includes.h"
-RCSID("$OpenBSD: sftp-server.c,v 1.45 2004/02/19 21:15:04 markus Exp $");
+RCSID("$OpenBSD: sftp-server.c,v 1.48 2005/06/17 02:44:33 djm Exp $");
 
 #include "buffer.h"
 #include "bufaux.h"
@@ -31,11 +31,7 @@ RCSID("$OpenBSD: sftp-server.c,v 1.45 2004/02/19 21:15:04 markus Exp $");
 #define get_string(lenp)		buffer_get_string(&iqueue, lenp);
 #define TRACE				debug
 
-#ifdef HAVE___PROGNAME
 extern char *__progname;
-#else
-char *__progname;
-#endif
 
 /* input and output queue */
 Buffer iqueue;
@@ -134,7 +130,7 @@ Handle	handles[100];
 static void
 handle_init(void)
 {
-	int i;
+	u_int i;
 
 	for (i = 0; i < sizeof(handles)/sizeof(Handle); i++)
 		handles[i].use = HANDLE_UNUSED;
@@ -143,7 +139,7 @@ handle_init(void)
 static int
 handle_new(int use, const char *name, int fd, DIR *dirp)
 {
-	int i;
+	u_int i;
 
 	for (i = 0; i < sizeof(handles)/sizeof(Handle); i++) {
 		if (handles[i].use == HANDLE_UNUSED) {
@@ -160,7 +156,7 @@ handle_new(int use, const char *name, int fd, DIR *dirp)
 static int
 handle_is_ok(int i, int type)
 {
-	return i >= 0 && i < sizeof(handles)/sizeof(Handle) &&
+	return i >= 0 && (u_int)i < sizeof(handles)/sizeof(Handle) &&
 	    handles[i].use == type;
 }
 
@@ -260,7 +256,7 @@ send_msg(Buffer *m)
 }
 
 static void
-send_status(u_int32_t id, u_int32_t error)
+send_status(u_int32_t id, u_int32_t status)
 {
 	Buffer msg;
 	const char *status_messages[] = {
@@ -276,14 +272,14 @@ send_status(u_int32_t id, u_int32_t error)
 		"Unknown error"			/* Others */
 	};
 
-	TRACE("sent status id %u error %u", id, error);
+	TRACE("sent status id %u error %u", id, status);
 	buffer_init(&msg);
 	buffer_put_char(&msg, SSH2_FXP_STATUS);
 	buffer_put_int(&msg, id);
-	buffer_put_int(&msg, error);
+	buffer_put_int(&msg, status);
 	if (version >= 3) {
 		buffer_put_cstring(&msg,
-		    status_messages[MIN(error,SSH2_FX_MAX)]);
+		    status_messages[MIN(status,SSH2_FX_MAX)]);
 		buffer_put_cstring(&msg, "");
 	}
 	send_msg(&msg);
@@ -481,10 +477,10 @@ process_write(void)
 		} else {
 /* XXX ATOMICIO ? */
 			ret = write(fd, data, len);
-			if (ret == -1) {
+			if (ret < 0) {
 				error("process_write: write failed");
 				status = errno_to_portable(errno);
-			} else if (ret == len) {
+			} else if ((size_t)ret == len) {
 				status = SSH2_FX_OK;
 			} else {
 				logit("nothing at all written");
@@ -839,9 +835,29 @@ process_rename(void)
 		status = errno_to_portable(errno);
 	else if (S_ISREG(sb.st_mode)) {
 		/* Race-free rename of regular files */
-		if (link(oldpath, newpath) == -1)
-			status = errno_to_portable(errno);
-		else if (unlink(oldpath) == -1) {
+		if (link(oldpath, newpath) == -1) {
+			if (errno == EOPNOTSUPP
+#ifdef LINK_OPNOTSUPP_ERRNO
+			    || errno == LINK_OPNOTSUPP_ERRNO
+#endif
+			    ) {
+				struct stat st;
+
+				/*
+				 * fs doesn't support links, so fall back to
+				 * stat+rename.  This is racy.
+				 */
+				if (stat(newpath, &st) == -1) {
+					if (rename(oldpath, newpath) == -1)
+						status =
+						    errno_to_portable(errno);
+					else
+						status = SSH2_FX_OK;
+				}
+			} else {
+				status = errno_to_portable(errno);
+			}
+		} else if (unlink(oldpath) == -1) {
 			status = errno_to_portable(errno);
 			/* clean spare link */
 			unlink(newpath);
@@ -863,20 +879,20 @@ process_readlink(void)
 {
 	u_int32_t id;
 	int len;
-	char link[MAXPATHLEN];
+	char buf[MAXPATHLEN];
 	char *path;
 
 	id = get_int();
 	path = get_string(NULL);
 	TRACE("readlink id %u path %s", id, path);
-	if ((len = readlink(path, link, sizeof(link) - 1)) == -1)
+	if ((len = readlink(path, buf, sizeof(buf) - 1)) == -1)
 		send_status(id, errno_to_portable(errno));
 	else {
 		Stat s;
 
-		link[len] = '\0';
+		buf[len] = '\0';
 		attrib_clear(&s.attrib);
-		s.name = s.long_name = link;
+		s.name = s.long_name = buf;
 		send_names(id, 1, &s);
 	}
 	xfree(path);

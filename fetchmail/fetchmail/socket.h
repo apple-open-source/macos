@@ -7,14 +7,8 @@
 #ifndef SOCKET__
 #define SOCKET__
 
-/* Create a new client socket; returns (FILE *)NULL on error */
-#if INET6_ENABLE
-int SockOpen(const char *host, const char *service, const char *options,
-	     const char *plugin);
-#else /* INET6_ENABLE */
-int SockOpen(const char *host, int clientPort, const char *options,
-	     const char *plugin);
-#endif /* INET6_ENABLE */
+/* Create a new client socket; returns -1 on error */
+int SockOpen(const char *host, const char *service, const char *plugin);
 
 /* Returns 1 if this socket is OK, 0 if it isn't select()able
  * on - probably because it's been closed. You should
@@ -63,7 +57,7 @@ FIXME: document this
 */
 int UnixOpen(const char *path);
 
-#if SSL_ENABLE
+#ifdef SSL_ENABLE
 int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char *certpath,
     char *fingerprint, char *servercname, char *label);
 #endif /* SSL_ENABLE */

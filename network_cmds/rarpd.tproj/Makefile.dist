@@ -1,4 +1,4 @@
-# @(#) $Id: Makefile.dist,v 1.1.1.1 1999/05/02 03:57:59 wsanchez Exp $
+# @(#) $Id: Makefile.dist,v 1.1 1999/05/02 03:57:59 wsanchez Exp $
 
 PROG=	rarpd
 SRCS=	rarpd.c

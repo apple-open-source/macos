@@ -296,6 +296,10 @@ int deliver_mailbox(struct protstream *msg,
     unsigned long uid;
     const char *notifier;
 
+	if ( gUserOpts == NULL ) {
+	gUserOpts = xzmalloc( sizeof(struct od_user_opts) );
+	}
+
     if (dupelim && id && 
 	duplicate_check(id, strlen(id), mailboxname, strlen(mailboxname))) {
 	/* duplicate message */

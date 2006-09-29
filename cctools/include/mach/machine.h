@@ -144,6 +144,7 @@ extern vm_offset_t		interrupt_stack[];
 #define CPU_TYPE_NS32332        ((cpu_type_t) 5)
 #define	CPU_TYPE_MC680x0	((cpu_type_t) 6)
 #define CPU_TYPE_I386		((cpu_type_t) 7)
+#define CPU_TYPE_X86_64		((cpu_type_t) (CPU_TYPE_I386 | CPU_ARCH_ABI64))
 #define CPU_TYPE_MIPS		((cpu_type_t) 8)
 #define CPU_TYPE_NS32532        ((cpu_type_t) 9)
 #define CPU_TYPE_HPPA           ((cpu_type_t) 11)
@@ -224,6 +225,7 @@ extern vm_offset_t		interrupt_stack[];
  */
 
 #define	CPU_SUBTYPE_I386_ALL	((cpu_subtype_t) 3)
+#define	CPU_SUBTYPE_X86_64_ALL	CPU_SUBTYPE_I386_ALL
 #define CPU_SUBTYPE_386		((cpu_subtype_t) 3)
 #define CPU_SUBTYPE_486		((cpu_subtype_t) 4)
 #define CPU_SUBTYPE_486SX	((cpu_subtype_t) 4 + 128)

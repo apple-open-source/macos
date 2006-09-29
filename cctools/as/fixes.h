@@ -34,6 +34,9 @@ struct fix {
     long int	 fx_where;	/* where is the 1st byte to fix up? */
     symbolS	*fx_addsy;	/* NULL or Symbol whose value we add in */
     symbolS	*fx_subsy;	/* NULL or Symbol whose value we subtract */
+#if defined(I386) && defined(ARCH64)
+    symbolS *fx_localsy;	/* NULL or pseudo-symbol for this fixup */
+#endif
     long int	 fx_offset;	/* absolute number we add in */
     struct fix	*fx_next;	/* NULL or -> next fixS */
     char	 fx_size;	/* how many bytes are involved? */
@@ -46,7 +49,7 @@ struct fix {
 };
 typedef struct fix fixS;
 
-extern void fix_new(
+extern fixS *fix_new(
 	fragS	*frag,		/* which frag? */
 	int	where,		/* where in that frag? */
 	int	size,		/* 1, 2 or 4 bytes */

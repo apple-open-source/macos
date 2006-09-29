@@ -5,7 +5,6 @@ driver.c
 env.c
 etrn.c
 fetchmail.c
-fetchmail.h
 getpass.c
 gssapi.c
 idle.c
@@ -18,10 +17,11 @@ odmr.c
 opie.c
 options.c
 pop3.c
-rcfile_y.c
+rcfile_y.y
 report.c
 rfc822.c
 rpa.c
+servport.c
 sink.c
 smtp.c
 socket.c

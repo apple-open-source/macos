@@ -56,6 +56,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "messages.h"
 #include "xmalloc.h"
 #include "app.h"
+#if defined(I386) && defined(ARCH64)
+#include "i386.h"
+#endif
 
 /*
  * Parsing of input is done off of this pointer which points to the next char
@@ -99,32 +102,35 @@ char lex_type[256] = {
  * In: a character.
  * Out: TRUE if this character ends a line.
  */
-#define _ (0)
 static
 #ifndef PPC
 const
 #endif /* PPC */
 char is_end_of_line_tab[256] = {
- 99, _, _, _, _, _, _, _, _, _,99, _, _, _, _, _, /* @abcdefghijklmno */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _,99, _, _, _, _, /* 0123456789:;<=>? */
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, /* @abcdefghijklmno */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, /* 0123456789:;<=>? */
 #if defined(M88K) || defined(PPC) || defined(HPPA)
- 99, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /* @ABCDEFGHIJKLMNO */
+  1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* @ABCDEFGHIJKLMNO */
 #else
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
 #endif
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, /*                  */
-  _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _  /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /*                  */
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  /*                  */
 };
-#undef _
-#define is_end_of_line(c)      (is_end_of_line_tab[(c) & 0xFF])
+// binutils references the table directly, but that requires a cast
+// whenever you try to index into the array with a char and that's
+// annoying.  The function avoids this.  We'd make this a macro,
+// but it needs to be referenced externally and we don't need to
+// export the table.
+char is_end_of_line(int c) { return is_end_of_line_tab[c & 0xFF]; }
 
 /*
  * The conditional assembly feature (.if, .else, .elseif and .endif) is
@@ -229,10 +235,13 @@ static struct type_name type_names[] = {
     { "cstring_literals",	  S_CSTRING_LITERALS },
     { "4byte_literals",		  S_4BYTE_LITERALS },
     { "8byte_literals",		  S_8BYTE_LITERALS },
+    { "16byte_literals",	  S_16BYTE_LITERALS },
     { "literal_pointers",	  S_LITERAL_POINTERS },
+#if !(defined(I386) && defined(ARCH64))
     { "non_lazy_symbol_pointers", S_NON_LAZY_SYMBOL_POINTERS },
     { "lazy_symbol_pointers",	  S_LAZY_SYMBOL_POINTERS },
     { "symbol_stubs",		  S_SYMBOL_STUBS },
+#endif
     { "mod_init_funcs",		  S_MOD_INIT_FUNC_POINTERS },
     { "mod_term_funcs",		  S_MOD_TERM_FUNC_POINTERS },
     { "coalesced",		  S_COALESCED },
@@ -255,6 +264,7 @@ static struct attribute_name attribute_names[] = {
     { "no_dead_strip", S_ATTR_NO_DEAD_STRIP },
     { "live_support", S_ATTR_LIVE_SUPPORT },
     { "self_modifying_code", S_ATTR_SELF_MODIFYING_CODE },
+    { "debug", S_ATTR_DEBUG },
     { NULL, 0 }
 };
 
@@ -283,10 +293,12 @@ static const struct builtin_section builtin_sections[] = {
     { "cstring",             "__TEXT", "__cstring", S_CSTRING_LITERALS },
     { "literal4",            "__TEXT", "__literal4", S_4BYTE_LITERALS, 2 },
     { "literal8",            "__TEXT", "__literal8", S_8BYTE_LITERALS, 3 },
+    { "literal16",           "__TEXT", "__literal16", S_16BYTE_LITERALS, 4 },
     { "constructor",         "__TEXT", "__constructor" },
     { "destructor",          "__TEXT", "__destructor" },
     { "fvmlib_init0",        "__TEXT", "__fvmlib_init0" },
     { "fvmlib_init1",        "__TEXT", "__fvmlib_init1" },
+#if !(defined(I386) && defined(ARCH64))
     { "symbol_stub",	     "__TEXT", "__symbol_stub",
 		S_SYMBOL_STUBS | S_ATTR_PURE_INSTRUCTIONS,
 #if defined(M68K)
@@ -305,6 +317,8 @@ static const struct builtin_section builtin_sections[] = {
 		  2, 20
 #endif
 		},
+#endif
+#if !(defined(I386) && defined(ARCH64))
     { "picsymbol_stub",	     "__TEXT", "__picsymbol_stub",
 		S_SYMBOL_STUBS | S_ATTR_PURE_INSTRUCTIONS,
 #if defined(M68K)
@@ -323,10 +337,13 @@ static const struct builtin_section builtin_sections[] = {
 		  2, 36
 #endif
 		},
+#endif
+#if !(defined(I386) && defined(ARCH64))
     { "non_lazy_symbol_pointer","__DATA","__nl_symbol_ptr",
 		S_NON_LAZY_SYMBOL_POINTERS, 2 },
     { "lazy_symbol_pointer", "__DATA", "__la_symbol_ptr",
 		S_LAZY_SYMBOL_POINTERS, 2 },
+#endif
     { "mod_init_func",	     "__DATA", "__mod_init_func",
 		S_MOD_INIT_FUNC_POINTERS, 2 },
     { "mod_term_func",	     "__DATA", "__mod_term_func",
@@ -373,7 +390,9 @@ static void s_align(int value);
 static void s_org(int value);
 #endif
 static void s_private_extern(int value);
+#if !(defined(I386) && defined(ARCH64))
 static void s_indirect_symbol(int value);
+#endif
 static void s_abort(int value);
 static void s_comm(int value);
 static void s_desc(int value);
@@ -427,7 +446,9 @@ static const pseudo_typeS pseudo_table[] = {
   { "abs",	s_abs,		0	},
 #endif
   { "private_extern",  s_private_extern, 0},
+#if !(defined(I386) && defined(ARCH64)) /* x86-64 doesn't support .indirect_symbol */
   { "indirect_symbol", s_indirect_symbol, 0},
+#endif
   { "abort",	s_abort,	0	},
   { "ascii",	stringer,	0	},
   { "asciz",	stringer,	1	},
@@ -441,9 +462,7 @@ static const pseudo_typeS pseudo_table[] = {
   { "lcomm",	s_lcomm,	0	},
   { "line",	s_line,		0	},
   { "long",	cons,		4	},
-#if defined(ARCH64)
   { "quad",	cons,		8	},
-#endif /* defined(ARCH64) */
   { "lsym",	s_lsym,		0	},
   { "section",	s_section,	0	},
   { "zerofill",	s_zerofill,	0	},
@@ -456,6 +475,7 @@ static const pseudo_typeS pseudo_table[] = {
   { "stabd",	stab,		'd'	},
   { "stabn",	stab,		'n'	},
   { "stabs",	stab,		's'	},
+  { "debug_note",	stab,		's'	},
   { "reference",s_reference,	0	},
   { "lazy_reference",s_lazy_reference,	0	},
   { "weak_reference",s_weak_reference,	0	},
@@ -523,9 +543,9 @@ void)
 	 * For ppcasm allow '\r' as an end of line character and don't treat
 	 * '@' and ':' as an end of line characters.
 	 */
-	is_end_of_line('\r') = 99;
-	is_end_of_line('@') = 0;
-	is_end_of_line(':') = 0;
+	is_end_of_line_tab['\r'] = 1;
+	is_end_of_line_tab['@'] = 0;
+	is_end_of_line_tab[':'] = 0;
 
 	ppcasm_pseudo_op_begin();
 }
@@ -742,10 +762,10 @@ char *buffer)	/* 1st character of each buffer of lines is here. */
 	if(the_cond_state.the_cond != starting_cond_state.the_cond ||
 	   the_cond_state.ignore != starting_cond_state.ignore||
 	   if_depth != starting_if_depth)
-	    as_warn("file contains unmatched .ifs or .elses");
+	    as_bad("file contains unmatched .ifs or .elses");
 
 	if(macro_name != NULL)
-	    as_warn("file contains unmatched .macro and .endmacro for: %s",
+	    as_bad("file contains unmatched .macro and .endmacro for: %s",
 		    macro_name);
 
 	if(doing_include == FALSE){
@@ -977,7 +997,7 @@ char *buffer)
 				expand_macro(the_macro);
 			    }
 			    else{
-				as_warn ("Unknown pseudo-op: %s", s);
+				as_bad ("Unknown pseudo-op: %s", s);
 				*after_name_pointer = after_name;
 				ignore_rest_of_line();
 			    }
@@ -1100,7 +1120,7 @@ char *buffer)
 		    local_colon(digit_value);
 		}
 		else{
-		    as_warn("Spurious digit %d.", digit_value);
+		    as_bad("Spurious digit %d.", digit_value);
 		    input_line_pointer--;
 		    ignore_rest_of_line();
 		}
@@ -1120,7 +1140,7 @@ char *buffer)
 		continue;
 	    }
 
-	    as_warn("Junk character %d (%c).", c, c);
+	    as_bad("Junk character %d (%c).", c, c);
 	    ignore_rest_of_line();
 
 	} /* while(input_line_pointer < buffer_limit) */
@@ -1303,7 +1323,7 @@ char *buffer)
 		continue;
 	    }
 
-	    as_warn("Junk character %d (%c).", c, c);
+	    as_bad("Junk character %d (%c).", c, c);
 	    ignore_rest_of_line();
 
 	} /* while(input_line_pointer < buffer_limit) */
@@ -1546,7 +1566,7 @@ int fill_size)
     char fill[4];
 
 	if(fill_size != 1 && fill_size != 2 && fill_size != 4)
-	    as_warn("Internal error, s_align() called with bad fill_size %d",
+	    as_bad("Internal error, s_align() called with bad fill_size %d",
 		    fill_size);
 
 	power_of_2_alignment = get_absolute_expression();
@@ -1666,13 +1686,13 @@ int value)
 	*p = c;
 	SKIP_WHITESPACE();
 	if(*input_line_pointer != ','){
-	    as_warn("Expected comma after symbol-name");
+	    as_bad("Expected comma after symbol-name");
 	    ignore_rest_of_line();
 	    return;
 	}
 	input_line_pointer++; /* skip ',' */
 	if((temp = get_absolute_expression ()) < 0){
-	    as_warn(".COMMon length (" TA_DFMT ".) <0! Ignored.", temp);
+	    as_bad(".COMMon length (" TA_DFMT ".) <0! Ignored.", temp);
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -1682,13 +1702,13 @@ int value)
 	if((symbolP->sy_type & N_TYPE) != N_UNDF ||
 	   symbolP->sy_other != 0 ||
 	   (symbolP->sy_desc & ~N_NO_DEAD_STRIP) != 0) {
-	    as_warn("Ignoring attempt to re-define symbol");
+	    as_bad("Ignoring attempt to re-define symbol");
 	    ignore_rest_of_line();
 	    return;
 	}
 	if(symbolP->sy_value != 0){
 	    if(symbolP->sy_value != (unsigned long)temp)
-		as_warn("Length of .comm \"%s\" is already " TA_DFMT ". Not "
+		as_bad("Length of .comm \"%s\" is already " TA_DFMT ". Not "
 			"changed to " TA_DFMT ".", symbolP->sy_name,
 			symbolP->sy_value, temp);
 	}
@@ -1727,7 +1747,7 @@ int value)
 	SKIP_WHITESPACE();
 	if(*input_line_pointer != ','){
 	    *p = 0;
-	    as_warn("Expected comma after name \"%s\"", name);
+	    as_bad("Expected comma after name \"%s\"", name);
 	    *p = c;
 	    ignore_rest_of_line();
 	}
@@ -1800,13 +1820,13 @@ int value)
 
 	if(get_absolute_expression_and_terminator(&temp_repeat) != ','){
 	    input_line_pointer--; /* Backup over what was not a ','. */
-	    as_warn("Expect comma after rep-size in .fill");
+	    as_bad("Expect comma after rep-size in .fill");
 	    ignore_rest_of_line();
 	    return;
 	}
 	if(get_absolute_expression_and_terminator(&temp_size) != ','){
 	    input_line_pointer--; /* Backup over what was not a ','. */
-	    as_warn("Expected comma after size in .fill");
+	    as_bad("Expected comma after size in .fill");
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -1816,11 +1836,11 @@ int value)
 	 */
 #define BSD_FILL_SIZE_CROCK_8 (8)
 	if(temp_size > BSD_FILL_SIZE_CROCK_8){
-	    as_warn(".fill size clamped to %d.", BSD_FILL_SIZE_CROCK_8);
+	    as_bad(".fill size clamped to %d.", BSD_FILL_SIZE_CROCK_8);
 	    temp_size = BSD_FILL_SIZE_CROCK_8 ;
 	}
 	if(temp_size < 0){
-	    as_warn("Size negative: .fill ignored.");
+	    as_bad("Size negative: .fill ignored.");
 	    temp_size = 0;
 	}
 	/*
@@ -1832,11 +1852,11 @@ int value)
 		temp_size != 1 &&
 		temp_size != 2 &&
 		temp_size != 4){
-	    as_warn(".fill size must be 0,1,2 or 4, .fill ignored");
+	    as_bad(".fill size must be 0,1,2 or 4, .fill ignored");
 	    temp_size = 0;
 	}
 	else if(temp_repeat <= 0){
-	    as_warn(".fill repeat <= 0, .fill ignored");
+	    as_bad(".fill repeat <= 0, .fill ignored");
 	    temp_size = 0;
 	}
 	temp_fill = get_absolute_expression();
@@ -1935,6 +1955,7 @@ int value)
 	demand_empty_rest_of_line();
 }
 
+#if !(defined(I386) && defined(ARCH64))
 /*
  * s_indirect_symbol() implements the pseudo op:
  *	.indirect_symbol name
@@ -1960,7 +1981,7 @@ int value)
 	if(section_type != S_NON_LAZY_SYMBOL_POINTERS &&
 	   section_type != S_LAZY_SYMBOL_POINTERS &&
 	   section_type != S_SYMBOL_STUBS){
-	    as_warn("indirect symbol not in a symbol pointer or stub section, "
+	    as_bad("indirect symbol not in a symbol pointer or stub section, "
 		    ".indirect_symbol ignored");
 	    ignore_rest_of_line();
 	    return;
@@ -1978,6 +1999,7 @@ int value)
 
 	demand_empty_rest_of_line();
 }
+#endif
 
 /*
  * s_lcomm() implements the pseudo op:
@@ -2005,13 +2027,13 @@ int value)
 	*p = c;
 	SKIP_WHITESPACE();
 	if(*input_line_pointer != ','){
-	    as_warn("Expected comma after name");
+	    as_bad("Expected comma after name");
 	    ignore_rest_of_line();
 	    return;
 	}
 	input_line_pointer ++;
 	if((size = get_absolute_expression()) < 0){
-	    as_warn("BSS length (%d.) <0! Ignored.", size);
+	    as_bad("BSS length (%d.) <0! Ignored.", size);
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2055,7 +2077,7 @@ int value)
 		bss->frch_section.align = align;
 	}
 	else
-	    as_warn("Ignoring attempt to re-define symbol.");
+	    as_bad("Ignoring attempt to re-define symbol.");
 	demand_empty_rest_of_line();
 }
 
@@ -2109,7 +2131,7 @@ int value)
 	SKIP_WHITESPACE();
 	if(*input_line_pointer != ','){
 	    *p = 0;
-	    as_warn("Expected comma after name \"%s\"", name);
+	    as_bad("Expected comma after name \"%s\"", name);
 	    *p = c;
 	    ignore_rest_of_line();
 	    return;
@@ -2118,7 +2140,7 @@ int value)
 	segment = expression(&exp);
 	if(segment != SEG_ABSOLUTE && segment != SEG_SECT){
 /* this warning still need fixing */
-	    as_warn("Bad expression: %s", seg_name[(int)segment]);
+	    as_bad("Bad expression: %s", seg_name[(int)segment]);
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2180,7 +2202,7 @@ int value)
 	if((segment != SEG_SECT ||
 	    exp.X_add_symbol->sy_other != frchain_now->frch_nsect) &&
 	    segment != SEG_ABSOLUTE)
-	    as_warn("Illegal expression. current section assumed.");
+	    as_bad("Illegal expression. current section assumed.");
 	p = frag_var(rs_org,
 		     1,
 		     1,
@@ -2217,7 +2239,7 @@ int value)
 	SKIP_WHITESPACE();
 	if(*input_line_pointer != ','){
 	    *end_name = 0;
-	    as_warn("Expected comma after name \"%s\"", name);
+	    as_bad("Expected comma after name \"%s\"", name);
 	    *end_name = delim;
 	    ignore_rest_of_line();
 	    return;
@@ -2234,7 +2256,7 @@ int value)
 	    if((segment != SEG_SECT ||
 		exp.X_add_symbol->sy_other != frchain_now->frch_nsect) &&
 		segment != SEG_ABSOLUTE)
-		as_warn("Illegal expression. current section assumed.");
+		as_bad("Illegal expression. current section assumed.");
 	    ptr = frag_var(rs_org,
 			   1,
 			   1,
@@ -2280,7 +2302,7 @@ int value)
 	SKIP_WHITESPACE();
 	if(*input_line_pointer != ','){
 	    *p = 0;
-	    as_warn("Expected comma after name \"%s\"", name);
+	    as_bad("Expected comma after name \"%s\"", name);
 	    *p = c;
 	    ignore_rest_of_line();
 	    return;
@@ -2321,7 +2343,7 @@ int value)
 	    temp_fill = 0;
 	}
 	if(temp_repeat <= 0){
-	    as_warn("Repeat < 0, .space ignored");
+	    as_bad("Repeat < 0, .space ignored");
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2402,7 +2424,7 @@ int value)
 	    c = *input_line_pointer++ ;
 	}while(c != ',' && c != '\0' && c != '\n');
 	if(c != ','){
-	    as_warn("Expected comma after segment-name");
+	    as_bad("Expected comma after segment-name");
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2413,7 +2435,7 @@ int value)
 	    d = *input_line_pointer++ ;
 	}while(d != ',' && d != '\0' && d != '\n');
 	if(p + 1 == input_line_pointer){
-	    as_warn("Expected section-name after comma");
+	    as_bad("Expected section-name after comma");
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2421,7 +2443,7 @@ int value)
 
 	*p = 0;
 	if(strlen(segname) > sizeof(s.segname)){
-	    as_warn("segment-name: %s too long (maximum %ld characters)",
+	    as_bad("segment-name: %s too long (maximum %ld characters)",
 		    segname, sizeof(s.segname));
 	    ignore_rest_of_line();
 	    *p = c;
@@ -2430,7 +2452,7 @@ int value)
 
 	*q = 0;
 	if(strlen(sectname) > sizeof(s.sectname)){
-	    as_warn("section-name: %s too long (maximum %ld characters)",
+	    as_bad("section-name: %s too long (maximum %ld characters)",
 		    sectname, sizeof(s.sectname));
 	    ignore_rest_of_line();
 	    return;
@@ -2455,7 +2477,7 @@ int value)
 		if(strcmp(type_name->name, typename) == 0)
 		    break;
 	    if(type_name->name == NULL){
-		as_warn("unknown section type: %s", typename);
+		as_bad("unknown section type: %s", typename);
 		ignore_rest_of_line();
 		return;
 	    }
@@ -2478,7 +2500,7 @@ int value)
 			if(strcmp(attribute_name->name, attributename) == 0)
 			    break;
 		    if(attribute_name->name == NULL){
-			as_warn("unknown section attribute: %s", attributename);
+			as_bad("unknown section attribute: %s", attributename);
 			ignore_rest_of_line();
 			return;
 		    }
@@ -2499,7 +2521,7 @@ int value)
 			*u = 0;
 			sizeof_stub = strtoul(sizeof_stub_name, &endp, 0);
 			if(*endp != '\0'){
-			    as_warn("size of stub section: %s not a proper "
+			    as_bad("size of stub section: %s not a proper "
 				    "number", sizeof_stub_name);
 			    ignore_rest_of_line();
 			    return;
@@ -2507,7 +2529,7 @@ int value)
 			*u = g;
 		    }
 		    else{
-			as_warn("missing size of stub section (%s,%s)", segname,
+			as_bad("missing size of stub section (%s,%s)", segname,
 				sectname);
 			ignore_rest_of_line();
 			return;
@@ -2515,7 +2537,7 @@ int value)
 		}
 	    }
 	    else if(type == S_SYMBOL_STUBS){
-		as_warn("missing size of stub section (%s,%s)", segname,
+		as_bad("missing size of stub section (%s,%s)", segname,
 			sectname);
 		ignore_rest_of_line();
 		return;
@@ -2560,7 +2582,7 @@ int value)
 	    c = *input_line_pointer++ ;
 	}while(c != ',' && c != '\0' && c != '\n');
 	if(c != ','){
-	    as_warn("Expected comma after segment-name");
+	    as_bad("Expected comma after segment-name");
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2571,7 +2593,7 @@ int value)
 	    d = *input_line_pointer++ ;
 	}while(d != ',' && d != '\0' && d != '\n');
 	if(p + 1 == input_line_pointer){
-	    as_warn("Expected section-name after comma");
+	    as_bad("Expected section-name after comma");
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2579,7 +2601,7 @@ int value)
 
 	*p = 0;
 	if(strlen(segname) > sizeof(s.segname)){
-	    as_warn("segment-name: %s too long (maximum %ld characters)",
+	    as_bad("segment-name: %s too long (maximum %ld characters)",
 		    segname, sizeof(s.segname));
 	    ignore_rest_of_line();
 	    *p = c;
@@ -2588,7 +2610,7 @@ int value)
 
 	*q = 0;
 	if(strlen(sectname) > sizeof(s.sectname)){
-	    as_warn("section-name: %s too long (maximum %ld characters)",
+	    as_bad("section-name: %s too long (maximum %ld characters)",
 		    sectname, sizeof(s.sectname));
 	    ignore_rest_of_line();
 	    *p = c;
@@ -2620,13 +2642,13 @@ int value)
 	*p = c;
 	SKIP_WHITESPACE();
 	if(*input_line_pointer != ','){
-	    as_warn("Expected comma after symbol-name");
+	    as_bad("Expected comma after symbol-name");
 	    ignore_rest_of_line();
 	    return;
 	}
 	input_line_pointer ++;
 	if((size = get_absolute_expression()) < 0){
-	    as_warn("zerofill size (%d.) <0! Ignored.", size);
+	    as_bad("zerofill size (%d.) <0! Ignored.", size);
 	    ignore_rest_of_line();
 	    return;
 	}
@@ -2663,7 +2685,7 @@ int value)
 	    frcP->frch_root->fr_address += size;
 	}
 	else
-	    as_warn("Ignoring attempt to re-define symbol.");
+	    as_bad("Ignoring attempt to re-define symbol.");
 
 	demand_empty_rest_of_line();
 }
@@ -2875,6 +2897,13 @@ void)
 	    ignore_rest_of_line();
 }
 
+/* we simply ignore the rest of this statement */
+void
+s_ignore (int arg ATTRIBUTE_UNUSED)
+{
+  totally_ignore_line ();
+}
+
 /*
  * ignore_rest_of_line() advances input_line_pointer to the next line and if
  * there is anything left on the current line print a warning.
@@ -2885,7 +2914,7 @@ ignore_rest_of_line(
 void)
 {
 	if(!is_end_of_line(*input_line_pointer)){
-	    as_warn("Rest of line ignored. 1st junk character valued %d (%c).",
+	    as_bad("Rest of line ignored. 1st junk character valued %d (%c).",
 		    *input_line_pointer, *input_line_pointer);
 	    while(input_line_pointer < buffer_limit &&
 		  !is_end_of_line(*input_line_pointer))
@@ -2939,7 +2968,7 @@ int what) /* d == .stabd, n == .stabn, and s == .stabs */
 	    if(*input_line_pointer == ',')
 		input_line_pointer ++;
 	    else{
-		as_warn("I need a comma after symbol's name");
+		as_bad("I need a comma after symbol's name");
 		goof = TRUE;
 	    }
 	}
@@ -2973,7 +3002,7 @@ int what) /* d == .stabd, n == .stabn, and s == .stabs */
 		symbolP->sy_type = longint;
 	    }
 	    else{
-		as_warn("I want a comma after the n_type expression");
+		as_bad("I want a comma after the n_type expression");
 		goof = TRUE;
 		input_line_pointer--; /* Backup over a non-',' char. */
 	    }
@@ -2983,7 +3012,7 @@ int what) /* d == .stabd, n == .stabn, and s == .stabs */
 	    if(get_absolute_expression_and_terminator(&longint) == ',')
 		symbolP->sy_other = longint;
 	    else {
-		as_warn("I want a comma after the n_other expression");
+		as_bad("I want a comma after the n_other expression");
 		goof = TRUE;
 		input_line_pointer--; /* Backup over a non-',' char. */
 	    }
@@ -2993,7 +3022,7 @@ int what) /* d == .stabd, n == .stabn, and s == .stabs */
 	    symbolP->sy_desc = get_absolute_expression();
 	    if(what == 's' || what == 'n'){
 		if(*input_line_pointer != ','){
-		    as_warn( "I want a comma after the n_desc expression" );
+		    as_bad( "I want a comma after the n_desc expression" );
 		    goof = TRUE;
 		}
 		else
@@ -3042,7 +3071,7 @@ symbolS *symbolP)
 
 	switch(segment){
 	case SEG_BIG:
-	    as_warn("%s number illegal. Absolute 0 assumed.",
+	    as_bad("%s number illegal. Absolute 0 assumed.",
 		    exp.X_add_number > 0 ? "Bignum" : "Floating-Point");
 	    symbolP->sy_type = N_ABS | ext;
 	    symbolP->sy_other = 0; /* NO_SECT */
@@ -3051,7 +3080,7 @@ symbolS *symbolP)
 	    break;
 
 	case SEG_NONE:
-	    as_warn("No expression:  Using absolute 0");
+	    as_bad("No expression:  Using absolute 0");
 	    symbolP->sy_type = N_ABS | ext;
 	    symbolP->sy_other = 0; /* NO_SECT */
 	    symbolP->sy_value = 0;
@@ -3059,8 +3088,7 @@ symbolS *symbolP)
 	    break;
 
 	case SEG_DIFFSECT:
-	    if(exp.X_add_symbol && exp.X_subtract_symbol &&
-	       exp.X_add_symbol->sy_other == exp.X_subtract_symbol->sy_other){
+	    if(exp.X_add_symbol && exp.X_subtract_symbol){
 		if(exp.X_add_symbol->sy_frag !=
 		   exp.X_subtract_symbol->sy_frag ||
 		   exp.X_add_symbol->sy_type == N_UNDF ||
@@ -3078,7 +3106,7 @@ symbolS *symbolP)
 		}
 	    }
 	    else
-		as_warn("Complex expression. Absolute segment assumed." );
+		as_bad("Complex expression. Absolute segment assumed." );
 	    /* fall through */
 
 	case SEG_ABSOLUTE:
@@ -3098,7 +3126,7 @@ symbolS *symbolP)
 	case SEG_UNKNOWN:
 	    symbolP->sy_forward = exp.X_add_symbol;
 /* commented out by GNU */
-/* as_warn("unknown symbol"); */
+/* as_bad("unknown symbol"); */
 /* need_pass_2 = TRUE; */
 	    break;
 	  
@@ -3129,7 +3157,7 @@ cons(
 int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 {
     char c;
-    signed_target_addr_t
+    signed_expr_t
     mask,		/* high-order bits to truncate */
     unmask,		/* what bits we will store */
     get,		/* the bits of the expression we get */
@@ -3142,15 +3170,11 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 	 * Input_line_pointer -> 1st char after pseudo-op-code and could legally
 	 * be a end-of-line. (Or, less legally an eof - which we cope with.)
 	 */
-	if(nbytes >= (int)sizeof(signed_target_addr_t))
+	if(nbytes >= (int)sizeof(signed_expr_t))
 	    mask = 0;
 	else 
 	    /* Don't store these bits. */
-#if defined(ARCH64)
 	    mask = ~0ULL << (BITS_PER_CHAR * nbytes);
-#else
-	    mask = ~0 << (BITS_PER_CHAR * nbytes);
-#endif /* defined(ARCH64) */
 	unmask = ~mask;		/* Do store these bits. */
 
 	/*
@@ -3167,10 +3191,14 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 	    c = ',';			/* Do loop. */
 
 	while(c == ','){
+#ifdef TC_PARSE_CONS_EXPRESSION
+	    segment = TC_PARSE_CONS_EXPRESSION(&exp, nbytes);
+#else
 	    segment = expression(&exp); /* At least scan over the expression */
+#endif
 
 	    if(segment == SEG_DIFFSECT && exp.X_add_symbol == NULL){
-		as_warn("Subtracting symbol \"%s\"(segment\"%s\") is too "
+		as_bad("Subtracting symbol \"%s\"(segment\"%s\") is too "
 			"hard. Absolute segment assumed.",
 			exp.X_subtract_symbol->sy_name,
 			seg_name[(int)N_TYPE_seg[
@@ -3181,7 +3209,6 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 	    p = frag_more(nbytes);
 	    switch(segment){
 	    case SEG_BIG:
-#if defined(ARCH64)
 		/*
 		 * Handle bignums small enough to fit in a long long and
 		 * thus be passed directly to md_number_to_chars.
@@ -3199,16 +3226,15 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 		    md_number_to_chars(p, sum, nbytes);
 		}
 		else
-#endif /* defined(ARCH64) */
 		{
-		    as_warn("%s number illegal. Absolute 0 assumed.",
+		    as_bad("%s number illegal. Absolute 0 assumed.",
 			    exp.X_add_number > 0 ? "Bignum" : "Floating-Point");
 		    md_number_to_chars(p, (long)0, nbytes);
 	        }
 		break;
 
 	    case SEG_NONE:
-		as_warn("0 assumed for missing expression");
+		as_bad("0 assumed for missing expression");
 		exp.X_add_number = 0;
 		know(exp.X_add_symbol == NULL);
 		/* fall into SEG_ABSOLUTE */
@@ -3218,8 +3244,7 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 		use = get & unmask;
 		if((get & mask) && (get & mask) != mask){
 		    /* Leading bits contain both 0s & 1s. */
-		    as_warn("Value x%x truncated to x%x.", (unsigned int)get,
-			    (unsigned int)use);
+		    as_bad("Value 0x%llx truncated to 0x%llx.", get, use);
 		}
 		/* put bytes in right order. */
 		md_number_to_chars(p, use, nbytes);
@@ -3228,6 +3253,12 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 	    case SEG_DIFFSECT:
 	    case SEG_UNKNOWN:
 	    case SEG_SECT:
+#ifdef TC_CONS_FIX_NEW
+		TC_CONS_FIX_NEW(frag_now,
+		    p - frag_now->fr_literal,
+		    nbytes,
+		    &exp);
+#else
 		fix_new(frag_now,
 			p - frag_now->fr_literal,
 			nbytes,
@@ -3237,6 +3268,7 @@ int nbytes) /* nbytes == 1 for .byte, 2 for .word, 4 for .long, 8 for .quad */
 			0,
 			0,
 			0);
+#endif
 		break;
 
 	    default:
@@ -3322,7 +3354,7 @@ int nbytes) /* 8 == .quad, 16 == .octa ... */
 	     * they completely omit digits.
 	     */
 	    if(hex_value[(int)c] >= radix){
-		as_warn("Missing digits. 0 assumed.");
+		as_bad("Missing digits. 0 assumed.");
 	    }
 	    bignum_high = bignum_low - 1; /* Start constant with 0 chars. */
 	    for( ;
@@ -3343,7 +3375,7 @@ int nbytes) /* 8 == .quad, 16 == .octa ... */
 	    }
 	    length = bignum_high - bignum_low + 1;
 	    if(length > nbytes){
-		as_warn("Most significant bits truncated in integer constant.");
+		as_bad("Most significant bits truncated in integer constant.");
 	    }
 	    else{
 		long leading_zeroes;
@@ -3452,8 +3484,8 @@ int float_type) /* 'f':.ffloat ... 'F':.float ... */
 	    err = md_atof(float_type, temp, &length);
 	    know(length <=  MAXIMUM_NUMBER_OF_CHARS_FOR_FLOAT);
 	    know(length > 0);
-	    if(*err != '\0'){
-		as_warn( "Bad floating literal: %s", err);
+	    if(err != NULL && *err != '\0'){
+		as_bad( "Bad floating literal: %s", err);
 		ignore_rest_of_line();
 		/* Input_line_pointer -> just after end-of-line. */
 		c = 0;		/* Break out of loop. */
@@ -3513,7 +3545,7 @@ int append_zero) /* 0: don't append '\0', else 1 */
 		know(input_line_pointer[-1] == '\"');
 	    }
 	    else{
-		as_warn("Expected \"-ed string");
+		as_bad("Expected \"-ed string");
 	    }
 	    SKIP_WHITESPACE();
 	}
@@ -3574,6 +3606,7 @@ void)
 		break;
 	    case '\\':
 	    case '"':
+	    case '\'':
 		break;		/* As itself. */
 	    case '0':
 	    case '1':
@@ -3598,7 +3631,7 @@ void)
 		break;
 
 	    default:
-		as_warn( "Bad escaped character in string, '?' assumed" );
+		as_bad( "Bad escaped character in string, '?' assumed" );
 		c = '?';
 		break;
 	    }
@@ -3622,7 +3655,7 @@ expressionS *expP)
 
 	retval = expression(expP);
 	if(retval == SEG_NONE || retval == SEG_BIG){
-	    as_warn("Expected address expression: absolute 0 assumed");
+	    as_bad("Expected address expression: absolute 0 assumed");
 	    retval = expP->X_seg = SEG_ABSOLUTE;
 	    expP->X_add_number   = 0;
 	    expP->X_add_symbol   = NULL;
@@ -3650,11 +3683,11 @@ expressionS *expP)
 	    name2 = expP->X_subtract_symbol ?
 		    expP->X_subtract_symbol->sy_name : "";
 	    if(name1 && name2){
-		as_warn("Symbols \"%s\" \"%s\" are undefined: absolute 0 "
+		as_bad("Symbols \"%s\" \"%s\" are undefined: absolute 0 "
 			"assumed.", name1, name2);
 	    }
 	    else{
-		as_warn("Symbol \"%s\" undefined: absolute 0 assumed.",
+		as_bad("Symbol \"%s\" undefined: absolute 0 assumed.",
 			name1 ? name1 : name2);
 	    }
 	    retval      = SEG_ABSOLUTE;
@@ -3673,7 +3706,7 @@ expressionS *expP)
  * get_absolute_expression() gets an absolute expression and returns the value
  * of that expression.
  */
-long
+signed_target_addr_t
 get_absolute_expression(
 void)
 {
@@ -3684,7 +3717,7 @@ void)
 	if(s != SEG_ABSOLUTE){
 /* is this right? if not absolute: no message and return 0 */
 	    if(s != SEG_NONE){
-		as_warn("Bad Absolute Expression, absolute 0 assumed.");
+		as_bad("Bad Absolute Expression, absolute 0 assumed.");
 	    }
 	    exp.X_add_number = 0;
 	}
@@ -3725,7 +3758,7 @@ int *len_pointer)
 		    s = 0;
 		    len = 1;
 		    *len_pointer = 0;
-		    as_warn("This string may not contain \'\\0\'");
+		    as_bad("This string may not contain \'\\0\'");
 		}
 	    }
 	}
@@ -3769,7 +3802,7 @@ int *lenP)
 	    retval = obstack_finish(&notes);
 	}
 	else{
-	    as_warn("Missing string");
+	    as_bad("Missing string");
 	    retval = NULL;
 	    ignore_rest_of_line();
 	}
@@ -3821,7 +3854,7 @@ char *sym_name)
 	    if((segment != SEG_SECT ||
 		exp.X_add_symbol->sy_other != frchain_now->frch_nsect) &&
 		segment != SEG_ABSOLUTE)
-	    as_warn("Illegal expression. current section assumed.");
+	    as_bad("Illegal expression. current section assumed.");
 	    p = frag_var(rs_org,
 			 1,
 			 1,
@@ -3999,7 +4032,7 @@ int value)
     pseudo_typeS *pop;
 
 	if(macro_name)
-	    as_warn("Can't define a macro inside another macro definition");
+	    as_bad("Can't define a macro inside another macro definition");
 	else{
 	    SKIP_WHITESPACE();
 	    while(is_part_of_name(c = *input_line_pointer ++))
@@ -4008,11 +4041,11 @@ int value)
 	    --input_line_pointer;
 	    macro_name = obstack_finish(&macros);
 	    if(macro_name == "")
-		as_warn("Missing name of macro");
+		as_bad("Missing name of macro");
 	    if(*macro_name == '.'){
 		pop = (pseudo_typeS *)hash_find(po_hash, macro_name + 1);
 		if(pop != NULL)
-		    as_warn("Pseudo-op name: %s can't be a macro name",
+		    as_bad("Pseudo-op name: %s can't be a macro name",
 			    macro_name);
 	    }
 	}
@@ -4031,7 +4064,7 @@ int value)
     const char *errorString;
 
 	if(!macro_name){
-	    as_warn ("This .endmacro does not match with a preceeding .macro");
+	    as_bad ("This .endmacro does not match with a preceding .macro");
 	    ignore_rest_of_line();
 	}
 	else{
@@ -4039,7 +4072,7 @@ int value)
 	    errorString = hash_insert(ma_hash, macro_name,
 				      obstack_finish(&macros));
 	    if(errorString != NULL && *errorString)
-		as_warn("The macro named \"%s\" is already defined",
+		as_bad("The macro named \"%s\" is already defined",
 			macro_name);
 	    macro_name = NULL;
 	}
@@ -4093,7 +4126,7 @@ char *macro_contents)
     char *arguments [10]; /* at most 10 arguments, each is substituted */
 
 	if(macro_depth >= MAX_MACRO_DEPTH)
-	   as_fatal("You can't nest macro's more than %d levels deep",
+	   as_fatal("You can't nest macros more than %d levels deep",
 		    MAX_MACRO_DEPTH);
 	macro_depth++;
 
@@ -4124,7 +4157,7 @@ char *macro_contents)
 		    }
 		    know(c != '\0');
 		    if(is_end_of_line(c))
-			as_warn("missmatched parenthesis");
+			as_bad("mismatched parenthesis");
 		    obstack_1grow(&macros, c);
 		}while(1);
 		obstack_1grow(&macros, '\0');
@@ -4138,7 +4171,7 @@ char *macro_contents)
 	    }
 	}
 	if(!is_end_of_line(c)){
-	    as_warn("More than 10 arguments not allowed for macros");
+	    as_bad("More than 10 arguments not allowed for macros");
 	    ignore_rest_of_line();
 	}
 	/*
@@ -4221,7 +4254,7 @@ int value)
 		fclose(dump_fp);
 	    }
 	    else
-		as_warn("couldn't write to dump file: \"%s\"", filename);
+		as_bad("couldn't write to dump file: \"%s\"", filename);
 	}
 }
 
@@ -4300,7 +4333,7 @@ int value)
 		    }while(the_char);
 		    if(hash_insert(ma_hash, char_pointer,
 				   obstack_finish(&macros)))
-			as_warn("a macro named \"%s\" encountered in a .load "
+			as_bad("a macro named \"%s\" encountered in a .load "
 			        "is already defined", char_pointer);
 		}while(1);
 	        /*
@@ -4379,18 +4412,18 @@ int value)
 
 	if(force_cpusubtype_ALL == FALSE){
 	    if(get_arch_from_flag(arch_name, &arch_flag) == 0){
-		as_warn("unknown .machine argument: %s", arch_name);
+		as_bad("unknown .machine argument: %s", arch_name);
 	    }
 	    else{
 		if(arch_flag.cputype != md_cputype){
-		    as_warn("invalid .machine argument: %s", arch_name);
+		    as_bad("invalid .machine argument: %s", arch_name);
 		}
 		else{
 		    new_cpusubtype = cpusubtype_combine(md_cputype,
 						        md_cpusubtype,
 						        arch_flag.cpusubtype);
 		    if(new_cpusubtype == -1){
-			as_warn(".machine argument: %s can not be combined "
+			as_bad(".machine argument: %s can not be combined "
 				"with previous .machine directives, -arch "
 				"arguments or machine specific instructions",
 				arch_name);

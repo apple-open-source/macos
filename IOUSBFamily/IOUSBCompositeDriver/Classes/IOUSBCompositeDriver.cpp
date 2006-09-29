@@ -182,7 +182,7 @@ IOUSBCompositeDriver::didTerminate( IOService * provider, IOOptionBits options, 
     USBLog(6, "%s[%p]::didTerminate isInactive = %d", getName(), this, isInactive());
     // if we are still hanging on to the device, go ahead and close it
     if (fDevice->isOpen(this))
-	fDevice->close(this);
+		fDevice->close(this);
     
     return super::didTerminate(provider, options, defer);
 }
@@ -448,7 +448,8 @@ IOUSBCompositeDriver::ReConfigureDevice()
 			USBLog(3, "%s[%p](%s) SuspendDevice returned 0x%x", getName(), this, fDevice->getName(), err );
 		}
 	}
-    
+    fDevice->close(this);
+	
 ErrorExit:
         
     USBLog(3, "%s[%p]::ReConfigureDevice returned 0x%x",getName(),this, err);

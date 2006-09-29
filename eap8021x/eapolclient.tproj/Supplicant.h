@@ -40,7 +40,7 @@
 typedef struct Supplicant_s Supplicant, *SupplicantRef;
 
 SupplicantRef 
-Supplicant_create(int fd, const struct sockaddr_dl * dl_p);
+Supplicant_create(int fd, const struct sockaddr_dl * dl_p, bool system_mode);
 
 void
 Supplicant_free(SupplicantRef * supp_p);

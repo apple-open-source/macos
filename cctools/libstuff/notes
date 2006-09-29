@@ -5,6 +5,49 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.23 release (the cctools-620 release):
+- Added the routines swap_x86_float_state64(), swap_x86_state_hdr(),
+  swap_x86_exception_state64(), swap_x86_debug_state32(),
+  swap_x86_debug_state64() to bytesex.c .  Radar bug #4491230.
+
+Changes for the 5.23 release (the cctools-614 release):
+- Changed bytesex.c to add macros that rename structure members of the 
+  ppc and i386 thread states for Unix conformance.  Radar bug #4508798.
+- Changed swap_headers.c to add macros that rename i386 thread states for
+  Unix conformance.  Radar bug #4508798.
+
+Changes for the 5.23 release (the cctools-610 release):
+- Added a few ifdef x86_THREAD_STATE64 to a few places in bytesex.c and 
+  swap_headers.c to allow it to build on Tiger.  Radar bug #4535019.
+
+Changes for the 5.22 release (the cctools-590.38.3 release):
+- Don't consider X86_64_RELOC_SUBTRACTOR relocations to be paired. Radar bug
+  #4504190.
+
+Changes for the 5.22 release (the cctools-590.37.3 release):
+- When swap_object_headers sees a thread state flavor that it doesn't know
+  about, print the flavor number itself in the error message in addition to the
+  other information that was already being printed. Radar bug #4491140.
+- Correctly swap x86_THREAD_STATE64 states when running on PowerPC.  Also,
+  update to the current definition of the x86-64 thread state. Radar bug
+  #4491228.
+
+Changes for the 5.22 release (the cctools-590.36.3 release):
+- Swap the LC_ROUTINES_64 load command correctly. Radar bug #4451600.
+
+Changes for the 5.22 release (the cctools-590.31.1 release):
+- Added support for the x86_64 architecture.  Radar bug #4345090.
+
+Changes for the 5.21 release (the cctools-590.25 release):
+- Added more support for DWARF.  Radar bug #4367423.
+  - Updated check_Mach_O() in ofile.c to deal with LC_UUID load commands.
+
+Changes for the 5.21 release (the cctools-590.24 release):
+- Added support for DWARF.  Radar bug #4367423.
+  - Added swap_uuid_command() to bytesex.c .
+  - Updated swap_object_headers() in swap_headers.c to deal with LC_UUID load
+    commands.
+
 Changes for the 5.20 release (the cctools-590.23 release):
 - Changed swap_i386_float_state() in bytesex.c for the current floating point
   i386 thread state (#if i386_THREAD_STATE == 1 case) so that it does swap

@@ -1,4 +1,4 @@
-/*	$OpenBSD: clientloop.h,v 1.8 2003/12/16 15:49:51 markus Exp $	*/
+/*	$OpenBSD: clientloop.h,v 1.14 2005/07/04 00:58:43 djm Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -37,4 +37,21 @@
 
 /* Client side main loop for the interactive session. */
 int	 client_loop(int, int, int);
+void	 client_x11_get_proto(const char *, const char *, u_int,
+	    char **, char **);
 void	 client_global_request_reply_fwd(int, u_int32_t, void *);
+void	 client_session2_setup(int, int, int, const char *, struct termios *,
+	    int, Buffer *, char **, dispatch_fn *);
+
+/* Multiplexing protocol version */
+#define SSHMUX_VER			1
+
+/* Multiplexing control protocol flags */
+#define SSHMUX_COMMAND_OPEN		1	/* Open new connection */
+#define SSHMUX_COMMAND_ALIVE_CHECK	2	/* Check master is alive */
+#define SSHMUX_COMMAND_TERMINATE	3	/* Ask master to exit */
+
+#define SSHMUX_FLAG_TTY			(1)	/* Request tty on open */
+#define SSHMUX_FLAG_SUBSYS		(1<<1)	/* Subsystem request on open */
+#define SSHMUX_FLAG_X11_FWD		(1<<2)	/* Request X11 forwarding */
+#define SSHMUX_FLAG_AGENT_FWD		(1<<3)	/* Request agent forwarding */

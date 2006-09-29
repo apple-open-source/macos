@@ -28,7 +28,6 @@ RCSID("$OpenBSD: auth2-kbdint.c,v 1.2 2002/05/31 11:35:15 markus Exp $");
 #include "packet.h"
 #include "auth.h"
 #include "log.h"
-#include "monitor_wrap.h"
 #include "servconf.h"
 #include "xmalloc.h"
 
@@ -56,11 +55,6 @@ userauth_kbdint(Authctxt *authctxt)
 	if (check_nt_auth(0, authctxt->pw) == 0)
 		authenticated = 0;
 #endif
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-	if (!authenticated) {
-		PRIVSEP(solaris_audit_bad_pw("interactive password entry"));
-	}
-#endif /* BSM */
 	return authenticated;
 }
 

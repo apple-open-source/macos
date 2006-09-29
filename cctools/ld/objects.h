@@ -88,6 +88,14 @@ struct object_file {
     char *resolved_path;	/* The full path name and length of the name */
     unsigned long		/*  for N_OSO stabs added with the -Sp option */
 	resolved_path_len;
+    const char * dwarf_name;	/* The name of the main source file, */
+    const char * dwarf_comp_dir; /* and the current directory, */
+				/*  from the DWARF information; NULL if none */
+    size_t * dwarf_source_data; /* See read_dwarf_info in pass1.c for */
+				/*  an explanation.  */
+    const char * * dwarf_paths; /* Array of DWARF source file pathnames.  */
+    size_t dwarf_num_paths;	/* Length of dwarf_paths.  */
+  
 #ifdef RLD
     long set_num;		/* The set number this object belongs to. */
     enum bool user_obj_addr;	/* TRUE if the user allocated the object */
@@ -308,6 +316,8 @@ __private_extern__ void print_obj_name(
     struct object_file *obj);
 __private_extern__ unsigned long size_ar_name(
     struct ar_hdr *ar_hdr);
+__private_extern__ void set_obj_resolved_path(
+    struct object_file *obj);
 __private_extern__ void print_whatsloaded(
     void);
 __private_extern__ enum bool is_dylib_module_loaded(

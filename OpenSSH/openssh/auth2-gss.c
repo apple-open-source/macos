@@ -1,4 +1,4 @@
-/*	$OpenBSD: auth2-gss.c,v 1.7 2003/11/21 11:57:03 djm Exp $	*/
+/*	$OpenBSD: auth2-gss.c,v 1.10 2005/07/17 07:17:54 djm Exp $	*/
 
 /*
  * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
@@ -47,6 +47,39 @@ static void input_gssapi_mic(int type, u_int32_t plen, void *ctxt);
 static void input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt);
 static void input_gssapi_errtok(int, u_int32_t, void *);
 
+/* 
+ * The 'gssapi_keyex' userauth mechanism.
+ */
+static int
+userauth_gsskeyex(Authctxt *authctxt)
+{
+	int authenticated = 0;
+	Buffer b;
+	gss_buffer_desc mic, gssbuf;
+	u_int len;
+
+	mic.value = packet_get_string(&len);
+	mic.length = len;
+
+	packet_check_eom();
+
+	ssh_gssapi_buildmic(&b, authctxt->user, authctxt->service,
+	    "gssapi-keyex");
+
+	gssbuf.value = buffer_ptr(&b);
+	gssbuf.length = buffer_len(&b);
+
+	/* gss_kex_context is NULL with privsep, so we can't check it here */
+	if (!GSS_ERROR(PRIVSEP(ssh_gssapi_checkmic(gss_kex_context, 
+	    &gssbuf, &mic))))
+		authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user));
+	
+	buffer_free(&b);
+	xfree(mic.value);
+
+	return (authenticated);
+}
+
 /*
  * We only support those mechanisms that we know about (ie ones that we know
  * how to check local user kuserok and the like
@@ -54,15 +87,14 @@ static void input_gssapi_errtok(int, u_int32_t, void *);
 static int
 userauth_gssapi(Authctxt *authctxt)
 {
-	gss_OID_desc oid = {0, NULL};
+	gss_OID_desc goid = {0, NULL};
 	Gssctxt *ctxt = NULL;
 	int mechs;
 	gss_OID_set supported;
 	int present;
 	OM_uint32 ms;
 	u_int len;
-	char *doid = NULL;
-
+	u_char *doid = NULL;
 
 	if (!authctxt->valid || authctxt->user == NULL)
 		return (0);
@@ -83,12 +115,11 @@ userauth_gssapi(Authctxt *authctxt)
 		present = 0;
 		doid = packet_get_string(&len);
 
-		if (len > 2 &&
-		   doid[0] == SSH_GSS_OIDTYPE &&
-		   doid[1] == len - 2) {
-			oid.elements = doid + 2;
-			oid.length   = len - 2;
-			gss_test_oid_set_member(&ms, &oid, supported,
+		if (len > 2 && doid[0] == SSH_GSS_OIDTYPE &&
+		    doid[1] == len - 2) {
+			goid.elements = doid + 2;
+			goid.length   = len - 2;
+			gss_test_oid_set_member(&ms, &goid, supported,
 			    &present);
 		} else {
 			logit("Badly formed OID received");
@@ -103,7 +134,7 @@ userauth_gssapi(Authctxt *authctxt)
 		return (0);
 	}
 
-	if (GSS_ERROR(PRIVSEP(ssh_gssapi_server_ctx(&ctxt, &oid)))) {
+	if (GSS_ERROR(PRIVSEP(ssh_gssapi_server_ctx(&ctxt, &goid)))) {
 		xfree(doid);
 		authctxt->server_caused_failure = 1;
 		return (0);
@@ -135,8 +166,6 @@ input_gssapi_token(int type, u_int32_t plen, void *ctxt)
 	gss_buffer_desc recv_tok;
 	OM_uint32 maj_status, min_status, flags;
 	u_int len;
-	int old_gssapi_mechanism  = !strcmp(authctxt->method->name, "gssapi");
-
 
 	if (authctxt == NULL || (authctxt->methoddata == NULL && !use_privsep))
 		fatal("No authentication or GSSAPI context");
@@ -159,9 +188,8 @@ input_gssapi_token(int type, u_int32_t plen, void *ctxt)
 			packet_send();
 		}
 		authctxt->postponed = 0;
-		authctxt->server_caused_failure = 0;
 		dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
-		userauth_finish(authctxt, 0, authctxt->method->name);
+		userauth_finish(authctxt, 0, "gssapi-with-mic");
 	} else {
 		if (send_tok.length != 0) {
 			packet_start(SSH2_MSG_USERAUTH_GSSAPI_TOKEN);
@@ -170,7 +198,7 @@ input_gssapi_token(int type, u_int32_t plen, void *ctxt)
 		}
 		if (maj_status == GSS_S_COMPLETE) {
 			dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
-			if (!old_gssapi_mechanism &&flags & GSS_C_INTEG_FLAG)
+			if (flags & GSS_C_INTEG_FLAG)
 				dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_MIC,
 				    &input_gssapi_mic);
 			else
@@ -245,12 +273,11 @@ input_gssapi_exchange_complete(int type, u_int32_t plen, void *ctxt)
 	authenticated = PRIVSEP(ssh_gssapi_userok(authctxt->user));
 
 	authctxt->postponed = 0;
-	authctxt->server_caused_failure = 0;
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_ERRTOK, NULL);
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_MIC, NULL);
 	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE, NULL);
-	userauth_finish(authctxt, authenticated, authctxt->method->name);
+	userauth_finish(authctxt, authenticated, "gssapi-with-mic");
 }
 
 static void
@@ -293,16 +320,16 @@ input_gssapi_mic(int type, u_int32_t plen, void *ctxt)
 	userauth_finish(authctxt, authenticated, "gssapi-with-mic");
 }
 
+Authmethod method_gsskeyex = {
+	"gssapi-keyex",
+	userauth_gsskeyex,
+	&options.gss_authentication
+};
+
 Authmethod method_gssapi = {
 	"gssapi-with-mic",
 	userauth_gssapi,
 	&options.gss_authentication
-};
-
-Authmethod method_gssapi_nomic = {
-	"gssapi",
-	userauth_gssapi,
-	&options.gss_nomic_authentication
 };
 
 #endif /* GSSAPI */

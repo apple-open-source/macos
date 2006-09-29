@@ -1,23 +1,31 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * 
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code 
+ * as defined in and that are subject to the Apple Public Source License 
+ * Version 2.0 (the 'License'). You may not use this file except in 
+ * compliance with the License.  The rights granted to you under the 
+ * License may not be used to create, or enable the creation or 
+ * redistribution of, unlawful or unlicensed copies of an Apple operating 
+ * system, or to circumvent, violate, or enable the circumvention or 
+ * violation of, any terms of an Apple operating system software license 
+ * agreement.
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * Please obtain a copy of the License at 
+ * http://www.opensource.apple.com/apsl/ and read it before using this 
+ * file.
+ *
+ * The Original Code and all software distributed under the License are 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
+ * Please see the License for the specific language governing rights and 
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
  */
 
 #include <sys/param.h>
@@ -222,6 +230,10 @@ extern struct sysctl_oid sysctl__net_inet_tcp_strict_rfc1948;
 extern struct sysctl_oid sysctl__net_inet_tcp_delacktime;
 extern struct sysctl_oid sysctl__net_inet_tcp_isn_reseed_interval;
 extern struct sysctl_oid sysctl__net_inet_tcp_msl;
+extern struct sysctl_oid sysctl__net_inet_tcp_sack;
+extern struct sysctl_oid sysctl__net_inet_tcp_sack_maxholes;
+extern struct sysctl_oid sysctl__net_inet_tcp_sack_globalmaxholes;
+extern struct sysctl_oid sysctl__net_inet_tcp_sack_globalholes;
 #if TCP_DROP_SYNFIN
 extern struct sysctl_oid sysctl__net_inet_tcp_drop_synfin;
 #endif
@@ -673,6 +685,10 @@ struct sysctl_oid *newsysctl_list[] =
     ,&sysctl__net_inet_tcp_delacktime
     ,&sysctl__net_inet_tcp_isn_reseed_interval
     ,&sysctl__net_inet_tcp_msl
+    ,&sysctl__net_inet_tcp_sack
+    ,&sysctl__net_inet_tcp_sack_maxholes
+    ,&sysctl__net_inet_tcp_sack_globalmaxholes
+    ,&sysctl__net_inet_tcp_sack_globalholes
 #if TCP_DROP_SYNFIN
     ,&sysctl__net_inet_tcp_drop_synfin
 #endif

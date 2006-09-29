@@ -1,0 +1,14 @@
+--- samba/source/nmbd/nmbd_responserecordsdb.c.orig	Fri Aug 29 14:14:59 2003
++++ samba/source/nmbd/nmbd_responserecordsdb.c	Fri Dec 19 08:31:22 2003
+@@ -63,6 +63,11 @@ static void add_response_record(struct s
+ void remove_response_record(struct subnet_record *subrec,
+ 				struct response_record *rrec)
+ {
++	DEBUG(4,("remove_response_record: rrec (%x) subrec (%x) \n", rrec, subrec));
++
++	if (!rrec || !subrec)
++		return;
++
+ 	if (rrec->prev)
+ 		rrec->prev->next = rrec->next;
+ 	if (rrec->next)

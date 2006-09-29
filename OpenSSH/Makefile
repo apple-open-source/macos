@@ -10,7 +10,7 @@ ProjectName           = OpenSSH
 UserType              = Administrator
 ToolType              = Services
 Extra_LD_Flags        = -L. -Lopenbsd-compat
-Extra_Configure_Flags = --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 CPPFLAGS="-D__APPLE_SACL__ -DUSE_POSIX_THREADS" 
+Extra_Configure_Flags = --sysconfdir="/etc" --disable-suid-ssh --with-ssl-dir=/usr/include/openssl --with-random=/dev/urandom --with-tcp-wrappers --with-pam --with-kerberos5 --without-zlib-version-check --with-4in6 --with-audit=bsm CPPFLAGS="-D__APPLE_SACL__" 
 
 Extra_Install_Flags   = sysconfdir="$(DSTROOT)$(ETCDIR)" MANPAGES=""
 
@@ -24,11 +24,12 @@ Install_Flags         = DESTDIR=$(DSTROOT)
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 3.8.1p1
+AEP_Version    = 4.2p1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = bsm.patch apple-bsm.patch kerberos.patch sacl.patch NLS_3995532_configure.patch EA.patch configure.patch NLS_PR-4000739_mindrot_874.patch
+AEP_Patches    = kerberos.patch kerb_gssapi_misc.patch pam.patch sacl.patch EA.patch BSM.patch
+#AEP_Patches    = bsm.patch apple-bsm.patch kerberos.patch sacl.patch NLS_3995532_configure.patch EA.patch configure.patch NLS_PR-4000739_mindrot_874.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
     AEP_ExtractOption = j

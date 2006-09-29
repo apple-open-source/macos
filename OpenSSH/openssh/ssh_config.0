@@ -4,18 +4,18 @@ NAME
      ssh_config - OpenSSH SSH client configuration files
 
 SYNOPSIS
-     $HOME/.ssh/config
+     ~/.ssh/config
      /etc/ssh/ssh_config
 
 DESCRIPTION
      ssh obtains configuration data from the following sources in the follow-
      ing order:
            1.   command-line options
-           2.   user's configuration file ($HOME/.ssh/config)
+           2.   user's configuration file (~/.ssh/config)
            3.   system-wide configuration file (/etc/ssh/ssh_config)
 
      For each parameter, the first obtained value will be used.  The configu-
-     ration files contain sections bracketed by ``Host'' specifications, and
+     ration files contain sections separated by ``Host'' specifications, and
      that section is only applied for hosts that match one of the patterns
      given in the specification.  The matched host name is the one given on
      the command line.
@@ -47,8 +47,8 @@ DESCRIPTION
 
      AddressFamily
              Specifies which address family to use when connecting.  Valid ar-
-             guments are ``any'', ``inet'' (Use IPv4 only) or ``inet6'' (Use
-             IPv6 only.)
+             guments are ``any'', ``inet'' (use IPv4 only) or ``inet6'' (use
+             IPv6 only).
 
      BatchMode
              If set to ``yes'', passphrase/password querying will be disabled.
@@ -57,9 +57,10 @@ DESCRIPTION
              ``yes'' or ``no''.  The default is ``no''.
 
      BindAddress
-             Specify the interface to transmit from on machines with multiple
-             interfaces or aliased addresses.  Note that this option does not
-             work if UsePrivilegedPort is set to ``yes''.
+             Use the specified address on the local machine as the source ad-
+             dress of the connection.  Only useful on systems with more than
+             one address.  Note that this option does not work if
+             UsePrivilegedPort is set to ``yes''.
 
      ChallengeResponseAuthentication
              Specifies whether to use challenge response authentication.  The
@@ -82,11 +83,15 @@ DESCRIPTION
 
      Ciphers
              Specifies the ciphers allowed for protocol version 2 in order of
-             preference.  Multiple ciphers must be comma-separated.  The de-
-             fault is
+             preference.  Multiple ciphers must be comma-separated.  The sup-
+             ported ciphers are ``3des-cbc'', ``aes128-cbc'', ``aes192-cbc'',
+             ``aes256-cbc'', ``aes128-ctr'', ``aes192-ctr'', ``aes256-ctr'',
+             ``arcfour128'', ``arcfour256'', ``arcfour'', ``blowfish-cbc'',
+             and ``cast128-cbc''.  The default is
 
-               ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour,
-                 aes192-cbc,aes256-cbc''
+               ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour128,
+                 arcfour256,arcfour,aes192-cbc,aes256-cbc,aes128-ctr,
+                 aes192-ctr,aes256-ctr''
 
      ClearAllForwardings
              Specifies that all local, remote and dynamic port forwardings
@@ -117,6 +122,41 @@ DESCRIPTION
              ssh server, instead of using the default system TCP timeout.
              This value is used only when the target is down or really un-
              reachable, not when it refuses the connection.
+
+     ControlMaster
+             Enables the sharing of multiple sessions over a single network
+             connection.  When set to ``yes'' ssh will listen for connections
+             on a control socket specified using the ControlPath argument.
+             Additional sessions can connect to this socket using the same
+             ControlPath with ControlMaster set to ``no'' (the default).
+             These sessions will reuse the master instance's network connec-
+             tion rather than initiating new ones.  Setting this to ``ask''
+             will cause ssh to listen for control connections, but require
+             confirmation using the SSH_ASKPASS program before they are ac-
+             cepted (see ssh-add(1) for details).  If the ControlPath can not
+             be opened, ssh will continue without connecting to a master in-
+             stance.
+
+             X11 and ssh-agent(1) forwarding is supported over these multi-
+             plexed connections, however the display and agent fowarded will
+             be the one belonging to the master connection i.e. it is not pos-
+             sible to forward multiple displays or agents.
+
+             Two additional options allow for opportunistic multiplexing: try
+             to use a master connection but fall back to creating a new one if
+             one does not already exist.  These options are: ``auto'' and
+             ``autoask''.  The latter requires confirmation like the ``ask''
+             option.
+
+     ControlPath
+             Specify the path to the control socket used for connection shar-
+             ing as described in the ControlMaster section above or the string
+             ``none'' to disable connection sharing.  In the path, `%h' will
+             be substituted by the target host name, `%p' the port and `%r' by
+             the remote login username.  It is recommended that any
+             ControlPath used for opportunistic connection sharing include all
+             three of these escape sequences.  This ensures that shared con-
+             nections are uniquely identified.
 
      DynamicForward
              Specifies that a TCP/IP port on the local machine be forwarded
@@ -169,11 +209,15 @@ DESCRIPTION
              ForwardX11Trusted option is also enabled.
 
      ForwardX11Trusted
-             If the this option is set to ``yes'' then remote X11 clients will
-             have full access to the original X11 display.  If this option is
-             set to ``no'' then remote X11 clients will be considered untrust-
-             ed and prevented from stealing or tampering with data belonging
-             to trusted X11 clients.
+             If this option is set to ``yes'' then remote X11 clients will
+             have full access to the original X11 display.
+
+             If this option is set to ``no'' then remote X11 clients will be
+             considered untrusted and prevented from stealing or tampering
+             with data belonging to trusted X11 clients.  Furthermore, the
+             xauth(1) token used for the session will be set to expire after
+             20 minutes.  Remote clients will be refused access after this
+             time.
 
              The default is ``no''.
 
@@ -203,6 +247,15 @@ DESCRIPTION
              ``no''.  Note that this option applies to protocol version 2 on-
              ly.
 
+     HashKnownHosts
+             Indicates that ssh should hash host names and addresses when they
+             are added to ~/.ssh/known_hosts.  These hashed names may be used
+             normally by ssh and sshd, but they do not reveal identifying in-
+             formation should the file's contents be disclosed.  The default
+             is ``no''.  Note that hashing of names and addresses will not be
+             retrospectively applied to existing known hosts files, but these
+             may be manually hashed using ssh-keygen(1).
+
      HostbasedAuthentication
              Specifies whether to try rhosts based authentication with public
              key authentication.  The argument must be ``yes'' or ``no''.  The
@@ -229,14 +282,13 @@ DESCRIPTION
 
      IdentityFile
              Specifies a file from which the user's RSA or DSA authentication
-             identity is read.  The default is $HOME/.ssh/identity for proto-
-             col version 1, and $HOME/.ssh/id_rsa and $HOME/.ssh/id_dsa for
-             protocol version 2.  Additionally, any identities represented by
-             the authentication agent will be used for authentication.  The
-             file name may use the tilde syntax to refer to a user's home di-
-             rectory.  It is possible to have multiple identity files speci-
-             fied in configuration files; all these identities will be tried
-             in sequence.
+             identity is read.  The default is ~/.ssh/identity for protocol
+             version 1, and ~/.ssh/id_rsa and ~/.ssh/id_dsa for protocol ver-
+             sion 2.  Additionally, any identities represented by the authen-
+             tication agent will be used for authentication.  The file name
+             may use the tilde syntax to refer to a user's home directory.  It
+             is possible to have multiple identity files specified in configu-
+             ration files; all these identities will be tried in sequence.
 
      IdentitiesOnly
              Specifies that ssh should only use the authentication identity
@@ -246,14 +298,27 @@ DESCRIPTION
              ssh-agent offers many different identities.  The default is
              ``no''.
 
+     KbdInteractiveDevices
+             Specifies the list of methods to use in keyboard-interactive au-
+             thentication.  Multiple method names must be comma-separated.
+             The default is to use the server specified list.
+
      LocalForward
              Specifies that a TCP/IP port on the local machine be forwarded
              over the secure channel to the specified host and port from the
-             remote machine.  The first argument must be a port number, and
-             the second must be host:port.  IPv6 addresses can be specified
-             with an alternative syntax: host/port.  Multiple forwardings may
-             be specified, and additional forwardings can be given on the com-
-             mand line.  Only the superuser can forward privileged ports.
+             remote machine.  The first argument must be [bind_address:]port
+             and the second argument must be host:hostport.  IPv6 addresses
+             can be specified by enclosing addresses in square brackets or by
+             using an alternative syntax: [bind_address/]port and
+             host/hostport.  Multiple forwardings may be specified, and addi-
+             tional forwardings can be given on the command line.  Only the
+             superuser can forward privileged ports.  By default, the local
+             port is bound in accordance with the GatewayPorts setting.  How-
+             ever, an explicit bind_address may be used to bind the connection
+             to a specific address.  The bind_address of ``localhost'' indi-
+             cates that the listening port be bound for local use only, while
+             an empty address or `*' indicates that the port should be avail-
+             able from all interfaces.
 
      LogLevel
              Gives the verbosity level that is used when logging messages from
@@ -292,7 +357,7 @@ DESCRIPTION
      PreferredAuthentications
              Specifies the order in which the client should try protocol 2 au-
              thentication methods.  This allows a client to prefer one method
-             (e.g.  keyboard-interactive) over another method (e.g.  password)
+             (e.g. keyboard-interactive) over another method (e.g. password)
              The default for this option is: ``hostbased,publickey,keyboard-
              interactive,password''.
 
@@ -317,6 +382,12 @@ DESCRIPTION
              tirely.  Note that CheckHostIP is not available for connects with
              a proxy command.
 
+             This directive is useful in conjunction with nc(1) and its proxy
+             support.  For example, the following directive would connect via
+             an HTTP proxy at 192.0.2.0:
+
+                ProxyCommand /usr/bin/nc -X connect -x 192.0.2.0:8080 %h %p
+
      PubkeyAuthentication
              Specifies whether to try public key authentication.  The argument
              to this keyword must be ``yes'' or ``no''.  The default is
@@ -325,11 +396,19 @@ DESCRIPTION
      RemoteForward
              Specifies that a TCP/IP port on the remote machine be forwarded
              over the secure channel to the specified host and port from the
-             local machine.  The first argument must be a port number, and the
-             second must be host:port.  IPv6 addresses can be specified with
-             an alternative syntax: host/port.  Multiple forwardings may be
-             specified, and additional forwardings can be given on the command
-             line.  Only the superuser can forward privileged ports.
+             local machine.  The first argument must be [bind_address:]port
+             and the second argument must be host:hostport.  IPv6 addresses
+             can be specified by enclosing addresses in square brackets or by
+             using an alternative syntax: [bind_address/]port and
+             host/hostport.  Multiple forwardings may be specified, and addi-
+             tional forwardings can be given on the command line.  Only the
+             superuser can forward privileged ports.
+
+             If the bind_address is not specified, the default is to only bind
+             to loopback addresses.  If the bind_address is `*' or an empty
+             string, then the forwarding is requested to listen on all inter-
+             faces.  Specifying a remote bind_address will only succeed if the
+             server's GatewayPorts option is enabled (see sshd_config(5)).
 
      RhostsRSAAuthentication
              Specifies whether to try rhosts based authentication with RSA
@@ -343,6 +422,17 @@ DESCRIPTION
              only be attempted if the identity file exists, or an authentica-
              tion agent is running.  The default is ``yes''.  Note that this
              option applies to protocol version 1 only.
+
+     SendEnv
+             Specifies what variables from the local environ(7) should be sent
+             to the server.  Note that environment passing is only supported
+             for protocol 2, the server must also support it, and the server
+             must be configured to accept these environment variables.  Refer
+             to AcceptEnv in sshd_config(5) for how to configure the server.
+             Variables are specified by name, which may contain the wildcard
+             characters `*' and `?'.  Multiple environment variables may be
+             separated by whitespace or spread across multiple SendEnv direc-
+             tives.  The default is not to send any environment variables.
 
      ServerAliveInterval
              Sets a timeout interval in seconds after which if no data has
@@ -377,9 +467,9 @@ DESCRIPTION
 
      StrictHostKeyChecking
              If this flag is set to ``yes'', ssh will never automatically add
-             host keys to the $HOME/.ssh/known_hosts file, and refuses to con-
-             nect to hosts whose host key has changed.  This provides maximum
-             protection against trojan horse attacks, however, can be annoying
+             host keys to the ~/.ssh/known_hosts file, and refuses to connect
+             to hosts whose host key has changed.  This provides maximum pro-
+             tection against trojan horse attacks, however, can be annoying
              when the /etc/ssh/ssh_known_hosts file is poorly maintained, or
              connections to new hosts are frequently made.  This option forces
              the user to manually add all new hosts.  If this flag is set to
@@ -420,7 +510,7 @@ DESCRIPTION
 
      UserKnownHostsFile
              Specifies a file to use for the user host key database instead of
-             $HOME/.ssh/known_hosts.
+             ~/.ssh/known_hosts.
 
      VerifyHostKeyDNS
              Specifies whether to verify the remote key using DNS and SSHFP
@@ -439,12 +529,11 @@ DESCRIPTION
              is /usr/X11R6/bin/xauth.
 
 FILES
-     $HOME/.ssh/config
+     ~/.ssh/config
              This is the per-user configuration file.  The format of this file
-             is described above.  This file is used by the ssh client.  This
-             file does not usually contain any sensitive information, but the
-             recommended permissions are read/write for the user, and not ac-
-             cessible by others.
+             is described above.  This file is used by the ssh client.  Be-
+             cause of the potential for abuse, this file must have strict per-
+             missions: read/write for the user, and not accessible by others.
 
      /etc/ssh/ssh_config
              Systemwide configuration file.  This file provides defaults for
@@ -462,4 +551,4 @@ AUTHORS
      ated OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 3.5                   September 25, 1999                             8
+OpenBSD 3.8                   September 25, 1999                             9

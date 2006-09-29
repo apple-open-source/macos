@@ -32,7 +32,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "includes.h"
-RCSID("$OpenBSD: key.c,v 1.55 2003/11/10 16:23:41 jakob Exp $");
+RCSID("$OpenBSD: key.c,v 1.58 2005/06/17 02:44:32 djm Exp $");
 
 #include <openssl/evp.h>
 
@@ -231,7 +231,7 @@ static char *
 key_fingerprint_hex(u_char *dgst_raw, u_int dgst_raw_len)
 {
 	char *retval;
-	int i;
+	u_int i;
 
 	retval = xmalloc(dgst_raw_len * 3 + 1);
 	retval[0] = '\0';
@@ -650,7 +650,7 @@ key_type_from_name(char *name)
 		return KEY_RSA;
 	} else if (strcmp(name, "ssh-dss") == 0) {
 		return KEY_DSA;
-	} else if (strcmp(name, "null") == 0){
+	} else if (strcmp(name, "null") == 0) {
 		return KEY_NULL;
 	}
 	debug2("key_type_from_name: unknown key type '%s'", name);
@@ -683,8 +683,8 @@ Key *
 key_from_blob(const u_char *blob, u_int blen)
 {
 	Buffer b;
-	char *ktype;
 	int rlen, type;
+	char *ktype = NULL;
 	Key *key = NULL;
 
 #ifdef DEBUG_PK
@@ -692,24 +692,38 @@ key_from_blob(const u_char *blob, u_int blen)
 #endif
 	buffer_init(&b);
 	buffer_append(&b, blob, blen);
-	ktype = buffer_get_string(&b, NULL);
+	if ((ktype = buffer_get_string_ret(&b, NULL)) == NULL) {
+		error("key_from_blob: can't read key type");
+		goto out;
+	}
+
 	type = key_type_from_name(ktype);
 
 	switch (type) {
 	case KEY_RSA:
 		key = key_new(type);
-		buffer_get_bignum2(&b, key->rsa->e);
-		buffer_get_bignum2(&b, key->rsa->n);
+		if (buffer_get_bignum2_ret(&b, key->rsa->e) == -1 ||
+		    buffer_get_bignum2_ret(&b, key->rsa->n) == -1) {
+			error("key_from_blob: can't read rsa key");
+			key_free(key);
+			key = NULL;
+			goto out;
+		}
 #ifdef DEBUG_PK
 		RSA_print_fp(stderr, key->rsa, 8);
 #endif
 		break;
 	case KEY_DSA:
 		key = key_new(type);
-		buffer_get_bignum2(&b, key->dsa->p);
-		buffer_get_bignum2(&b, key->dsa->q);
-		buffer_get_bignum2(&b, key->dsa->g);
-		buffer_get_bignum2(&b, key->dsa->pub_key);
+		if (buffer_get_bignum2_ret(&b, key->dsa->p) == -1 ||
+		    buffer_get_bignum2_ret(&b, key->dsa->q) == -1 ||
+		    buffer_get_bignum2_ret(&b, key->dsa->g) == -1 ||
+		    buffer_get_bignum2_ret(&b, key->dsa->pub_key) == -1) {
+			error("key_from_blob: can't read dsa key");
+			key_free(key);
+			key = NULL;
+			goto out;
+		}
 #ifdef DEBUG_PK
 		DSA_print_fp(stderr, key->dsa, 8);
 #endif
@@ -719,12 +733,14 @@ key_from_blob(const u_char *blob, u_int blen)
 		break;
 	default:
 		error("key_from_blob: cannot handle type %s", ktype);
-		break;
+		goto out;
 	}
 	rlen = buffer_len(&b);
 	if (key != NULL && rlen != 0)
 		error("key_from_blob: remaining bytes in key blob %d", rlen);
-	xfree(ktype);
+ out:
+	if (ktype != NULL)
+		xfree(ktype);
 	buffer_free(&b);
 	return key;
 }
@@ -784,7 +800,7 @@ key_sign(
 		return ssh_rsa_sign(key, sigp, lenp, data, datalen);
 		break;
 	default:
-		error("key_sign: illegal key type %d", key->type);
+		error("key_sign: invalid key type %d", key->type);
 		return -1;
 		break;
 	}
@@ -811,7 +827,7 @@ key_verify(
 		return ssh_rsa_verify(key, signature, signaturelen, data, datalen);
 		break;
 	default:
-		error("key_verify: illegal key type %d", key->type);
+		error("key_verify: invalid key type %d", key->type);
 		return -1;
 		break;
 	}

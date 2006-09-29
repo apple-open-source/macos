@@ -53,13 +53,11 @@
 #include "fetchmail.h"
 #include "tunable.h"
 
-RETSIGTYPE
+static RETSIGTYPE
 sigchld_handler (int sig)
 /* process SIGCHLD to obtain the exit code of the terminating process */
 {
-    extern volatile int lastsig;		/* last signal received */
     pid_t pid;
-
 #if 	defined(HAVE_WAITPID)				/* the POSIX way */
     int status;
 
@@ -80,9 +78,10 @@ sigchld_handler (int sig)
     wait(&status);
 #endif
     lastsig = SIGCHLD;
+    (void)sig;
 }
 
-RETSIGTYPE null_signal_handler(int sig) { }
+RETSIGTYPE null_signal_handler(int sig) { (void)sig; }
 
 SIGHANDLERTYPE set_signal_handler(int sig, SIGHANDLERTYPE handler)
 /* 
@@ -133,7 +132,7 @@ void deal_with_sigchld(void)
 }
 
 int
-daemonize (const char *logfile, void (*termhook)(int))
+daemonize (const char *logfile)
 /* detach from control TTY, become process group leader, catch SIGCHLD */
 {
   int fd;
@@ -260,7 +259,7 @@ nottyDetach:
   return(0);
 }
 
-flag isafile(int fd)
+flag is_a_file(int fd)
 /* is the given fd attached to a file? (used to control logging) */
 {
     struct stat stbuf;

@@ -1,6 +1,6 @@
 {
 	CFBundleName = "EAP8021X";
 	CFBundleIdentifier = "com.apple.EAP8021X";
-	CFBundleShortVersionString = "8.0.2";
+	CFBundleShortVersionString = "8.0.3";
         CFBundleDevelopmentRegion = "English";
 }

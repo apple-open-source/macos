@@ -50,14 +50,17 @@
 #include <EAP8021X/EAPClientModule.h>
 #include <EAP8021X/EAPClientProperties.h>
 #include <EAP8021X/EAPOLControlTypes.h>
+#include <EAP8021X/EAPOLControl.h>
+#include <EAP8021X/SupplicantTypes.h>
+#include <EAP8021X/EAPKeychainUtil.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFArray.h>
 #include <CoreFoundation/CFBundle.h>
-#include <EAP8021X/EAPOLControl.h>
-#include <EAP8021X/SupplicantTypes.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <Security/SecKeychain.h>
+#include <Security/SecKeychainItem.h>
 
 #include "Supplicant.h"
 #include "Timer.h"
@@ -115,6 +118,7 @@ struct Supplicant_s {
     CFDictionaryRef		config_dict;
     CFMutableDictionaryRef	ui_config_dict;
     CFStringRef			config_id;
+    bool			system_mode;
 
     CFDictionaryRef		default_dict;
 
@@ -144,7 +148,7 @@ struct Supplicant_s {
 
     EAPOLSocketReceiveData	last_rx_packet;
     EAPClientStatus		last_status;
-    int				last_error;
+    EAPClientDomainSpecificError last_error;
 
     bool			logoff_sent;
     bool			debug;
@@ -253,14 +257,15 @@ eap_client_init(SupplicantRef supp, EAPType type)
     S_set_uint32(&supp->eap.plugin_data.mtu,
 		 EAPOLSocket_mtu(supp->sock) - sizeof(EAPOLPacket));
 
-    supp->eap.plugin_data.username = supp->username;
+    supp->eap.plugin_data.username = (uint8_t *)supp->username;
     S_set_uint32(&supp->eap.plugin_data.username_length, 
 		 supp->username_length);
-    supp->eap.plugin_data.password = supp->password;
+    supp->eap.plugin_data.password = (uint8_t *)supp->password;
     S_set_uint32(&supp->eap.plugin_data.password_length, 
 		 supp->password_length);
     *((CFDictionaryRef *)&supp->eap.plugin_data.properties) = supp->config_dict;
     *((bool *)&supp->eap.plugin_data.log_enabled) = supp->debug;
+    *((bool *)&supp->eap.plugin_data.system_mode) = supp->system_mode;
     supp->last_status = 
 	EAPClientModulePluginInit(module, &supp->eap.plugin_data,
 				  &supp->eap.required_props, 
@@ -291,14 +296,14 @@ eap_client_publish_properties(SupplicantRef supp)
 static EAPClientState
 eap_client_process(SupplicantRef supp, EAPPacketRef in_pkt_p,
 		   EAPPacketRef * out_pkt_p, EAPClientStatus * status,
-		   u_int32_t * error)
+		   EAPClientDomainSpecificError * error)
 {
     EAPClientState cstate;
 
-    supp->eap.plugin_data.username = supp->username;
+    supp->eap.plugin_data.username = (uint8_t *)supp->username;
     S_set_uint32(&supp->eap.plugin_data.username_length, 
 		 supp->username_length);
-    supp->eap.plugin_data.password = supp->password;
+    supp->eap.plugin_data.password = (uint8_t *)supp->password;
     S_set_uint32(&supp->eap.plugin_data.password_length, 
 		 supp->password_length);
     S_set_uint32(&supp->eap.plugin_data.generation, 
@@ -410,7 +415,8 @@ EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
 	}
 	types[types_count++] = type_i;
 	if (type_i == kEAPTypePEAP
-	    || type_i == kEAPTypeTTLS) {
+	    || type_i == kEAPTypeTTLS
+	    || type_i == kEAPTypeEAPFAST) {
 	    tunneled_count++;
 	}
     }
@@ -561,7 +567,6 @@ eapol_key_verify_signature(EAPOLPacketRef packet, int packet_length,
     EAPOLKeyDescriptorRef	descr_p;
     EAPOLPacketRef		packet_copy;
     u_char			signature[16];
-    int				signature_length;
     bool			valid = FALSE;
 
     /* make a copy of the entire packet */
@@ -569,10 +574,9 @@ eapol_key_verify_signature(EAPOLPacketRef packet, int packet_length,
     bcopy(packet, packet_copy, packet_length);
     descr_p = (EAPOLKeyDescriptorRef)packet_copy->body;
     bzero(descr_p->key_signature, sizeof(descr_p->key_signature));
-    signature_length = sizeof(signature);
     HMAC(EVP_md5(), server_key, server_key_length,
 	 (const u_char *)packet_copy, packet_length, 
-	 signature, &signature_length);
+	 signature, NULL);
     descr_p = (EAPOLKeyDescriptorRef)packet->body;
     valid = (bcmp(descr_p->key_signature, signature, sizeof(signature)) == 0);
     if (debug) {
@@ -595,7 +599,7 @@ process_key(SupplicantRef supp, EAPOLPacketRef eapol_p)
     int				packet_length;
     char *			server_key;
     int				server_key_length = 0;
-    char *			session_key;
+    uint8_t *			session_key;
     int				session_key_length = 0;
     wirelessKeyType		type;
 
@@ -629,8 +633,8 @@ process_key(SupplicantRef supp, EAPOLPacketRef eapol_p)
     key_length = EAPOLKeyDescriptorGetLength(descr_p);
     key_data_length = body_length - sizeof(*descr_p);
     if (key_data_length > 0) {
-	char *			enc_key;
-	char *			rc4_key_data;
+	uint8_t *		enc_key;
+	uint8_t *		rc4_key_data;
 	int			rc4_key_data_length;
 	RC4_KEY			rc4_key;
 
@@ -683,9 +687,9 @@ clear_wpa_key_info(SupplicantRef supp)
 static void
 set_wpa_key_info(SupplicantRef supp)
 {
-    char *	server_key;
+    uint8_t *	server_key;
     int		server_key_length;
-    char *	session_key;
+    uint8_t *	session_key;
     int		session_key_length;
 
     server_key = eap_client_server_key(supp, &server_key_length);
@@ -1072,6 +1076,7 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 				   NULL);
 		return;
 	    }
+	    Timer_cancel(supp->timer);
 	    eap_client_free(supp);
 	    if (eap_client_init(supp, req_p->type) == FALSE) {
 		if (supp->last_status 
@@ -1153,6 +1158,15 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 	if (supp->last_status == kEAPClientStatusUserInputRequired) {
 	    save_last_packet(supp, rx);
 	    supp->eap.required_props = eap_client_require_properties(supp);
+	    if (supp->system_mode && supp->eap.required_props != NULL) {
+		supp->last_status = kEAPClientStatusUserInputNotPossible;
+		Supplicant_held(supp, kSupplicantEventStart, NULL);
+	    }
+	    else {
+		Supplicant_report_status(supp);
+	    }
+	}
+	else {
 	    Supplicant_report_status(supp);
 	}
 	break;
@@ -1539,6 +1553,9 @@ Supplicant_report_status(SupplicantRef supp)
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
+    if (supp->system_mode) {
+	CFDictionarySetValue(dict, kEAPOLControlSystemMode, kCFBooleanTrue);
+    }
     if (supp->config_id != NULL) {
 	CFDictionarySetValue(dict, kEAPOLControlUniqueIdentifier,
 			     supp->config_id);
@@ -1671,7 +1688,6 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 		       req_p->type_data);
 		respond_to_notification(supp, req_p->identifier);
 		break;
-
 	    default:
 		break;
 	    }
@@ -1786,6 +1802,64 @@ eap_method_user_name(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
     return (NULL);
 }
 
+static OSStatus
+mySecKeychainCopySystemKeychain(SecKeychainRef * ret_keychain)
+{
+    SecKeychainRef	keychain = NULL;
+    OSStatus		status;
+    
+    status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+    if (status != noErr) {
+	my_log(LOG_NOTICE, "SecKeychainSetPreferenceDomain() failed, %ld",
+	       status);
+	goto done;
+    }
+    status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
+					  &keychain);
+    if (status != noErr) {
+	my_log(LOG_NOTICE, "SecKeychainCopyDomainDefault() failed, %ld",
+	       status);
+    }
+
+ done:
+    *ret_keychain = keychain;
+    return (status);
+}
+
+static char *
+S_copy_password_from_keychain(bool use_system_keychain,
+			      CFStringRef unique_id_str)
+{
+    SecKeychainRef 	keychain = NULL;
+    char *		password = NULL;
+    CFDataRef		password_data = NULL;
+    int			password_length;
+    OSStatus		status;
+
+    if (use_system_keychain) {
+	status = mySecKeychainCopySystemKeychain(&keychain);
+	if (status != noErr) {
+	    goto done;
+	}
+    }
+    status = EAPSecKeychainPasswordItemCopy(keychain, unique_id_str,
+					    &password_data);
+    if (status != noErr) {
+	my_log(LOG_NOTICE, "SecKeychainFindGenericPassword failed, %ld",
+	       status);
+	goto done;
+    }
+    password_length = CFDataGetLength(password_data);
+    password = malloc(password_length + 1);
+    bcopy(CFDataGetBytePtr(password_data), password, password_length);
+    password[password_length] = '\0';
+
+ done:
+    my_CFRelease(&password_data);
+    my_CFRelease(&keychain);
+    return ((char *)password);
+}
+
 static bool
 S_set_user_password(SupplicantRef supp)
 {
@@ -1827,6 +1901,23 @@ S_set_user_password(SupplicantRef supp)
     if (password_cf != NULL) {
 	password = my_CFStringToCString(password_cf, 
 					kCFStringEncodingMacRoman);
+    }
+    else {
+	CFStringRef	item_cf;
+
+	item_cf 
+	    = CFDictionaryGetValue(supp->config_dict, 
+				   kEAPClientPropUserPasswordKeychainItemID);
+	item_cf = isA_CFString(item_cf);
+	if (item_cf != NULL) {
+	    password = S_copy_password_from_keychain(supp->system_mode, 
+						     item_cf);
+	    if (password == NULL) {
+		my_log(LOG_NOTICE, 
+		       "%s: failed to retrieve password from keychain",
+		       EAPOLSocket_if_name(supp->sock, NULL));
+	    }
+	}
     }
     if (supp->password != NULL) {
 	free(supp->password);
@@ -2137,13 +2228,10 @@ is_link_active(SCDynamicStoreRef store, CFStringRef if_name_cf)
 }
 
 static void
-link_changed(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
+link_status_changed(SupplicantRef supp)
 {
     bool 		active;
-    SupplicantRef	supp = (SupplicantRef)arg;
     struct timeval	t = {0, 0};
-
-    EAPOLSocket_link_update(supp->sock);
 
     active = is_link_active(supp->store, supp->if_name_cf);
     if (active) {
@@ -2175,8 +2263,55 @@ link_changed(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
     return;
 }
 
+static void
+link_changed(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
+{
+    int			count = 0;
+    Boolean		link_changed = FALSE;
+    SupplicantRef	supp = (SupplicantRef)arg;
+
+    if (changes != NULL) {
+	count = CFArrayGetCount(changes);
+    }
+    if (count == 0) {
+	return;
+    }
+    if (EAPOLSocket_is_wireless(supp->sock) == FALSE) {
+	link_changed = TRUE;
+    }
+    else {
+	Boolean		airport_changed = FALSE;
+	int		i;
+
+	for (i = 0; i < count; i++) {
+	    CFStringRef	key = CFArrayGetValueAtIndex(changes, i);
+	    
+	    if (CFStringHasSuffix(key, kSCEntNetAirPort)) {
+		airport_changed = TRUE;
+	    }
+	    else {
+		link_changed = TRUE;
+	    }
+	}
+	if (airport_changed) {
+	    Boolean	bssid_changed;
+	    bssid_changed = EAPOLSocket_link_update(supp->sock);
+	    if (bssid_changed) {
+		link_changed = TRUE;
+	    }
+	}
+	else {
+	    EAPOLSocket_link_update(supp->sock);
+	}
+    }
+    if (link_changed) {
+	link_status_changed(supp);
+    }
+    return;
+}
+
 static SCDynamicStoreRef
-link_event_register(CFStringRef if_name_cf,
+link_event_register(CFStringRef if_name_cf, Boolean is_wireless,
 		    SCDynamicStoreCallBack func, void * arg)
 {
     CFMutableArrayRef		keys = NULL;
@@ -2201,6 +2336,14 @@ link_event_register(CFStringRef if_name_cf,
 							kSCEntNetLink);
     CFArrayAppendValue(keys, key);
     my_CFRelease(&key);
+    if (is_wireless) {
+	key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+							    kSCDynamicStoreDomainState,
+							    if_name_cf,
+							    kSCEntNetAirPort);
+	CFArrayAppendValue(keys, key);
+	my_CFRelease(&key);
+    }
     SCDynamicStoreSetNotificationKeys(store, keys, NULL);
     my_CFRelease(&keys);
 
@@ -2214,7 +2357,7 @@ static CFDictionaryRef
 copy_default_dict(void)
 {
     CFBundleRef		bundle;
-    char		config_file[MAXPATHLEN];
+    uint8_t		config_file[MAXPATHLEN];
     CFDictionaryRef	dict = NULL;
     Boolean		ok;
     CFURLRef		url;
@@ -2234,7 +2377,7 @@ copy_default_dict(void)
     if (ok == FALSE) {
 	goto done;
     }
-    dict = my_CFPropertyListCreateFromFile(config_file);
+    dict = my_CFPropertyListCreateFromFile((char *)config_file);
     if (dict != NULL) {
 	if (isA_CFDictionary(dict) == NULL || CFDictionaryGetCount(dict) == 0) {
 	    my_CFRelease(&dict);
@@ -2246,7 +2389,7 @@ copy_default_dict(void)
 }
 
 SupplicantRef
-Supplicant_create(int fd, const struct sockaddr_dl * link)
+Supplicant_create(int fd, const struct sockaddr_dl * link, bool system_mode)
 {
     EAPOLClientRef		client = NULL;
     CFDictionaryRef		control_dict = NULL;
@@ -2277,6 +2420,7 @@ Supplicant_create(int fd, const struct sockaddr_dl * link)
     }
 
     bzero(supp, sizeof(*supp));
+    supp->system_mode = system_mode;
     supp->timer = timer;
     supp->sock = sock;
     if_name_cf 
@@ -2285,6 +2429,7 @@ Supplicant_create(int fd, const struct sockaddr_dl * link)
 				    kCFStringEncodingASCII);
     supp->if_name_cf = if_name_cf;
     store = link_event_register(supp->if_name_cf,
+				EAPOLSocket_is_wireless(supp->sock),
 				link_changed, supp);
     supp->store = store;
     client = EAPOLClientAttach(EAPOLSocket_if_name(supp->sock, NULL), 

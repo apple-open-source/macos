@@ -794,6 +794,7 @@ static CFDictionaryRef
 eaptls_publish_props(EAPClientPluginDataRef plugin)
 {
     CFArrayRef			cert_list;
+    SSLCipherSuite		cipher = SSL_NULL_WITH_NULL_NULL;
     EAPTLSPluginDataRef		context = (EAPTLSPluginDataRef)plugin->private;
     CFMutableDictionaryRef	dict;
 
@@ -814,15 +815,25 @@ eaptls_publish_props(EAPClientPluginDataRef plugin)
 			 context->session_was_resumed 
 			 ? kCFBooleanTrue
 			 : kCFBooleanFalse);
+    (void)SSLGetNegotiatedCipher(context->ssl_context, &cipher);
+    if (cipher != SSL_NULL_WITH_NULL_NULL) {
+	CFNumberRef	c;
+
+	c = CFNumberCreate(NULL, kCFNumberIntType, &cipher);
+	CFDictionarySetValue(dict, kEAPClientPropTLSNegotiatedCipher, c);
+	CFRelease(c);
+    }
     if (context->last_client_status == kEAPClientStatusUserInputRequired
 	&& context->trust_proceed == FALSE) {
 	CFNumberRef	num;
 	num = CFNumberCreate(NULL, kCFNumberSInt32Type,
 			     &context->trust_status);
 	CFDictionarySetValue(dict, kEAPClientPropTLSTrustClientStatus, num);
+	CFRelease(num);
 	num = CFNumberCreate(NULL, kCFNumberSInt32Type,
 			     &context->trust_proceed_id);
 	CFDictionarySetValue(dict, kEAPClientPropTLSUserTrustProceed, num);
+	CFRelease(num);
     }
     return (dict);
 }

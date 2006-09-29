@@ -74,13 +74,15 @@ wireless_ap_mac(const wireless_t wref, struct ether_addr * AP_mac);
 
 boolean_t
 wireless_set_key(const wireless_t wref, wirelessKeyType type, 
-		 int index, char * key, int key_length);
+		 int index, const uint8_t * key, int key_length);
 
 boolean_t
-wireless_set_wpa_session_key(const wireless_t wref, char * key, int key_length);
+wireless_set_wpa_session_key(const wireless_t wref, 
+			     const uint8_t * key, int key_length);
 
 boolean_t
-wireless_set_wpa_server_key(const wireless_t wref, char * key, int key_length);
+wireless_set_wpa_server_key(const wireless_t wref,
+			    const uint8_t * key, int key_length);
 
 void
 wireless_free(wireless_t handle);

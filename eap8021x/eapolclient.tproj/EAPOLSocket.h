@@ -40,7 +40,6 @@ typedef struct EAPOLSocket_s EAPOLSocket;
 typedef struct {
     EAPOLPacket *		eapol_p;
     unsigned int		length;
-    struct sockaddr_dl *	source_address_p;
     boolean_t			logged;
 } EAPOLSocketReceiveData, *EAPOLSocketReceiveDataRef;
 
@@ -66,15 +65,24 @@ EAPOLSocket_is_wireless(EAPOLSocket * sock);
 
 boolean_t
 EAPOLSocket_set_key(EAPOLSocket * sock, wirelessKeyType type,
-		    int index, char * key, int key_length);
+		    int index, const uint8_t * key, int key_length);
 
 boolean_t
-EAPOLSocket_set_wpa_session_key(EAPOLSocket * sock, char * key, int key_length);
+EAPOLSocket_set_wpa_session_key(EAPOLSocket * sock, 
+				const uint8_t * key, int key_length);
 
 boolean_t
-EAPOLSocket_set_wpa_server_key(EAPOLSocket * sock, char * key, int key_length);
+EAPOLSocket_set_wpa_server_key(EAPOLSocket * sock,
+			       const uint8_t * key, int key_length);
 
-void
+/*
+ * Function: EAPOLSocket_link_update
+ * Purpose:
+ *   Update the stored BSSID.
+ * Returns:
+ *   Whether the stored BSSID was modified.
+ */
+boolean_t
 EAPOLSocket_link_update(EAPOLSocket * sock);
 
 void

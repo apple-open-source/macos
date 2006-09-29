@@ -208,6 +208,8 @@ protected:
 	bool									_is64bit;
 	bool									_inAbortIsochEP;
 	bool									_wakingFromHibernation;
+	UInt8									_asynchScheduleUnsynchCount;
+	UInt8									_periodicScheduleUnsynchCount;
     UInt32									_isochBandwidthAvail;					// amount of available bandwidth for Isochronous transfers
     UInt32									_periodicEDsInSchedule;					// interrupt endpoints
     UInt64									_frameNumber;							// the current frame number
@@ -588,10 +590,11 @@ public:
 	
     virtual IOReturn 		UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedPort, UInt32 command, UInt32 flags);
     virtual IOReturn		UIMSetTestMode(UInt32 mode, UInt32 port);
-    virtual IOReturn		EnableAsyncSchedule(void);
-    virtual IOReturn		DisableAsyncSchedule(void);
-    virtual IOReturn		EnablePeriodicSchedule(void);
-    virtual IOReturn		DisablePeriodicSchedule(void);
+
+    IOReturn		EnableAsyncSchedule(bool waitForON);
+    IOReturn		DisableAsyncSchedule(bool waitForOFF);
+    IOReturn		EnablePeriodicSchedule(bool waitForON);
+    IOReturn		DisablePeriodicSchedule(bool waitForOFF);
 	
     void 			CheckEDListForTimeouts(AppleEHCIQueueHead *head);
     bool			RootHubAreAllPortsDisconnectedOrSuspended( void );

@@ -17,14 +17,14 @@
 #include  "i18n.h"
 #include "md5.h"
 
-void hmac_md5 (unsigned char *password,  size_t pass_len,
-               unsigned char *challenge, size_t chal_len,
+void hmac_md5 (char *password,  size_t pass_len,
+               char *challenge, size_t chal_len,
                unsigned char *response,  size_t resp_len)
 {
     int i;
     unsigned char ipad[64];
     unsigned char opad[64];
-    unsigned char hash_passwd[16];
+    char hash_passwd[16];
 
     MD5_CTX ctx;
     
@@ -65,11 +65,11 @@ int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
 {
     int result;
     int len;
-    unsigned char buf1[1024];
-    unsigned char msg_id[768];
+    char buf1[1024];
+    char msg_id[768];
     unsigned char response[16];
-    unsigned char reply[1024];
-    unsigned char *respdata;
+    char reply[1024];
+    char *respdata;
 
     gen_send (sock, "%s CRAM-MD5", command);
 
@@ -94,7 +94,7 @@ int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
     if (len < 0) {
 	report (stderr, GT_("could not decode BASE64 challenge\n"));
 	return PS_AUTHFAIL;
-    } else if (len < sizeof (msg_id)) {
+    } else if ((size_t)len < sizeof (msg_id)) {
         msg_id[len] = 0;
     } else {
         msg_id[sizeof (msg_id)-1] = 0;
@@ -114,11 +114,7 @@ int do_cram_md5 (int sock, char *command, struct query *ctl, char *strip)
               msg_id, strlen (msg_id),
               response, sizeof (response));
 
-#ifdef HAVE_SNPRINTF
     snprintf (reply, sizeof(reply),
-#else
-    sprintf(reply,
-#endif
               "%s %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", 
               ctl->remotename,
               response[0], response[1], response[2], response[3],

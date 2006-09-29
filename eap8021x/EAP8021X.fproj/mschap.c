@@ -129,7 +129,7 @@ ChallengeHash(const uint8_t peer_challenge[MSCHAP2_CHALLENGE_SIZE],
     uint8_t		hash[SHA_DIGEST_LENGTH];
 
     /* find the last backslash to get the user name to use for the hash */
-    user = strrchr(username, '\\');
+    user = (const uint8_t *)strrchr((const char *)username, '\\');
     if (user == NULL) {
 	user = username;
     }
@@ -139,7 +139,7 @@ ChallengeHash(const uint8_t peer_challenge[MSCHAP2_CHALLENGE_SIZE],
     SHA1_Init(&context);
     SHA1_Update(&context, peer_challenge, MSCHAP2_CHALLENGE_SIZE);
     SHA1_Update(&context, auth_challenge, MSCHAP2_CHALLENGE_SIZE);
-    SHA1_Update(&context, user, strlen(user));
+    SHA1_Update(&context, user, strlen((const char *)user));
     SHA1_Final(hash, &context);
     bcopy(hash, challenge, MSCHAP_NT_CHALLENGE_SIZE);
     return;
@@ -203,7 +203,7 @@ GenerateAuthResponse(uint8_t * password, uint32_t password_len,
     auth_response[1] = '=';
     for (i = 0, scan = auth_response + 2; 
 	 i < SHA_DIGEST_LENGTH; i++, scan +=2) {
-	uint8_t	hexstr[3];
+	char	hexstr[3];
 	snprintf(hexstr, 3, "%02X", hash[i]);
 	scan[0] = hexstr[0];
 	scan[1] = hexstr[1];
@@ -434,3 +434,198 @@ MSChapFillWithRandom(void * buf, uint32_t len)
     return;
 }
 
+/**
+ ** RFC 3079
+ ** MPPE functions
+ **/
+
+/*
+ * Pads used in key derivation
+ */
+
+const static uint8_t 	SHSpad1[40] =
+    { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+const static uint8_t 	SHSpad2[40] =
+    { 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2,
+      0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2,
+      0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2,
+      0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2, 0xf2 };
+
+/*
+ * "Magic" constants used in key derivations
+ */
+
+const static uint8_t 	Magic1[27] =
+    { 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x74,
+      0x68, 0x65, 0x20, 0x4d, 0x50, 0x50, 0x45, 0x20, 0x4d,
+      0x61, 0x73, 0x74, 0x65, 0x72, 0x20, 0x4b, 0x65, 0x79 };
+
+#define MAGIC2_3_SIZE	84
+#define MAGIC2_SIZE	MAGIC2_3_SIZE
+#define MAGIC3_SIZE	MAGIC2_3_SIZE
+
+const static uint8_t	Magic2[MAGIC2_SIZE] =
+    { 0x4f, 0x6e, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c, 0x69,
+      0x65, 0x6e, 0x74, 0x20, 0x73, 0x69, 0x64, 0x65, 0x2c, 0x20,
+      0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x74, 0x68,
+      0x65, 0x20, 0x73, 0x65, 0x6e, 0x64, 0x20, 0x6b, 0x65, 0x79,
+      0x3b, 0x20, 0x6f, 0x6e, 0x20, 0x74, 0x68, 0x65, 0x20, 0x73,
+      0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x73, 0x69, 0x64, 0x65,
+      0x2c, 0x20, 0x69, 0x74, 0x20, 0x69, 0x73, 0x20, 0x74, 0x68,
+      0x65, 0x20, 0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x20,
+      0x6b, 0x65, 0x79, 0x2e };
+
+const static uint8_t	Magic3[MAGIC3_SIZE] =
+    { 0x4f, 0x6e, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c, 0x69,
+      0x65, 0x6e, 0x74, 0x20, 0x73, 0x69, 0x64, 0x65, 0x2c, 0x20,
+      0x74, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x74, 0x68,
+      0x65, 0x20, 0x72, 0x65, 0x63, 0x65, 0x69, 0x76, 0x65, 0x20,
+      0x6b, 0x65, 0x79, 0x3b, 0x20, 0x6f, 0x6e, 0x20, 0x74, 0x68,
+      0x65, 0x20, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x20, 0x73,
+      0x69, 0x64, 0x65, 0x2c, 0x20, 0x69, 0x74, 0x20, 0x69, 0x73,
+      0x20, 0x74, 0x68, 0x65, 0x20, 0x73, 0x65, 0x6e, 0x64, 0x20,
+      0x6b, 0x65, 0x79, 0x2e };
+
+static void
+GetMasterKey(const uint8_t PasswordHashHash[NT_PASSWORD_HASH_SIZE],
+	     const uint8_t NTResponse[MSCHAP_NT_RESPONSE_SIZE],
+	     uint8_t MasterKey[NT_MASTER_KEY_SIZE])
+{
+    SHA_CTX		context;
+    uint8_t		Digest[SHA_DIGEST_LENGTH];
+
+    memset(Digest, 0, sizeof(Digest));
+
+    SHA1_Init(&context);
+    SHA1_Update(&context, PasswordHashHash, NT_PASSWORD_HASH_SIZE);
+    SHA1_Update(&context, NTResponse, MSCHAP_NT_RESPONSE_SIZE);
+    SHA1_Update(&context, Magic1, sizeof(Magic1));
+    SHA1_Final(Digest, &context);
+    memcpy(MasterKey, Digest, NT_MASTER_KEY_SIZE);
+    return;
+}
+
+void
+MSChap2_MPPEGetMasterKey(const uint8_t * password, uint32_t password_len,
+			 const uint8_t NTResponse[MSCHAP_NT_RESPONSE_SIZE],
+			 uint8_t MasterKey[NT_MASTER_KEY_SIZE])
+{
+    uint8_t 	password_hash[NT_PASSWORD_HASH_SIZE];
+    uint8_t	unicode_password[NT_MAXPWLEN * 2];
+
+    password_to_unicode(password, password_len, unicode_password);
+
+    NTPasswordHashHash(unicode_password, password_len * 2, password_hash);
+    GetMasterKey(password_hash, NTResponse, MasterKey);
+}
+
+void
+MSChap2_MPPEGetAsymetricStartKey(const uint8_t MasterKey[NT_MASTER_KEY_SIZE],
+				 uint8_t SessionKey[NT_SESSION_KEY_SIZE],
+				 int SessionKeyLength,
+				 bool IsSend,
+				 bool IsServer)
+{
+    SHA_CTX		context;
+    uint8_t		Digest[SHA_DIGEST_LENGTH];
+    const uint8_t *	s;
+
+    /*
+     * The logic in the spec says:
+     *  if (IsSend) {
+     *	    if (IsServer) {
+     *         	s = Magic3;
+     *	    }
+     *	    else {
+     *	    	s = Magic2;
+     *	    }
+     * 	} 
+     *  else {
+     *	    if (IsServer) {
+     *      	s = Magic2;
+     *	    } 
+     *	    else {
+     *      	s = Magic3;
+     *	    }
+     *	}
+     *
+     * The corresponding truth table is:
+     * IsSend	IsServer	s
+     *   0	  0		Magic3
+     *   0	  1		Magic2
+     *   1	  0		Magic2
+     *   1	  1		Magic3
+     * which is simply:
+     *	s = (IsSend == IsServer) ? Magic3 : Magic2;
+     */
+    s = (IsSend == IsServer) ? Magic3 : Magic2;
+    memset(Digest, 0, sizeof(Digest));
+    SHA1_Init(&context);
+    SHA1_Update(&context, MasterKey, NT_MASTER_KEY_SIZE);
+    SHA1_Update(&context, SHSpad1, sizeof(SHSpad1));
+    SHA1_Update(&context, s, MAGIC2_3_SIZE);
+    SHA1_Update(&context, SHSpad2, sizeof(SHSpad2));
+    SHA1_Final(Digest, &context);
+
+    if (SessionKeyLength > NT_SESSION_KEY_SIZE) {
+	SessionKeyLength = NT_SESSION_KEY_SIZE;
+    }
+    memcpy(SessionKey, Digest, SessionKeyLength);
+    return;
+}
+
+#ifdef TEST_MSCHAP
+
+const uint8_t * password = "clientPass";
+const uint8_t nt_response[MSCHAP_NT_RESPONSE_SIZE] = {
+    0x82, 0x30, 0x9E, 0xCD, 0x8D, 0x70, 0x8B, 0x5E,
+    0xA0, 0x8F, 0xAA, 0x39, 0x81, 0xCD, 0x83, 0x54,
+    0x42, 0x33, 0x11, 0x4A, 0x3D, 0x85, 0xD6, 0xDF
+};
+
+const uint8_t PasswordHashHash[NT_PASSWORD_HASH_SIZE] = {
+    0x41, 0xC0, 0x0C, 0x58, 0x4B, 0xD2, 0xD9, 0x1C,
+    0x40, 0x17, 0xA2, 0xA1, 0x2F, 0xA5, 0x9F, 0x3F
+};
+
+const uint8_t MasterKey[NT_MASTER_KEY_SIZE] = {
+    0xFD, 0xEC, 0xE3, 0x71, 0x7A, 0x8C, 0x83, 0x8C,
+    0xB3, 0x88, 0xE5, 0x27, 0xAE, 0x3C, 0xDD, 0x31
+};
+
+const uint8_t SendStartKey128[NT_SESSION_KEY_SIZE] ={
+    0x8B, 0x7C, 0xDC, 0x14, 0x9B, 0x99, 0x3A, 0x1B,
+    0xA1, 0x18, 0xCB, 0x15, 0x3F, 0x56, 0xDC, 0xCB
+};
+
+
+int
+main()
+{
+    uint8_t master[NT_MASTER_KEY_SIZE];
+    uint8_t send_start[NT_SESSION_KEY_SIZE];
+
+    MSChap2_MPPEGetMasterKey(password, strlen(password),
+			     nt_response, master);
+    if (bcmp(master, MasterKey, NT_MASTER_KEY_SIZE) != 0) {
+	printf("Master Key generation failed\n");
+	exit(1);
+    }
+    printf("Master Key generation successful\n");
+
+    MSChap2_MPPEGetAsymetricStartKey(master,
+				     send_start, sizeof(send_start),
+				     1, 1);
+    if (bcmp(send_start, SendStartKey128, sizeof(send_start)) != 0) {
+	printf("SendStartKey128 generation failed\n");
+	exit(1);
+    }
+    printf("SendStartKey128 generation successful\n");
+    exit(0);
+    return (0);
+}
+#endif TEST_MSCHAP

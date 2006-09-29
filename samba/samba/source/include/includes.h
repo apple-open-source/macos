@@ -34,15 +34,6 @@
 #include <membership.h>
 #endif
 
-#ifdef WITH_OPENDIRECTORY
-#include <DirectoryService/DirectoryService.h>
-#include <CoreFoundation/CoreFoundation.h>
-#endif
- 
-#ifdef WITH_MEMBERD
-#include <membership.h>
-#endif
-
 #include "local.h"
 
 #ifdef WITH_BRLM

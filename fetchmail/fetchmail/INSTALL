@@ -1,16 +1,19 @@
-		INSTALL Instructions for fetchmail
+INSTALL Instructions for fetchmail
+==================================
 
-If you have installed binaries (e.g. from an RPM) you can skip to step 5.
+If you are installing from the subversion repository, see README.svn for
+further instructions on how to set up the checked out repository.
 
-If you are a Linux system packager, be aware that the build process generates
-an RPM spec file at fetchmail.spec, and you can "make rpm" to generate an
-RPM and SRPM.
+If you have installed binaries (e.g. from a Linux RPM or DPKG, Solaris
+package or FreeBSD port), you can skip to step 5.
 
 The Frequently Asked Questions list, included as the file FAQ in this
-distributions, answers the most common questions about configuring and 
+distributions, answers the most common questions about configuring and
 running fetchmail.
 
 1. USEFUL THINGS TO INSTALL FIRST
+
+1.1 OTP/OPIE
 
 If you want support for RFC1938-compliant one-time passwords, you'll
 need to install Craig Metz's OPIE libraries first and *make sure
@@ -26,74 +29,85 @@ you should install OPIE.  You need version 2.32 or better.
 The OPIE library sources are available at http://www.inner.net/pub/opie/
 You can also find OPIE and IPV6-capable servers there.
 
-Building in IPv6 support *requires* glibc 2.1.1 (or newer) or 
-that Craig Metz's inet6-apps kit be installed.
-The IPsec patches *requires* inet6-apps kit.;
-the IPsec patches require that the kit be built with network
-security API support enabled. The kit can be gotten from
-ftp.ipv6.inner.net:/pub/ipv6 (via IPv6) or ftp.inner.net
-/pub/ipv6 (via IPv4).
+1.2 OpenSSL
 
-Fetchmail has had serious grief from buggy versions of the gettext suite.
-If your version is older than 1.10.40, you should use the configure
-option `--with-included-gettext'.
+If you are installing OpenSSL yourself, it is recommended that you build
+shared OpenSSL libraries, it works better and updating OpenSSL does not
+then require you to reinstall all applications that use OpenSSL.
+
+Try after unpacking OpenSSL:
+
+	./config shared && make && make test && make install
+
+1.3 gettext (internationalization)
+
+Internationalization of fetchmail requires GNU gettext (libintl and
+libiconv). Fetchmail, as of version 6.3.0, no longer ships its own
+libintl copy.
+
+1.4 IPv6
+
+Building in IPv6 support *requires* an up-to-date operating system.
+Recent Linux versions with glibc 2.1.1 or newer, FreeBSD, Solaris should
+be fine.
+
+If you have trouble with intl or gettext functions, try using the
+configure option '--with-included-gettext'.
+
 
 2. CONFIGURE
 
+2.1 Basic options
+
 Installing fetchmail is easy.  From within this directory, type:
+
+	./configure --with-ssl
+
+if you have OpenSSL (and its developer packages, if separate) installed
+on your system, or if you don't or do not need SSL/TLS support:
 
 	./configure
 
-(If your getext is old, you need to include the --with-included-gettext
-option, which I recommend anyway). 
-
 The autoconfiguration script will spend a bit of time figuring out the
 specifics of your system.  If you want to specify a particular compiler
-(e.g. you have gcc but want to compile with cc), set the environment 
-variable CC before you run configure.  
+(e.g. you have gcc but want to compile with cc), set the environment
+variable CC before you run configure.
 
 The configure script accepts certain standard configuration options.
 These include --prefix, --exec-prefix, --bindir, --infodir, --mandir,
-and --srcdir.  Do `configure --help' for more.
+and --srcdir.  Do 'configure --help' for more.
 
 POP2 support is no longer compiled in by default, as POP2 is way obsolete
 and there don't seem to be any live servers for it anymore.  You can
-configure it back in if you want with `configure --enable-POP2', but
+configure it back in if you want with 'configure --enable-POP2', but
 leaving it out cuts the executable's size slightly.
 
 Support for CompuServe's RPA authentication method (rather similar to
 APOP) is available but also not included in the standard build.  You
-can compile it in with `configure --enable-RPA'.
+can compile it in with 'configure --enable-RPA'.
 
 Support for Microsoft's NTLM authentication method is also available
-but also not included in the standard build.  You can compile it in
-with `configure --enable-NTLM'.
+but not included in the standard build either.  You can compile it in
+with 'configure --enable-NTLM'.
 
 Support for authentication using RFC1731 GSSAPI is available
 but also not included by default.  You can compile it in with
-`configure --with-gssapi', which looks for GSSAPI support in standard
+'configure --with-gssapi', which looks for GSSAPI support in standard
 locations (/usr, /usr/local).  If you set --with-GSSAPI=DIR
 you can direct the build to look for GSSAPI support under DIR.
 
 Hooks for the OpenSSL library (see http://www.openssl.org/) are
 included in the distribution.  To enable these, configure with
---with-ssl; they are not included in the standard build.
+--with-ssl; they are not included in the standard build. Fetchmail's
+configure script will probe some default locations for the
+include/openssl/ssl.h file. If this doesn't work (i. e. configure prints
+"SSL support enabled, but OpenSSL not found" and aborts), you need to
+give the explicit prefix of your OpenSSL installation (specify the
+directory that contains OpenSSL's "include" subdirectory), for instance:
+"--with-ssl=/example/path" would assume that you have an
+/example/path/include/openssl/ssl.h header file.
 
-If you want to build for debugging, 
-
-	CFLAGS=-g LDFLAGS=" " ./configure
-
-will do that.
-
-To specify a fallback MUA in case local port 25 doesn't respond, do one of:
-
-	configure --enable-fallback=procmail
-	configure --enable-fallback=sendmail
-
-A disadvantage of using procmail is that local alias expansion
-according to /etc/aliases won't get done if we fall back to it.
-
-Advanced configuration:
+2.2 Advanced options
 
 Specifying --with-kerberos=DIR or --with-kerberos5=DIR will tell the
 fetchmail build process to look in DIR for Kerberos support.
@@ -111,27 +125,18 @@ want to add -lresolv or whatever to the definition of LOADLIBS.
 
 It is also possible to explicitly condition out the support for
 POP3, IMAP, and ETRN (with configure arguments of --disable-POP3,
---disable-IMAP, and --disable-ETRN respectively).  However, none
-of these wins back more that 3 to 4K on an Intel box.
+--disable-IMAP, and --disable-ETRN respectively).
 
-If you're running QNX, edit the distributed Makefile directly.  The
-QNX values for various macros are there but commented out; all you
-have to do is uncomment them.
 
-3. MAKE 
-
-You may find you need flex at version 2.5.3 or greater to build
-fetchmail.  The stock lex distributed with some versions of Linux does
-not work -- it yields a parser which core-dumps on syntax errors.  You
-can get flex at the GNU ftp site, ftp://prep.ai.mit.edu/pub/gnu.
+3. BUILD
 
 Run
 
 	make
 
 This should compile fetchmail for your system.  If fetchmail fails to build
-properly, see the FAQ section B on build-time problems.  Note: parallelized
-make (e.g. make -j 4) fails due to some weirdness in the yacc productions.
+properly, see the FAQ section B on build-time problems.
+
 
 4. INSTALL
 
@@ -143,9 +148,14 @@ This will install fetchmail.  By default, fetchmail will be installed
 in /usr/local/bin, with the man page in /usr/local/man/man1.  You can
 use the configure options --bindir and --mandir to change these.
 
+If you are tight on disk space, you can run instead
+
+	make install-strip
+
 NOTE: If you are using an MTA other than sendmail (such as qmail,
 exim, or smail), see the FAQ (section T) for discussion of any special
 configuration steps that may be necessary.
+
 
 5. SET UP A RUN CONTROL FILE
 
@@ -153,6 +163,7 @@ See the man page for a description of how to configure your individual
 preferences.
 
 If you're upgrading from popclient, see question F4 in the FAQ file.
+
 
 6. TEST
 
@@ -168,16 +179,21 @@ Cyrus IMAP server from CMU.  This covers all the servers commonly
 hosted on Linux and *BSD systems.  It also works with the IMAP service
 of Microsoft Exchange, despite the fact that Microsoft Exchange is
 extremely broken (returns incorrect message lengths in LIST
-responses).  
+responses).
 
 See the FAQ, section S, for detailed advice on running with various
 servers.
+
 
 7. REPORTING BUGS
 
 You should read the FAQ file question G3 before reporting a bug.
 
+
 8. USE IT
 
 Once you've verified your configuration, you can start fetchmail to
 run in background and forget about it.  Enjoy!
+
+
+END of text file INSTALL

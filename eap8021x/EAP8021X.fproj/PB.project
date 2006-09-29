@@ -35,7 +35,8 @@
             "EAPClientTypes.h", 
             "SupplicantTypes.h", 
             "EAPCertificateUtil.h", 
-            "EAPSecurity.h"
+            "EAPSecurity.h", 
+            "EAPKeychainUtil.h"
         ); 
         "OTHER_LIBS" = (crypto); 
         "OTHER_LINKED" = (
@@ -51,6 +52,7 @@
             "eaptls_plugin.c", 
             "EAPTLSUtil.c", 
             "eapttls_plugin.c", 
+            "eapfast_plugin.c", 
             "EAPUtil.c", 
             "leap_plugin.c", 
             "LinkAddresses.c", 
@@ -58,7 +60,8 @@
             "mschap.c", 
             "myCFUtil.c", 
             "peap_plugin.c", 
-            "printdata.c"
+            "printdata.c", 
+            "EAPKeychainUtil.c"
         ); 
         "OTHER_RESOURCES" = ("CustomInfo.plist"); 
         "OTHER_SOURCES" = (
@@ -95,7 +98,8 @@
             "EAPClientTypes.h", 
             "SupplicantTypes.h", 
             "EAPCertificateUtil.h", 
-            "EAPSecurity.h"
+            "EAPSecurity.h", 
+            "EAPKeychainUtil.h"
         ); 
     }; 
     LANGUAGE = English; 

@@ -20,6 +20,12 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#define __srr0 srr0
+#define __r3 r3
+#define __r1 r1
+#define __lr lr
+
 #if defined(__MWERKS__) && !defined(__private_extern__)
 #define __private_extern__ __declspec(private_extern)
 #endif

@@ -75,6 +75,12 @@ extern unsigned long is_section_coalesced(
 extern unsigned long is_section_non_lazy_symbol_pointers(
     unsigned long n_sect);
 
+extern unsigned long is_section_debug(
+    unsigned long n_sect);
+
 extern unsigned long is_end_section_address(
     unsigned long n_sect,
     unsigned long addr);
+
+extern unsigned long section_has_fixed_size_data(
+    unsigned long n_sect);

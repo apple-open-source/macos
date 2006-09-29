@@ -248,6 +248,8 @@ pass2(void)
 		    continue;
 		if(cur_obj != base_obj){
 		    for(j = 0; j < cur_obj->nsection_maps; j++){
+			if(cur_obj->section_maps[j].s->flags & S_ATTR_DEBUG)
+			    continue;
 #ifdef RLD
 			if(cur_obj->set_num == cur_set)
 #endif /* RLD */
@@ -1211,6 +1213,14 @@ output_headers(void)
 	    	   &(output_cksum_info.prebind_cksum_command),
 		   output_cksum_info.prebind_cksum_command.cmdsize);
 	    header_offset += output_cksum_info.prebind_cksum_command.cmdsize;
+	}
+
+	/* next the uuid load command */
+	if(output_uuid_info.uuid_command.cmdsize != 0){
+	    memcpy(output_addr + header_offset,
+	    	   &(output_uuid_info.uuid_command),
+		   output_uuid_info.uuid_command.cmdsize);
+	    header_offset += output_uuid_info.uuid_command.cmdsize;
 	}
 
 	/* next the thread command if the output file has one */

@@ -548,7 +548,7 @@ long x)
 	sprintf(buf,"%ld",x);
 	bufp= &buf[0];
 	if(atof_generic(&bufp,".", md_EXP_CHARS, &generic_floating_point_number))
-		as_warn("Error converting number to floating point (Exponent overflow?)");
+		as_fatal("Error converting number to floating point (Exponent overflow?)");
 }
 
 #ifdef TEST

@@ -1809,6 +1809,9 @@
 /* Whether to use profiling */
 #undef WITH_PROFILE
 
+/* Whether PTHREAD_API is available */
+#undef WITH_PTHREAD_NP
+
 /* Whether to use disk quota support */
 #undef WITH_QUOTAS
 

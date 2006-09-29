@@ -1,3 +1,66 @@
+Changes for the 5.23 release (the cctools-622.5 release):
+- Support the new x86-64 relocation entry types for signed relocations
+  with offsets.  Radar bug #4664658.
+
+Changes for the 5.23 release (the cctools-620 release):
+- Added the routines swap_x86_state_hdr(), swap_x86_float_state64(),
+  swap_x86_exception_state64(), swap_x86_thread_state(), swap_x86_float_state(),
+  swap_x86_exception_state(), swap_x86_debug_state32(),
+  swap_x86_debug_state64() and swap_x86_debug_state() to <mach-o/i386/swap.c> .
+  Radar bug #4491230.
+- Added the routines swap_x86_float_state64(), swap_x86_state_hdr(),
+  swap_x86_exception_state64(), swap_x86_debug_state32(),
+  swap_x86_debug_state64() to "stuff/bytesex.h" .  Radar bug #4491230.
+
+Changes for the 5.23 release (the cctools-618 release):
+- Add S_16BYTE_LITERALS to mach-o/loader.h.  Radar bug #4555162.
+
+Changes for the 5.23 release (the cctools-616 release):
+- Added the routines swap_mach_header_64(), swap_segment_command_64(),
+  swap_section_64(), swap_routines_command_64(), swap_nlist_64() and
+  swap_dylib_module_64() to <mach-o/swap.h> .  Radar bug #4358209.
+
+Changes for the 5.23 release (the cctools-614 release):
+- Changed "stuff/bytesex.h" to use __darwin_i386_float_state instead of the type
+  i386_float_state.  Radar bug #4508798.
+- Changed the Makefile so that GAS_MISSING_SRCS does not have
+  mach-o/i386/thread_status.h since it has been removed from the project and
+  causes build problems on Mac OS 10.3.9 . Radar bug #4508798.
+- Changed the Makefile so that GAS_MISSING_SRCS does not have
+  mach-o/x86_64/reloc.h since it is also in FILES and causes build problems on
+  Mac OS 10.3.9 . Radar bug #4508798.
+
+Changes for the 5.23 release (the cctools-610 release):
+- Added a few ifdef x86_THREAD_STATE64 to a few places to mach-o/i386/swap.h and
+  stuff/bytesex.h to allow it to build on Tiger.  Radar bug #4535019.
+
+Changes for the 5.22 release (the cctools-590.37.3 release):
+- Improve the comments in the x86-64 reloc.h. Radar bug #4488180.
+
+Changes for the 5.22 release (the cctools-590.37.2 release):
+- Add an extern "C" block to redo_prebinding.h. Radar bug #4319807.
+
+Changes for the 5.22 release (the cctools-590.36.3 release):
+- Add support for the new relocation entry types for x86-64. Radar bug #4475165.
+
+Changes for the 5.22 release (the cctools-590.31.1 release):
+- Added <mach-o/x86_64/reloc.h>.  Radar bug #4345090.
+
+Changes for the 5.21 release (the cctools-590.35 release):
+- Added the constant MH_DSYM to <mach-o/loader.h> for dSYM files.  Radar
+  #4443871.
+
+Changes for the 5.21 release (the cctools-590.25 release):
+- Changed the comment in <mach-o/loader.h> for debug sections to include that
+  they must have a section type of S_REGULAR.  Radar bug #3415593.
+
+Changes for the 5.21 release (the cctools-590.24 release):
+- Added support for DWARF.  Radar bug #4367423.
+  - Added the constant S_ATTR_DEBUG to <mach-o/loader.h> for debug sections.
+  - Added the constant LC_UUID and the uuid_command struct to <mach-o/loader.h>.
+  - Added the prototype for swap_uuid_command() to "stuff/bytesex.h" .
+  - Added the prototype for swap_uuid_command() to <mach-o/swap.h" .
+
 Changes for the 5.20 release (the cctools-590.20 release):
 - Removed the wanrnings when building. Radar bug #4340147.
   - Removed the const from put_macosx_deployment_target() in

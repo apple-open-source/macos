@@ -287,7 +287,7 @@ msdosfs_lookup(ap)
 				 * Check for a checksum or name match
 				 */
 				if (chksum != winChksum(dep->deName)
-				    && (!olddos || bcmp(dosfilename, dep->deName, 11))) {
+				    && (!olddos || bcmp(dosfilename, dep->deName, SHORT_NAME_LEN))) {
 					chksum = -1;
 					continue;
 				}
@@ -386,16 +386,6 @@ foundroot:
 		if (diroff == MSDOSFSROOT_OFS)
 		{
 			error = EROFS;				/* correct error? */
-			goto exit;
-		}
-
-		/*
-		 * Return pointer to current entry in pdp->i_offset.
-		 * Save directory inode pointer in ndp->ni_dvp for dirremove().
-		 */
-		if (pdp->de_StartCluster == scn && isadir) {	/* "." */
-			*vpp = dvp;
-			error = 0;
 			goto exit;
 		}
 	}
@@ -709,8 +699,8 @@ dosdirempty(dep, context)
 				 * Any names other than "." and ".." in a
 				 * directory mean it is not empty.
 				 */
-				if (bcmp(dentp->deName, ".          ", 11) &&
-				    bcmp(dentp->deName, "..         ", 11)) {
+				if (bcmp(dentp->deName, ".          ", SHORT_NAME_LEN) &&
+				    bcmp(dentp->deName, "..         ", SHORT_NAME_LEN)) {
 					buf_brelse(bp);
 					return (0);	/* not empty */
 				}
@@ -779,7 +769,7 @@ doscheckpath(source, target, context)
 
 		ep = (struct dosdirentry *) bdata + 1;
 		if ((ep->deAttributes & ATTR_DIRECTORY) == 0 ||
-		    bcmp(ep->deName, "..         ", 11) != 0) {
+		    bcmp(ep->deName, "..         ", SHORT_NAME_LEN) != 0) {
 			error = ENOTDIR;
 			break;
 		}
@@ -1029,7 +1019,7 @@ uniqdosname(
 				 */
 				if (dentp->deAttributes & ATTR_VOLUME)
 					continue;
-				if (!bcmp(dentp->deName, cp, 11)) {
+				if (!bcmp(dentp->deName, cp, SHORT_NAME_LEN)) {
 					error = EEXIST;
 					break;
 				}

@@ -40,6 +40,7 @@
  */
 #define kEAPClientPropUserName	       		CFSTR("UserName")
 #define kEAPClientPropUserPassword		CFSTR("UserPassword")
+#define kEAPClientPropUserPasswordKeychainItemID CFSTR("UserPasswordKeychainItemID")
 #define kEAPClientPropAcceptEAPTypes		CFSTR("AcceptEAPTypes") /* array[integer] */
 
 /* 
@@ -69,11 +70,21 @@
 #define kEAPTTLSInnerAuthenticationEAP		CFSTR("EAP")
 
 #define kEAPClientPropNewPassword		CFSTR("NewPassword")
-/* for TTLS, PEAP: */
+/* for TTLS, PEAP, EAP-FAST: */
 #define kEAPClientPropOuterIdentity		CFSTR("OuterIdentity")
 
 /* for TLS: */
 #define kEAPClientPropTLSIdentityHandle		CFSTR("TLSIdentityHandle") /* EAPSecIdentityHandle */
+
+/* for EAP-FAST */
+#define kEAPClientPropEAPFASTUsePAC		CFSTR("EAPFASTUsePAC") /* boolean (false) */
+#define kEAPClientPropEAPFASTProvisionPAC	CFSTR("EAPFASTProvisionPAC") /* boolean (false) */
+#define kEAPClientPropEAPFASTProvisionPACAnonymously	CFSTR("EAPFASTProvisionPACAnonymously") /* boolean (false) */
+
+
+/* for EAP-MSCHAPv2 */
+#define kEAPClientPropEAPMSCHAPv2ServerChallenge CFSTR("EAPMSCHAPv2ServerChallenge") /* data */
+#define kEAPClientPropEAPMSCHAPv2ClientChallenge CFSTR("EAPMSCHAPv2ClientChallenge") /* data */
 
 /*
  * Properties supplied by the client as published/additional properties
@@ -85,6 +96,10 @@
 #define kEAPClientPropTLSTrustClientStatus	CFSTR("TLSTrustClientStatus") /* integer (EAPClientStatus) */
 #define kEAPClientPropTLSSessionWasResumed \
 	CFSTR("TLSSessionWasResumed")	/* boolean */
+#define kEAPClientPropTLSNegotiatedCipher \
+	CFSTR("TLSNegotiatedCipher")	/* integer (UInt32) */
+
+#define kEAPClientPropEAPFASTPACWasProvisioned	CFSTR("EAPFASTPACWasProvisioned") /* boolean */
 
 /* 
  * Deprecated properties

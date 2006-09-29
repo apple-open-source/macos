@@ -97,6 +97,7 @@ public:
 
 protected:
     void setCurrent(DOM::NodeImpl *newCurrent);
+    void derefCurrent();
 
     KHTMLView *HTMLWidget;
     DOM::DocumentImpl *document;
@@ -114,14 +115,18 @@ protected:
      * The currently active element (the one new elements will be added to)
      */
     DOM::NodeImpl *current;
-    bool currentIsReferenced;
+
+    // We can't ref a document, but we don't want to constantly check if a node is a document just to decide whether to deref.
+    bool didRefCurrent;
 
     HTMLStackElem *blockStack;
 
     void pushBlock( int _id, int _level);
 
     void popBlock( int _id );
-    void popOneBlock(bool delBlock = true);
+    void popOneBlock();
+    void moveOneBlockToStack(HTMLStackElem*& head);
+    inline HTMLStackElem* popOneBlockCommon();
     void popInlineBlocks();
 
     void freeBlock( void);

@@ -123,6 +123,7 @@ void dump_config(struct runctl *runp, struct query *querylist)
 {
     struct query *ctl;
     struct idlist *idp;
+    const char *features;
 
     indent_level = 0;
 
@@ -149,47 +150,42 @@ void dump_config(struct runctl *runp, struct query *querylist)
      * This should be approximately in sync with the -V option dumping 
      * in fetchmail.c.
      */
-    printf("feature_options = (");
+    features = "feature_options = ("
 #ifdef POP2_ENABLE
-    printf("'pop2',");
+    "'pop2',"
 #endif /* POP2_ENABLE */
 #ifdef POP3_ENABLE
-    printf("'pop3',");
+    "'pop3',"
 #endif /* POP3_ENABLE */
 #ifdef IMAP_ENABLE
-    printf("'imap',");
+    "'imap',"
 #endif /* IMAP_ENABLE */
 #ifdef GSSAPI
-    printf("'gssapi',");
+    "'gssapi',"
 #endif /* GSSAPI */
 #if defined(KERBEROS_V4)
-    printf("'kerberos',");
+    "'kerberos',"
 #endif /* defined(IMAP4) */
 #ifdef RPA_ENABLE
-    printf("'rpa',");
+    "'rpa',"
 #endif /* RPA_ENABLE */
 #ifdef SDPS_ENABLE
-    printf("'sdps',");
+    "'sdps',"
 #endif /* SDPS_ENABLE */
 #ifdef ETRN_ENABLE
-    printf("'etrn',");
+    "'etrn',"
 #endif /* ETRN_ENABLE */
 #ifdef ODMR_ENABLE
-    printf("'odmr',");
+    "'odmr',"
 #endif /* ODMR_ENABLE */
 #ifdef SSL_ENABLE
-    printf("'ssl',");
+    "'ssl',"
 #endif /* SSL_ENABLE */
-#if OPIE_ENABLE
-    printf("'opie',");
+#ifdef OPIE_ENABLE
+    "'opie',"
 #endif /* OPIE_ENABLE */
-#if INET6_ENABLE
-    printf("'inet6',");
-#endif /* INET6_ENABLE */
-#if NET_SECURITY
-    printf("'netsec',");
-#endif /* NET_SECURITY */
-    printf(")\n");
+    ")\n";
+    fputs(features, stdout);
 
     fputs("# Start of configuration initializer\n", stdout);
     fputs("fetchmailrc = ", stdout);
@@ -247,11 +243,7 @@ void dump_config(struct runctl *runp, struct query *querylist)
 
 	    using_kpop =
 		(ctl->server.protocol == P_POP3 &&
-#if !INET6_ENABLE
-		 ctl->server.port == KPOP_PORT &&
-#else
 		 ctl->server.service && !strcmp(ctl->server.service, KPOP_PORT ) &&
-#endif
 		 ctl->server.authenticate == A_KERBEROS_V4);
 
 	    stringdump("pollname", ctl->server.pollname); 
@@ -259,11 +251,7 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	    stringdump("via", ctl->server.via); 
 	    stringdump("protocol", 
 		       using_kpop ? "KPOP" : showproto(ctl->server.protocol));
-#ifndef INET6_ENABLE
-	    numdump("port",  ctl->server.port);
-#else
-	    stringdump("port",  ctl->server.service);
-#endif
+	    stringdump("service",  ctl->server.service);
 	    numdump("timeout",  ctl->server.timeout);
 	    numdump("interval", ctl->server.interval);
 
@@ -296,19 +284,21 @@ void dump_config(struct runctl *runp, struct query *querylist)
 		stringdump("auth", "ssh");
 	    else if (ctl->server.authenticate == A_OTP)
 		stringdump("auth", "otp");
+	    else if (ctl->server.authenticate == A_MSN)
+		stringdump("auth", "msn");
 
-#if defined(HAVE_GETHOSTBYNAME) && defined(HAVE_RES_SEARCH)
+#ifdef HAVE_RES_SEARCH
 	    booldump("dns", ctl->server.dns);
-#endif /* HAVE_GETHOSTBYNAME && HAVE_RES_SEARCH */
+#endif /* HAVE_RES_SEARCH */
 	    booldump("uidl", ctl->server.uidl);
 
 	    listdump("aka", ctl->server.akalist);
 	    listdump("localdomains", ctl->server.localdomains);
 
-#if defined(linux) || defined(__FreeBSD__)
+#ifdef CAN_MONITOR
 	    stringdump("interface", ctl->server.interface);
 	    stringdump("monitor", ctl->server.monitor);
-#endif /* linux || __FreeBSD__ */
+#endif
 
 	    stringdump("plugin", ctl->server.plugin);
 	    stringdump("plugout", ctl->server.plugout);
@@ -317,7 +307,7 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	        stringdump("esmtpname",ctl->server.esmtp_name);
 	    if (ctl->server.esmtp_password)
 	        stringdump("esmtppassword",ctl->server.esmtp_password);
-	    booldump("tracepolls", ctl->tracepolls);
+	    booldump("tracepolls", ctl->server.tracepolls);
 
 	    indent(0);
 	    fputs("'users': ", stdout);
@@ -333,10 +323,9 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	fprintf(stdout, "'localnames':[");
 	for (idp = ctl->localnames; idp; idp = idp->next)
 	{
-	    char	namebuf[USERNAMELEN + 1];
+	    char namebuf[USERNAMELEN + 1];
 
-	    strncpy(namebuf, visbuf(idp->id), USERNAMELEN);
-	    namebuf[USERNAMELEN] = '\0';
+	    strlcpy(namebuf, visbuf(idp->id), sizeof(namebuf));
 	    if (idp->val.id2)
 		fprintf(stdout, "(\"%s\", %s)", namebuf, visbuf(idp->val.id2));
 	    else
@@ -351,6 +340,7 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	booldump("fetchall", ctl->fetchall);
 	booldump("keep", ctl->keep);
 	booldump("flush", ctl->flush);
+	booldump("limitflush", ctl->limitflush);
 	booldump("rewrite", ctl->rewrite);
 	booldump("stripcr", ctl->stripcr); 
 	booldump("forcecr", ctl->forcecr);
@@ -368,9 +358,6 @@ void dump_config(struct runctl *runp, struct query *querylist)
 	else
 	    fputs("'lmtp':FALSE,\n", stdout);
 	    
-#ifdef INET6_ENABLE
-	stringdump("netsec", ctl->server.netsec);
-#endif /* INET6_ENABLE */
 	stringdump("preconnect", ctl->preconnect);
 	stringdump("postconnect", ctl->postconnect);
 	numdump("limit", ctl->limit);

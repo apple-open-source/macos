@@ -31,6 +31,22 @@ Here's the script composer's original README:
 
  				Hth, JimL <babydr@nwrain.net>
 
+Doug Carter <dougc@canus.com> suggests this instead:
+
+Add the following to your login script. (.ie .bash_profile, .profile, etc)
+
+LOGINS=`who | grep $USER | wc -l`
+if [ $LOGINS = 1 ]; then
+    /usr/bin/fetchmail > /dev/null 2>&1
+fi
+
+Then add the following to your logout script. (.ie .bash_logout, etc)
+
+LOGINS=`who | grep $USER | wc -l`
+if [ $LOGINS = 1 ]; then
+    /usr/bin/fetchmail -q > /dev/null 2>&1
+fi
+
 ip-up:
 
 A note from James Stevens about using fetchmail in an ip-up script without
@@ -147,22 +163,17 @@ connections.  You'll have to patch in your username and password.
 
 sm-hybrid:
 
-Peter 'Rattacresh' Backes sent this patch to include the behavior of 
+Peter 'Rattacresh' Backes sent this patch to improve the behavior of 
 sendmail 8.11.0 with multidrop.
 
 fetchmailnochda.pl
 
 Watchdog script to check whether fetchmail is working in daemon mode.
 
-PopDel.py:
+mold-remover.py
 
-The author writes: "PopDel stands for Pop Delete; this program deletes
-selected email from a pop mail server. I use fetchmail with a size
-limit of around 142k.  Anything bigger than that triggers a fetchmail
-oversize message. This program is used to look at the subject lines in
-the mail headers on the server and lets you delete all those lovely,
-large MSOffice virus products."
-
-The full manual is is at PopDel.manual.
+A short python script to remove old read mail from a pop3 mailserver.
+Dovetails with fetchmail with keep option.
+Run it as a cron job...
 
 

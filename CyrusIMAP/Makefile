@@ -20,7 +20,6 @@ CFLAGS=-Os $(RC_CFLAGS)
 
 PROJECT_NAME=cyrus_imap
 
-
 BUILD_EXTRAS=build_extras
 BIN_DIR=/usr/bin/cyrus/bin
 TOOLSDIR=/usr/bin/cyrus/tools
@@ -58,7 +57,7 @@ CYRUS_CONFIG = \
 	--disable-krb4 \
 	--with-com_err \
 	--with-snmp=/usr/share/snmp \
-	--with-extraident="OS X 10.4.0" \
+	--with-extraident="OS X 10.4.8" \
 	--enable-murder \
 	--with-service-path=$(BIN_DIR) \
 	--with-pidfile=/var/run/cyrus-master.pid \

@@ -1255,10 +1255,12 @@ on_alarm(int sigraised)
  */
 boolean_t
 bootp_add_bootfile(const char * request_file, const char * hostname,
-		   const char * bootfile, char * reply_file)
+		   const char * bootfile,
+		   char * reply_file, int reply_file_size)
 {
     boolean_t 	dothost = FALSE;	/* file.host was found */
     char 	file[PATH_MAX];
+    int		len;
     char 	path[PATH_MAX];
 
     if (request_file && request_file[0])
@@ -1300,6 +1302,12 @@ bootp_add_bootfile(const char * request_file, const char * hostname,
 	    }
 	    my_log(LOG_DEBUG, "boot file %s* missing", path);
 	}
+    }
+    len = strlen(path);
+    if (len >= reply_file_size) {
+	my_log(LOG_DEBUG, "boot file name too long %d >= %d",
+	       len, reply_file_size);
+	return (TRUE);
     }
 
     my_log(LOG_DEBUG, "replyfile %s", path);
@@ -1469,12 +1477,13 @@ bootp_request(request_t * request)
 	    return;
 	host_parms_from_proplist(&entry->pl, 0, NULL, &hostname, &bootfile);
     }
+    rq->bp_file[sizeof(rq->bp_file) - 1] = '\0';
     my_log(LOG_INFO,"BOOTP request [%s]: %s requested file '%s'",
 	   if_name(request->if_p), 
 	   hostname ? hostname : (u_char *)inet_ntoa(iaddr),
 	   rq->bp_file);
     if (bootp_add_bootfile(rq->bp_file, hostname, bootfile,
-			   rp.bp_file) == FALSE)
+			   rp.bp_file, sizeof(rp.bp_file)) == FALSE)
 	/* client specified a bootfile but it did not exist */
 	goto no_reply;
     

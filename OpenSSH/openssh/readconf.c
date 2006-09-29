@@ -12,7 +12,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: readconf.c,v 1.128 2004/03/05 10:53:58 markus Exp $");
+RCSID("$OpenBSD: readconf.c,v 1.143 2005/07/30 02:03:47 djm Exp $");
 
 #include "ssh.h"
 #include "xmalloc.h"
@@ -105,7 +105,9 @@ typedef enum {
 	oClearAllForwardings, oNoHostAuthenticationForLocalhost,
 	oEnableSSHKeysign, oRekeyLimit, oVerifyHostKeyDNS, oConnectTimeout,
 	oAddressFamily, oGssAuthentication, oGssDelegateCreds,
+	oGssTrustDns,
 	oServerAliveInterval, oServerAliveCountMax, oIdentitiesOnly,
+	oSendEnv, oControlPath, oControlMaster, oHashKnownHosts,
 	oDeprecated, oUnsupported
 } OpCodes;
 
@@ -139,9 +141,11 @@ static struct {
 #if defined(GSSAPI)
 	{ "gssapiauthentication", oGssAuthentication },
 	{ "gssapidelegatecredentials", oGssDelegateCreds },
+	{ "gssapitrustdns", oGssTrustDns },
 #else
 	{ "gssapiauthentication", oUnsupported },
 	{ "gssapidelegatecredentials", oUnsupported },
+	{ "gssapitrustdns", oUnsupported },
 #endif
 	{ "fallbacktorsh", oDeprecated },
 	{ "usersh", oDeprecated },
@@ -193,6 +197,10 @@ static struct {
 	{ "addressfamily", oAddressFamily },
 	{ "serveraliveinterval", oServerAliveInterval },
 	{ "serveralivecountmax", oServerAliveCountMax },
+	{ "sendenv", oSendEnv },
+	{ "controlpath", oControlPath },
+	{ "controlmaster", oControlMaster },
+	{ "hashknownhosts", oHashKnownHosts },
 	{ NULL, oBadOption }
 };
 
@@ -202,21 +210,23 @@ static struct {
  */
 
 void
-add_local_forward(Options *options, u_short port, const char *host,
-		  u_short host_port)
+add_local_forward(Options *options, const Forward *newfwd)
 {
 	Forward *fwd;
 #ifndef NO_IPPORT_RESERVED_CONCEPT
 	extern uid_t original_real_uid;
-	if (port < IPPORT_RESERVED && original_real_uid != 0)
+	if (newfwd->listen_port < IPPORT_RESERVED && original_real_uid != 0)
 		fatal("Privileged ports can only be forwarded by root.");
 #endif
 	if (options->num_local_forwards >= SSH_MAX_FORWARDS_PER_DIRECTION)
 		fatal("Too many local forwards (max %d).", SSH_MAX_FORWARDS_PER_DIRECTION);
 	fwd = &options->local_forwards[options->num_local_forwards++];
-	fwd->port = port;
-	fwd->host = xstrdup(host);
-	fwd->host_port = host_port;
+
+	fwd->listen_host = (newfwd->listen_host == NULL) ?
+	    NULL : xstrdup(newfwd->listen_host);
+	fwd->listen_port = newfwd->listen_port;
+	fwd->connect_host = xstrdup(newfwd->connect_host);
+	fwd->connect_port = newfwd->connect_port;
 }
 
 /*
@@ -225,17 +235,19 @@ add_local_forward(Options *options, u_short port, const char *host,
  */
 
 void
-add_remote_forward(Options *options, u_short port, const char *host,
-		   u_short host_port)
+add_remote_forward(Options *options, const Forward *newfwd)
 {
 	Forward *fwd;
 	if (options->num_remote_forwards >= SSH_MAX_FORWARDS_PER_DIRECTION)
 		fatal("Too many remote forwards (max %d).",
 		    SSH_MAX_FORWARDS_PER_DIRECTION);
 	fwd = &options->remote_forwards[options->num_remote_forwards++];
-	fwd->port = port;
-	fwd->host = xstrdup(host);
-	fwd->host_port = host_port;
+
+	fwd->listen_host = (newfwd->listen_host == NULL) ?
+	    NULL : xstrdup(newfwd->listen_host);
+	fwd->listen_port = newfwd->listen_port;
+	fwd->connect_host = xstrdup(newfwd->connect_host);
+	fwd->connect_port = newfwd->connect_port;
 }
 
 static void
@@ -243,11 +255,17 @@ clear_forwardings(Options *options)
 {
 	int i;
 
-	for (i = 0; i < options->num_local_forwards; i++)
-		xfree(options->local_forwards[i].host);
+	for (i = 0; i < options->num_local_forwards; i++) {
+		if (options->local_forwards[i].listen_host != NULL)
+			xfree(options->local_forwards[i].listen_host);
+		xfree(options->local_forwards[i].connect_host);
+	}
 	options->num_local_forwards = 0;
-	for (i = 0; i < options->num_remote_forwards; i++)
-		xfree(options->remote_forwards[i].host);
+	for (i = 0; i < options->num_remote_forwards; i++) {
+		if (options->remote_forwards[i].listen_host != NULL)
+			xfree(options->remote_forwards[i].listen_host);
+		xfree(options->remote_forwards[i].connect_host);
+	}
 	options->num_remote_forwards = 0;
 }
 
@@ -280,14 +298,13 @@ process_config_line(Options *options, const char *host,
 		    char *line, const char *filename, int linenum,
 		    int *activep)
 {
-	char buf[256], *s, **charptr, *endofnumber, *keyword, *arg;
+	char *s, **charptr, *endofnumber, *keyword, *arg, *arg2, fwdarg[256];
 	int opcode, *intptr, value;
 	size_t len;
-	u_short fwd_port, fwd_host_port;
-	char sfwd_host_port[6];
+	Forward fwd;
 
 	/* Strip trailing whitespace */
-	for(len = strlen(line) - 1; len > 0; len--) {
+	for (len = strlen(line) - 1; len > 0; len--) {
 		if (strchr(WHITESPACE, line[len]) == NULL)
 			break;
 		line[len] = '\0';
@@ -394,6 +411,10 @@ parse_flag:
 
 	case oGssDelegateCreds:
 		intptr = &options->gss_deleg_creds;
+		goto parse_flag;
+
+	case oGssTrustDns:
+		intptr = &options->gss_trust_dns;
 		goto parse_flag;
 
 	case oBatchMode:
@@ -641,30 +662,26 @@ parse_int:
 	case oLocalForward:
 	case oRemoteForward:
 		arg = strdelim(&s);
-		if (!arg || *arg == '\0')
+		if (arg == NULL || *arg == '\0')
 			fatal("%.200s line %d: Missing port argument.",
 			    filename, linenum);
-		if ((fwd_port = a2port(arg)) == 0)
-			fatal("%.200s line %d: Bad listen port.",
+		arg2 = strdelim(&s);
+		if (arg2 == NULL || *arg2 == '\0')
+			fatal("%.200s line %d: Missing target argument.",
 			    filename, linenum);
-		arg = strdelim(&s);
-		if (!arg || *arg == '\0')
-			fatal("%.200s line %d: Missing second argument.",
-			    filename, linenum);
-		if (sscanf(arg, "%255[^:]:%5[0-9]", buf, sfwd_host_port) != 2 &&
-		    sscanf(arg, "%255[^/]/%5[0-9]", buf, sfwd_host_port) != 2)
+
+		/* construct a string for parse_forward */
+		snprintf(fwdarg, sizeof(fwdarg), "%s:%s", arg, arg2);
+
+		if (parse_forward(&fwd, fwdarg) == 0)
 			fatal("%.200s line %d: Bad forwarding specification.",
 			    filename, linenum);
-		if ((fwd_host_port = a2port(sfwd_host_port)) == 0)
-			fatal("%.200s line %d: Bad forwarding port.",
-			    filename, linenum);
+
 		if (*activep) {
 			if (opcode == oLocalForward)
-				add_local_forward(options, fwd_port, buf,
-				    fwd_host_port);
+				add_local_forward(options, &fwd);
 			else if (opcode == oRemoteForward)
-				add_remote_forward(options, fwd_port, buf,
-				    fwd_host_port);
+				add_remote_forward(options, &fwd);
 		}
 		break;
 
@@ -673,12 +690,25 @@ parse_int:
 		if (!arg || *arg == '\0')
 			fatal("%.200s line %d: Missing port argument.",
 			    filename, linenum);
-		fwd_port = a2port(arg);
-		if (fwd_port == 0)
+		memset(&fwd, '\0', sizeof(fwd));
+		fwd.connect_host = "socks";
+		fwd.listen_host = hpdelim(&arg);
+		if (fwd.listen_host == NULL ||
+		    strlen(fwd.listen_host) >= NI_MAXHOST)
+			fatal("%.200s line %d: Bad forwarding specification.",
+			    filename, linenum);
+		if (arg) {
+			fwd.listen_port = a2port(arg);
+			fwd.listen_host = cleanhostname(fwd.listen_host);
+		} else {
+			fwd.listen_port = a2port(fwd.listen_host);
+			fwd.listen_host = NULL;
+		}
+		if (fwd.listen_port == 0)
 			fatal("%.200s line %d: Badly formatted port number.",
 			    filename, linenum);
 		if (*activep)
-			add_local_forward(options, fwd_port, "socks", 0);
+			add_local_forward(options, &fwd);
 		break;
 
 	case oClearAllForwardings:
@@ -720,6 +750,9 @@ parse_int:
 
 	case oAddressFamily:
 		arg = strdelim(&s);
+		if (!arg || *arg == '\0')
+			fatal("%s line %d: missing address family.",
+			    filename, linenum);
 		intptr = &options->address_family;
 		if (strcasecmp(arg, "inet") == 0)
 			value = AF_INET;
@@ -749,6 +782,53 @@ parse_int:
 		intptr = &options->server_alive_count_max;
 		goto parse_int;
 
+	case oSendEnv:
+		while ((arg = strdelim(&s)) != NULL && *arg != '\0') {
+			if (strchr(arg, '=') != NULL)
+				fatal("%s line %d: Invalid environment name.",
+				    filename, linenum);
+			if (!*activep)
+				continue;
+			if (options->num_send_env >= MAX_SEND_ENV)
+				fatal("%s line %d: too many send env.",
+				    filename, linenum);
+			options->send_env[options->num_send_env++] =
+			    xstrdup(arg);
+		}
+		break;
+
+	case oControlPath:
+		charptr = &options->control_path;
+		goto parse_string;
+
+	case oControlMaster:
+		intptr = &options->control_master;
+		arg = strdelim(&s);
+		if (!arg || *arg == '\0')
+			fatal("%.200s line %d: Missing ControlMaster argument.",
+			    filename, linenum);
+		value = 0;	/* To avoid compiler warning... */
+		if (strcmp(arg, "yes") == 0 || strcmp(arg, "true") == 0)
+			value = SSHCTL_MASTER_YES;
+		else if (strcmp(arg, "no") == 0 || strcmp(arg, "false") == 0)
+			value = SSHCTL_MASTER_NO;
+		else if (strcmp(arg, "auto") == 0)
+			value = SSHCTL_MASTER_AUTO;
+		else if (strcmp(arg, "ask") == 0)
+			value = SSHCTL_MASTER_ASK;
+		else if (strcmp(arg, "autoask") == 0)
+			value = SSHCTL_MASTER_AUTO_ASK;
+		else
+			fatal("%.200s line %d: Bad ControlMaster argument.",
+			    filename, linenum);
+		if (*activep && *intptr == -1)
+			*intptr = value;
+		break;
+
+	case oHashKnownHosts:
+		intptr = &options->hash_known_hosts;
+		goto parse_flag;
+
 	case oDeprecated:
 		debug("%s line %d: Deprecated option \"%s\"",
 		    filename, linenum, keyword);
@@ -766,7 +846,7 @@ parse_int:
 	/* Check that there is no garbage at end of line. */
 	if ((arg = strdelim(&s)) != NULL && *arg != '\0') {
 		fatal("%.200s line %d: garbage at end of line; \"%.200s\".",
-		     filename, linenum, arg);
+		    filename, linenum, arg);
 	}
 	return 0;
 }
@@ -779,7 +859,8 @@ parse_int:
  */
 
 int
-read_config_file(const char *filename, const char *host, Options *options)
+read_config_file(const char *filename, const char *host, Options *options,
+    int checkperm)
 {
 	FILE *f;
 	char line[1024];
@@ -787,9 +868,18 @@ read_config_file(const char *filename, const char *host, Options *options)
 	int bad_options = 0;
 
 	/* Open the file. */
-	f = fopen(filename, "r");
-	if (!f)
+	if ((f = fopen(filename, "r")) == NULL)
 		return 0;
+
+	if (checkperm) {
+		struct stat sb;
+
+		if (fstat(fileno(f), &sb) == -1)
+			fatal("fstat %s: %s", filename, strerror(errno));
+		if (((sb.st_uid != 0 && sb.st_uid != getuid()) ||
+		    (sb.st_mode & 022) != 0))
+			fatal("Bad owner or permissions on %s", filename);
+	}
 
 	debug("Reading configuration data %.200s", filename);
 
@@ -834,6 +924,7 @@ initialize_options(Options * options)
 	options->challenge_response_authentication = -1;
 	options->gss_authentication = -1;
 	options->gss_deleg_creds = -1;
+	options->gss_trust_dns = -1;
 	options->password_authentication = -1;
 	options->kbd_interactive_authentication = -1;
 	options->kbd_interactive_devices = NULL;
@@ -879,6 +970,10 @@ initialize_options(Options * options)
 	options->verify_host_key_dns = -1;
 	options->server_alive_interval = -1;
 	options->server_alive_count_max = -1;
+	options->num_send_env = 0;
+	options->control_path = NULL;
+	options->control_master = -1;
+	options->hash_known_hosts = -1;
 }
 
 /*
@@ -913,6 +1008,8 @@ fill_default_options(Options * options)
 		options->gss_authentication = 1;
 	if (options->gss_deleg_creds == -1)
 		options->gss_deleg_creds = 1;
+	if (options->gss_trust_dns == -1)
+		options->gss_trust_dns = 0;
 	if (options->password_authentication == -1)
 		options->password_authentication = 1;
 	if (options->kbd_interactive_authentication == -1)
@@ -999,9 +1096,78 @@ fill_default_options(Options * options)
 		options->server_alive_interval = 0;
 	if (options->server_alive_count_max == -1)
 		options->server_alive_count_max = 3;
+	if (options->control_master == -1)
+		options->control_master = 0;
+	if (options->hash_known_hosts == -1)
+		options->hash_known_hosts = 0;
 	/* options->proxy_command should not be set by default */
 	/* options->user will be set in the main program if appropriate */
 	/* options->hostname will be set in the main program if appropriate */
 	/* options->host_key_alias should not be set by default */
 	/* options->preferred_authentications will be set in ssh */
+}
+
+/*
+ * parse_forward
+ * parses a string containing a port forwarding specification of the form:
+ *	[listenhost:]listenport:connecthost:connectport
+ * returns number of arguments parsed or zero on error
+ */
+int
+parse_forward(Forward *fwd, const char *fwdspec)
+{
+	int i;
+	char *p, *cp, *fwdarg[4];
+
+	memset(fwd, '\0', sizeof(*fwd));
+
+	cp = p = xstrdup(fwdspec);
+
+	/* skip leading spaces */
+	while (*cp && isspace(*cp))
+		cp++;
+
+	for (i = 0; i < 4; ++i)
+		if ((fwdarg[i] = hpdelim(&cp)) == NULL)
+			break;
+
+	/* Check for trailing garbage in 4-arg case*/
+	if (cp != NULL)
+		i = 0;	/* failure */
+
+	switch (i) {
+	case 3:
+		fwd->listen_host = NULL;
+		fwd->listen_port = a2port(fwdarg[0]);
+		fwd->connect_host = xstrdup(cleanhostname(fwdarg[1]));
+		fwd->connect_port = a2port(fwdarg[2]);
+		break;
+
+	case 4:
+		fwd->listen_host = xstrdup(cleanhostname(fwdarg[0]));
+		fwd->listen_port = a2port(fwdarg[1]);
+		fwd->connect_host = xstrdup(cleanhostname(fwdarg[2]));
+		fwd->connect_port = a2port(fwdarg[3]);
+		break;
+	default:
+		i = 0; /* failure */
+	}
+
+	xfree(p);
+
+	if (fwd->listen_port == 0 && fwd->connect_port == 0)
+		goto fail_free;
+
+	if (fwd->connect_host != NULL &&
+	    strlen(fwd->connect_host) >= NI_MAXHOST)
+		goto fail_free;
+
+	return (i);
+
+ fail_free:
+	if (fwd->connect_host != NULL)
+		xfree(fwd->connect_host);
+	if (fwd->listen_host != NULL)
+		xfree(fwd->listen_host);
+	return (0);
 }

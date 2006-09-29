@@ -10,7 +10,7 @@
 #include  "config.h"
 #include  <stdio.h>
 #include  <string.h>
-#include  <ctype.h> /* isspace() */
+#include  <ctype.h>
 #ifdef HAVE_MEMORY_H
 #include  <memory.h>
 #endif /* HAVE_MEMORY_H */
@@ -29,27 +29,31 @@
 #ifdef HAVE_NET_SOCKET_H
 #include <net/socket.h>
 #endif
+#include <sys/socket.h>
+#include <netdb.h>
 #include "md5.h"
 
 #include "i18n.h"
 #include "socket.h"
 #include "fetchmail.h"
 
-#ifndef strstr		/* glibc-2.1 declares this as a macro */
-extern char *strstr();	/* needed on sysV68 R3V7.1. */
-#endif /* strstr */
+/* global variables: please reinitialize them explicitly for proper
+ * working in daemon mode */
 
-int mytimeout;		/* value of nonreponse timeout */
-int suppress_tags;	/* emit tags? */
-char shroud[PASSWORDLEN*2+3];	/* string to shroud in debug output */
-struct msgblk msgblk;
-
+/* session variables initialized in init_transact() */
+int suppress_tags = FALSE;	/* emit tags? */
 char tag[TAGLEN];
 static int tagnum;
 #define GENSYM	(sprintf(tag, "A%04d", ++tagnum % TAGMOD), tag)
-
-static int accept_count, reject_count;
 static struct method *protocol;
+char shroud[PASSWORDLEN*2+3];	/* string to shroud in debug output */
+
+/* session variables initialized in do_session() */
+int mytimeout;		/* value of nonreponse timeout */
+
+/* mail variables initialized in readheaders() */
+struct msgblk msgblk;
+static int accept_count, reject_count;
 
 static void map_name(const char *name, struct query *ctl, struct idlist **xmit_names)
 /* add given name to xmit_names if it matches declared localnames */
@@ -87,9 +91,7 @@ static void find_server_names(const char *hdr,
     {
 	char	*cp;
 
-	for (cp = nxtaddr(hdr);
-	     cp != NULL;
-	     cp = nxtaddr(NULL))
+	for (cp = nxtaddr(hdr); cp != NULL; cp = nxtaddr(NULL))
 	{
 	    char	*atsign;
 
@@ -110,11 +112,11 @@ static void find_server_names(const char *hdr,
 	    {
 		int sl = strlen(ctl->server.qvirtual);
  
-		if (!strncasecmp(cp, ctl->server.qvirtual, sl))
+		if (!strncasecmp((char *)cp, ctl->server.qvirtual, sl))
 		    cp += sl;
 	    }
 
-	    if ((atsign = strchr(cp, '@'))) {
+	    if ((atsign = strchr((char *)cp, '@'))) {
 		struct idlist	*idp;
 
 		/*
@@ -133,7 +135,7 @@ static void find_server_names(const char *hdr,
 			if (outlevel >= O_DEBUG)
 			    report(stdout, GT_("passed through %s matching %s\n"), 
 				  cp, idp->id);
-			save_str(xmit_names, cp, XMIT_ACCEPT);
+			save_str(xmit_names, (const char *)cp, XMIT_ACCEPT);
 			accept_count++;
 			goto nomap;
 		    }
@@ -207,17 +209,17 @@ static char *parse_received(struct query *ctl, char *bufp)
     {
 	if (!(ok = strstr(base, "by")))
 	    break;
-	else if (!isspace(ok[-1]) || !isspace(ok[2]))
+	else if (!isspace((unsigned char)ok[-1]) || !isspace((unsigned char)ok[2]))
 	    continue;
 	else
 	{
 	    char	*sp, *tp;
 
 	    /* extract space-delimited token after "by" */
-	    for (sp = ok + 2; isspace(*sp); sp++)
+	    for (sp = ok + 2; isspace((unsigned char)*sp); sp++)
 		continue;
 	    tp = rbuf;
-	    for (; !isspace(*sp); sp++)
+	    for (; *sp && !isspace((unsigned char)*sp); sp++)
 		RBUF_WRITE(*sp);
 	    *tp = '\0';
 
@@ -255,17 +257,17 @@ static char *parse_received(struct query *ctl, char *bufp)
 	{
 	    if (!(ok = strstr(base, "for")))
 		break;
-	    else if (!isspace(ok[-1]) || !isspace(ok[3]))
+	    else if (!isspace((unsigned char)ok[-1]) || !isspace((unsigned char)ok[3]))
 		continue;
 	    else
 	    {
 		char	*sp, *tp;
 
 		/* extract space-delimited token after "for" */
-		for (sp = ok + 3; isspace(*sp); sp++)
+		for (sp = ok + 3; isspace((unsigned char)*sp); sp++)
 		    continue;
 		tp = rbuf;
-		for (; !isspace(*sp); sp++)
+		for (; !isspace((unsigned char)*sp); sp++)
 		    RBUF_WRITE(*sp);
 		*tp = '\0';
 
@@ -281,7 +283,7 @@ static char *parse_received(struct query *ctl, char *bufp)
 	    char	*sp, *tp;
 
 	    /* char after "for" could be space or a continuation newline */
-	    for (sp = ok + 4; isspace(*sp); sp++)
+	    for (sp = ok + 4; isspace((unsigned char)*sp); sp++)
 		continue;
 	    tp = rbuf;
 	    RBUF_WRITE(':');	/* Here is the hack.  This is to be friends */
@@ -295,9 +297,9 @@ static char *parse_received(struct query *ctl, char *bufp)
 		while (*sp && *sp++ != ':')
 		    continue;
             while (*sp
-                   && (want_gt ? (*sp != '>') : !isspace(*sp))
+                   && (want_gt ? (*sp != '>') : !isspace((unsigned char)*sp))
                    && *sp != ';')
-		if (!isspace(*sp))
+		if (!isspace((unsigned char)*sp))
 		{
 		    RBUF_WRITE(*sp);
 		    sp++;
@@ -379,7 +381,9 @@ int readheaders(int sock,
     int			env_offs;
     char		*received_for, *rcv, *cp;
     static char		*delivered_to = NULL;
-    int 		n, linelen, oldlen, ch, remaining, skipcount;
+    int 		n, oldlen, ch, remaining, skipcount;
+    size_t		linelen;
+    int			delivered_to_count;
     struct idlist 	*idp;
     flag		no_local_matches = FALSE;
     flag		has_nuls;
@@ -401,27 +405,25 @@ int readheaders(int sock,
      * condition the code for sending bouncemail will actually look
      * at the freed storage and coredump...
      */
-    if (msgblk.headers)
-       free(msgblk.headers);
+    xfree(msgblk.headers);
     free_str_list(&msgblk.recipients);
-    if (delivered_to)
-	free(delivered_to);
+    xfree(delivered_to);
 
     /* initially, no message digest */
     memset(ctl->digest, '\0', sizeof(ctl->digest));
 
-    msgblk.headers = received_for = delivered_to = NULL;
+    received_for = NULL;
     from_offs = reply_to_offs = resent_from_offs = app_from_offs = 
 	sender_offs = resent_sender_offs = env_offs = -1;
     oldlen = 0;
     msgblk.msglen = 0;
     skipcount = 0;
+    delivered_to_count = 0;
     ctl->mimemsg = 0;
 
     for (remaining = fetchlen; remaining > 0 || protocol->delimited; )
     {
 	char *line, *rline;
-	int overlong = FALSE;
 
 	line = xmalloc(sizeof(buf));
 	linelen = 0;
@@ -434,8 +436,6 @@ int readheaders(int sock,
 		if ((n = SockRead(sock, buf, sizeof(buf)-1)) == -1) {
 		    set_timeout(0);
 		    free(line);
-		    free(msgblk.headers);
-		    msgblk.headers = NULL;
 		    return(PS_SOCKET);
 		}
 		set_timeout(0);
@@ -464,7 +464,6 @@ int readheaders(int sock,
 	     */
 	    if (n && buf[n-1] != '\n') 
 	    {
-		overlong = TRUE;
 		rline = (char *) realloc(line, linelen + 1);
 		if (rline == NULL)
 		{
@@ -542,8 +541,18 @@ int readheaders(int sock,
 	     * send out robotmail that's missing the RFC822 delimiter blank
 	     * line before the body! Without this check fetchmail segfaults.
 	     * With it, we treat such messages as spam and refuse them.
+	     *
+	     * Frederic Marchal reported in February 2006 that hotmail
+	     * or something improperly wrapped a very long TO header
+	     * (wrapped without inserting whitespace in the continuation
+	     * line) and found that this code thus refused a message
+	     * that should have been delivered.
+	     *
+	     * XXX FIXME: we should probably wrap the message up as
+	     * message/rfc822 attachment and forward to postmaster (Rob
+	     * MacGregor)
 	     */
-	    if (!refuse_mail && !isspace(line[0]) && !strchr(line, ':'))
+	    if (!refuse_mail && !isspace((unsigned char)line[0]) && !strchr(line, ':'))
 	    {
 		if (linelen != strlen (line))
 		    has_nuls = TRUE;
@@ -568,7 +577,7 @@ int readheaders(int sock,
 	    sizeticker += linelen;
 	    while (sizeticker >= SIZETICKER)
 	    {
-		if (outlevel > O_SILENT && run.showdots)
+		if (outlevel > O_SILENT && run.showdots && !run.use_syslog)
 		{
 		    fputc('.', stdout);
 		    fflush(stdout);
@@ -600,7 +609,7 @@ int readheaders(int sock,
 	    continue;
 	}
 
-	/* we see an ordinary (non-header, non-message-delimiter line */
+	/* we see an ordinary (non-header, non-message-delimiter) line */
 	if (linelen != strlen (line))
 	    has_nuls = TRUE;
 
@@ -610,19 +619,38 @@ int readheaders(int sock,
 	 * on being able to keep base-UID information in a special
 	 * message at the head of the mailbox.  This message should
 	 * neither be deleted nor forwarded.
+	 *
+	 * An example for such a message is (keep this in so people
+	 * find it when looking where the special code is to handle the
+	 * data):
+	 *
+	 *   From MAILER-DAEMON Wed Nov 23 11:38:42 2005
+	 *   Date: 23 Nov 2005 11:38:42 +0100
+	 *   From: Mail System Internal Data <MAILER-DAEMON@mail.example.org>
+	 *   Subject: DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA
+	 *   Message-ID: <1132742322@mail.example.org>
+	 *   X-IMAP: 1132742306 0000000001
+	 *   Status: RO
+	 *
+	 *   This text is part of the internal format of your mail folder, and is not
+	 *   a real message.  It is created automatically by the mail system software.
+	 *   If deleted, important folder data will be lost, and it will be re-created
+	 *   with the data reset to initial values.
+	 *
+	 * This message is only visible if a POP3 server that is unaware
+	 * of these UWIMAP messages is used besides UWIMAP or PINE.
+	 *
+	 * We will just check if the first message in the mailbox has an
+	 * X-IMAP: header.
 	 */
 #ifdef POP2_ENABLE
 	/*
 	 * We disable this check under POP2 because there's no way to
-	 * prevent deletion of the message.  So at least we ought to 
+	 * prevent deletion of the message.  So at least we ought to
 	 * forward it to the user so he or she will have some clue
 	 * that things have gone awry.
 	 */
-#if INET6_ENABLE
-	if (strncmp(protocol->service, "pop2", 4))
-#else /* INET6_ENABLE */
-	if (protocol->port != 109)
-#endif /* INET6_ENABLE */
+	if (servport("pop2") != servport(protocol->service))
 #endif /* POP2_ENABLE */
 	    if (num == 1 && !strncasecmp(line, "X-IMAP:", 7)) {
 		free(line);
@@ -658,17 +686,24 @@ int readheaders(int sock,
 	}
 
 	/*
-	 * We remove all Delivered-To: headers.
-	 * 
-	 * This is to avoid false mail loops messages when delivering
-	 * local messages to and from a Postfix/qmail mailserver. 
+	 * We remove all Delivered-To: headers if dropdelivered is set
+	 * - special care must be taken if Delivered-To: is also used
+	 * as envelope at the same time.
+	 *
+	 * This is to avoid false mail loops errors when delivering
+	 * local messages to and from a Postfix or qmail mailserver.
 	 */
 	if (ctl->dropdelivered && !strncasecmp(line, "Delivered-To:", 13)) 
 	{
-	    if (delivered_to)
+	    if (delivered_to ||
+	    	ctl->server.envelope == STRING_DISABLED ||
+		!ctl->server.envelope ||
+		strcasecmp(ctl->server.envelope, "Delivered-To") ||
+		delivered_to_count != ctl->server.envskip)
 		free(line);
 	    else 
 		delivered_to = line;
+	    delivered_to_count++;
 	    continue;
 	}
 
@@ -696,7 +731,7 @@ int readheaders(int sock,
 	    else
 		cp = NULL;
 	    if (cp) {
-		while (*cp && isspace(*cp)) cp++;
+		while (*cp && isspace((unsigned char)*cp)) cp++;
 		if (!*cp || ctl->dropstatus)
 		{
 		    free(line);
@@ -819,8 +854,8 @@ int readheaders(int sock,
  		sscanf(line+12, "%s", id);
  	        if (!str_find( &ctl->newsaved, num))
 		{
- 		    struct idlist *new = save_str(&ctl->newsaved,id,UID_SEEN);
-		    new->val.status.num = num;
+ 		    struct idlist *newl = save_str(&ctl->newsaved,id,UID_SEEN);
+		    newl->val.status.num = num;
 		}
  	    }
  	}
@@ -834,7 +869,7 @@ int readheaders(int sock,
 		|| !strncasecmp("Bcc:", line, 4)
 		|| !strncasecmp("Apparently-To:", line, 14))
 	    {
-		*to_chainptr = xmalloc(sizeof(struct addrblk));
+		*to_chainptr = (struct addrblk *)xmalloc(sizeof(struct addrblk));
 		(*to_chainptr)->offset = (line - msgblk.headers);
 		to_chainptr = &(*to_chainptr)->next; 
 		*to_chainptr = NULL;
@@ -844,7 +879,7 @@ int readheaders(int sock,
 		     || !strncasecmp("Resent-Cc:", line, 10)
 		     || !strncasecmp("Resent-Bcc:", line, 11))
 	    {
-		*resent_to_chainptr = xmalloc(sizeof(struct addrblk));
+		*resent_to_chainptr = (struct addrblk *)xmalloc(sizeof(struct addrblk));
 		(*resent_to_chainptr)->offset = (line - msgblk.headers);
 		resent_to_chainptr = &(*resent_to_chainptr)->next; 
 		*resent_to_chainptr = NULL;
@@ -878,8 +913,6 @@ int readheaders(int sock,
 
     if (retain_mail)
     {
-	free(msgblk.headers);
-	msgblk.headers = NULL;
 	return(PS_RETAINED);
     }
     if (refuse_mail)
@@ -911,8 +944,13 @@ int readheaders(int sock,
      * Don't mess with this code casually.  It would be way too easy
      * to break it in a way that blackholed mail.  Better to pass
      * the occasional duplicate than to do that...
+     *
+     * Matthias Andree:
+     * The real fix however is to insist on Delivered-To: or similar
+     * headers and require that one copy per recipient be dropped.
+     * Everything else breaks sooner or later.
      */
-    if (MULTIDROP(ctl))
+    if (MULTIDROP(ctl) && msgblk.headers)
     {
 	MD5_CTX context;
 
@@ -944,12 +982,10 @@ int readheaders(int sock,
      */
     if (msgblk.headers == (char *)NULL)
     {
-#ifdef HAVE_SNPRINTF
 	snprintf(buf, sizeof(buf),
-#else
-	sprintf(buf, 
-#endif /* HAVE_SNPRINTF */
-	"From: FETCHMAIL-DAEMON\r\nTo: %s@%s\r\nSubject: Headerless mail from %s's mailbox on %s\r\n",
+		"From: FETCHMAIL-DAEMON\r\n"
+		"To: %s@%s\r\n"
+		"Subject: Headerless mail from %s's mailbox on %s\r\n",
 		user, fetchmailhost, ctl->remotename, ctl->server.truename);
 	msgblk.headers = xstrdup(buf);
     }
@@ -968,7 +1004,7 @@ int readheaders(int sock,
 	/* We have the real envelope return-path, stored out of band by
 	 * SDPS - that's more accurate than any header is going to be.
 	 */
-	strcpy(msgblk.return_path, sdps_envfrom);
+	strlcpy(msgblk.return_path, sdps_envfrom, sizeof(msgblk.return_path));
 	free(sdps_envfrom);
     } else
 #endif /* SDPS_ENABLE */
@@ -994,7 +1030,7 @@ int readheaders(int sock,
 	else if (resent_from_offs >= 0 && (ap = nxtaddr(msgblk.headers + resent_from_offs)));
 	else if (from_offs >= 0 && (ap = nxtaddr(msgblk.headers + from_offs)));
 	else if (reply_to_offs >= 0 && (ap = nxtaddr(msgblk.headers + reply_to_offs)));
-	else if (app_from_offs >= 0 && (ap = nxtaddr(msgblk.headers + app_from_offs)));
+	else if (app_from_offs >= 0 && (ap = nxtaddr(msgblk.headers + app_from_offs))) {}
 	/* multi-line MAIL FROM addresses confuse SMTP terribly */
 	if (ap && !strchr(ap, '\n')) {
 	    strncpy(msgblk.return_path, ap, sizeof(msgblk.return_path));
@@ -1024,8 +1060,7 @@ int readheaders(int sock,
       ctl->server.envelope && !strcasecmp(ctl->server.envelope, "Delivered-To"))
    {
 	    find_server_names(delivered_to, ctl, &msgblk.recipients);
-       free(delivered_to);
-       delivered_to = NULL;
+	    xfree(delivered_to);
    }
 	else if (received_for)
 	    /*
@@ -1087,9 +1122,6 @@ int readheaders(int sock,
 	if (outlevel >= O_DEBUG)
 	    report(stdout,
 		   GT_("forwarding and deletion suppressed due to DNS errors\n"));
-	free(msgblk.headers);
-	msgblk.headers = NULL;
-	free_str_list(&msgblk.recipients);
 	return(PS_TRANSIENT);
     }
     else
@@ -1098,9 +1130,6 @@ int readheaders(int sock,
 	if ((n = open_sink(ctl, &msgblk,
 			   &good_addresses, &bad_addresses)) != PS_SUCCESS)
 	{
-	    free(msgblk.headers);
-	    msgblk.headers = NULL;
-	    free_str_list(&msgblk.recipients);
 	    return(n);
 	}
     }
@@ -1128,23 +1157,19 @@ int readheaders(int sock,
     {
 	/* utter any per-message Received information we need here */
         if (ctl->server.trueaddr) {
-#ifdef HAVE_SNPRINTF
+	    char saddr[50];
+	    int e;
+
+	    e = getnameinfo(ctl->server.trueaddr, ctl->server.trueaddr_len,
+		    saddr, sizeof(saddr), NULL, 0,
+		    NI_NUMERICHOST);
+	    if (e)
+		snprintf(saddr, sizeof(saddr), "(%-.*s)", (int)(sizeof(saddr) - 3), gai_strerror(e));
 	    snprintf(buf, sizeof(buf),
-#else
-	    sprintf(buf, 
-#endif /* HAVE_SNPRINTF */
-		    "Received: from %s [%u.%u.%u.%u]\r\n", 
-		    ctl->server.truename,
-		    (unsigned char)ctl->server.trueaddr[0],
-		    (unsigned char)ctl->server.trueaddr[1],
-		    (unsigned char)ctl->server.trueaddr[2],
-		    (unsigned char)ctl->server.trueaddr[3]);
+		    "Received: from %s [%s]\r\n", 
+		    ctl->server.truename, saddr);
 	} else {
-#ifdef HAVE_SNPRINTF
-	  snprintf(buf, sizeof(buf),
-#else                       
-	  sprintf(buf,
-#endif /* HAVE_SNPRINTF */
+	    snprintf(buf, sizeof(buf),
 		  "Received: from %s\r\n", ctl->server.truename);
 	}
 	n = stuffline(ctl, buf);
@@ -1154,38 +1179,30 @@ int readheaders(int sock,
 	     * This header is technically invalid under RFC822.
 	     * POP3, IMAP, etc. are not legal mail-parameter values.
 	     */
-#ifdef HAVE_SNPRINTF
 	    snprintf(buf, sizeof(buf),
-#else
-	    sprintf(buf,
-#endif /* HAVE_SNPRINTF */
 		    "\tby %s with %s (fetchmail-%s",
 		    fetchmailhost,
 		    protocol->name,
 		    VERSION);
-	    if (ctl->tracepolls)
+	    if (ctl->server.tracepolls)
 	    {
-		sprintf(buf + strlen(buf), " polling %s account %s",
-			ctl->server.pollname, 
+		snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+			" polling %s account %s",
+			ctl->server.pollname,
 			ctl->remotename);
+		if (ctl->folder)
+		    snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf),
+			    " folder %s",
+			    ctl->folder);
 	    }
-#ifdef HAVE_SNPRINTF
 	    snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), ")\r\n");
-#else
-	    strcat(buf, ")\r\n");
-#endif /* HAVE_SNPRINTF */
 	    n = stuffline(ctl, buf);
 	    if (n != -1)
 	    {
 		buf[0] = '\t';
 		if (good_addresses == 0)
 		{
-#ifdef HAVE_SNPRINTF
-		    snprintf(buf+1, sizeof(buf)-1,
-#else
-		    sprintf(buf+1,
-#endif /* HAVE_SNPRINTF */
-			    "for %s (by default); ",
+		    snprintf(buf+1, sizeof(buf)-1, "for <%s> (by default); ",
 			    rcpt_address (ctl, run.postmaster, 0));
 		}
 		else if (good_addresses == 1)
@@ -1193,25 +1210,17 @@ int readheaders(int sock,
 		    for (idp = msgblk.recipients; idp; idp = idp->next)
 			if (idp->val.status.mark == XMIT_ACCEPT)
 			    break;	/* only report first address */
-#ifdef HAVE_SNPRINTF
 		    snprintf(buf+1, sizeof(buf)-1,
-#else                       
-		    sprintf(buf+1,
-#endif /* HAVE_SNPRINTF */
-			    "for %s", rcpt_address (ctl, idp->id, 1));
-		    sprintf(buf+strlen(buf), " (%s); ",
+			    "for <%s>", rcpt_address (ctl, idp->id, 1));
+		    snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf)-1,
+			    " (%s); ",
 			    MULTIDROP(ctl) ? "multi-drop" : "single-drop");
 		}
 		else
 		    buf[1] = '\0';
 
-#ifdef HAVE_SNPRINTF
 		snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), "%s\r\n",
 			rfc822timestamp());
-#else
-		strcat(buf, rfc822timestamp());
-		strcat(buf, "\r\n");
-#endif /* HAVE_SNPRINTF */
 		n = stuffline(ctl, buf);
 	    }
 	}
@@ -1224,13 +1233,10 @@ int readheaders(int sock,
     {
 	report(stdout, GT_("writing RFC822 msgblk.headers\n"));
 	release_sink(ctl);
-	free(msgblk.headers);
-	msgblk.headers = NULL;
-	free_str_list(&msgblk.recipients);
 	return(PS_IOERR);
     }
-    else if ((run.poll_interval == 0 || nodetach) && outlevel >= O_VERBOSE && !isafile(2))
-	fputs("#", stdout);
+    else if ((run.poll_interval == 0 || nodetach) && outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
+	fputc('#', stdout);
 
     /* write error notifications */
     if (no_local_matches || has_nuls || bad_addresses)
@@ -1239,21 +1245,17 @@ int readheaders(int sock,
 	char	errhd[USERNAMELEN + POPBUFSIZE], *errmsg;
 
 	errmsg = errhd;
-	(void) strcpy(errhd, "X-Fetchmail-Warning: ");
+	strlcpy(errhd, "X-Fetchmail-Warning: ", sizeof(errhd));
 	if (no_local_matches)
 	{
 	    if (reject_count != 1)
-		strcat(errhd, GT_("no recipient addresses matched declared local names"));
+		strlcat(errhd, GT_("no recipient addresses matched declared local names"), sizeof(errhd));
 	    else
 	    {
 		for (idp = msgblk.recipients; idp; idp = idp->next)
 		    if (idp->val.status.mark == XMIT_REJECT)
 			break;
-#ifdef HAVE_SNPRINTF
 		snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd),
-#else
-		sprintf(errhd+strlen(errhd),
-#endif /* HAVE_SNPRINTF */
 			GT_("recipient address %s didn't match any local name"), idp->id);
 	    }
 	}
@@ -1261,34 +1263,24 @@ int readheaders(int sock,
 	if (has_nuls)
 	{
 	    if (errhd[sizeof("X-Fetchmail-Warning: ")])
-#ifdef HAVE_SNPRINTF
 		snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd), "; ");
 	    snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd),
-#else
-		strcat(errhd, "; ");
-	    strcat(errhd,
-#endif /* HAVE_SNPRINTF */
 			GT_("message has embedded NULs"));
 	}
 
 	if (bad_addresses)
 	{
 	    if (errhd[sizeof("X-Fetchmail-Warning: ")])
-#ifdef HAVE_SNPRINTF
 		snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd), "; ");
 	    snprintf(errhd+strlen(errhd), sizeof(errhd)-strlen(errhd),
-#else
-		strcat(errhd, "; ");
-	    strcat(errhd,
-#endif /* HAVE_SNPRINTF */
 			GT_("SMTP listener rejected local recipient addresses: "));
 	    errlen = strlen(errhd);
 	    for (idp = msgblk.recipients; idp; idp = idp->next)
 		if (idp->val.status.mark == XMIT_RCPTBAD)
 		    errlen += strlen(idp->id) + 2;
 
-	    xalloca(errmsg, char *, errlen+3);
-	    (void) strcpy(errmsg, errhd);
+	    errmsg = xmalloc(errlen + 3);
+	    strcpy(errmsg, errhd);
 	    for (idp = msgblk.recipients; idp; idp = idp->next)
 		if (idp->val.status.mark == XMIT_RCPTBAD)
 		{
@@ -1303,6 +1295,9 @@ int readheaders(int sock,
 
 	/* ship out the error line */
 	stuffline(ctl, errmsg);
+
+	if (errmsg != errhd)
+	    free(errmsg);
     }
 
     /* issue the delimiter line */
@@ -1323,8 +1318,8 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 /*   forward:		TRUE to forward */
 {
     int	linelen;
-    unsigned char buf[MSGBUFSIZE+4];
-    unsigned char *inbufp = buf;
+    char buf[MSGBUFSIZE+4];
+    char *inbufp = buf;
     flag issoftline = FALSE;
 
     /*
@@ -1354,7 +1349,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 	    sizeticker += linelen;
 	    while (sizeticker >= SIZETICKER)
 	    {
-		if (outlevel > O_SILENT && run.showdots)
+		if (outlevel > O_SILENT && run.showdots && !run.use_syslog)
 		{
 		    fputc('.', stdout);
 		    fflush(stdout);
@@ -1410,7 +1405,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 		release_sink(ctl);
 		return(PS_IOERR);
 	    }
-	    else if (outlevel >= O_VERBOSE && !isafile(1))
+	    else if (outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
 	    {
 		fputc('*', stdout);
 		fflush(stdout);
@@ -1424,9 +1419,11 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 void init_transact(const struct method *proto)
 /* initialize state for the send and receive functions */
 {
+    suppress_tags = FALSE;
     tagnum = 0;
     tag[0] = '\0';	/* nuke any tag hanging out from previous query */
     protocol = (struct method *)proto;
+    shroud[0] = '\0';
 }
 
 static void enshroud(char *buf)
@@ -1460,7 +1457,7 @@ va_dcl
     va_list ap;
 
     if (protocol->tagged && !suppress_tags)
-	(void) sprintf(buf, "%s ", GENSYM);
+        snprintf(buf, sizeof(buf) - 2, "%s ", GENSYM);
     else
 	buf[0] = '\0';
 
@@ -1469,18 +1466,10 @@ va_dcl
 #else
     va_start(ap);
 #endif
-#ifdef HAVE_VSNPRINTF
-    vsnprintf(buf + strlen(buf), sizeof(buf)-strlen(buf), fmt, ap);
-#else
-    vsprintf(buf + strlen(buf), fmt, ap);
-#endif
+    vsnprintf(buf + strlen(buf), sizeof(buf)-2-strlen(buf), fmt, ap);
     va_end(ap);
 
-#ifdef HAVE_SNPRINTF
     snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), "\r\n");
-#else
-    strcat(buf, "\r\n");
-#endif /* HAVE_SNPRINTF */
     SockWrite(sock, buf, strlen(buf));
 
     if (outlevel >= O_MONITOR)
@@ -1491,11 +1480,10 @@ va_dcl
     }
 }
 
-int gen_recv(sock, buf, size)
-/* get one line of input from the server */
-int sock;	/* socket to which server is connected */
-char *buf;	/* buffer to receive input */
-int size;	/* length of buffer */
+/** get one line of input from the server */
+int gen_recv(int sock  /** socket to which server is connected */,
+	     char *buf /* buffer to receive input */,
+	     int size  /* length of buffer */)
 {
     int oldphase = phase;	/* we don't have to be re-entrant */
 
@@ -1505,7 +1493,7 @@ int size;	/* length of buffer */
     {
 	set_timeout(0);
 	phase = oldphase;
-	if(isidletimeout())
+	if(is_idletimeout())
 	{
 	  resetidletimeout();
 	  return(PS_IDLETIMEOUT);
@@ -1545,7 +1533,7 @@ va_dcl
     phase = SERVER_WAIT;
 
     if (protocol->tagged && !suppress_tags)
-	(void) sprintf(buf, "%s ", GENSYM);
+	snprintf(buf, sizeof(buf) - 2, "%s ", GENSYM);
     else
 	buf[0] = '\0';
 
@@ -1554,19 +1542,15 @@ va_dcl
 #else
     va_start(ap);
 #endif
-#ifdef HAVE_VSNPRINTF
-    vsnprintf(buf + strlen(buf), sizeof(buf)-strlen(buf), fmt, ap);
-#else
-    vsprintf(buf + strlen(buf), fmt, ap);
-#endif
+    vsnprintf(buf + strlen(buf), sizeof(buf)-2-strlen(buf), fmt, ap);
     va_end(ap);
 
-#ifdef HAVE_SNPRINTF
     snprintf(buf+strlen(buf), sizeof(buf)-strlen(buf), "\r\n");
-#else
-    strcat(buf, "\r\n");
-#endif /* HAVE_SNPRINTF */
-    SockWrite(sock, buf, strlen(buf));
+    ok = SockWrite(sock, buf, strlen(buf));
+    if (ok == -1 || (size_t)ok != strlen(buf)) {
+	/* short write, bail out */
+	return PS_SOCKET;
+    }
 
     if (outlevel >= O_MONITOR)
     {

@@ -31,7 +31,7 @@ PROF_LIBS = $(LIBS)
 FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
 NEXTSTEP_PB_CFLAGS = -mdynamic-no-pic -fconstant-cfstrings
 NEXTSTEP_PB_LDFLAGS = -dead_strip
-FRAMEWORKS = -framework CoreFoundation -framework EAP8021X
+FRAMEWORKS = -framework CoreFoundation -framework EAP8021X -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

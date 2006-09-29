@@ -175,7 +175,7 @@ static enum bool get_sect_info(
     unsigned long object_size,
     char **sect_pointer,
     unsigned long *sect_size,
-    unsigned long *sect_addr,
+    target_addr_t *sect_addr,
     struct relocation_info **sect_relocs,
     unsigned long *sect_nrelocs,
     unsigned long *sect_flags);
@@ -185,7 +185,7 @@ static void print_text(
     enum byte_sex object_byte_sex,
     char *sect,
     unsigned long size,
-    unsigned long addr,
+    target_addr_t addr,
     struct symbol *sorted_symbols,
     unsigned long nsorted_symbols,
     nlist_t *symbols,
@@ -495,7 +495,8 @@ void *cookie) /* cookie is not used */
     char *strings, *p;
     unsigned char n_type;
     char *sect;
-    unsigned long sect_size, sect_addr, sect_nrelocs, sect_flags, nrelocs;
+    unsigned long sect_size, sect_nrelocs, sect_flags, nrelocs;
+    target_addr_t sect_addr;
     struct relocation_info *sect_relocs, *relocs;
     unsigned long *indirect_symbols, *allocated_indirect_symbols,
 		  nindirect_symbols;
@@ -1047,6 +1048,11 @@ void *cookie) /* cookie is not used */
 			print_literal8_section(sect, sect_size, sect_addr,
 					      ofile->object_byte_sex,
 					      Xflag == TRUE ? FALSE : TRUE);
+			break;
+		    case S_16BYTE_LITERALS:
+			print_literal16_section(sect, sect_size, sect_addr,
+					       ofile->object_byte_sex,
+					       Xflag == TRUE ? FALSE : TRUE);
 			break;
 		    case S_LITERAL_POINTERS:
 			/* create aligned, sorted relocations entries */
@@ -1645,7 +1651,7 @@ char *object_addr,
 unsigned long object_size,
 char **sect_pointer,			/* output */
 unsigned long *sect_size,
-unsigned long *sect_addr,
+target_addr_t *sect_addr,
 struct relocation_info **sect_relocs,
 unsigned long *sect_nrelocs,
 unsigned long *sect_flags)
@@ -1786,7 +1792,7 @@ cpu_type_t cputype,
 enum byte_sex object_byte_sex,
 char *sect,
 unsigned long size,
-unsigned long addr,
+target_addr_t addr,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 nlist_t *symbols,
@@ -1804,7 +1810,8 @@ enum bool verbose)
 {
     enum byte_sex host_byte_sex;
     enum bool swapped;
-    unsigned long i, j, offset, cur_addr, long_word;
+    unsigned long i, j, offset, long_word;
+    target_addr_t cur_addr;
     unsigned short short_word;
     unsigned char byte_word;
 
@@ -1843,6 +1850,12 @@ enum bool verbose)
 #ifdef ARCH64
 		if(cputype == CPU_TYPE_POWERPC64)
 		    j = ppc_disassemble(sect, size - i, cur_addr, addr,
+				object_byte_sex, relocs, nrelocs, symbols,
+				nsymbols, sorted_symbols, nsorted_symbols,
+				strings, strings_size, indirect_symbols,
+				nindirect_symbols, mh, load_commands, verbose);
+		else if(cputype == CPU_TYPE_X86_64)
+		    j = i386_disassemble(sect, size - i, cur_addr, addr,
 				object_byte_sex, relocs, nrelocs, symbols,
 				nsymbols, sorted_symbols, nsorted_symbols,
 				strings, strings_size, indirect_symbols,
@@ -1911,7 +1924,7 @@ enum bool verbose)
 		    printf("\n");
 		}
 	    }
-	    else if(cputype == CPU_TYPE_MC680x0){
+	    if(cputype == CPU_TYPE_MC680x0){
 		for(i = 0 ; i < size ; i += j , addr += j){
 		    printf("%08x ", (unsigned int)addr);
 		    for(j = 0;

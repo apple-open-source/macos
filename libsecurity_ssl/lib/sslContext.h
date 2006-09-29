@@ -252,6 +252,21 @@ struct SSLContext
     Boolean				allowAnyRoot;		// don't require known roots
 	Boolean				sentFatalAlert;		// this session terminated by fatal alert
 	Boolean				rsaBlindingEnable;
+
+	/* optional session cache timeout (in seconds) override - 0 means default */
+	uint32 				sessionCacheTimeout;
+
+	/* optional SessionTicket */
+	SSLBuffer			sessionTicket;
+
+	/* optional callback to obtain master secret, with its opaque arg */
+	SSLInternalMasterSecretFunction	masterSecretCallback;
+	const void 			*masterSecretArg;
+	
+	#if 	SSL_PAC_SERVER_ENABLE
+	/* server PAC resume sets serverRandom early to allow for secret acquisition */
+	uint8				serverRandomValid;
+	#endif
 };
 
 #ifdef __cplusplus

@@ -229,6 +229,42 @@ struct ar_hdr *ar_hdr)
 }
 
 /*
+ * set_obj_resolved_path() sets the resolved_path field of the specified
+ * object file structure to be used for N_OSO names.
+ */
+__private_extern__
+void
+set_obj_resolved_path(
+struct object_file *obj)
+{
+#if !defined (SA_RLD) && !(defined(KLD) && defined(__STATIC__))
+    char resolved_path[PATH_MAX];
+
+	if(obj->resolved_path == NULL){
+	    if(realpath(obj->file_name, resolved_path) == NULL)
+		system_error("can't get resolved path to: %s", obj->file_name);
+	    if(obj->ar_hdr != NULL){
+		obj->resolved_path_len = strlen(resolved_path) +
+					 obj->ar_name_size + 2;
+		obj->resolved_path = allocate(obj->resolved_path_len + 1);
+		strcpy(obj->resolved_path, resolved_path);
+		strcat(obj->resolved_path, "(");
+		strncat(obj->resolved_path, obj->ar_name, obj->ar_name_size);
+		strcat(obj->resolved_path, ")");
+	    }
+	    else{
+		obj->resolved_path_len = strlen(resolved_path);
+		obj->resolved_path = allocate(obj->resolved_path_len + 1);
+		strcpy(obj->resolved_path, resolved_path);
+	    }
+	}
+#else /* defined(SA_RLD) || defined(KLD) && defined(__STATIC__) */
+	obj->resolved_path_len = strlen(obj->file_name + 1);
+	obj->resolved_path = obj->file_name;
+#endif /* !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__)) */
+}
+
+/*
  * print_whatsloaded() prints which object files are loaded.  This has to be
  * called after pass1 to get the correct result.
  */

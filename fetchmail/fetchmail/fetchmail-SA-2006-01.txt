@@ -1,0 +1,103 @@
+fetchmail-SA-2006-01: crash when bouncing messages.
+
+Topics:		#1 crash when bouncing a message
+		#2 fetchmail 6.2.5.X end of life
+
+Author:		Matthias Andree
+Version:	1.1
+Announced:	2006-01-22
+Type:		free() with bogus pointer
+Impact:		fetchmail crashes
+Danger:		low
+Credits:	Nathaniel W. Turner (bug report)
+CVE Name:	CVE-2006-0321
+URL:		http://fetchmail.berlios.de/fetchmail-SA-2006-01.txt
+		http://bugs.debian.org/348747
+Project URL:	http://fetchmail.berlios.de/
+
+Affects:	fetchmail release >= 6.3.0
+		fetchmail release <  6.3.2
+		fetchmail release candidates 6.3.2-rc1, -rc2 and -rc3
+
+Not affected:	fetchmail release candidate 6.3.2-rc4
+		fetchmail release 6.3.2
+		other versions not mentioned here or in the previous
+		sections have not been checked
+
+Corrected:	2006-01-19 fetchmail 6.3.2-rc4
+		2006-01-22 fetchmail 6.3.2
+
+
+0. Release history
+==================
+
+2006-01-19	internal review draft
+2006-01-20	add CVE ID
+2006-01-22	release 1.0
+2006-01-25	release 1.1, add fetchmail 6.3.2 to "Not affected" above.
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+
+2. Problem description and Impact
+=================================
+
+Fetchmail contains a bug that causes itself to crash when bouncing a
+message to the originator or to the local postmaster. The crash happens
+after the bounce message has been sent, when fetchmail tries to free the
+dynamic array of failed addresses, and calls the free() function with an
+invalid pointer.  This bug was introduced short before fetchmail 6.3.0
+and is not present in the now discontinued 6.2.X series (see below).
+
+
+3. Workaround
+=============
+
+None known at this time.
+
+
+4. Solution
+===========
+
+Download and install fetchmail 6.3.2 or a newer stable release from
+fetchmail's project site at
+<http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+5. End of life announcement
+===========================
+
+The aged fetchmail 6.2.5.X branch is discontinued effective immediately.
+No further releases from the 6.2.5.X branch will be made.
+
+The new 6.3.X stable branch has been available since 2005-11-30
+and will not change except for bugfixes, documentation and message
+translations.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2006 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+END OF fetchmail-SA-2006-01.txt

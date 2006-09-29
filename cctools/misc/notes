@@ -9,7 +9,34 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
-Changes for the 5.20.1 release (the cctools-590.23.6 release):
+Changes for the 5.23 release (the cctools-618 release)
+- Changed checksyms(1) to not check for prebound files when
+  MACOSX_DEPLOYMENT_TARGET >= 10.4 . The change was in check_dynamic_binary()
+  in checksym.c to test the value returned by get_macosx_deployment_target().
+  Radar bug #4110782.
+
+Changes for the 5.23 release (the cctools-617 release)
+- Changed create_fat() in lipo(1) to not set the timestamp of the output file
+  if it contains archives.  Radar bug #4492604.
+
+Changes for the 5.23 release (the cctools-616 release)
+- Changed lipo(1) to special case ppc, ppc64, i386 and x86_64 architectures and
+  to assume a segment alignment of 12.  Changes were made in get_align() and
+  get_align_64() in lipo.c . Radar bug #4178258.
+- Ported pagestuff(1) to work with 64-bit Mach-O's.  Radar bug #4375624.
+- Added the needed code in for nmedit(1) in strip.c in check_object_relocs() to
+  handle making global coalesced symbol in 64-bit Mach-O's private.  Basically
+  it is the same as the 32-bit case but with quad sized relocation entries and
+  64-bit values.  Radar bug #4414533.
+
+Changes for the 5.23 release (the cctools-612 release)
+- Changed strip(1) so strip -x on an x86_64 .o file should do nothing.
+  The change was in strip_symtab() for local symbols to check if the file is
+  CPU_TYPE_X86_64 and the -x flag is used and if so keep all the local symbols.
+  Radar bug #4541291.
+
+Changes for the 5.23 release taken from cctools-590.23.6 (the cctools-610 
+release):
 - Fixed a bug in the redo_prebinding code where it would call chmod(2) and
   chown(2) unnecessarily when no output_file is specified.  The fix was in
   unprebind() in redo_prebinding.c to remove the else clause of the
@@ -20,6 +47,82 @@ Changes for the 5.20.1 release (the cctools-590.23.6 release):
   redo_prebinding.c after the first call to cleanup().  It checks to see if
   error_message_buffer is not NULL and if so calls free() on it.  Radar Bug
   #4503576.
+
+Changes for the 5.22 release (the cctools-590.41.4 release):
+- Change the previous fix to not reference the reserved1 field when fixing up
+  indirect symbols in the non-lazy symbol pointer section. Radar bug #4522347.
+
+Changes for the 5.22 release (the cctools-590.41.3 release):
+- Fixed nmedit(1) so that it sets the value of symbol pointers when it changes
+  the indirect symbol table entries for them into INDIRECT_SYMBOL_LOCAL.  The
+  change was in check_indirect_symtab() in symbols.c and a bit of code was added
+  to take the n_value from the symbol table entry swap it if needed and write
+  into the section contents for that symbol pointer.  The additional parameters
+  contents and host_byte_sex were added to the routine and pass from the two
+  places it was called.  Radar bug #4514531.
+
+Changes for the 5.22 release (the cctools-590.41.2 release):
+- When stripping coalesced symbols from 64-bit files, only save symbols which
+  are used as weak definitions. Radar bug #4487972.
+
+Changes for the 5.22 release (the cctools-590.40.1 release):
+- Ignore multiple -syslibroot flags if they specify the same argument. Radar
+  bug #4354876.
+
+Changes for the 5.22 release (the cctools-590.38.3 release):
+- Fix a typo for 64-bit code in an error case in strip(1) which would cause it
+  to crash. Radar bug #4502835.
+- Add a new -arch_blank option to lipo(1). Radar bug #4473483.
+
+Changes for the 5.22 release (the cctools-590.38.2 release):
+- Don't convert external relocation entries to internal ones when looking at
+  x86-64 relocation entries in nmedit(1). Radar bug #4497429.
+
+Changes for the 5.22 release (the cctools-590.34.1 release):
+- Revert the 4-byte alignment change in lipo from the previous release. Radar
+  bug #4428605.
+
+Changes for the 5.22 release (the cctools-590.31.4 release):
+- Modified lipo to only require 4-byte alignment for load commands. Radar bug
+  #4428605.
+- Added x86_64 support to the relocation entry functions in misc/reloc.c, used
+  by strip and other tools. Radar bug #4430570.
+- Fix a typo in mach-o/reloc.h. Radar bug #3754196.
+
+Changes for the 5.21 release (the cctools-590.40 release):
+- Fixed a bug in pagestuff(1) where it would crash if it was processing a Mach-O
+  file with no LC_SYMTAB command.  It crashed in print_symbols() because it
+  lacked a check for fp->st not being NULL.  The fix was to add a check for
+  fp->st being NULL and just returning in that case.  Radar bug #4495141.
+
+Changes for the 5.21 release (the cctools-590.37 release):
+- Changed check_indirect_symtab() in strip.c so that nmedit(1) and strip(1)
+  would allow an indirect symbol table entry to just have INDIRECT_SYMBOL_ABS
+  as well as (INDIRECT_SYMBOL_LOCAL | INDIRECT_SYMBOL_ABS).  This is because
+  ld(1) puts this out in some cases.  Radar bug #4461173.
+- Added passing ld(1)'s -t flag through libtool(1).  Radar bug #4213190.
+
+Changes for the 5.21 release (the cctools-590.35 release):
+- Added a warning to nmedit(1) when it sees a global coalesced symbol to say it
+  can't make global coalesced symbols into a static symbols and suggest the use
+  of ld(1)'s -exported_symbols_list option for a final linked images.  The
+  change was in strip.c in edit_symtab() to add the warning an a boolean to
+  only print it once.  Radar bug #4269492.
+- Changed seg_hack so it doesn't affect debug sections.  Radar bug #4421656.
+
+Changes for the 5.21 release (the cctools-590.34 release):
+- Make 'nm: no name list' a warning, not an error.  Radar bug #4421611.
+
+Changes for the 5.21 release (the cctools-590.32 release):
+- Change edit_symtab in strip.c to handle the different format
+  of the DWARF debug map.  Add new functions cmp_bsearch_global and
+  cmp_bsearch_global_64.  Radar bug #4421583.
+
+Changes for the 5.21 release (the cctools-590.31 release):
+- Added the -no_uuid flag to strip(1) to remove LC_UUID load commands.  Radar
+  bug #4415536.
+- Added the -no_uuid flag to libtool(1) to pass on to ld(1).  Radar bug
+  #4415529.
 
 Changes for the 5.20 release (the cctools-590.20 release):
 - Removed the warnings when building. Radar bug #4340147.

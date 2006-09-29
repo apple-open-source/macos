@@ -1,7 +1,7 @@
 {
     "DYNAMIC_CODE_GEN" = YES; 
     FILESTABLE = {
-        FRAMEWORKS = ("CoreFoundation.framework", "EAP8021X.framework"); 
+        FRAMEWORKS = ("CoreFoundation.framework", "EAP8021X.framework", "SystemConfiguration.framework"); 
         FRAMEWORKSEARCH = ("/System/Library/PrivateFrameworks"); 
         "H_FILES" = (); 
         "OTHER_LIBS" = (); 

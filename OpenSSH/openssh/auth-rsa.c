@@ -14,7 +14,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth-rsa.c,v 1.58 2003/11/04 08:54:09 djm Exp $");
+RCSID("$OpenBSD: auth-rsa.c,v 1.63 2005/06/17 02:44:32 djm Exp $");
 
 #include <openssl/rsa.h>
 #include <openssl/md5.h>
@@ -23,7 +23,6 @@ RCSID("$OpenBSD: auth-rsa.c,v 1.58 2003/11/04 08:54:09 djm Exp $");
 #include "packet.h"
 #include "xmalloc.h"
 #include "ssh1.h"
-#include "mpaux.h"
 #include "uidswap.h"
 #include "match.h"
 #include "auth-options.h"
@@ -34,6 +33,7 @@ RCSID("$OpenBSD: auth-rsa.c,v 1.58 2003/11/04 08:54:09 djm Exp $");
 #include "hostfile.h"
 #include "monitor_wrap.h"
 #include "ssh.h"
+#include "misc.h"
 
 /* import */
 extern ServerOptions options;
@@ -50,7 +50,7 @@ extern u_char session_id[16];
  *   options bits e n comment
  * where bits, e and n are decimal numbers,
  * and comment is any string of characters up to newline.  The maximum
- * length of a line is 8000 characters.  See the documentation for a
+ * length of a line is SSH_MAX_PUBKEY_BYTES characters.  See sshd(8) for a
  * description of the options.
  */
 
@@ -153,7 +153,7 @@ auth_rsa_challenge_dialog(Key *key)
 int
 auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 {
-	char line[8192], *file;
+	char line[SSH_MAX_PUBKEY_BYTES], *file;
 	int allowed = 0;
 	u_int bits;
 	FILE *f;
@@ -202,11 +202,10 @@ auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 	 * found, perform a challenge-response dialog to verify that the
 	 * user really has the corresponding private key.
 	 */
-	while (fgets(line, sizeof(line), f)) {
+	while (read_keyfile_line(f, file, line, sizeof(line), &linenum) != -1) {
 		char *cp;
-		char *options;
-
-		linenum++;
+		char *key_options;
+		int keybits;
 
 		/* Skip leading whitespace, empty and comment lines. */
 		for (cp = line; *cp == ' ' || *cp == '\t'; cp++)
@@ -222,7 +221,7 @@ auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 		 */
 		if (*cp < '0' || *cp > '9') {
 			int quoted = 0;
-			options = cp;
+			key_options = cp;
 			for (; *cp && (quoted || (*cp != ' ' && *cp != '\t')); cp++) {
 				if (*cp == '\\' && cp[1] == '"')
 					cp++;	/* Skip both */
@@ -230,7 +229,7 @@ auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 					quoted = !quoted;
 			}
 		} else
-			options = NULL;
+			key_options = NULL;
 
 		/* Parse the key from the line. */
 		if (hostfile_read_key(&cp, &bits, key) == 0) {
@@ -245,7 +244,8 @@ auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 			continue;
 
 		/* check the real bits  */
-		if (bits != BN_num_bits(key->rsa->n))
+		keybits = BN_num_bits(key->rsa->n);
+		if (keybits < 0 || bits != (u_int)keybits)
 			logit("Warning: %s, line %lu: keysize mismatch: "
 			    "actual %d vs. announced %d.",
 			    file, linenum, BN_num_bits(key->rsa->n), bits);
@@ -255,7 +255,7 @@ auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 		 * If our options do not allow this key to be used,
 		 * do not send challenge.
 		 */
-		if (!auth_parse_options(pw, options, file, linenum))
+		if (!auth_parse_options(pw, key_options, file, linenum))
 			continue;
 
 		/* break out, this key is allowed */

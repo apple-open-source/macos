@@ -4,43 +4,23 @@ NAME
      ssh-add - adds RSA or DSA identities to the authentication agent
 
 SYNOPSIS
-     ssh-add [-lLdDxXc] [-t life] [file ...]
+     ssh-add [-cDdLlXx] [-t life] [file ...]
      ssh-add -s reader
      ssh-add -e reader
 
 DESCRIPTION
      ssh-add adds RSA or DSA identities to the authentication agent,
      ssh-agent(1).  When run without arguments, it adds the files
-     $HOME/.ssh/id_rsa, $HOME/.ssh/id_dsa and $HOME/.ssh/identity.  Alterna-
-     tive file names can be given on the command line.  If any file requires a
-     passphrase, ssh-add asks for the passphrase from the user.  The
-     passphrase is read from the user's tty.  ssh-add retries the last
-     passphrase if multiple identity files are given.
+     ~/.ssh/id_rsa, ~/.ssh/id_dsa and ~/.ssh/identity.  Alternative file names
+     can be given on the command line.  If any file requires a passphrase,
+     ssh-add asks for the passphrase from the user.  The passphrase is read
+     from the user's tty.  ssh-add retries the last passphrase if multiple
+     identity files are given.
 
      The authentication agent must be running and the SSH_AUTH_SOCK environ-
      ment variable must contain the name of its socket for ssh-add to work.
 
      The options are as follows:
-
-     -l      Lists fingerprints of all identities currently represented by the
-             agent.
-
-     -L      Lists public key parameters of all identities currently repre-
-             sented by the agent.
-
-     -d      Instead of adding the identity, removes the identity from the
-             agent.
-
-     -D      Deletes all identities from the agent.
-
-     -x      Lock the agent with a password.
-
-     -X      Unlock the agent.
-
-     -t life
-             Set a maximum lifetime when adding identities to an agent.  The
-             lifetime may be specified in seconds or in a time format speci-
-             fied in sshd_config(5).
 
      -c      Indicates that added identities should be subject to confirmation
              before being used for authentication.  Confirmation is performed
@@ -48,11 +28,31 @@ DESCRIPTION
              tion is signaled by a zero exit status from the SSH_ASKPASS pro-
              gram, rather than text entered into the requester.
 
-     -s reader
-             Add key in smartcard reader.
+     -D      Deletes all identities from the agent.
+
+     -d      Instead of adding the identity, removes the identity from the
+             agent.
 
      -e reader
              Remove key in smartcard reader.
+
+     -L      Lists public key parameters of all identities currently repre-
+             sented by the agent.
+
+     -l      Lists fingerprints of all identities currently represented by the
+             agent.
+
+     -s reader
+             Add key in smartcard reader.
+
+     -t life
+             Set a maximum lifetime when adding identities to an agent.  The
+             lifetime may be specified in seconds or in a time format speci-
+             fied in sshd_config(5).
+
+     -X      Unlock the agent.
+
+     -x      Lock the agent with a password.
 
 ENVIRONMENT
      DISPLAY and SSH_ASKPASS
@@ -61,7 +61,7 @@ ENVIRONMENT
              does not have a terminal associated with it but DISPLAY and
              SSH_ASKPASS are set, it will execute the program specified by
              SSH_ASKPASS and open an X11 window to read the passphrase.  This
-             is particularly useful when calling ssh-add from a .Xsession or
+             is particularly useful when calling ssh-add from a .xsession or
              related script.  (Note that on some machines it may be necessary
              to redirect the input from /dev/null to make this work.)
 
@@ -70,15 +70,15 @@ ENVIRONMENT
              with the agent.
 
 FILES
-     $HOME/.ssh/identity
+     ~/.ssh/identity
              Contains the protocol version 1 RSA authentication identity of
              the user.
 
-     $HOME/.ssh/id_dsa
+     ~/.ssh/id_dsa
              Contains the protocol version 2 DSA authentication identity of
              the user.
 
-     $HOME/.ssh/id_rsa
+     ~/.ssh/id_rsa
              Contains the protocol version 2 RSA authentication identity of
              the user.
 
@@ -99,4 +99,4 @@ AUTHORS
      ated OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 3.5                   September 25, 1999                             2
+OpenBSD 3.8                   September 25, 1999                             2

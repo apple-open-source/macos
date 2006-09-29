@@ -88,6 +88,14 @@ __private_extern__ struct merged_segment *original_merged_segments = NULL;
 #endif /* RLD */
 
 /*
+ * Any debug sections will be merged in the first pass and placed in their
+ * merged segments to allow for error checking.  Their contents are not put in
+ * the output file so before the segments are layed out they are removed from
+ * the list by remove_debug_segments() and placed on this list.
+ */
+__private_extern__ struct merged_segment *debug_merged_segments = NULL;
+
+/*
  * The total number relocation entries, used only in layout() to help
  * calculate the size of the link edit segment.
  */
@@ -367,6 +375,19 @@ merge_sections(void)
 	    if(errors)
 		return;
 	    cur_obj->section_maps[i].output_section = ms;
+	    /*
+	     * If this is a debug section it will not be in the output file.
+	     * Set the debug attribute in the merged section (if dynamic is
+	     * TRUE it would not have been set).  Then just return not
+	     * accounting for it size, alignment and number of relocation		     * entries as none of that info will be in the output file.
+	     * Also set output_uuid_info.emit to TRUE since we have seen an
+	     * input file with a debug section.
+	     */
+	    if((s->flags & S_ATTR_DEBUG) == S_ATTR_DEBUG){
+		ms->s.flags |= S_ATTR_DEBUG;
+		output_uuid_info.emit = TRUE;
+		continue;
+	    }
 	    switch(ms->s.flags & SECTION_TYPE){
 	    case S_REGULAR:
 	    case S_ZEROFILL:
@@ -475,6 +496,28 @@ struct section *s)
 	    msg = *p;
 	    /* see if this is section is in this segment */
 	    if(strncmp(msg->sg.segname, s->segname, sizeof(s->segname)) == 0){
+		/*
+		 * If this segment contains debug sections then this section too
+		 * must be a debug section.  And if it exists and does not
+		 * contain debug sections then this section must not be a debug
+		 * section.
+		 */
+		if(msg->debug_only == TRUE &&
+		   (s->flags & S_ATTR_DEBUG) != S_ATTR_DEBUG){
+		    error_with_cur_obj("section's (%.16s,%.16s) does not have "
+			"have debug attribute (S_ATTR_DEBUG) which does not "
+			"match previously loaded object's sections for this "
+			"segment", s->segname, s->sectname);
+		    return(NULL);
+		}
+		if(msg->debug_only == FALSE &&
+		   (s->flags & S_ATTR_DEBUG) == S_ATTR_DEBUG){
+		    error_with_cur_obj("section's (%.16s,%.16s) has debug "
+			"attribute (S_ATTR_DEBUG) which does not match "
+			"previously loaded object's sections for this segment",
+			s->segname, s->sectname);
+		    return(NULL);
+		}
 		/*
 		 * Depending on the flags of the section depends on which list
 		 * it might be found in.  In either case it must not be found in
@@ -736,6 +779,7 @@ struct section *s)
 #ifdef RLD
 	ms->set_num = cur_set;
 #endif /* RLD */
+	msg->debug_only = (s->flags & S_ATTR_DEBUG) == S_ATTR_DEBUG;
 	return(ms);
 }
 
@@ -802,6 +846,67 @@ char *sectname)
 	    p = &(msg->next);
 	}
 	return(NULL);
+}
+
+/*
+ * remove_debug_segments() removed the debug segments from the list of merged
+ * segments.  These segments and the sections in them are on the merged list in
+ * pass1 to allow checking that all sections in the segment are debug section.
+ * This gets called in layout_segments() so that these segments are not in the
+ * output.  The output_sectnum for these sections is set to MAX_SECT+1 so that
+ * it can't match any legal section number in the output, so when searching an
+ * object's section map for a matching output section number it is never
+ * matched.
+ */
+__private_extern__
+void
+remove_debug_segments(
+void)
+{
+    struct merged_segment **p, **q, *msg;
+    struct merged_section **c, *ms;
+
+	p = &merged_segments;
+	q = &debug_merged_segments;
+	while(*p){
+	    msg = *p;
+	    /*
+	     * If this is a segment with only debug sections take it off the
+	     * list of merged_segments and put it on the list of
+	     * debug_merged_segments.
+	     */
+	    if(msg->debug_only == TRUE){
+		*q = msg;
+		q = &(msg->next);
+		*p = msg->next;
+		/*
+		 * Set the output_sectnum to an value that is not legal so it
+		 * won't be matched when searching for output symbols section
+		 * incorrectly to this section.
+		 */
+		c = &(msg->content_sections);
+		while(*c){
+		    ms = *c;
+		    ms->output_sectnum = MAX_SECT + 1;
+		    c = &(ms->next);
+		}
+		/*
+		 * We leave this merged segment to point to the next segment
+		 * in the list so we can walk the rest of the list of merged
+		 * segments.  Even though this is a debug segment.  We will
+		 * terminate the list of debug segments after the end of the
+		 * loop.
+		 */
+	    }
+	    p = &(msg->next);
+	}
+	/*
+	 * If we put any debug segments on the list of debug_merged_segments
+	 * then set the last one's next pointer to NULL to terminate the list.
+	 */
+	if(*q != NULL){
+	    *q = NULL;
+	}
 }
 
 /*
@@ -1044,7 +1149,8 @@ layout_ordered_sections(void)
 	    while(*content){
 		ms = *content;
 		/* no load order for this section, or no -dead_strip continue */
-		if(ms->order_filename == NULL && dead_strip == FALSE){
+		if((ms->order_filename == NULL && dead_strip == FALSE) ||
+		   ms->contents_filename != NULL){
 		    content = &(ms->next);
 		    continue;
 		}
@@ -3094,7 +3200,8 @@ void)
 		 * If a regular section (not a literal section) then call
 		 * resize_live_section() on it.
 		 */
-		if((ms->s.flags & SECTION_TYPE) == S_REGULAR)
+		if((ms->s.flags & SECTION_TYPE) == S_REGULAR &&
+		   ms->contents_filename == NULL)
 		    resize_live_section(ms);
 		content = &(ms->next);
 	    }
@@ -3203,6 +3310,8 @@ void)
 		cur_obj->ilocrel = nlocrel;
 		cur_obj->iextrel = nextrel;
 		for(j = 0; j < cur_obj->nsection_maps; j++){
+		    if(cur_obj->section_maps[j].s->flags & S_ATTR_DEBUG)
+			continue;
 		    section_type = cur_obj->section_maps[j].s->flags &
 				   SECTION_TYPE;
 		    if(section_type == S_REGULAR ||
@@ -4952,7 +5061,8 @@ flush_scatter_copied_sections(void)
 	    content = &(msg->content_sections);
 	    while(*content){
 		ms = *content;
-		if(((ms->order_filename != NULL || dead_strip == TRUE) &&
+		if((ms->contents_filename == NULL &&
+		    (ms->order_filename != NULL || dead_strip == TRUE) &&
 		    (ms->s.flags & SECTION_TYPE) == S_REGULAR) ||
 		   ((ms->s.flags & SECTION_TYPE) == S_SYMBOL_STUBS ||
 		    (ms->s.flags & SECTION_TYPE) == S_NON_LAZY_SYMBOL_POINTERS||
@@ -6216,6 +6326,20 @@ reset_merged_sections(void)
 {
     struct merged_segment *msg;
     struct merged_section *ms, *prev_ms;
+
+	/*
+	 * First add the debug segments back on the end of the list of the
+	 * original merged segments.
+	 */
+	for(msg = original_merged_segments;
+	    msg != NULL;
+	    /* no increment expression */){
+	    if(msg->next == NULL)
+		break;
+	    msg = msg->next;
+	}
+	if(msg != NULL)
+	    msg->next = debug_merged_segments;
 
 	msg = original_merged_segments;
 	if(msg != NULL && merged_segments->content_sections != NULL){

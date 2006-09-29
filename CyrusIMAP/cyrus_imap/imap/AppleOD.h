@@ -128,6 +128,7 @@ struct od_user_opts
 	char			   *fAltDataLocPtr;
 	char			   *fAutoFwdPtr;
 	char			   *fUserLocPtr;
+	char			  **fAuthAuthority;
 };
 
 typedef enum

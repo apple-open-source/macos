@@ -159,7 +159,8 @@ OSStatus SLPInternalProcessListener::Initialize()
 
 void* SLPInternalProcessListener::Run()
 {
-    int					clientLen, newsockfd=0;
+    socklen_t			clientLen = 0;
+	int					newsockfd = 0;
     struct 				sockaddr_un	cli_addr;
     
 #ifdef ENABLE_SLP_LOGGING

@@ -16,7 +16,6 @@
 #include <net/socket.h>
 #endif
 #include  <sys/types.h>
-#include  <sys/time.h>
 #ifdef HAVE_NET_SELECT_H /* AIX needs this */
 #include <net/select.h>
 #endif
@@ -36,7 +35,8 @@ static int odmr_ok (int sock, char *argbuf)
 {
     int ok;
 
-    ok = SMTP_ok(sock);
+    (void)argbuf;
+    ok = SMTP_ok(sock, SMTP_MODE);
     if (ok == SM_UNRECOVERABLE)
 	return(PS_PROTOCOL);
     else
@@ -52,7 +52,8 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
     char buf [MSGBUFSIZE+1];
     struct idlist *qnp;		/* pointer to Q names */
 
-    if ((ok = SMTP_ehlo(sock, fetchmailhost, 
+    (void)id;
+    if ((ok = SMTP_ehlo(sock, SMTP_MODE, fetchmailhost, 
 			ctl->server.esmtp_name, ctl->server.esmtp_password,
 			&opts)))
     {
@@ -184,7 +185,8 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
                if (!doing_smtp_data && !strncmp(buf, "354", 3))
                {
                    doing_smtp_data = 1;
-                   report(stdout, "receiving message data\n");
+		   if (outlevel > O_SILENT)
+		       report(stdout, GT_("receiving message data\n"));
                }
                else if (doing_smtp_data)
                    doing_smtp_data = 0;
@@ -208,16 +210,11 @@ static int odmr_logout(int sock, struct query *ctl)
        return(PS_SUCCESS);
 }
 
-const static struct method odmr =
+static const struct method odmr =
 {
     "ODMR",		/* ODMR protocol */
-#if INET6_ENABLE
-    "odmr",		/* standard SMTP port */
-    "odmrs",		/* ssl SMTP port */
-#else /* INET6_ENABLE */
-    366,		/* standard SMTP port */
-    2366,		/* ssl SMTP port (BOGUS! RANDOM VALUE) */
-#endif /* INET6_ENABLE */
+    "odmr",		/* standard ODMR port */
+    "odmrs",		/* ssl ODMR port */
     FALSE,		/* this is not a tagged protocol */
     FALSE,		/* this does not use a message delimiter */
     odmr_ok,		/* parse command response */
@@ -231,6 +228,7 @@ const static struct method odmr =
     NULL,		/* no message trailer */
     NULL,		/* how to delete a message */
     NULL,		/* how to mark a message as seen */
+    NULL,		/* no mailbox support */
     odmr_logout,	/* log out, we're done */
     FALSE,		/* no, we can't re-poll */
 };
@@ -249,7 +247,7 @@ int doODMR (struct query *ctl)
 	return(PS_SYNTAX);
     }
     if (ctl->mailboxes->id) {
-	fprintf(stderr, GT_("Option --remote is not supported with ODMR\n"));
+	fprintf(stderr, GT_("Option --folder is not supported with ODMR\n"));
 	return(PS_SYNTAX);
     }
     if (check_only) {

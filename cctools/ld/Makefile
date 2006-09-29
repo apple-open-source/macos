@@ -32,10 +32,7 @@ USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 	     echo YES ; else echo NO ; \
 	     fi; )
 
-PRIVATEHEADERS = /System/Library/Frameworks/System.framework/PrivateHeaders
-PRIVATE_IFLAG = -I$(NEXT_ROOT)$(PRIVATEHEADERS)
-CFLAGS = -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(GCC_FLAGS) \
-	$(PRIVATE_IFLAG)
+CFLAGS = -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(GCC_FLAGS)
 
 ifeq "macos" "$(RC_OS)"
   SYSTEMDIR := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] ||    \
@@ -78,12 +75,13 @@ HFILES = ld.h pass1.h objects.h sections.h cstring_literals.h symbols.h \
 	 sets.h 4byte_literals.h 8byte_literals.h literal_pointers.h dylibs.h \
 	 indirect_sections.h mod_sections.h i860_reloc.h ppc_reloc.h \
 	 m88k_reloc.h hppa_reloc.h sparc_reloc.h coalesced_sections.h \
-	 live_refs.h
+	 live_refs.h uuid.h debugcompunit.h dwarf2.h debugline.h
 CFILES = ld.c pass1.c objects.c sections.c cstring_literals.c symbols.c \
 	 fvmlibs.c layout.c specs.c pass2.c generic_reloc.c rld.c sets.c \
 	 4byte_literals.c 8byte_literals.c literal_pointers.c dylibs.c \
 	 indirect_sections.c mod_sections.c i860_reloc.c ppc_reloc.c \
-	 m88k_reloc.c hppa_reloc.c sparc_reloc.c coalesced_sections.c
+	 m88k_reloc.c hppa_reloc.c sparc_reloc.c coalesced_sections.c uuid.c \
+	 debugcompunit.c debugline.c
 OBJS = $(CFILES:.c=.o)
 INSTALL_FILES = $(CFILES) $(HFILES) Makefile notes \
 		make.defs make_defs.h librld.ofileList
@@ -286,7 +284,7 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 	    cd static_kld; $(MAKE) -f ../Makefile libkld.a VPATH=.. \
 		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		COPTS="-static -DRLD -DKLD $(KERN)" CC="$(CC)"		\
-		LIBSTUFF="-L../../libstuff -lstuff_kld" PRIVATE_IFLAG="" \
+		LIBSTUFF="-L../../libstuff -lstuff_kld"			\
 		LIBMACHO="-L../../libmacho/ktmp_obj -lmacho_kld"	\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		RC_CFLAGS="$(RC_CFLAGS)" RC_ARCHS="$(RC_ARCHS)";	\
@@ -297,7 +295,7 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 		COPTS="-static -DRLD -DKLD $(KERN)" RC_CFLAGS="$(RC_CFLAGS)" \
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff_kld"		\
 		LIBMACHO="-L$(SYMROOT)/../libmacho -lmacho_kld"		\
-		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" PRIVATE_IFLAG="" \
+		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
 		MAKEINCDIR="`pwd`" RC_ARCHS="$(RC_ARCHS)";		\
 	fi
 

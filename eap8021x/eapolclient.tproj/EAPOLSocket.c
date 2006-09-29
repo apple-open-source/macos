@@ -78,8 +78,8 @@ struct EAPOLSocket_s {
     char				if_name[IF_NAMESIZE + 1];
     int					if_name_length;
 
-    boolean_t				source_address_valid;
-    struct sockaddr_dl			source_address;
+    boolean_t				bssid_valid;
+    struct ether_addr			bssid;
     int					mtu;
     boolean_t				is_wireless;
 #ifndef NO_WIRELESS
@@ -440,17 +440,12 @@ EAPOLSocket_receive(void * arg1, void * arg2)
 	    }
 	    eh_p = (struct ether_header *)buf;
 	    if (sock->is_wireless) {
-		if (sock->source_address_valid == FALSE
-		    || bcmp(eh_p->ether_shost, sock->source_address.sdl_data,
+		if (sock->bssid_valid == FALSE
+		    || bcmp(eh_p->ether_shost, &sock->bssid,
 			    sizeof(eh_p->ether_shost)) != 0) {
 		    EAPOLSocket_link_update(sock);
 		}
 	    }
-	    else {
-		bcopy(eh_p->ether_shost, sock->source_address.sdl_data,
-		      sizeof(eh_p->ether_shost));
-	    }
-	    rx->source_address_p = &sock->source_address;
 	    rx->length = length;
 	    rx->eapol_p = eapol_p;
 	    rx->logged = FALSE;
@@ -540,15 +535,11 @@ EAPOLSocket_create(int fd, const struct sockaddr_dl * link)
     sock->dl_p = dl_p;
     sock->is_wireless = is_wireless;
 
-    bzero(&sock->source_address, sizeof(sock->source_address));
-    sock->source_address.sdl_alen = sizeof(struct ether_addr);
-    sock->source_address.sdl_len = sizeof(sock->source_address);
-    sock->source_address.sdl_family = AF_LINK;
 #ifndef NO_WIRELESS
     if (is_wireless && ap_mac_valid) {
 	/* if we know the access point's address, save it */
-	bcopy(&ap_mac, sock->source_address.sdl_data, sizeof(ap_mac));
-	sock->source_address_valid = TRUE;
+	sock->bssid = ap_mac;
+	sock->bssid_valid = TRUE;
     }
 #endif NO_WIRELESS
     return (sock);
@@ -575,31 +566,37 @@ EAPOLSocket_is_wireless(EAPOLSocket * sock)
     return (sock->is_wireless);
 }
 
-void
+boolean_t
 EAPOLSocket_link_update(EAPOLSocket * sock)
 {
 #ifdef NO_WIRELESS
-    return;
+    return (FALSE);
 #else NO_WIRELESS
     struct ether_addr	ap_mac;
     boolean_t 		ap_mac_valid = FALSE;
+    boolean_t		changed = FALSE;
 
     if (sock->is_wireless == FALSE) {
-	return;
+	return (FALSE);
     }
 
-    sock->source_address_valid = FALSE;
     ap_mac_valid = wireless_ap_mac(sock->wref, &ap_mac);
     if (ap_mac_valid == FALSE) {
 	my_log(LOG_DEBUG, "EAPOLSocket_link_update: no longer associated");
-	bzero(sock->source_address.sdl_data, ETHER_ADDR_LEN);
-	return;
+	changed = sock->bssid_valid;
+	sock->bssid_valid = FALSE;
     }
-    sock->source_address_valid = TRUE;
-    *((struct ether_addr *)sock->source_address.sdl_data) = ap_mac;
-    my_log(LOG_DEBUG, "EAPOLSocket_link_update: AP address %s",
-	   ether_ntoa(&ap_mac));
-    return;
+    else {
+	if (sock->bssid_valid == FALSE
+	    || bcmp(&ap_mac, &sock->bssid, sizeof(ap_mac)) != 0) {
+	    changed = TRUE;
+	}
+	sock->bssid_valid = TRUE;
+	sock->bssid = ap_mac;
+	my_log(LOG_DEBUG, "EAPOLSocket_link_update: AP address %s",
+	       ether_ntoa(&ap_mac));
+    }
+    return (changed);
 #endif NO_WIRELESS
 }
 
@@ -632,7 +629,7 @@ EAPOLSocket_free(EAPOLSocket * * sock_p)
 
 boolean_t
 EAPOLSocket_set_key(EAPOLSocket * sock, wirelessKeyType type, 
-		    int index, char * key, int key_length)
+		    int index, const uint8_t * key, int key_length)
 {
 #ifdef NO_WIRELESS
     return (FALSE);
@@ -640,8 +637,7 @@ EAPOLSocket_set_key(EAPOLSocket * sock, wirelessKeyType type,
     if (sock->is_wireless == FALSE) {
 	return (FALSE);
     }
-    return (wireless_set_key(sock->wref,
-			     type, index, key, key_length));
+    return (wireless_set_key(sock->wref, type, index, key, key_length));
 #endif NO_WIRELESS
 }
 
@@ -699,8 +695,8 @@ EAPOLSocket_transmit(EAPOLSocket * sock,
 	      &eh_p->ether_dhost, sizeof(eh_p->ether_dhost));
     }
     else {
-	if (sock->is_wireless && sock->source_address_valid) {
-	    bcopy(sock->source_address.sdl_data, &eh_p->ether_dhost,
+	if (sock->is_wireless && sock->bssid_valid) {
+	    bcopy(&sock->bssid, &eh_p->ether_dhost,
 		  sizeof(eh_p->ether_dhost));
 	}
 	else {
@@ -763,7 +759,7 @@ EAPOLSocket_transmit(EAPOLSocket * sock,
 
 boolean_t
 EAPOLSocket_set_wpa_session_key(EAPOLSocket * sock, 
-				char * key, int key_length)
+				const uint8_t * key, int key_length)
 {
 #ifdef NO_WIRELESS
     return (FALSE);
@@ -778,7 +774,7 @@ EAPOLSocket_set_wpa_session_key(EAPOLSocket * sock,
 
 boolean_t
 EAPOLSocket_set_wpa_server_key(EAPOLSocket * sock, 
-			       char * key, int key_length)
+			       const uint8_t * key, int key_length)
 {
 #ifdef NO_WIRELESS
     return (FALSE);

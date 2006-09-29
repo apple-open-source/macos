@@ -481,11 +481,29 @@ struct section_map *section_map)
 		    }
 		    local_map = &(cur_obj->section_maps[r_symbolnum - 1]);
 		    local_map->output_section->referenced = TRUE;
+		    if(local_map->s->flags & S_ATTR_DEBUG){
+			error_with_cur_obj("illegal reference to debug section,"
+			    " from non-debug section (%.16s,%.16s) via "
+			    "relocation entry (%lu) to section (%.16s,%.16s)",
+			    section_map->s->segname, section_map->s->sectname,
+			    i, local_map->s->segname, local_map->s->sectname);
+			return;
+		    }
 		    pair_local_map = NULL;
 		    if(r_type == M88K_RELOC_SECTDIFF){
 			pair_local_map =
 			    &(cur_obj->section_maps[pair_r_symbolnum - 1]);
 			pair_local_map->output_section->referenced = TRUE;
+			if(pair_local_map->s->flags & S_ATTR_DEBUG){
+			    error_with_cur_obj("illegal reference to debug "
+				"section, from non-debug section (%.16s,%.16s) "
+				"via relocation entry (%lu) to section (%.16s,"
+				"%.16s)", section_map->s->segname,
+				section_map->s->sectname, i,
+				pair_local_map->s->segname,
+				pair_local_map->s->sectname);
+			    return;
+			}
 		    }
 		    if(local_map->nfine_relocs == 0 && 
 		       (pair_local_map == NULL ||

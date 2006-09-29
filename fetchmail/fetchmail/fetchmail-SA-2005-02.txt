@@ -1,0 +1,96 @@
+fetchmail-SA-2005-02: security announcement
+
+Topic:		password exposure in fetchmailconf
+
+Author:		Matthias Andree
+Version:	1.03
+Announced:	2005-10-21
+Type:		insecure creation of file
+Impact:		passwords are written to a world-readable file
+Danger:		medium
+Credits:	Thomas Wolff, Miloslav Trmac for pointing out
+		that fetchmailconf 1.43.1 was also flawed
+CVE Name:	CVE-2005-3088
+URL:		http://fetchmail.berlios.de/fetchmail-SA-2005-02.txt
+
+Affects:	fetchmail version 6.2.5.2
+		fetchmail version 6.2.5
+		fetchmail version 6.2.0
+		fetchmailconf 1.43   (shipped with 6.2.0, 6.2.5 and 6.2.5.2)
+		fetchmailconf 1.43.1 (shipped separately, now withdrawn)
+		(other versions have not been checked but are presumed affected)
+
+Not affected:	fetchmailconf 1.43.2 (use this for fetchmail-6.2.5.2)
+		fetchmail 6.2.5.4
+		fetchmail 6.3.0
+
+Corrected:	2005-09-28 01:14 UTC (SVN) - committed bugfix (r4351)
+		2005-10-21                 - released fetchmailconf-1.43.2
+		2005-11-13                 - released fetchmail 6.2.5.4
+		2005-11-30                 - released fetchmail 6.3.0
+
+0. Release history
+==================
+
+2005-10-21	1.00 - initial version (shipped with -rc6)
+2005-10-21	1.01 - marked 1.43.1 vulnerable
+		     - revised section 4
+		     - added Credits
+2005-10-27	1.02 - reformatted section 0
+		     - updated CVE Name to new naming scheme
+2005-12-08	1.03 - update version information and solution
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+2. Problem description and Impact
+=================================
+
+The fetchmailconf program before and excluding version 1.49 opened the
+run control file, wrote the configuration to it, and only then changed
+the mode to 0600 (rw-------). Writing the file, which usually contains
+passwords, before making it unreadable to other users, can expose
+sensitive password information.
+
+3. Workaround
+=============
+
+Run "umask 077", then run "fetchmailconf" from the same shell. After
+fetchmailconf has finished, you can restore your old umask.
+
+4. Solution
+===========
+
+Download and install fetchmail 6.3.0 or a newer stable release from
+fetchmail's project site at
+<http://developer.berlios.de/project/showfiles.php?group_id=1824&release_id=6617>.
+
+A. References
+=============
+
+fetchmail home page: <http://fetchmail.berlios.de/>
+
+B. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2005 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+END OF fetchmail-SA-2005-02.txt

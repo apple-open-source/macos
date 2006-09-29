@@ -1,4 +1,4 @@
-.\" $OpenBSD: ssh-agent.1,v 1.39 2003/06/10 09:12:11 jmc Exp $
+.\" $OpenBSD: ssh-agent.1,v 1.42 2005/04/21 06:17:50 djm Exp $
 .\"
 .\" Author: Tatu Ylonen <ylo@cs.hut.fi>
 .\" Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -111,10 +111,10 @@ Keys are added using
 When executed without arguments,
 .Xr ssh-add 1
 adds the files
-.Pa $HOME/.ssh/id_rsa ,
-.Pa $HOME/.ssh/id_dsa
+.Pa ~/.ssh/id_rsa ,
+.Pa ~/.ssh/id_dsa
 and
-.Pa $HOME/.ssh/identity .
+.Pa ~/.ssh/identity .
 If the identity has a passphrase,
 .Xr ssh-add 1
 asks for the passphrase (using a small X11 application if running
@@ -134,13 +134,25 @@ remote logins, and the user can thus use the privileges given by the
 identities anywhere in the network in a secure way.
 .Pp
 There are two main ways to get an agent set up:
-Either the agent starts a new subcommand into which some environment
-variables are exported, or the agent prints the needed shell commands
-(either
+The first is that the agent starts a new subcommand into which some environment
+variables are exported, eg
+.Cm ssh-agent xterm & .
+The second is that the agent prints the needed shell commands (either
 .Xr sh 1
 or
 .Xr csh 1
-syntax can be generated) which can be evalled in the calling shell.
+syntax can be generated) which can be evalled in the calling shell, eg
+.Cm eval `ssh-agent -s`
+for Bourne-type shells such as
+.Xr sh 1
+or
+.Xr ksh 1
+and
+.Cm eval `ssh-agent -c`
+for
+.Xr csh 1
+and derivatives.
+.Pp
 Later
 .Xr ssh 1
 looks at these variables and uses them to establish a connection to the agent.
@@ -167,11 +179,11 @@ The agent exits automatically when the command given on the command
 line terminates.
 .Sh FILES
 .Bl -tag -width Ds
-.It Pa $HOME/.ssh/identity
+.It Pa ~/.ssh/identity
 Contains the protocol version 1 RSA authentication identity of the user.
-.It Pa $HOME/.ssh/id_dsa
+.It Pa ~/.ssh/id_dsa
 Contains the protocol version 2 DSA authentication identity of the user.
-.It Pa $HOME/.ssh/id_rsa
+.It Pa ~/.ssh/id_rsa
 Contains the protocol version 2 RSA authentication identity of the user.
 .It Pa /tmp/ssh-XXXXXXXX/agent.<ppid>
 Unix-domain sockets used to contain the connection to the

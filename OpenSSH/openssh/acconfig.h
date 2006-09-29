@@ -1,4 +1,4 @@
-/* $Id: acconfig.h,v 1.177 2004/04/15 23:22:40 dtucker Exp $ */
+/* $Id: acconfig.h,v 1.183 2005/07/07 10:33:36 dtucker Exp $ */
 
 /*
  * Copyright (c) 1999-2003 Damien Miller.  All rights reserved.
@@ -52,9 +52,6 @@
 #undef SPT_TYPE
 #undef SPT_PADCHAR
 
-/* setgroups() NOOP allowed */
-#undef SETGROUPS_NOOP
-
 /* SCO workaround */
 #undef BROKEN_SYS_TERMIO_H
 
@@ -104,6 +101,9 @@
 /* Work around problematic Linux PAM modules handling of PAM_TTY */
 #undef PAM_TTY_KLUDGE
 
+/* Define if pam_chauthtok wants real uid set to the unpriv'ed user */
+#undef SSHPAM_CHAUTHTOK_NEEDS_RUID
+
 /* Use PIPES instead of a socketpair() */
 #undef USE_PIPES
 
@@ -118,9 +118,6 @@
 
 /* Define if you are on NeXT */
 #undef HAVE_NEXT
-
-/* Define if you are on NEWS-OS */
-#undef HAVE_NEWS4
 
 /* Define if you want to enable PAM support */
 #undef USE_PAM
@@ -204,9 +201,6 @@
 
 /* Define if you don't want to use lastlog in session.c */
 #undef NO_SSH_LASTLOG
-
-/* Define if have krb5_init_ets */
-#undef KRB5_INIT_ETS
 
 /* Define if you don't want to use utmp */
 #undef DISABLE_UTMP
@@ -353,6 +347,12 @@
 /* getaddrinfo is broken (if present) */
 #undef BROKEN_GETADDRINFO
 
+/* platform uses an in-memory credentials cache */
+#undef USE_CCAPI
+
+/* platform has a Security Authorization Session API */
+#undef USE_SECURITY_SESSION_API
+
 /* updwtmpx is broken (if present) */
 #undef BROKEN_UPDWTMPX
 
@@ -434,6 +434,12 @@
 /* Define if cmsg_type is not passed correctly */
 #undef BROKEN_CMSG_TYPE
 
+/*
+ * Define to whatever link() returns for "not supported" if it doesn't
+ * return EOPNOTSUPP.
+ */
+#undef LINK_OPNOTSUPP_ERRNO
+
 /* Strings used in /etc/passwd to denote locked account */
 #undef LOCKED_PASSWD_STRING
 #undef LOCKED_PASSWD_PREFIX
@@ -447,6 +453,9 @@
 
 /* Define if your resolver libs need this for getrrsetbyname */
 #undef BIND_8_COMPAT
+
+/* Define if you have /proc/$pid/fd */
+#undef HAVE_PROC_PID
 
 @BOTTOM@
 

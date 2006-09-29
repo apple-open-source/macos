@@ -105,3 +105,10 @@ certattrs: EAPCertificateUtil.c
 
 identity: EAPCertificateUtil.c
 	cc -DTEST_EAPSecIdentity -g -o identity EAPCertificateUtil.c myCFUtil.c EAPSecurity.c -framework Security -framework CoreFoundation
+
+mschap: mschap.c
+	cc -Wall -g -DTEST_MSCHAP -o mschap mschap.c printdata.c DESSupport.c -lcrypto
+
+keychain: EAPKeychainUtil.c
+	cc -DTEST_EAPKEYCHAINUTIL -g -o keychain EAPKeychainUtil.c EAPSecurity.c -framework Security -framework CoreFoundation
+

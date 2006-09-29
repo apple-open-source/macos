@@ -1,23 +1,31 @@
 /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * This file contains Original Code and/or Modifications of Original Code 
+ * as defined in and that are subject to the Apple Public Source License 
+ * Version 2.0 (the 'License'). You may not use this file except in 
+ * compliance with the License.  The rights granted to you under the 
+ * License may not be used to create, or enable the creation or 
+ * redistribution of, unlawful or unlicensed copies of an Apple operating 
+ * system, or to circumvent, violate, or enable the circumvention or 
+ * violation of, any terms of an Apple operating system software license 
+ * agreement.
+ *
+ * Please obtain a copy of the License at 
+ * http://www.opensource.apple.com/apsl/ and read it before using this 
+ * file.
+ *
+ * The Original Code and all software distributed under the License are 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
+ * Please see the License for the specific language governing rights and 
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
  */
 /*
  *
@@ -116,17 +124,6 @@ lsf_hash_delete(
 static void    
 lsf_hash_insert(
         load_struct_t   *entry,
-	shared_region_task_mappings_t	sm_info);
-
-static kern_return_t                   
-lsf_load(
-        vm_offset_t		 	mapped_file,
-        vm_size_t      			mapped_file_size,
-        vm_offset_t    			*base_address,
-        sf_mapping_t   			*mappings,
-        int            			map_cnt,
-        void           			*file_object,
-        int           			flags,
 	shared_region_task_mappings_t	sm_info);
 
 static kern_return_t
@@ -367,20 +364,6 @@ shared_region_mapping_info(
 	*next = shared_region->next;
 
 	shared_region_mapping_unlock(shared_region);
-}
-
-/* LP64todo - need 64-bit safe version */
-kern_return_t
-shared_region_mapping_set_alt_next(
-		shared_region_mapping_t	shared_region,
-		vm_offset_t		alt_next) 
-{
-	SHARED_REGION_DEBUG(("shared_region_mapping_set_alt_next"
-			     "(shared_region=%p, alt_next=0%x)\n",
-			     shared_region, alt_next));
-	assert(shared_region->ref_count > 0);
-	shared_region->alternate_next = alt_next;
-	return KERN_SUCCESS;
 }
 
 kern_return_t
@@ -1164,166 +1147,6 @@ shared_file_header_init(
 	return KERN_SUCCESS;
 }
 
-	
-/* A call made from user space, copyin_shared_file requires the user to */
-/* provide the address and size of a mapped file, the full path name of */
-/* that file and a list of offsets to be mapped into shared memory.     */
-/* By requiring that the file be pre-mapped, copyin_shared_file can     */
-/* guarantee that the file is neither deleted nor changed after the user */
-/* begins the call.  */
-
-kern_return_t
-copyin_shared_file(
-	vm_offset_t	mapped_file,
-	vm_size_t	mapped_file_size,
-	vm_offset_t	*base_address, 
-	int 		map_cnt,
-	sf_mapping_t	*mappings,
-	memory_object_control_t	file_control,
-	shared_region_task_mappings_t	sm_info,
-	int		*flags)
-{
-	vm_object_t	file_object;
-	vm_map_entry_t		entry;
-	shared_file_info_t	*shared_file_header;
-	load_struct_t		*file_entry;
-	loaded_mapping_t	*file_mapping;
-	boolean_t		alternate;
-	int			i;
-	kern_return_t		ret;
-
-	SHARED_REGION_DEBUG(("copyin_shared_file()\n"));
-
-	shared_file_header = (shared_file_info_t *)sm_info->region_mappings;
-
-	mutex_lock(&shared_file_header->lock);
-
-	/* If this is the first call to this routine, take the opportunity */
-	/* to initialize the hash table which will be used to look-up      */
-	/* mappings based on the file object */ 
-
-	if(shared_file_header->hash_init == FALSE) {
-		ret = shared_file_header_init(shared_file_header);
-		if (ret != KERN_SUCCESS) {
-			mutex_unlock(&shared_file_header->lock);
-			return ret;
-		}
-	}
-
-	/* Find the entry in the map associated with the current mapping */
-	/* of the file object */
-	file_object = memory_object_control_to_vm_object(file_control);
-	if(vm_map_lookup_entry(current_map(), mapped_file, &entry)) {
-		vm_object_t	mapped_object;
-		if(entry->is_sub_map ||
-		   entry->object.vm_object == VM_OBJECT_NULL) {
-			mutex_unlock(&shared_file_header->lock);
-			return KERN_INVALID_ADDRESS;
-		}
-		mapped_object = entry->object.vm_object;
-		while(mapped_object->shadow != NULL) {
-			mapped_object = mapped_object->shadow;
-		}
-		/* check to see that the file object passed is indeed the */
-		/* same as the mapped object passed */
-		if(file_object != mapped_object) {
-			if(sm_info->flags & SHARED_REGION_SYSTEM) {
-				mutex_unlock(&shared_file_header->lock);
-				return KERN_PROTECTION_FAILURE;
-			} else {
-				file_object = mapped_object;
-			}
-		}
-	} else {
-		mutex_unlock(&shared_file_header->lock);
-		return KERN_INVALID_ADDRESS;
-	}
-
-	alternate = (*flags & ALTERNATE_LOAD_SITE) ? TRUE : FALSE;
-
-	file_entry = lsf_hash_lookup(shared_file_header->hash, 
-				     (void *) file_object,
-				     mappings[0].file_offset,
-				     shared_file_header->hash_size, 
-				     !alternate, alternate, sm_info);
-	if (file_entry) {
-		/* File is loaded, check the load manifest for exact match */
-		/* we simplify by requiring that the elements be the same  */
-		/* size and in the same order rather than checking for     */
-		/* semantic equivalence. */
-
-		/* If the file is being loaded in the alternate        */
-		/* area, one load to alternate is allowed per mapped   */
-		/* object the base address is passed back to the       */
-		/* caller and the mappings field is filled in.  If the */
-		/* caller does not pass the precise mappings_cnt       */
-		/* and the Alternate is already loaded, an error       */
-		/* is returned.  */
-		i = 0;
-		file_mapping = file_entry->mappings;
-		while(file_mapping != NULL) {
-			if(i>=map_cnt) {
-				mutex_unlock(&shared_file_header->lock);
-				return KERN_INVALID_ARGUMENT;
-			}
-			if(((mappings[i].mapping_offset)
-						& SHARED_DATA_REGION_MASK) !=
-						file_mapping->mapping_offset ||
-					mappings[i].size != 
-						file_mapping->size ||	
-					mappings[i].file_offset != 
-						file_mapping->file_offset ||	
-					mappings[i].protection != 
-						file_mapping->protection) {
-				break;
-			}
-			file_mapping = file_mapping->next;
-			i++;
-		}
-		if(i!=map_cnt) {
-			mutex_unlock(&shared_file_header->lock);
-			return KERN_INVALID_ARGUMENT;
-		}
-		*base_address = (*base_address & ~SHARED_TEXT_REGION_MASK) 
-						+ file_entry->base_address;
-		*flags = SF_PREV_LOADED;
-		mutex_unlock(&shared_file_header->lock);
-		return KERN_SUCCESS;
-	} else {
-		/* File is not loaded, lets attempt to load it */
-		ret = lsf_load(mapped_file, mapped_file_size, base_address,
-					     mappings, map_cnt, 
-					     (void *)file_object, 
-					     *flags, sm_info);
-		*flags = 0;
-		if(ret == KERN_NO_SPACE) {
-			shared_region_mapping_t	regions;
-			shared_region_mapping_t	system_region;
-			regions = (shared_region_mapping_t)sm_info->self;
-			regions->flags |= SHARED_REGION_FULL;
-			system_region = lookup_default_shared_region(
-				regions->fs_base, regions->system);
-			if(system_region == regions) {
-				shared_region_mapping_t	new_system_shared_region;
-				shared_file_boot_time_init(
-					regions->fs_base, regions->system);
-				/* current task must stay with its current */
-				/* regions, drop count on system_shared_region */
-				/* and put back our original set */
-				vm_get_shared_region(current_task(), 
-						&new_system_shared_region);
-                		shared_region_mapping_dealloc_lock(
-					new_system_shared_region, 0, 1);
-				vm_set_shared_region(current_task(), regions);
-			} else if(system_region != NULL) {
-                		shared_region_mapping_dealloc_lock(
-					system_region, 0, 1);
-			}
-		}
-		mutex_unlock(&shared_file_header->lock);
-		return ret;
-	}
-}
 
 /*
  * map_shared_file:
@@ -1851,250 +1674,6 @@ lsf_hash_insert(
 			entry, load_struct_ptr_t, links);
 }
 	
-/* Looks up the file type requested.  If already loaded and the */
-/* file extents are an exact match, returns Success.  If not    */
-/* loaded attempts to load the file extents at the given offsets */
-/* if any extent fails to load or if the file was already loaded */
-/* in a different configuration, lsf_load fails.                 */
-
-static kern_return_t
-lsf_load(
-	vm_offset_t	mapped_file,
-	vm_size_t	mapped_file_size,
-	vm_offset_t	*base_address, 
-	sf_mapping_t	*mappings,
-	int		map_cnt,
-	void		*file_object,
-	int		flags,
-	shared_region_task_mappings_t	sm_info)
-{
-
-	load_struct_t		*entry;
-	vm_map_copy_t		copy_object;
-	loaded_mapping_t	*file_mapping;
-	loaded_mapping_t	**tptr;
-	int			i;
-	ipc_port_t	local_map;
-	vm_offset_t	original_alt_load_next;
-	vm_offset_t	alternate_load_next;
-
-	LSF_DEBUG(("lsf_load"
-		   "(size=0x%x,base=0x%x,cnt=%d,file=%p,flags=%d,sm_info=%p)"
-		   "\n",
-		   mapped_file_size, *base_address, map_cnt, file_object,
-		   flags, sm_info));
-	entry = (load_struct_t *)zalloc(lsf_zone);
-	LSF_ALLOC_DEBUG(("lsf_load: entry=%p map_cnt=%d\n", entry, map_cnt));
-	LSF_DEBUG(("lsf_load"
-		   "(size=0x%x,base=0x%x,cnt=%d,file=%p,flags=%d,sm_info=%p) "
-		   "entry=%p\n",
-		   mapped_file_size, *base_address, map_cnt, file_object,
-		   flags, sm_info, entry));
-	if (entry == NULL) {
-		printf("lsf_load: unable to allocate memory\n");
-		return KERN_NO_SPACE;
-	}
-
-	shared_file_available_hash_ele--;
-	entry->file_object = (int)file_object;
-	entry->mapping_cnt = map_cnt;
-	entry->mappings = NULL;
-	entry->links.prev = (queue_entry_t) 0;
-	entry->links.next = (queue_entry_t) 0;
-	entry->regions_instance = (shared_region_mapping_t)sm_info->self;
-	entry->depth=((shared_region_mapping_t)sm_info->self)->depth;
-        entry->file_offset = mappings[0].file_offset;
-
-	lsf_hash_insert(entry, sm_info);
-	tptr = &(entry->mappings);
-
-
-	alternate_load_next = sm_info->alternate_next;
-	original_alt_load_next = alternate_load_next;
-	if (flags & ALTERNATE_LOAD_SITE) {
-		vm_offset_t 	max_loadfile_offset;
-
-		*base_address = ((*base_address) & ~SHARED_TEXT_REGION_MASK) +
-						sm_info->alternate_next;
-		max_loadfile_offset = 0;
-		for(i = 0; i<map_cnt; i++) {
-			if(((mappings[i].mapping_offset 
-				& SHARED_TEXT_REGION_MASK)+ mappings[i].size) >
-				max_loadfile_offset) {
-				max_loadfile_offset = 
-					(mappings[i].mapping_offset 
-						& SHARED_TEXT_REGION_MASK)
-						+ mappings[i].size;
-			}
-		}
-		if((alternate_load_next + round_page(max_loadfile_offset)) >=
-			(sm_info->data_size - (sm_info->data_size>>9))) {
-			entry->base_address = 
-				(*base_address) & SHARED_TEXT_REGION_MASK;
-			lsf_unload(file_object, entry->base_address, sm_info);
-
-			return KERN_NO_SPACE;
-		}
-		alternate_load_next += round_page(max_loadfile_offset);
-
-	} else {
-		if (((*base_address) & SHARED_TEXT_REGION_MASK) > 
-					sm_info->alternate_base) {
-			entry->base_address = 
-				(*base_address) & SHARED_TEXT_REGION_MASK;
-			lsf_unload(file_object, entry->base_address, sm_info);
-			return KERN_INVALID_ARGUMENT;
-		} 
-	}
-
-	entry->base_address = (*base_address) & SHARED_TEXT_REGION_MASK;
-
-        // Sanity check the mappings -- make sure we don't stray across the
-        // alternate boundary.  If any bit of a library that we're not trying
-        // to load in the alternate load space strays across that boundary,
-        // return KERN_INVALID_ARGUMENT immediately so that the caller can
-        // try to load it in the alternate shared area.  We do this to avoid
-        // a nasty case: if a library tries to load so that it crosses the
-        // boundary, it'll occupy a bit of the alternate load area without
-        // the kernel being aware.  When loads into the alternate load area
-        // at the first free address are tried, the load will fail.
-        // Thus, a single library straddling the boundary causes all sliding
-        // libraries to fail to load.  This check will avoid such a case.
-        
-        if (!(flags & ALTERNATE_LOAD_SITE)) {
- 	  for (i = 0; i<map_cnt;i++) {
-            vm_offset_t region_mask;
-            vm_address_t region_start;
-            vm_address_t region_end;
- 
-            if ((mappings[i].protection & VM_PROT_WRITE) == 0) {
-	      // mapping offsets are relative to start of shared segments.
-              region_mask = SHARED_TEXT_REGION_MASK;
-              region_start = (mappings[i].mapping_offset & region_mask)+entry->base_address;
-              region_end = (mappings[i].size + region_start);
-              if (region_end >= SHARED_ALTERNATE_LOAD_BASE) {
-                // No library is permitted to load so any bit of it is in the 
-                // shared alternate space.  If they want it loaded, they can put
-                // it in the alternate space explicitly.
-		printf("Library trying to load across alternate shared region boundary -- denied!\n");
-		lsf_unload(file_object, entry->base_address, sm_info);
-                return KERN_INVALID_ARGUMENT;
-              }
-            } else {
-              // rw section?
-              region_mask = SHARED_DATA_REGION_MASK;
-              region_start = (mappings[i].mapping_offset & region_mask)+entry->base_address;
-              region_end = (mappings[i].size + region_start);
-              if (region_end >= SHARED_ALTERNATE_LOAD_BASE) {
-		printf("Library trying to load across alternate shared region boundary-- denied!\n");
-		lsf_unload(file_object, entry->base_address, sm_info);
-		return KERN_INVALID_ARGUMENT;
-              }
-            } // write?
-          } // for
-        } // if not alternate load site.
- 
-	/* copyin mapped file data */
-	for(i = 0; i<map_cnt; i++) {
-		vm_offset_t	target_address;
-		vm_offset_t	region_mask;
-
-		if(mappings[i].protection & VM_PROT_COW) {
-			local_map = (ipc_port_t)sm_info->data_region;
-			region_mask = SHARED_DATA_REGION_MASK;
-			if((mappings[i].mapping_offset 
-				& GLOBAL_SHARED_SEGMENT_MASK) != 0x10000000) {
-				lsf_unload(file_object, 
-					entry->base_address, sm_info);
-				return KERN_INVALID_ARGUMENT;
-			}
-		} else {
-			region_mask = SHARED_TEXT_REGION_MASK;
-			local_map = (ipc_port_t)sm_info->text_region;
-			if(mappings[i].mapping_offset 
-					& GLOBAL_SHARED_SEGMENT_MASK)  {
-				lsf_unload(file_object, 
-					entry->base_address, sm_info);
-				return KERN_INVALID_ARGUMENT;
-			}
-		}
-		if(!(mappings[i].protection & VM_PROT_ZF)
-				&& ((mapped_file + mappings[i].file_offset + 
-				mappings[i].size) > 
-				(mapped_file + mapped_file_size))) {
-			lsf_unload(file_object, entry->base_address, sm_info);
-			return KERN_INVALID_ARGUMENT;
-		}
-		target_address = ((mappings[i].mapping_offset) & region_mask)
-					+ entry->base_address;
-		if(vm_allocate(((vm_named_entry_t)local_map->ip_kobject)
-				->backing.map, &target_address,
-				mappings[i].size, VM_FLAGS_FIXED)) {
-			lsf_unload(file_object, entry->base_address, sm_info);
-			return KERN_FAILURE;
-		}
-		target_address = ((mappings[i].mapping_offset) & region_mask)
-					+ entry->base_address;
-		if(!(mappings[i].protection & VM_PROT_ZF)) {
-		   if(vm_map_copyin(current_map(), 
-			(vm_map_address_t)(mapped_file + mappings[i].file_offset), 
-			vm_map_round_page(mappings[i].size), FALSE, &copy_object)) {
-			vm_deallocate(((vm_named_entry_t)local_map->ip_kobject)
-			      ->backing.map, target_address, mappings[i].size);
-			lsf_unload(file_object, entry->base_address, sm_info);
-			return KERN_FAILURE;
-		   }
-		   if(vm_map_copy_overwrite(((vm_named_entry_t)
-			local_map->ip_kobject)->backing.map,
-			(vm_map_address_t)target_address,
-			copy_object, FALSE)) {
-			vm_deallocate(((vm_named_entry_t)local_map->ip_kobject)
-			     ->backing.map, target_address, mappings[i].size);
-			lsf_unload(file_object, entry->base_address, sm_info);
-			return KERN_FAILURE;
-		   }
-		}
-
-		file_mapping = (loaded_mapping_t *)zalloc(lsf_zone);
-		if (file_mapping == NULL) {
-			lsf_unload(file_object, entry->base_address, sm_info);
-			printf("lsf_load: unable to allocate memory\n");
-			return KERN_NO_SPACE;
-		}
-		shared_file_available_hash_ele--;
-		file_mapping->mapping_offset = (mappings[i].mapping_offset) 
-								& region_mask;
-		file_mapping->size = mappings[i].size;
-		file_mapping->file_offset = mappings[i].file_offset;
-		file_mapping->protection = mappings[i].protection;
-		file_mapping->next = NULL;
-		LSF_DEBUG(("lsf_load: file_mapping %p "
-			   "for offset=0x%x size=0x%x\n",
-			   file_mapping, file_mapping->mapping_offset,
-			   file_mapping->size));
-
-		vm_map_protect(((vm_named_entry_t)local_map->ip_kobject)
-				->backing.map, target_address,
-				round_page(target_address + mappings[i].size),
-				(mappings[i].protection & 
-					(VM_PROT_READ | VM_PROT_EXECUTE)),
-				TRUE);
-		vm_map_protect(((vm_named_entry_t)local_map->ip_kobject)
-				->backing.map, target_address,
-				round_page(target_address + mappings[i].size),
-				(mappings[i].protection & 
-					(VM_PROT_READ | VM_PROT_EXECUTE)),
-				FALSE);
-
-		*tptr = file_mapping;
-		tptr = &(file_mapping->next);
-	}
-	shared_region_mapping_set_alt_next(
-		(shared_region_mapping_t) sm_info->self,
-		alternate_load_next);
-	LSF_DEBUG(("lsf_load: done\n"));
-	return KERN_SUCCESS;			
-}
 
 
 /*

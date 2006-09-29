@@ -21,7 +21,6 @@ MIT license.  Compile with -DMAIN to build the demonstrator.
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
-#include <sys/time.h>
 #include <fetchmail.h>	/* for ROOT_UID */
 
 #ifndef TRUE

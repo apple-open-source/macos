@@ -50,7 +50,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *	$Id: spray.c,v 1.1.1.1 1999/05/02 03:58:27 wsanchez Exp $
+ *	$Id: spray.c,v 1.1 1999/05/02 03:58:27 wsanchez Exp $
  */
 
 #include <stdio.h>

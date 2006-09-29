@@ -59,6 +59,8 @@ static const NXArchInfo ArchInfoTable[] = {
 	 "HP-PA"},
     {"i386",   CPU_TYPE_I386,    CPU_SUBTYPE_I386_ALL,	   NX_LittleEndian,
 	 "Intel 80x86"},
+    { "x86_64",    CPU_TYPE_X86_64, CPU_SUBTYPE_X86_64_ALL, NX_LittleEndian,
+	 "Intel x86-64" },
     {"i860",   CPU_TYPE_I860,    CPU_SUBTYPE_I860_ALL,     NX_BigEndian,
 	 "Intel 860"},
     {"m68k",   CPU_TYPE_MC680x0, CPU_SUBTYPE_MC680x0_ALL,  NX_BigEndian,
@@ -381,6 +383,14 @@ uint32_t nfat_archs)
 		}
 	    }
 	    return(fat_archs + lowest_index);
+	case CPU_TYPE_X86_64:
+	    for(i = 0; i < nfat_archs; i++){
+		if(fat_archs[i].cputype != cputype)
+		    continue;
+		if(fat_archs[i].cpusubtype == CPU_SUBTYPE_X86_64_ALL)
+		    return(fat_archs + i);
+	    }
+	    break;
 	case CPU_TYPE_MC680x0:
 	    for(i = 0; i < nfat_archs; i++){
 		if(fat_archs[i].cputype != cputype)
@@ -585,10 +595,13 @@ cpu_subtype_t cpusubtype1,
 cpu_subtype_t cpusubtype2)
 {
 	/*
-	 * We now combine any i386 subtype to the ALL subtype.
+	 * We now combine any i386 or x86-64 subtype to the ALL subtype.
 	 */
 	if(cputype == CPU_TYPE_I386)
 	    return(CPU_SUBTYPE_I386_ALL);
+
+	if(cputype == CPU_TYPE_X86_64)
+	    return(CPU_SUBTYPE_X86_64_ALL);
 
 	if(cpusubtype1 == cpusubtype2)
 	    return(cpusubtype1);

@@ -19,28 +19,27 @@
 #ifdef HAVE_NET_SOCKET_H
 #include <net/socket.h>
 #endif
-#ifdef HAVE_GETHOSTBYNAME
 #include <netdb.h>
-#endif /* HAVE_GETHOSTBYNAME */
-#include  <sys/types.h>
-#include  <time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include "fetchmail.h"
+#include "getaddrinfo.h"
 
 #include "i18n.h"
 #if defined(HAVE_SETLOCALE) && defined(ENABLE_NLS) && defined(HAVE_STRFTIME)
-#include <time.h>
 #include <locale.h>
 #endif
 
-extern char *getenv();	/* needed on sysV68 R3V7.1. */
-
-extern char *program_name;
+extern char *getenv(const char *);	/* needed on sysV68 R3V7.1. */
 
 void envquery(int argc, char **argv)
 /* set up basic stuff from the environment (including the rc file name) */
 {
     struct passwd by_name, by_uid, *pwp;
 
+    (void)argc;
+
+    (void)argc;
     if (!(user = getenv("FETCHMAILUSER")))
     {
 	if (!(user = getenv("LOGNAME")))
@@ -107,7 +106,8 @@ void envquery(int argc, char **argv)
     }
 
     /* compute user's home directory */
-    if (!(home = getenv("HOME")))
+    home = getenv("HOME_ETC");
+    if (!home && !(home = getenv("HOME")))
 	home = pwp->pw_dir;
 
     /* compute fetchmail's home directory */
@@ -135,10 +135,10 @@ void envquery(int argc, char **argv)
     strcat(rcfile, RCFILE_NAME);
 }
 
-char *host_fqdn(void)
-/* get the FQDN of the machine we're running */
+char *host_fqdn(int required)
 {
-    char	tmpbuf[HOSTLEN+1];
+    char tmpbuf[HOSTLEN+1];
+    char *result;
 
     if (gethostname(tmpbuf, sizeof(tmpbuf)))
     {
@@ -146,26 +146,41 @@ char *host_fqdn(void)
 		program_name);
 	exit(PS_DNS);
     }
-#ifdef HAVE_GETHOSTBYNAME
+
     /* if we got a . in the hostname assume it is a FQDN */
     if (strchr(tmpbuf, '.') == NULL)
     {
-	struct hostent *hp;
-
 	/* if we got a basename (as we do in Linux) make a FQDN of it */
-	hp = gethostbyname(tmpbuf);
-	if (hp == (struct hostent *) NULL)
-	{
+	struct addrinfo hints, *res;
+	int e;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags=AI_CANONNAME;
+
+	e = getaddrinfo(tmpbuf, NULL, &hints, &res);
+	if (e) {
 	    /* exit with error message */
 	    fprintf(stderr,
 		    GT_("gethostbyname failed for %s\n"), tmpbuf);
-	    exit(PS_DNS);
+	    fprintf(stderr, "%s", gai_strerror(e));
+	    fprintf(stderr, GT_("Cannot find my own host in hosts database to qualify it!\n"));
+	    if (required)
+		exit(PS_DNS);
+	    else {
+		fprintf(stderr, GT_("Trying to continue with unqualified hostname.\nDO NOT report broken Received: headers, HELO/EHLO lines or similar problems!\nDO repair your /etc/hosts, DNS, NIS or LDAP instead.\n"));
+		return xstrdup(tmpbuf);
+	    }
 	}
-	return(xstrdup(hp->h_name));
+
+	result = xstrdup(res->ai_canonname);
+	freeaddrinfo(res);
     }
     else
-#endif /* HAVE_GETHOSTBYNAME */
-	return(xstrdup(tmpbuf));
+	result = xstrdup(tmpbuf);
+
+    return result;
 }
 
 static char *tzoffset(time_t *now)
@@ -193,7 +208,8 @@ static char *tzoffset(time_t *now)
     }
     if (off >= 24 * 60)			/* should be impossible */
 	off = 23 * 60 + 59;		/* if not, insert silly value */
-    sprintf(offset_string, "%c%02d%02d", sign, off / 60, off % 60);
+    snprintf(offset_string, sizeof(offset_string),
+	    "%c%02d%02d", sign, off / 60, off % 60);
     return (offset_string);
 }
 
@@ -228,7 +244,7 @@ char *rfc822timestamp(void)
      * date format ctime(3) emits is not RFC822
      * conformant.
      */
-    strcpy(buf, ctime(&now));
+    strlcpy(buf, ctime(&now), sizeof(buf));
     buf[strlen(buf)-1] = '\0';	/* remove trailing \n */
 #endif /* HAVE_STRFTIME */
 
@@ -265,51 +281,42 @@ const char *showproto(int proto)
 char *visbuf(const char *buf)
 /* visibilize a given string */
 {
-    static char vbuf[BUFSIZ];
-    char *tp = vbuf;
+    static char *vbuf;
+    static size_t vbufs;
+    char *tp;
+    size_t needed;
+
+    needed = strlen(buf) * 5 + 1; /* worst case: HEX, plus NUL byte */
+
+    if (needed > vbufs) {
+	vbufs = needed;
+	vbuf = xrealloc(vbuf, vbufs);
+    }
+
+    tp = vbuf;
 
     while (*buf)
     {
-	if (*buf == '"')
-	{
-	    *tp++ = '\\'; *tp++ = '"';
-	    buf++;
-	}
-	else if (*buf == '\\')
-	{
-	    *tp++ = '\\'; *tp++ = '\\';
-	    buf++;
-	}
-	else if (isprint(*buf) || *buf == ' ')
-	    *tp++ = *buf++;
-	else if (*buf == '\n')
-	{
-	    *tp++ = '\\'; *tp++ = 'n';
-	    buf++;
-	}
-	else if (*buf == '\r')
-	{
-	    *tp++ = '\\'; *tp++ = 'r';
-	    buf++;
-	}
-	else if (*buf == '\b')
-	{
-	    *tp++ = '\\'; *tp++ = 'b';
-	    buf++;
-	}
-	else if (*buf < ' ')
-	{
-	    *tp++ = '\\'; *tp++ = '^'; *tp++ = '@' + *buf;
-	    buf++;
-	}
+	     if (*buf == '"')  { *tp++ = '\\'; *tp++ = '"'; buf++; }
+	else if (*buf == '\\') { *tp++ = '\\'; *tp++ = '\\'; buf++; }
+	else if (isprint((unsigned char)*buf) || *buf == ' ') *tp++ = *buf++;
+	else if (*buf == '\a') { *tp++ = '\\'; *tp++ = 'a'; buf++; }
+	else if (*buf == '\b') { *tp++ = '\\'; *tp++ = 'b'; buf++; }
+	else if (*buf == '\f') { *tp++ = '\\'; *tp++ = 'f'; buf++; }
+	else if (*buf == '\n') { *tp++ = '\\'; *tp++ = 'n'; buf++; }
+	else if (*buf == '\r') { *tp++ = '\\'; *tp++ = 'r'; buf++; }
+	else if (*buf == '\t') { *tp++ = '\\'; *tp++ = 't'; buf++; }
+	else if (*buf == '\v') { *tp++ = '\\'; *tp++ = 'v'; buf++; }
 	else
 	{
-	    (void) sprintf(tp, "\\0x%02x", *buf++);
-	    tp += strlen(tp);
+	    const char hex[] = "0123456789abcdef";
+	    *tp++ = '\\'; *tp++ = '0'; *tp++ = 'x';
+	    *tp++ = hex[*buf >> 4];
+	    *tp++ = hex[*buf & 0xf];
+	    buf++;
 	}
     }
     *tp++ = '\0';
     return(vbuf);
 }
-
 /* env.c ends here */

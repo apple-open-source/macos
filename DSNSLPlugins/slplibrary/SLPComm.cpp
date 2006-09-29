@@ -264,8 +264,8 @@ static void detach (void)
 	// Daemonize, i.e. change our parent process to init (pid==1)
 	if (getppid() != 1)
 		if (fork() != 0)
-			exit (0);
-
+			_exit(0);
+	
 	// Find the true upper limit on file descriptors.
 	if (!getrlimit (RLIMIT_NOFILE, &lim))
 		i = lim.rlim_cur ;
@@ -288,20 +288,31 @@ OSStatus RunSLPLoad( void )
     SLP_LOG( SLP_LOG_DEBUG, "RunSLPLoad called" );
 #endif        
     register pid_t  pidChild = -1 ;
-
-    if ( (pidChild = ::fork()) != 0 )
+	int waitCount = 0;
+	
+    if ( (pidChild = fork()) != 0 )
     {
     // No processing in the parent; pause for the child.
         if( pidChild == -1 )
             status = pidChild;
 		else
 		{
-			int		nStatus, nErr;
+			int nStatus = 0, nErr;
 			do
 			{
-				nErr = ::waitpid( pidChild, &nStatus, 0 );
+				SmartSleep(10000);
+				nErr = waitpid( pidChild, &nStatus, WNOHANG );
+				waitCount++;
+				
+				if ( nErr == 0 && waitCount > 500 )
+				{
+					// 5 second timeout
+					kill( pidChild, SIGKILL );
+					nErr = waitpid( pidChild, &nStatus, 0 );
+					break;
+				}
 			}
-			while(( nErr == -1 ) && ( errno == EINTR ));
+			while( (nErr == -1 && errno == EINTR) || (nErr == 0) );
 			status = nStatus;
 		}
 
@@ -315,7 +326,8 @@ OSStatus RunSLPLoad( void )
     detach();
     
     status = execl ("/usr/sbin/slpd", "slpd", "-f", "/etc/slpsa.conf", 0);
-
+	_exit(0);
+	
     return status;
 
 }

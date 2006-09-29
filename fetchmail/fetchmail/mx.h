@@ -4,8 +4,8 @@
 
 struct mxentry
 {
-    unsigned char	*name;
-    int			pref;
+    char	*name;
+    int		pref;
 };
 
 extern struct mxentry * getmxrecords(const char *);

@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #if defined(__MWERKS__) && !defined(__private_extern__)
@@ -139,7 +139,7 @@ enum bool define_comldsyms;	/* define common and link-editor defined
 __private_extern__
 enum bool seglinkedit;		/* create the link edit segment */
 __private_extern__
-enum bool whyload;		/* print why archive members are 
+enum bool whyload;		/* print why archive members are
 					   loaded */
 __private_extern__
 enum bool flush;		/* Use the output_flush routine to flush
@@ -176,7 +176,7 @@ __private_extern__ enum bool dead_strip_times;
 
 #ifndef RLD
 /*
- * Data structures to perform selective exporting of global symbols.     
+ * Data structures to perform selective exporting of global symbols.
  * save_symbols is the names of the symbols from -exported_symbols_list
  * remove_symbols is the names of the symbols from -unexported_symbols_list
  */
@@ -316,14 +316,17 @@ __private_extern__ enum bool private_bundle;
 /* The value of the environment variable NEXT_ROOT */
 __private_extern__ char *next_root;
 
-/* TRUE if the environment variable RC_TRACE_ARCHIVES is set */
-__private_extern__ enum bool rc_trace_archives;
+/* TRUE if the environment variable LD_TRACE_ARCHIVES
+   (or temporarily RC_TRACE_ARCHIVES) is set */
+__private_extern__ enum bool ld_trace_archives;
 
-/* TRUE if the environment variable RC_TRACE_DYLIBS is set */
-__private_extern__ enum bool rc_trace_dylibs;
+/* TRUE if the environment variable LD_TRACE_DYLIBS
+   (or temporarily RC_TRACE_DYLIBS) is set */
+__private_extern__ enum bool ld_trace_dylibs;
 
-/* TRUE if the environment variable RC_TRACE_PREBINDING_DISABLED is set */
-__private_extern__ enum bool rc_trace_prebinding_disabled;
+/* TRUE if the environment variable LD_TRACE_PREBINDING_DISABLED
+   (or temporarily RC_TRACE_PREBINDING_DISABLED) is set */
+__private_extern__ enum bool ld_trace_prebinding_disabled;
 
 /* the argument to -final_output if any */
 __private_extern__ char *final_output;
@@ -346,6 +349,8 @@ __private_extern__ unsigned long round(
 __private_extern__ void tell_ProjectBuilder(
     char *message);
 __private_extern__ void print(
+    const char *format, ...) __attribute__ ((format (printf, 1, 2)));
+__private_extern__ void ld_trace(
     const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 __private_extern__ void vprint(
     const char *format, va_list ap);

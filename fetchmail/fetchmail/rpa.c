@@ -17,9 +17,10 @@
 
 #if defined(POP3_ENABLE) && defined(RPA_ENABLE)
 #include  <stdio.h>
+#include  <stdlib.h>
 #include  <unistd.h>
 #include  <ctype.h>
-#include  <string.h> 
+#include  <string.h>
 
 #include  "socket.h"
 #include  "fetchmail.h"
@@ -36,20 +37,20 @@ extern int linecount;
 
 #ifndef NO_PROTO
   /* prototypes for internal functions */
-  static int  POP3_rpa_resp(unsigned char* argbuf, int socket );
-  static void LenAppend(unsigned char** pptr, int len);
-  static int  LenSkip(unsigned char** pptr, int rxlen);
-  static int  DecBase64(unsigned char* bufp);
-  static void EncBase64(unsigned char* bufp, int len);
-  static void ToUnicode(unsigned char** pptr, unsigned char delim,
-			unsigned char* buf, int* plen, int conv);
-  static int  SetRealmService(unsigned char* bufp);
+  static int  POP3_rpa_resp(char* argbuf, int socket );
+  static void LenAppend(char** pptr, int len);
+  static int  LenSkip(char** pptr, int rxlen);
+  static int  DecBase64(char* bufp);
+  static void EncBase64(char* bufp, int len);
+  static void ToUnicode(char** pptr, char delim, unsigned char* buf, int* plen,
+			int conv);
+  static int  SetRealmService(char* bufp);
   static void GenChallenge(unsigned char* buf, int len);
-  static int  DigestPassphrase(unsigned char* passphrase,
+  static int  DigestPassphrase(char* passphrase,
 			       unsigned char* rbuf, int unicodeit);
   static void CompUserResp();
   static int  CheckUserAuth();
-  static void md5(unsigned char* in, int len, unsigned char* out);
+  static void md5(const void* in, int len, unsigned char* out);
 #endif
 
 /* RPA protocol definitions */
@@ -107,16 +108,16 @@ unsigned char   Kus[Kusl];                  /* Session key           */
   globals:       read outlevel.
  *********************************************************************/
 
-int POP3_auth_rpa (unsigned char *userid, unsigned char *passphrase, int socket)
+int POP3_auth_rpa (char *userid, char *passphrase, int socket)
 {
     int      ok,rxlen,verh,verl,i,rll;
-    unsigned char buf [POPBUFSIZE];
-    unsigned char *bufp;
+    char buf [POPBUFSIZE];
+    char *bufp;
     int      status,aulin,kuslin;
-    char* stdec[4] = { NGT_("Success") ,
-		       NGT_("Restricted user (something wrong with account)") ,
-		       NGT_("Invalid userid or passphrase") ,
-		       NGT_("Deity error") };
+    char* stdec[4] = { N_("Success") ,
+		       N_("Restricted user (something wrong with account)") ,
+		       N_("Invalid userid or passphrase") ,
+		       N_("Deity error") };
 
     /* Initiate RPA authorisation */
 
@@ -178,10 +179,10 @@ int POP3_auth_rpa (unsigned char *userid, unsigned char *passphrase, int socket)
 
     /* Interpret Token 2 */
 
-    verh = *(bufp++); verl = *(bufp++);
+    verh = (unsigned char)*(bufp++); verl = (unsigned char)*(bufp++);
     if (outlevel >= O_DEBUG)
 	report(stdout, GT_("Service chose RPA version %d.%d\n"),verh,verl);
-    Csl  = *(bufp++);
+    Csl  = (unsigned char)*(bufp++);
     memcpy(Cs, bufp, Csl);
     bufp += Csl;
     if (outlevel >= O_DEBUG)
@@ -196,7 +197,7 @@ int POP3_auth_rpa (unsigned char *userid, unsigned char *passphrase, int socket)
     bufp += Tsl;
     if (outlevel >= O_DEBUG)
 	report(stdout, GT_("Service timestamp %s\n"),Ts);
-    rll = *(bufp++) << 8; rll = rll | *(bufp++);
+    rll = (unsigned char)*(bufp++) << 8; rll = rll | (unsigned char)*(bufp++);
     if ((bufp-buf+rll) != rxlen)
     {
 	if (outlevel > O_SILENT)
@@ -253,7 +254,7 @@ int POP3_auth_rpa (unsigned char *userid, unsigned char *passphrase, int socket)
 
     /* Interpret Token 4 */
 
-    aulin = *(bufp++);
+    aulin = (unsigned char)*(bufp++);
     if (outlevel >= O_DEBUG)
     {
 	report(stdout, GT_("User authentication (l=%d):\n"),aulin);
@@ -281,11 +282,13 @@ int POP3_auth_rpa (unsigned char *userid, unsigned char *passphrase, int socket)
     }
     if (status != 0)
     {
-	if (outlevel > O_SILENT)
-	    if (status < 4)
+	if (outlevel > O_SILENT) {
+	    if (status < 4) {
 		report(stderr, GT_("RPA rejects you: %s\n"),GT_(stdec[status]));
-	    else
+	    } else {
 		report(stderr, GT_("RPA rejects you, reason unknown\n"));
+	    }
+	}
 	return(PS_AUTHFAIL);
     }
     if (Aul != aulin)
@@ -357,9 +360,7 @@ int POP3_auth_rpa (unsigned char *userid, unsigned char *passphrase, int socket)
   globals:       reads outlevel.
  *********************************************************************/
 
-static int POP3_rpa_resp (argbuf,socket)
-unsigned char *argbuf;
-int socket;
+static int POP3_rpa_resp (char *argbuf, int socket)
 {
     int ok;
     char buf [POPBUFSIZE];
@@ -416,10 +417,10 @@ int socket;
   globals:       none
  *********************************************************************/
 
-static void LenAppend(pptr,len)
-unsigned char **pptr;
-int  len;
+static void LenAppend(char **pptr_, int len)
 {
+    unsigned char **pptr = (unsigned char **)pptr_;
+
     if (len < 0x80)
     {
 	**pptr = len; (*pptr)++;
@@ -450,31 +451,29 @@ int  len;
   globals:       reads outlevel.
  *********************************************************************/
 
-int LenSkip(pptr,rxlen)
-unsigned char **pptr;
-int rxlen;
+int LenSkip(char **pptr, int rxlen)
 {
     int len;
-    unsigned char *save;
+    char *save;
     save = *pptr;
-    if (**pptr != HDR)
+    if ((unsigned char)**pptr != HDR)
     {
 	if (outlevel > O_SILENT)
 	    report(stderr, GT_("Hdr not 60\n"));
 	return(0);
     }
     (*pptr)++;
-    if (((**pptr) & 0x80) == 0 )
+    if (((unsigned char)(**pptr) & 0x80) == 0 )
     {
-	len = **pptr; (*pptr)++;
+	len = (unsigned char)**pptr; (*pptr)++;
     }
-    else if ((**pptr) == 0x81)
+    else if ((unsigned char)(**pptr) == 0x81)
     {
-	len = *(*pptr+1); (*pptr) += 2;
+	len = (unsigned char)*(*pptr+1); (*pptr) += 2;
     }
-    else if ((**pptr) == 0x82)
+    else if ((unsigned char)(**pptr) == 0x82)
     {
-	len = ((*(*pptr+1)) << 8) | *(*pptr+2);
+	len = ((unsigned char)(*(*pptr+1)) << 8) | (unsigned char)*(*pptr+2);
 	(*pptr) += 3;
     }
     else len = 0;
@@ -512,27 +511,26 @@ int rxlen;
   globals:       reads outlevel.
  *********************************************************************/
 
-static int DecBase64(bufp)
-unsigned char *bufp;
+static int DecBase64(char *bufp)
 {
-    unsigned int   new, bits=0, cnt=0, i, part=0;
+    unsigned int   newx, bits=0, cnt=0, i, part=0;
     unsigned char  ch;
-    unsigned char* outp=bufp;
-    unsigned char* inp=bufp;
-    while((ch=*(inp++)) != 0)
+    char* outp=bufp;
+    char* inp=bufp;
+    while((ch=(unsigned char)*(inp++)) != 0)
     {
 	if ((ch != '=') && (ch != ' ') && (ch != '\n') && (ch != '\r'))
 	{
-	    if      ((ch>='A') && (ch <= 'Z'))   new = ch - 'A';
-	    else if ((ch>='a') && (ch <= 'z'))   new = ch - 'a' + 26;
-	    else if ((ch>='0') && (ch <= '9'))   new = ch - '0' + 52;
-	    else if ( ch=='+'                )   new = 62;
-	    else if ( ch=='/'                )   new = 63;
+	    if      ((ch>='A') && (ch <= 'Z'))   newx = ch - 'A';
+	    else if ((ch>='a') && (ch <= 'z'))   newx = ch - 'a' + 26;
+	    else if ((ch>='0') && (ch <= '9'))   newx = ch - '0' + 52;
+	    else if ( ch=='+'                )   newx = 62;
+	    else if ( ch=='/'                )   newx = 63;
 	    else {
-		report(stderr,  GT_("dec64 error at char %d: %x\n"), inp - bufp, ch);
+	        report(stderr,  GT_("dec64 error at char %d: %x\n"), (int)(inp - bufp), ch);
 		return(0);
 	    }
-	    part=((part & 0x3F)*64) + new;
+	    part=((part & 0x3F)*64) + newx;
 	    bits += 6;
 	    if (bits >= 8)
 	    {
@@ -547,7 +545,7 @@ unsigned char *bufp;
 	report(stdout, GT_("Inbound binary data:\n"));
 	for (i=0; i<cnt; i++)
 	{
-	    report_build(stdout, "%02X ",bufp[i]);
+	    report_build(stdout, "%02X ",(unsigned char)bufp[i]);
 	    if (((i % 16)==15) || (i==(cnt-1)))
 		report_complete(stdout, "\n");
 	}
@@ -571,11 +569,9 @@ unsigned char *bufp;
   globals:       reads outlevel;
  *********************************************************************/
 
-static void EncBase64(bufp,len)
-unsigned char *bufp;
-int  len;
+static void EncBase64(char *bufp, int len)
 {
-    unsigned char* outp;
+    char* outp;
     unsigned char  c1,c2,c3;
     char x[]="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     int  i;
@@ -585,7 +581,7 @@ int  len;
 	report(stdout, GT_("Outbound data:\n"));
 	for (i=0; i<len; i++)
 	{
-	    report_build(stdout, "%02X ",bufp[i]);
+	    report_build(stdout, "%02X ",(unsigned char)bufp[i]);
 	    if (((i % 16)==15) || (i==(len-1)))
 		report_complete(stdout, "\n");
 	}
@@ -595,9 +591,9 @@ int  len;
     /* So we can do the update in place, start at the far end! */
     for (i=((len-1)/3)*3; i>=0; i-=3)
     {
-	c1 = bufp[i];
-	if ((i+1) < len) c2 = bufp[i+1]; else c2=0;
-	if ((i+2) < len) c3 = bufp[i+2]; else c3=0;
+	c1 = (unsigned char)bufp[i];
+	if ((i+1) < len) c2 = (unsigned char)bufp[i+1]; else c2=0;
+	if ((i+2) < len) c3 = (unsigned char)bufp[i+2]; else c3=0;
 	*(outp) = x[c1/4];
 	*(outp+1) = x[((c1 & 3)*16) + (c2/16)];
 	if ((i+1) < len) *(outp+2) = x[((c2 & 0x0F)*4) + (c3/64)];
@@ -625,12 +621,9 @@ int  len;
   globals:       reads outlevel;
  *********************************************************************/
 
-static void ToUnicode(pptr,delim,buf,plen,conv)
-unsigned char **pptr; /* input string  */
-unsigned char delim;
-unsigned char *buf;   /* output buffer */
-int  *plen;
-int conv;
+static void ToUnicode(char **pptr /* input string*/,
+	char delim, unsigned char *buf /* output buffer */,
+	int *plen, int conv)
 {
     unsigned char *p;
     int i;
@@ -639,7 +632,7 @@ int conv;
     {
 	*(p++) = 0;
 	if (conv)
-	    *(p++) = tolower(**pptr);
+	    *(p++) = tolower((unsigned char)**pptr);
 	else
 	    *(p++) = (**pptr);
 	(*plen) += 2;
@@ -676,8 +669,7 @@ int conv;
                  writes Ns Nsl Nr Nrl
  *********************************************************************/
 
-static int SetRealmService(bufp)
-unsigned char* bufp;
+static int SetRealmService(char *bufp)
 {
     /* For the moment we pick the first available realm. It would */
     /* make more sense to verify that the realm which the user    */
@@ -705,9 +697,7 @@ unsigned char* bufp;
                  reads /dev/random
  *********************************************************************/
 
-static void GenChallenge(buf,len)
-unsigned char *buf;
-int  len;
+static void GenChallenge(unsigned char *buf, int len)
 {
     int  i;
     FILE *devrandom;
@@ -756,14 +746,12 @@ int  len;
                  writes Pu.
  *********************************************************************/
 
-static int DigestPassphrase(passphrase,rbuf,unicodeit)
-unsigned char *passphrase;
-unsigned char *rbuf;
-int unicodeit;
+static int DigestPassphrase(char *passphrase,unsigned char *rbuf,
+	int unicodeit)
 {
     int   len;
     unsigned char  workarea[STRMAX];
-    unsigned char* ptr;
+    char* ptr;
 
     if (unicodeit)  /* Option in spec. Yuck. */
     {
@@ -771,14 +759,10 @@ int unicodeit;
 	ToUnicode(&ptr, '\0', workarea, &len, 0); /* No case conv here */
 	if (len == 0)
 	    return(PS_SYNTAX);
-	ptr = workarea;
+	md5(workarea,len,rbuf);
     }
     else
-    {
-	ptr = rbuf;
-	len = strlen(passphrase);
-    }
-    md5(ptr,len,rbuf);
+	md5(rbuf,strlen(passphrase),rbuf);
     return(0);
 }
 
@@ -795,7 +779,7 @@ int unicodeit;
                  writes Ru.
  *********************************************************************/
 
-static void CompUserResp()
+static void CompUserResp(void)
 {
     unsigned char  workarea[Pul+48+STRMAX*5+Tsl+Pul];
     unsigned char* p;
@@ -827,7 +811,7 @@ static void CompUserResp()
                  writes Ru.
  *********************************************************************/
 
-static int CheckUserAuth()
+static int CheckUserAuth(void)
 {
     unsigned char  workarea[Pul+48+STRMAX*7+Tsl+Pul];
     unsigned char* p;
@@ -878,13 +862,11 @@ static int CheckUserAuth()
   globals:       reads outlevel
  *********************************************************************/
 
-static void md5(in,len,out)
-unsigned char*    in;
-int      len;
-unsigned char*    out;
+static void md5(const void *in_,int len,unsigned char *out)
 {
     int      i;
     MD5_CTX  md5context;
+    const unsigned char *in = (const unsigned char *)in_;
 
     if (outlevel >= O_DEBUG)
     {

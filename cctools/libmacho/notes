@@ -1,10 +1,46 @@
-Changes for the 5.20.1 release (the cctools-590.23.5 release):
+Changes for the 5.23 release (the cctools-616 release):
+- Added the routines swap_x86_state_hdr(), swap_x86_float_state64(),
+  swap_x86_exception_state64(), swap_x86_thread_state(), swap_x86_float_state(),
+  swap_x86_exception_state(), swap_x86_debug_state32(),
+  swap_x86_debug_state64() and swap_x86_debug_state() to i386_swap.c .
+  Radar bug #4491230.
+
+Changes for the 5.23 release (the cctools-616 release):
+- Added the routines swap_mach_header_64(), swap_segment_command_64(),
+  swap_section_64(), swap_routines_command_64(), swap_nlist_64() and
+  swap_dylib_module_64() to swap.c .  Also fixed a bug in swap_dylib_module()
+  that did not have the swap of the objc_module_info_size and
+  objc_module_info_addr fields.  Radar bug #4358209.
+
+Changes for the 5.23 release (the cctools-610 release):
+- Added a few ifdef x86_THREAD_STATE64 to a few places in i386_swap.c to allow
+  it to build on Tiger.  Radar bug #4535019.
+
+Changes for the 5.22 release (the cctools-590.37.3 release):
+- Correctly swap x86_THREAD_STATE64 states when running on PowerPC.  Also,
+  update to the current definition of the x86-64 thread state. Radar bug
+  #4491228.
+
+Changes for the 5.22 release (the cctools-590.36.2 release):
+- Add #defines to ensure that libmacho builds on systems with POSIX
+  conformant headers.  Radar bug #4471574.
+
+Changes for the 5.22 release (the cctools-590.31.1 release):
+- Added support for the x86_64 architecture.  Radar bug #4345090.
+
+Changes for the 5.20.1 release (the cctools-590.38 relase) Picked up from the
+cctools-590.23.5 release:
 - Changed i386_swap.c to add macros that rename structure members of the 
   i386_thread_state_t for Unix conformance.  Radar bug #4438650.
 
-Changes for the 5.20.1 release (the cctools-590.23.4 release):
+Changes for the 5.21 release (the cctools-590.32 release):
 - Changed ppc_swap.c to add macros that rename structure members of the 
-  ppc_thread_state_t for Unix conformance.  Radar bug #4340681.
+  ppc_thread_state_t for Unix conformance.  Picked up from cctools-590.23.4 .
+  Radar bug #4340681.
+
+Changes for the 5.21 release (the cctools-590.24 release):
+- Added support for DWARF.  Radar bug #4367423.
+  - Added swap_uuid_command() to swap.h .
 
 Changes for the 5.20 release (the cctools-590.23 release):
 - Changed swap_i386_float_state() in i386_swap.c for the current floating point

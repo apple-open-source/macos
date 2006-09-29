@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2006-05-28</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>fetchmail.txt</string>
+	<key>OpenSourceProject</key>
+	<string>fetchmail</string>
+	<key>OpenSourceSHA1</key>
+	<string>be0cd81f32483ba1d19be7ebe95f698f98eec13c</string>
+	<key>OpenSourceURL</key>
+	<string>http://download.berlios.de/fetchmail/fetchmail-6.3.4.tar.bz2</string>
+	<key>OpenSourceVersion</key>
+	<string>6.3.4</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://fetchmail.berlios.de</string>
+</dict>
+</plist>

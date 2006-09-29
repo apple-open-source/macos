@@ -55,7 +55,7 @@ typedef uint32_t EAPOLControlState;
  *
  *   This property is also published as part of the status dictionary.
  */
-#define kEAPOLControlUniqueIdentifier		CFSTR("UniqueIdentifier") /* CFString */
+#define kEAPOLControlUniqueIdentifier	CFSTR("UniqueIdentifier") /* CFString */
 
 /*
  * Property: kEAPOLControlLogLevel
@@ -77,4 +77,5 @@ typedef uint32_t EAPOLControlState;
 #define kEAPOLControlTimestamp		CFSTR("Timestamp")	/* CFDate */
 #define kEAPOLControlRequiredProperties	CFSTR("RequiredProperties") /* CFArray[CFString] */
 #define kEAPOLControlAdditionalProperties	CFSTR("AdditionalProperties") /* CFDictionary */
+#define kEAPOLControlSystemMode		CFSTR("SystemMode") /* CFBoolean */
 #endif _EAP8021X_EAPOLCONTROLTYPES_H

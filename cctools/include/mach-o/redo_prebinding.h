@@ -20,6 +20,9 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef _MACH_O_REDO_PREBINDING_H_
+#define _MACH_O_REDO_PREBINDING_H_
+
 #define REDO_PREBINDING_VERSION 2
 #include <mach/machine.h>
 /*
@@ -44,6 +47,10 @@
  * If the root_dir parameter is not NULL it is prepended to all the rooted
  * dependent library paths. 
  */
+
+#if __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 /*
  * dependent_libs() takes a file_name of a binary and returns a malloc(3)'ed
@@ -262,3 +269,9 @@ struct prebind_cksum_arch **cksums,
 unsigned long *ncksums,
 const char *program_name,
 char **error_message);
+
+#if __cplusplus
+};
+#endif /* __cplusplus */
+
+#endif /* _MACH_O_REDO_PREBINDING_H_ */

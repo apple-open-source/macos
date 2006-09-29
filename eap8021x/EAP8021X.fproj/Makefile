@@ -20,13 +20,15 @@ HFILES = eapolcontroller_ext.h eapolcontroller_types.h myCFUtil.h\
          EAPClientPlugin.h EAPOL.h RADIUSAttributes.h EAPTLS.h\
          EAPTLSUtil.h DESSupport.h EAPOLControl.h EAPOLControlTypes.h\
          EAPOLClient.h EAPClientProperties.h EAPClientTypes.h\
-         SupplicantTypes.h EAPCertificateUtil.h EAPSecurity.h
+         SupplicantTypes.h EAPCertificateUtil.h EAPSecurity.h\
+         EAPKeychainUtil.h
 
 CFILES = chap.c DESSupport.c EAPCertificateUtil.c EAPClientModule.c\
          eapgtc_plugin.c eapmschapv2_plugin.c EAPOLClient.c\
          EAPOLControl.c EAPSecurity.c eaptls_plugin.c EAPTLSUtil.c\
-         eapttls_plugin.c EAPUtil.c leap_plugin.c LinkAddresses.c\
-         md5_plugin.c mschap.c myCFUtil.c peap_plugin.c printdata.c
+         eapttls_plugin.c eapfast_plugin.c EAPUtil.c leap_plugin.c\
+         LinkAddresses.c md5_plugin.c mschap.c myCFUtil.c\
+         peap_plugin.c printdata.c EAPKeychainUtil.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             eapolcontroller.defs EAP8021X.order
@@ -54,7 +56,8 @@ PUBLIC_HEADERS = mschap.h LinkAddresses.h chap.h EAPClientModule.h\
                  EAPOL.h RADIUSAttributes.h EAPTLS.h EAPTLSUtil.h\
                  DESSupport.h EAPOLControl.h EAPOLControlTypes.h\
                  EAPClientProperties.h EAPClientTypes.h\
-                 SupplicantTypes.h EAPCertificateUtil.h EAPSecurity.h
+                 SupplicantTypes.h EAPCertificateUtil.h EAPSecurity.h\
+                 EAPKeychainUtil.h
 
 PROJECT_HEADERS = eapolcontroller_ext.h eapolcontroller_types.h\
                   myCFUtil.h printdata.h EAPOLClient.h

@@ -49,6 +49,7 @@ public:
     virtual void removeChild(RenderObject *oldChild);
 
     virtual void detach();
+    void detachLeftoverChildren();
     
     virtual RenderObject* removeChildNode(RenderObject* child);
     virtual void appendChildNode(RenderObject* child);

@@ -1,11 +1,14 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- *	File: $Id: IOI2CControllerPPC.cpp,v 1.12 2006/02/17 22:17:40 hpanther Exp $
+ *	File: $Id: IOI2CControllerPPC.cpp,v 1.13 2006/04/10 23:40:02 hpanther Exp $
  *
  *  DRI: Joseph Lehrer
  *
  *		$Log: IOI2CControllerPPC.cpp,v $
+ *		Revision 1.13  2006/04/10 23:40:02  hpanther
+ *		Include FireLog.h only for debug targets.
+ *		
  *		Revision 1.12  2006/02/17 22:17:40  hpanther
  *		Fix
  *		
@@ -67,11 +70,11 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include "IOI2CController.h"
 
-#include <IOKit/firewire/IOFireLog.h>
 #include <mach/task.h>
 #include <mach/semaphore.h>
 
 #ifdef DEBUG
+	#include <IOKit/firewire/IOFireLog.h>
 	#define PPC_I2C_DEBUG 1
 #endif
 

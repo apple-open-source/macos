@@ -34,6 +34,7 @@
 #include <fcntl.h>
 #include <sys/errno.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/xattr.h>
 #include <sys/syscall.h>
 #include <sys/param.h>
@@ -123,7 +124,6 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 	}
 	copyfile_debug(1, "debug value set to: %d\n", s->debug);
     }
-
     if (COPYFILE_CHECK & flags)
 	return copyfile_check(s);
 
@@ -951,12 +951,12 @@ swap_attrhdr(attr_header_t *ah)
 #endif
 }
 
-static u_int32_t emptyfinfo[8] = {0};
+static const u_int32_t emptyfinfo[8] = {0};
 
 static int copyfile_unpack(copyfile_state_t s)
 {
-    int bytes;
-    void * buffer;
+    ssize_t bytes;
+    void * buffer, * endptr;
     apple_double_header_t *adhdr;
     size_t hdrsize;
     int error = 0;
@@ -967,6 +967,13 @@ static int copyfile_unpack(copyfile_state_t s)
 	hdrsize = ATTR_MAX_HDR_SIZE;
 
     buffer = calloc(1, hdrsize);
+    if (buffer == NULL) {
+	copyfile_debug(1, "copyfile_unpack: calloc(1, %u) returned NULL", hdrsize);
+	error = -1;
+	goto exit;
+    } else
+	endptr = (char*)buffer + hdrsize;
+
     bytes = pread(s->src_fd, buffer, hdrsize, 0);
 
     if (bytes < 0)
@@ -1016,6 +1023,12 @@ static int copyfile_unpack(copyfile_state_t s)
 	int count;
 	int i;
 
+	if (hdrsize < sizeof(attr_header_t)) {
+		copyfile_warn("bad attribute header:  %u < %u", hdrsize, sizeof(attr_header_t));
+		error = -1;
+		goto exit;
+	}
+
 	attrhdr = (attr_header_t *)buffer;
 	swap_attrhdr(attrhdr);
 	if (attrhdr->magic != ATTR_HDR_MAGIC)
@@ -1027,10 +1040,91 @@ static int copyfile_unpack(copyfile_state_t s)
 	}
 	count = attrhdr->num_attrs;
 	entry = (attr_entry_t *)&attrhdr[1];
+
 	for (i = 0; i < count; i++)
 	{
 	    void * dataptr;
 
+	    /*
+	     * First we do some simple sanity checking.
+	     * +) See if entry is within the buffer's range;
+	     *
+	     * +) Check the attribute name length; if it's longer than the
+	     * maximum, we truncate it down.  (We could error out as well;
+	     * I'm not sure which is the better way to go here.)
+	     *
+	     * +) If, given the name length, it goes beyond the end of
+	     * the buffer, error out.
+	     *
+	     * +) If the last byte isn't a NUL, make it a NUL.  (Since we
+	     * truncated the name length above, we truncate the name here.)
+	     *
+	     * +) If entry->offset is so large that it causes dataptr to
+	     * go beyond the end of the buffer -- or, worse, so large that
+	     * it wraps around! -- we error out.
+	     *
+	     * +) If entry->length would cause the entry to go beyond the
+	     * end of the buffer (or, worse, wrap around to before it),
+	     * *or* if the length is larger than the hdrsize, we error out.
+	     * (An explanation of that:  what we're checking for there is
+	     * the small range of values such that offset+length would cause
+	     * it to go beyond endptr, and then wrap around past buffer.  We
+	     * care about this because we are passing entry->length down to
+	     * fgetxattr() below, and an erroneously large value could cause
+	     * problems there.  By making sure that it's less than hdrsize,
+	     * which has already been sanity-checked above, we're safe.
+	     * That may mean that the check against < buffer is unnecessary.)
+	     */
+	    if ((void*)entry >= endptr || (void*)entry < buffer) {
+		if (COPYFILE_VERBOSE & s->flags)
+		    copyfile_warn("Incomplete or corrupt attribute entry");
+		error = -1;
+		goto exit;
+	    }
+
+	    if (((void*)entry + sizeof(*entry)) > endptr) {
+		if (COPYFILE_VERBOSE & s->flags)
+		    copyfile_warn("Incomplete or corrupt attribute entry");
+		error = -1;
+		goto exit;
+	    }
+
+	    if (entry->namelen > ATTR_MAX_NAME_LEN) {
+		entry->namelen = ATTR_MAX_NAME_LEN;
+	    }
+	    if ((void*)(entry->name + entry->namelen) >= endptr) {
+		if (COPYFILE_VERBOSE & s->flags)
+		    copyfile_warn("Incomplete or corrupt attribute entry");
+		error = -1;
+		goto exit;
+	    }
+
+	    if (entry->name[entry->namelen] != 0) {
+		entry->name[entry->namelen] = 0;
+	    }
+
+	    copyfile_debug(3, "extracting \"%s\" (%d bytes) at offset %u",
+		entry->name, entry->length, entry->offset);
+
+	    dataptr = (char *)attrhdr + entry->offset;
+
+	    if (dataptr >= endptr || dataptr < buffer) {
+		copyfile_debug(1, "Entry %d overflows:  offset = %u", entry->offset);
+		error = -1;
+		goto exit;
+	    }
+	    if ((dataptr + entry->length) > endptr ||
+		((dataptr + entry->length) < buffer) ||
+		(entry->length > hdrsize)) {
+		if (COPYFILE_VERBOSE & s->flags)
+		    copyfile_warn("Incomplete or corrupt attribute entry");
+		copyfile_debug(1, "Entry %d length overflows:  dataptr = %u, offset = %u, length = %u, buffer = %u, endptr = %u",
+			i, dataptr, entry->offset, entry->length, buffer, endptr);
+		error = -1;
+		goto exit;
+	    }
+
+	    if (COPYFILE_ACL & s->flags && strcmp((char*)entry->name, XATTR_SECURITY_NAME) == 0)
 	    copyfile_debug(2, "extracting \"%s\" (%d bytes)",
 		entry->name, entry->length);
 	    dataptr = (char *)attrhdr + entry->offset;
@@ -1053,8 +1147,7 @@ static int copyfile_unpack(copyfile_state_t s)
 					copyfile_warn("setting security information");
 				acl_free(acl);
 			    }
-		    } else
-		    if (COPYFILE_XATTR & s->flags && (fsetxattr(s->dst_fd, entry->name, dataptr, entry->length, 0, 0))) {
+		    } else if (COPYFILE_XATTR & s->flags && (fsetxattr(s->dst_fd, entry->name, dataptr, entry->length, 0, 0))) {
 			    if (COPYFILE_VERBOSE & s->flags)
 				    copyfile_warn("error %d setting attribute %s", error, entry->name);
 			    goto exit;
@@ -1076,6 +1169,11 @@ static int copyfile_unpack(copyfile_state_t s)
     /*
      * Extract the Finder Info.
      */
+    if (adhdr->entries[0].offset > (hdrsize - sizeof(emptyfinfo))) {
+	error = -1;
+	goto exit;
+    }
+
     if (bcmp((u_int8_t*)buffer + adhdr->entries[0].offset, emptyfinfo, sizeof(emptyfinfo)) != 0)
     {
 	copyfile_debug(1, " extracting \"%s\" (32 bytes)", XATTR_FINDERINFO_NAME);
@@ -1090,13 +1188,20 @@ static int copyfile_unpack(copyfile_state_t s)
     if (adhdr->entries[1].type == AD_RESOURCE &&
 	adhdr->entries[1].length > 0)
     {
-	void * rsrcforkdata;
+	void * rsrcforkdata = NULL;
 	size_t length;
 	off_t offset;
 
 	length = adhdr->entries[1].length;
 	offset = adhdr->entries[1].offset;
 	rsrcforkdata = malloc(length);
+
+	if (rsrcforkdata == NULL) {
+		copyfile_debug(1, "could not allocate %u bytes for rsrcforkdata",
+			       length);
+		error = -1;
+		goto bad;
+	}
 
 	bytes = pread(s->src_fd, rsrcforkdata, length, offset);
 	if (bytes < length)
@@ -1112,21 +1217,23 @@ static int copyfile_unpack(copyfile_state_t s)
 		    (int)bytes, (int)length);
 	    }
 	    error = -1;
-	    goto exit;
+	    goto bad;
 	}
 	error = fsetxattr(s->dst_fd, XATTR_RESOURCEFORK_NAME, rsrcforkdata, bytes, 0, 0);
 	if (error)
 	{
 	    copyfile_debug(1, "error %d setting resource fork attribute", error);
 	    error = -1;
-	    goto exit;
+	    goto bad;
 	}
 	    copyfile_debug(1, "extracting \"%s\" (%d bytes)",
 		    XATTR_RESOURCEFORK_NAME, (int)length);
-	free(rsrcforkdata);
+bad:
+	if (rsrcforkdata)
+	    free(rsrcforkdata);
     }
 exit:
-    free(buffer);
+    if (buffer) free(buffer);
     return error;
 }
 
@@ -1201,11 +1308,11 @@ static int copyfile_pack_rsrcfork(copyfile_state_t s, attr_header_t *filehdr)
 
 static int copyfile_pack(copyfile_state_t s)
 {
-    char *attrnamebuf;
-    void *databuf;
-    attr_header_t *filehdr;
+    char *attrnamebuf = NULL, *endnamebuf;
+    void *databuf = NULL;
+    attr_header_t *filehdr, *endfilehdr;
     attr_entry_t *entry;
-    ssize_t listsize;
+    ssize_t listsize = 0;
     char *nameptr;
     int namelen;
     int entrylen;
@@ -1215,7 +1322,20 @@ static int copyfile_pack(copyfile_state_t s)
     int error = 0;
 
     filehdr = (attr_header_t *) calloc(1, ATTR_MAX_SIZE);
+    if (filehdr == NULL) {
+	error = -1;
+	goto exit;
+    } else {
+	    endfilehdr = ((void*)filehdr) + ATTR_MAX_SIZE;
+    }
+
     attrnamebuf = calloc(1, ATTR_MAX_HDR_SIZE);
+    if (attrnamebuf == NULL) {
+	error = -1;
+	goto exit;
+    } else {
+	endnamebuf = ((char*)attrnamebuf) + ATTR_MAX_HDR_SIZE;
+    }
 
     /*
      * Fill in the Apple Double Header defaults.
@@ -1260,26 +1380,36 @@ static int copyfile_pack(copyfile_state_t s)
 
     if (COPYFILE_XATTR & s->flags)
     {
-        if ((listsize = flistxattr(s->src_fd, attrnamebuf + offset, ATTR_MAX_HDR_SIZE, 0)) <= 0)
+	ssize_t left = ATTR_MAX_HDR_SIZE - offset;
+        if ((listsize = flistxattr(s->src_fd, attrnamebuf + offset, left, 0)) <= 0)
 	{
 	    copyfile_debug(1, "no extended attributes found (%d)", errno);
 	}
-	if (listsize > ATTR_MAX_HDR_SIZE)
+	if (listsize > left)
 	{
 	    copyfile_debug(1, "extended attribute list too long");
 	    listsize = ATTR_MAX_HDR_SIZE;
 	}
 
 	listsize += offset;
+	endnamebuf = attrnamebuf + listsize;
+	if (endnamebuf > (attrnamebuf + ATTR_MAX_HDR_SIZE)) {
+	    error = -1;
+	    goto exit;
+	}
 
-	for (nameptr = attrnamebuf; nameptr < attrnamebuf + listsize; nameptr += namelen)
+	for (nameptr = attrnamebuf; nameptr <endnamebuf; nameptr += namelen)
 	{
 	    namelen = strlen(nameptr) + 1;
 	    /* Skip over FinderInfo or Resource Fork names */
-	    if (strncmp(nameptr, XATTR_FINDERINFO_NAME, strlen(XATTR_FINDERINFO_NAME)) == 0 ||
-		strncmp(nameptr, XATTR_RESOURCEFORK_NAME, strlen(XATTR_RESOURCEFORK_NAME)) == 0)
+	    if (strcmp(nameptr, XATTR_FINDERINFO_NAME) == 0 ||
+		strcmp(nameptr, XATTR_RESOURCEFORK_NAME) == 0)
 		    continue;
 
+	    /* The system should prevent this from happening, but... */
+	    if (namelen > XATTR_MAXNAMELEN + 1) {
+	        namelen = XATTR_MAXNAMELEN + 1;
+	    }
 	    entry->namelen = namelen;
 	    entry->flags = 0;
 	    bcopy(nameptr, &entry->name[0], namelen);
@@ -1287,7 +1417,12 @@ static int copyfile_pack(copyfile_state_t s)
 
 	    entrylen = ATTR_ENTRY_LENGTH(namelen);
 	    entry = (attr_entry_t *)(((char *)entry) + entrylen);
-	    
+
+	    if ((void*)entry > (void*)endfilehdr) {
+		    error = -1;
+		    goto exit;
+	    }
+
 	    /* Update the attributes header. */
 	    filehdr->num_attrs++;
 	    filehdr->data_start += entrylen;
@@ -1301,14 +1436,13 @@ static int copyfile_pack(copyfile_state_t s)
 
     for (nameptr = attrnamebuf; nameptr < attrnamebuf + listsize; nameptr += namelen + 1)
     {
-	nameptr = nameptr;
 	namelen = strlen(nameptr);
 
-	if (strncmp(nameptr, XATTR_SECURITY_NAME, strlen(XATTR_SECURITY_NAME)) == 0)
+	if (strcmp(nameptr, XATTR_SECURITY_NAME) == 0)
 	    copyfile_pack_acl(s, &databuf, &datasize);
 	else
 	/* Check for Finder Info. */
-	if (strncmp(nameptr, XATTR_FINDERINFO_NAME, strlen(XATTR_FINDERINFO_NAME)) == 0)
+	if (strcmp(nameptr, XATTR_FINDERINFO_NAME) == 0)
 	{
 	    datasize = fgetxattr(s->src_fd, nameptr, (u_int8_t*)filehdr + filehdr->appledouble.entries[0].offset, 32, 0, 0);
 	    if (datasize < 0)
@@ -1328,7 +1462,7 @@ static int copyfile_pack(copyfile_state_t s)
 	    continue;  /* finder info doesn't have an attribute entry */
 	} else
 	/* Check for Resource Fork. */
-	if (strncmp(nameptr, XATTR_RESOURCEFORK_NAME, strlen(XATTR_RESOURCEFORK_NAME)) == 0)
+	if (strcmp(nameptr, XATTR_RESOURCEFORK_NAME) == 0)
 	{
 	    hasrsrcfork = 1;
 	    continue;
@@ -1351,6 +1485,10 @@ static int copyfile_pack(copyfile_state_t s)
 		goto next;
 	    }
 	    databuf = malloc(datasize);
+	    if (databuf == NULL) {
+		error = -1;
+		continue;
+	    }
 	    datasize = fgetxattr(s->src_fd, nameptr, databuf, datasize, 0, 0);
 	}
 
@@ -1364,7 +1502,12 @@ static int copyfile_pack(copyfile_state_t s)
 	 * the case when there are lots of attributes or one of
 	 * the attributes is very large.
 	 */
-	bcopy(databuf, (char*)filehdr + entry->offset, datasize);
+	if (entry->offset > ATTR_MAX_SIZE ||
+		(entry->offset + datasize > ATTR_MAX_SIZE)) {
+		error = -1;
+	} else {
+		bcopy(databuf, (char*)filehdr + entry->offset, datasize);
+	}
 	free(databuf);
 
 	copyfile_debug(1, "copied %ld bytes of \"%s\" data @ offset 0x%08x", datasize, nameptr, entry->offset);
@@ -1401,8 +1544,8 @@ next:
 	goto exit;
     }
 exit:
-    free(filehdr);
-    free(attrnamebuf);
+    if (filehdr) free(filehdr);
+    if (attrnamebuf) free(attrnamebuf);
 
     if (error)
 	return error;

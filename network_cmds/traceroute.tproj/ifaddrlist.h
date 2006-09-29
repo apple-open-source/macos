@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/network_cmds/traceroute.tproj/ifaddrlist.h,v 1.2 2004/08/08 00:27:54 lindak Exp $ (LBL)
+ * @(#) $Header: /Volumes/george/fs-svn/network_cmds/traceroute.tproj/ifaddrlist.h,v 1.2 2004/08/08 00:27:54 lindak Exp $ (LBL)
  */
 
 struct ifaddrlist {

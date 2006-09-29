@@ -1,7 +1,7 @@
 /*
- * $Source: /cvs/repository/iservers/Libraries/passwordserver_sasl/cyrus_sasl/mac/kerberos_includes/old_krb.h,v $
+ * $Source: /Volumes/backup/dsmigrate/Dumps/../CVS/passwordserver_sasl/cyrus_sasl/mac/kerberos_includes/old_krb.h,v $
  * $Author: snsimon $
- * $Header: /cvs/repository/iservers/Libraries/passwordserver_sasl/cyrus_sasl/mac/kerberos_includes/old_krb.h,v 1.4 2005/01/10 19:13:36 snsimon Exp $
+ * $Header: /Volumes/backup/dsmigrate/Dumps/../CVS/passwordserver_sasl/cyrus_sasl/mac/kerberos_includes/old_krb.h,v 1.4 2005/01/10 19:13:36 snsimon Exp $
  *
  * Copyright 1987, 1988 by the Massachusetts Institute of Technology.
  *

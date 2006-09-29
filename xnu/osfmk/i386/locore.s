@@ -1,23 +1,31 @@
 /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * This file contains Original Code and/or Modifications of Original Code 
+ * as defined in and that are subject to the Apple Public Source License 
+ * Version 2.0 (the 'License'). You may not use this file except in 
+ * compliance with the License.  The rights granted to you under the 
+ * License may not be used to create, or enable the creation or 
+ * redistribution of, unlawful or unlicensed copies of an Apple operating 
+ * system, or to circumvent, violate, or enable the circumvention or 
+ * violation of, any terms of an Apple operating system software license 
+ * agreement.
+ *
+ * Please obtain a copy of the License at 
+ * http://www.opensource.apple.com/apsl/ and read it before using this 
+ * file.
+ *
+ * The Original Code and all software distributed under the License are 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
+ * Please see the License for the specific language governing rights and 
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
  */
 /*
  * @OSF_COPYRIGHT@
@@ -346,7 +354,7 @@ Entry(timer_grab)
 	movl	MAP_PMAP(%ecx),%ecx	/* get map's pmap */		;\
 	cmpl	EXT(kernel_pmap), %ecx	/* If kernel loaded task */	;\
 	jz	1f			/* use kernel data segment */	;\
-	movl	$ USER_DS,%cx		/* else use user data segment */;\
+	movl	$ USER_DS,%ecx		/* else use user data segment */;\
 	mov	%cx,%es							;\
 1:									;\
 	movl	$ R_UESP,%ecx						;\
@@ -664,9 +672,9 @@ trap_push_segs:
 	pushl	%gs
 
 trap_set_segs:
-	movl	%ss,%ax
-	movl	%ax,%ds
-	movl	%ax,%es			/* switch to kernel data seg */
+	movl	%ss,%eax
+	movl	%eax,%ds
+	movl	%eax,%es		/* switch to kernel data seg */
 	cld				/* clear direction flag */
 	testl	$(EFL_VM),R_EFLAGS(%esp) /* in V86 mode? */
 	jnz	trap_from_user		/* user mode trap if so */
@@ -1779,7 +1787,7 @@ ENTRY(copyin)
 	movl	MAP_PMAP(%ecx),%ecx		/* get map->pmap */
 	cmpl	EXT(kernel_pmap), %ecx
 	jz	1f
-	movl	$ USER_DS,%cx		/* user data segment access */
+	movl	$ USER_DS,%ecx		/* user data segment access */
 	mov	%cx,%ds
 1:
 	cmpl	%esi,%eax
@@ -1835,7 +1843,7 @@ Entry(copyinstr)
 	mov	%ds,%cx			/* kernel data segment access  */
 	jmp	1f
 0:
-	movl	$ USER_DS,%cx		/* user data segment access */
+	movl	$ USER_DS,%ecx		/* user data segment access */
 1:
 	mov	%cx,%fs
 	xorl	%eax,%eax
@@ -1844,11 +1852,11 @@ Entry(copyinstr)
 2:
 	RECOVERY_SECTION
 	RECOVER(copystr_fail)		/* copy bytes... */
-	movb	%fs:(%esi),%eax
+	movb	%fs:(%esi),%al
 	incl	%esi
 	testl	%edi,%edi		/* if kernel address is ... */
 	jz	3f			/* not NULL */
-	movb	%eax,(%edi)		/* copy the byte */
+	movb	%al,(%edi)		/* copy the byte */
 	incl	%edi
 3:
 	decl	%edx
@@ -1899,7 +1907,7 @@ ENTRY(copyout)
 	mov	%ds,%cx			/* else kernel data segment access  */
 	jmp	1f
 0:
-	movl	$ USER_DS,%cx
+	movl	$ USER_DS,%ecx
 1:
 	mov	%cx,%es
 
@@ -1922,7 +1930,7 @@ ENTRY(copyout)
 copyout_retry:
 	/* if restarting after a partial copy, put edx back in sync, */
 	addl	%ebx,%edx		/* edx -= (edi - ebx); */
-	subl	%edi,%edx		/
+	subl	%edi,%edx
 	movl	%edi,%ebx		/* ebx = edi; */
 
 /*
@@ -2541,13 +2549,13 @@ ENTRY(dr3)
 
 	movzbl	B_ARG1, %eax
 	andb	$3, %al
-	addb	$0x10, %ecx
+	addb	$0x10, %cl
 	shll	%cl, %eax
 	orl	%eax, %edx
 
 	movzbl	B_ARG2, %eax
 	andb	$3, %al
-	addb	$0x2, %ecx
+	addb	$0x2, %cl
 	shll	%cl, %eax
 	orl	%eax, %edx
 

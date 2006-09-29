@@ -41,6 +41,8 @@ extern symbolS *symbol_new(
     short desc,
     valueT value,
     struct frag *frag);
+extern void symbol_assign_index(
+    struct symbol *symbolP);
 extern void colon(
     char *sym_name);
 extern void symbol_table_insert(

@@ -17,6 +17,9 @@
 	<array>
 		<string>UNIX conformance.</string>
 		<string>EA support.</string>
+		<string>CAN-2005-0758</string>
+		<string>CAN-2005-0988</string>
+		<string>CAN-2005-1228</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

@@ -23,15 +23,16 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "fixes.h"
 #include "symbols.h"
 #include "input-scrub.h"
+#include <mach-o/x86_64/reloc.h>
 
 /*
  * fix_new() creates a fixS in obstack 'notes'.
  */
-void
+fixS *
 fix_new(
 fragS	*frag,		/* which frag? */
 int	where,		/* where in that frag? */
-int	size,		/* 1, 2 or 4 bytes */
+int	size,		/* 1, 2, 4 or 8 bytes */
 symbolS *add_symbol,	/* X_add_symbol */
 symbolS *sub_symbol,	/* X_subtract_symbol */
 	signed_target_addr_t
@@ -53,8 +54,41 @@ int	r_type)		/* relocation type */
 	fixP->fx_pcrel       = pcrel;
 	fixP->fx_pcrel_reloc = pcrel_reloc;
 	fixP->fx_r_type      = r_type;
+#if defined(I386) && defined(ARCH64)
+	if(fixP->fx_r_type == X86_64_RELOC_SIGNED){
+		switch(offset){
+			case -1:
+				fixP->fx_r_type = X86_64_RELOC_SIGNED_1;
+				break;
+			case -2:
+				fixP->fx_r_type = X86_64_RELOC_SIGNED_2;
+				break;
+			case -4:
+				fixP->fx_r_type = X86_64_RELOC_SIGNED_4;
+				break;
+			default:
+				break;
+		}
+	}
+	if(fixP->fx_r_type == X86_64_RELOC_GOT ||
+	   fixP->fx_r_type == X86_64_RELOC_GOT_LOAD){
+		/*
+		 * GOT and GOT_LOAD relocs are always PC-relative and
+		 * should not be converted to non-PC-relative addressing
+		 * later.
+		 */
+		fixP->fx_pcrel = TRUE;
+		fixP->fx_pcrel_reloc = TRUE;
+	}
+	/* We don't need this for non-local symbols, but it doesn't hurt. */
+	fixP->fx_localsy = symbol_new("L0\002", N_SECT, frchain_now->frch_nsect,
+	                              0, where, frag);
+	symbol_assign_index(fixP->fx_localsy);
+#endif
 	as_file_and_line (&fixP->file, &fixP->line);
 
 	fixP->fx_next              = frchain_now->frch_fix_root;
 	frchain_now->frch_fix_root = fixP;
+	
+	return fixP;
 }

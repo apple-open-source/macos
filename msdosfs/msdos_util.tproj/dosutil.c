@@ -102,7 +102,7 @@
 #define DEV_OPT				"dev"
 #define NODEV_OPT			"nodev"
 #define LABEL_LENGTH		11
-#define MAX_DOS_BLOCKSIZE	2048
+#define MAX_DOS_BLOCKSIZE	4096
 
 #define FSUC_LABEL		'n'
 
@@ -300,7 +300,7 @@ static int fs_probe(char *devpath, int removable, int writable)
      * Read the boot sector of the filesystem, and then check the
      * boot signature.  If not a dos boot sector then error out.
      *
-     * NOTE: 2048 is a maximum sector size in current...
+     * NOTE: 4096 is a maximum sector size in current...
      */
     safe_read(fd, buf, MAX_DOS_BLOCKSIZE, 0);
 
@@ -326,9 +326,9 @@ static int fs_probe(char *devpath, int removable, int writable)
     /* It is possible that the above check could match a partition table, or some */
     /* non-FAT disk meant to boot a PC.  Check some more fields for sensible values. */
 
-    /* We only work with 512, 1024, and 2048 byte sectors */
+    /* We only work with 512, 1024, 2048 and 4096 byte sectors */
     bps = getushort(b33->bpbBytesPerSec);
-    if ((bps < 0x200) || (bps & (bps - 1)) || (bps > 0x800))
+    if ((bps < 0x200) || (bps & (bps - 1)) || (bps > MAX_DOS_BLOCKSIZE))
 	{
         return(FSUR_UNRECOGNIZED);
 	}
@@ -545,7 +545,7 @@ static int fs_label(char *devpath, char *volName)
          * Read the boot sector of the filesystem, and then check the
          * boot signature.  If not a dos boot sector then error out.
          *
-         * NOTE: 2048 is a maximum sector size in current...
+         * NOTE: 4096 is a maximum sector size in current...
          */
         safe_read(fd, buf, MAX_DOS_BLOCKSIZE, 0);
 
@@ -560,9 +560,9 @@ static int fs_label(char *devpath, char *volName)
 
         /* Both partitions tables and boot sectors pass the above test, do do some more */
 
-        /* We only work with 512, 1024, and 2048 byte sectors */
+        /* We only work with 512, 1024, 2048, and 4096 byte sectors */
         bps = getushort(b33->bpbBytesPerSec);
-        if ((bps < 0x200) || (bps & (bps - 1)) || (bps > 0x800))
+        if ((bps < 0x200) || (bps & (bps - 1)) || (bps > MAX_DOS_BLOCKSIZE))
                 return(FSUR_UNRECOGNIZED);
 
         /* Check to make sure valid sectors per cluster */

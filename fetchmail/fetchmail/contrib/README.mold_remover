@@ -1,0 +1,31 @@
+Mold Remover
+
+Mold Remover is a short python script which integrates with fetchmail 
+<http://fetchmail.berlios.de/> and allows the user to specify the 
+number of days that mail should remain on the pop3 server before being 
+deleted. 
+
+It is released under the GNU GPL <http://www.gnu.org/copyleft/gpl.html>.
+
+Usage: 
+Set up fetchmail to run with keep and uidl options.
+Edit the mold_remover.py file to specify the mailserver address
+and login/password details. Also specify the UIDL file created by
+fetchmail (this is created automatically by fetchmail when uidl option
+is selected in the fetchmailrc file usually at
+/var/mail/.fetchmail-UIDL-cache). Remember to chmod the moldremover
+script to 700 so that passwords cannot be read. Next, edit the field to
+set how many days you want the mail to be left on the server. Lastly
+create a script to run moldremover.py with python which can either be
+run as a cron job or as part of your connection script. It is advisable
+to stop fetchmail before mold remover is run and then to restart
+fetchmail afterwards. Here is an example /etc/cron.daily/ script:
+
+#!/bin/bash
+/etc/init.d/fetchmail stop >> /var/log/messages
+/usr/bin/python /usr/local/bin/mold_remover.py >> /var/log/messages
+/etc/init.d/fetchmail start >> /var/log/messages
+
+Please feel free to email me (jmstone@dsl.pipex.com) if you have any questions or bugfixes!
+
+James Stone

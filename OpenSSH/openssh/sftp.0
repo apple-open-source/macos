@@ -22,8 +22,7 @@ DESCRIPTION
      active authentication method is used; otherwise it will do so after suc-
      cessful interactive authentication.
 
-     The third usage format allows the sftp client to start in a remote direc-
-     tory.
+     The third usage format allows sftp to start in a remote directory.
 
      The final usage format allows for automated sessions using the -b option.
      In such cases, it is usually necessary to configure public key authenti-
@@ -72,10 +71,13 @@ DESCRIPTION
                    Compression
                    CompressionLevel
                    ConnectionAttempts
-                   ConnectionTimeout
+                   ConnectTimeout
+                   ControlMaster
+                   ControlPath
                    GlobalKnownHostsFile
                    GSSAPIAuthentication
                    GSSAPIDelegateCredentials
+                   HashKnownHosts
                    Host
                    HostbasedAuthentication
                    HostKeyAlgorithms
@@ -83,6 +85,7 @@ DESCRIPTION
                    HostName
                    IdentityFile
                    IdentitiesOnly
+                   KbdInteractiveDevices
                    LogLevel
                    MACs
                    NoHostAuthenticationForLocalhost
@@ -95,6 +98,7 @@ DESCRIPTION
                    PubkeyAuthentication
                    RhostsRSAAuthentication
                    RSAAuthentication
+                   SendEnv
                    ServerAliveInterval
                    ServerAliveCountMax
                    SmartcardDevice
@@ -106,7 +110,7 @@ DESCRIPTION
                    VerifyHostKeyDNS
 
      -P sftp_server_path
-             Connect directly to a local sftp server (rather than via ssh(1))
+             Connect directly to a local sftp server (rather than via ssh(1)).
              This option may be useful in debugging the client and server.
 
      -R num_requests
@@ -128,94 +132,134 @@ DESCRIPTION
 
 INTERACTIVE COMMANDS
      Once in interactive mode, sftp understands a set of commands similar to
-     those of ftp(1).  Commands are case insensitive and pathnames may be en-
-     closed in quotes if they contain spaces.
+     those of ftp(1).  Commands are case insensitive.  Pathnames that contain
+     spaces must be enclosed in quotes.  Any special characters contained
+     within pathnames that are recognized by glob(3) must be escaped with
+     backslashes (`\').
 
-     bye         Quit sftp.
+     bye     Quit sftp.
 
-     cd path     Change remote directory to path.
+     cd path
+             Change remote directory to path.
 
      chgrp grp path
-                 Change group of file path to grp.  grp must be a numeric GID.
+             Change group of file path to grp.  path may contain glob(3) char-
+             acters and may match multiple files.  grp must be a numeric GID.
 
      chmod mode path
-                 Change permissions of file path to mode.
+             Change permissions of file path to mode.  path may contain
+             glob(3) characters and may match multiple files.
 
      chown own path
-                 Change owner of file path to own.  own must be a numeric UID.
+             Change owner of file path to own.  path may contain glob(3) char-
+             acters and may match multiple files.  own must be a numeric UID.
 
-     exit        Quit sftp.
+     exit    Quit sftp.
 
-     get [flags] remote-path [local-path]
-                 Retrieve the remote-path and store it on the local machine.
-                 If the local path name is not specified, it is given the same
-                 name it has on the remote machine.  If the -P flag is speci-
-                 fied, then the file's full permission and access time are
-                 copied too.
+     get [-P] remote-path [local-path]
+             Retrieve the remote-path and store it on the local machine.  If
+             the local path name is not specified, it is given the same name
+             it has on the remote machine.  remote-path may contain glob(3)
+             characters and may match multiple files.  If it does and local-
+             path is specified, then local-path must specify a directory.  If
+             the -P flag is specified, then full file permissions and access
+             times are copied too.
 
-     help        Display help text.
+     help    Display help text.
 
-     lcd path    Change local directory to path.
+     lcd path
+             Change local directory to path.
 
      lls [ls-options [path]]
-                 Display local directory listing of either path or current di-
-                 rectory if path is not specified.
+             Display local directory listing of either path or current direc-
+             tory if path is not specified.  ls-options may contain any flags
+             supported by the local system's ls(1) command.  path may contain
+             glob(3) characters and may match multiple files.
 
      lmkdir path
-                 Create local directory specified by path.
+             Create local directory specified by path.
 
      ln oldpath newpath
-                 Create a symbolic link from oldpath to newpath.
+             Create a symbolic link from oldpath to newpath.
 
-     lpwd        Print local working directory.
+     lpwd    Print local working directory.
 
-     ls [flags] [path]
-                 Display remote directory listing of either path or current
-                 directory if path is not specified.  If the -l flag is speci-
-                 fied, then display additional details including permissions
-                 and ownership information.
+     ls [-1aflnrSt] [path]
+             Display a remote directory listing of either path or the current
+             directory if path is not specified.  path may contain glob(3)
+             characters and may match multiple files.
+
+             The following flags are recognized and alter the behaviour of ls
+             accordingly:
+
+             -1      Produce single columnar output.
+
+             -a      List files beginning with a dot (`.').
+
+             -f      Do not sort the listing.  The default sort order is lexi-
+                     cographical.
+
+             -l      Display additional details including permissions and own-
+                     ership information.
+
+             -n      Produce a long listing with user and group information
+                     presented numerically.
+
+             -r      Reverse the sort order of the listing.
+
+             -S      Sort the listing by file size.
+
+             -t      Sort the listing by last modification time.
 
      lumask umask
-                 Set local umask to umask.
+             Set local umask to umask.
 
-     mkdir path  Create remote directory specified by path.
+     mkdir path
+             Create remote directory specified by path.
 
-     progress    Toggle display of progress meter.
+     progress
+             Toggle display of progress meter.
 
-     put [flags] local-path [remote-path]
-                 Upload local-path and store it on the remote machine.  If the
-                 remote path name is not specified, it is given the same name
-                 it has on the local machine.  If the -P flag is specified,
-                 then the file's full permission and access time are copied
-                 too.
+     put [-P] local-path [remote-path]
+             Upload local-path and store it on the remote machine.  If the re-
+             mote path name is not specified, it is given the same name it has
+             on the local machine.  local-path may contain glob(3) characters
+             and may match multiple files.  If it does and remote-path is
+             specified, then remote-path must specify a directory.  If the -P
+             flag is specified, then the file's full permission and access
+             time are copied too.
 
-     pwd         Display remote working directory.
+     pwd     Display remote working directory.
 
-     quit        Quit sftp.
+     quit    Quit sftp.
 
      rename oldpath newpath
-                 Rename remote file from oldpath to newpath.
+             Rename remote file from oldpath to newpath.
 
-     rm path     Delete remote file specified by path.
+     rm path
+             Delete remote file specified by path.
 
-     rmdir path  Remove remote directory specified by path.
+     rmdir path
+             Remove remote directory specified by path.
 
      symlink oldpath newpath
-                 Create a symbolic link from oldpath to newpath.
+             Create a symbolic link from oldpath to newpath.
 
-     version     Display the sftp protocol version.
+     version
+             Display the sftp protocol version.
 
-     ! command   Execute command in local shell.
+     ! command
+             Execute command in local shell.
 
-     !           Escape to local shell.
+     !       Escape to local shell.
 
-     ?           Synonym for help.
+     ?       Synonym for help.
 
 SEE ALSO
-     ftp(1), scp(1), ssh(1), ssh-add(1), ssh-keygen(1), ssh_config(5),
-     sftp-server(8), sshd(8)
+     ftp(1), ls(1), scp(1), ssh(1), ssh-add(1), ssh-keygen(1), glob(3),
+     ssh_config(5), sftp-server(8), sshd(8)
 
      T. Ylonen and S. Lehtinen, SSH File Transfer Protocol, draft-ietf-secsh-
      filexfer-00.txt, January 2001, work in progress material.
 
-OpenBSD 3.5                    February 4, 2001                              4
+OpenBSD 3.8                    February 4, 2001                              4

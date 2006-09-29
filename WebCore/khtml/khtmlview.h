@@ -233,6 +233,7 @@ public:
 
     void ref() { ++_refCount; }
     void deref() { if (!--_refCount) delete this; }
+    bool hasOneRef() { return _refCount==1; }
     
 protected slots:
     void slotPaletteChanged();

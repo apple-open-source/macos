@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2005-1-6</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceProject</key>
+	<string>samba</string>
+	<key>OpenSourceURL</key>
+	<string>http://us1.samba.org/samba/ftp/samba-3.0.10.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>3.0.10</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.samba.org/</string>
+</dict>
+</plist>

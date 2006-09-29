@@ -78,7 +78,7 @@ my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
 {
     CFIndex		l;
     CFRange		range;
-    char *		str;
+    uint8_t *		str;
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
     CFStringGetBytes(cfstr, range, encoding,
@@ -86,11 +86,10 @@ my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
     if (l <= 0) {
 	return (NULL);
     }
-    str = malloc(l + 1);
-    CFStringGetBytes(cfstr, range, encoding,
-		     0, FALSE, str, l, &l);
+    str = (uint8_t *)malloc(l + 1);
+    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, str, l, &l);
     str[l] = '\0';
-    return (str);
+    return ((char *)str);
 }
 
 static void *
@@ -166,7 +165,7 @@ my_CFPropertyListCreateFromFile(char * filename)
     if (buf == NULL) {
 	return (NULL);
     }
-    data = CFDataCreateWithBytesNoCopy(NULL, buf, bufsize, kCFAllocatorNull);
+    data = CFDataCreate(NULL, buf, bufsize);
     if (data == NULL) {
 	goto done;
     }

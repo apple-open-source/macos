@@ -300,8 +300,8 @@ msdosfs_meta_flush(struct msdosfsmount *pmp)
 	struct msdosfs_meta_flush_args args;
 	
 	args.sync = (pmp->pm_flags & MSDOSFSMNT_WAITONFAT) != 0;
-	args.fat_start = pmp->pm_ResSectors + pmp->pm_curfat * pmp->pm_FATsecs;
-	args.fat_end = args.fat_start + pmp->pm_FATsecs;
+	args.fat_start = pmp->pm_ResSectors + pmp->pm_curfat * pmp->pm_FATsecs * pmp->pm_BlocksPerSec;
+	args.fat_end = args.fat_start + pmp->pm_FATsecs * pmp->pm_BlocksPerSec;
 	
 	/*
 	 * NOTE: we want the root directory to be flushed.  So, on FAT12
@@ -657,7 +657,7 @@ updatefats(pmp, bp, fatbn, context)
 		 * buf_bwrite()'s and really slow things down.
 		 */
 		for (i = 1; i < pmp->pm_FATs; i++) {
-			fatbn += pmp->pm_FATsecs;
+			fatbn += (pmp->pm_FATsecs * pmp->pm_BlocksPerSec);
 			/* buf_getblk() never fails */
 			bpn = buf_getblk(pmp->pm_devvp, fatbn, buf_count(bp), 0, 0, BLK_META);
 			bcopy((char *)buf_dataptr(bp), (char *)buf_dataptr(bpn), buf_count(bp));

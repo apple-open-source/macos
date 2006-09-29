@@ -32,6 +32,7 @@
 #include "sslMemory.h"
 #include "sslAlertMessage.h"
 #include "sslDebug.h"
+#include "cipherSpecs.h"
 
 #include <assert.h>
 #include <string.h>
@@ -66,6 +67,32 @@ SSLProcessChangeCipherSpec(SSLRecord rec, SSLContext *ctx)
         return errSSLProtocol;
     }
     
+	/* 
+	 * Handle PAC-style session resumption, client side only.
+	 * In that case, the handshake state was left in either KeyExchange or
+	 * Cert.
+	 */
+	if((ctx->protocolSide == SSL_ClientSide) &&
+	   (ctx->sessionTicket.length != 0) &&
+	   ((ctx->state == SSL_HdskStateKeyExchange) || (ctx->state == SSL_HdskStateCert)) &&
+	   (ctx->masterSecretCallback != NULL)) {
+		size_t secretLen = SSL_MASTER_SECRET_SIZE;
+		sslEapDebug("Client side resuming based on masterSecretCallback");
+		ctx->masterSecretCallback(ctx, ctx->masterSecretArg,
+			ctx->masterSecret, &secretLen);
+		ctx->sessionMatch = 1;
+
+		/* set up selectedCipherSpec */
+		if ((err = FindCipherSpec(ctx)) != 0) {
+			return err;
+		}
+		if((err = SSLInitPendingCiphers(ctx)) != 0) {
+			SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
+			return err;
+		}
+		SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
+	}
+
     if (!ctx->readPending.ready || ctx->state != SSL_HdskStateChangeCipherSpec)
     {   SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
     	sslErrorLog("***bad changeCipherSpec msg: readPending.ready %d state %d\n",

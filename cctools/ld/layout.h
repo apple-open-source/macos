@@ -73,6 +73,17 @@ struct cksum_info {
 __private_extern__ struct cksum_info output_cksum_info;
 
 /*
+ * The output file's uuid load command.
+ */
+struct uuid_info {
+    enum bool suppress;	/* suppress when -no_uuid is specified */
+    enum bool emit;	/* TRUE if any input file has a debug section or
+			   an LC_UUID load command */
+    struct uuid_command uuid_command;
+};
+__private_extern__ struct uuid_info output_uuid_info;
+
+/*
  * The output file's thread load command and the machine specific information
  * for it.
  */

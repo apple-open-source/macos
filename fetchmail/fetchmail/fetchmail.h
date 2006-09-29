@@ -1,3 +1,6 @@
+/** \file fetchmail.h  header file for fetchmail */
+#ifndef _FETCHMAIL_H
+#define _FETCHMAIL_H
 /*
  * For license terms, see the file COPYING in this directory.
  */
@@ -7,6 +10,30 @@
 
 /* We need this for size_t */
 #include <sys/types.h>
+
+/* We need this for time_t */
+#if TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# if HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
+
+#include <stdio.h>
+
+/* Import Trio if needed */
+#if !defined(HAVE_SNPRINTF) || !defined(HAVE_VSNPRINTF)
+#  include "trio/trio.h"
+#endif
+
+/* We need this for strstr */
+#if !defined(HAVE_STRSTR) && !defined(strstr)
+char *strstr(const char *, const char *);
+#endif
 
 /* constants designating the various supported protocols */
 #define		P_AUTO		1
@@ -18,13 +45,9 @@
 #define		P_ETRN		7
 #define		P_ODMR		8
 
-#if INET6_ENABLE
 #define		SMTP_PORT	"smtp"
+#define		SMTP_PORT_NUM	25
 #define		KPOP_PORT	"kpop"
-#else /* INET6_ENABLE */
-#define		SMTP_PORT	25
-#define		KPOP_PORT	1109
-#endif /* INET6_ENABLE */
 
 #ifdef SSL_ENABLE
 #define		SIMAP_PORT	993
@@ -48,9 +71,17 @@
 #define		A_KERBEROS_V5	6	/* authenticate w/ Kerberos V5 */
 #define 	A_GSSAPI	7	/* authenticate with GSSAPI */
 #define		A_SSH		8	/* authentication at session level */
+#define		A_MSN		9	/* same as NTLM with keyword MSN */
 
-/* some protocols (KERBEROS, GSSAPI, SSH) don't require a password */
-#define NO_PASSWORD(ctl)	((ctl)->server.authenticate > A_OTP || (ctl)->server.protocol == P_ETRN)
+/* some protocols or authentication types (KERBEROS, GSSAPI, SSH) don't
+ * require a password */
+#define NO_PASSWORD(ctl) \
+    ((ctl)->server.authenticate == A_OTP \
+     || (ctl)->server.authenticate == A_KERBEROS_V4 \
+     || (ctl)->server.authenticate == A_KERBEROS_V5 \
+     || (ctl)->server.authenticate == A_GSSAPI \
+     || (ctl)->server.authenticate == A_SSH \
+     || (ctl)->server.protocol == P_ETRN)
 
 /*
  * Definitions for buffer sizes.  We get little help on setting maxima
@@ -126,15 +157,17 @@ typedef	char	flag;
 #define FLAG_TRUE	2
 #define FLAG_FALSE	1
 
+/** run control data */
 struct runctl
 {
-    char	*logfile;
-    char	*idfile;
-    int		poll_interval;
+    char	*logfile;	/** where to write log information */
+    char	*idfile;	/** where to store UID data */
+    char	*pidfile;	/** where to record the PID of daemon mode processes */
     char	*postmaster;
+    char	*properties;
+    int		poll_interval;
     flag	bouncemail;
     flag	spambounce;
-    char	*properties;
     flag	use_syslog;
     flag	invisible;
     flag	showdots;
@@ -142,7 +175,7 @@ struct runctl
 
 struct idlist
 {
-    unsigned char *id;
+    char *id;
     union
     {
 	struct
@@ -155,7 +188,7 @@ struct idlist
 #define UID_EXPUNGED	3		/* this message has been expunged */ 
         }
 	status;
-	unsigned char *id2;
+	char *id2;
     } val;
     struct idlist *next;
 };
@@ -165,13 +198,8 @@ struct query;
 struct method		/* describe methods for protocol state machine */
 {
     const char *name;		/* protocol name */
-#if INET6_ENABLE
-    const char *service;
-    const char *sslservice;
-#else /* INET6_ENABLE */
-    int	port;			/* service port */
-    int	sslport;		/* service port for ssl */
-#endif /* INET6_ENABLE */
+    const char *service;	/* service port (unencrypted) */
+    const char *sslservice;	/* service port (SSL) */
     flag tagged;		/* if true, generate & expect command tags */
     flag delimited;		/* if true, accept "." message delimiter */
     int (*parse_response)(int, char *);
@@ -190,12 +218,14 @@ struct method		/* describe methods for protocol state machine */
 				/* fetch FROM headera given message */
     int (*fetch_body)(int, struct query *, int, int *);
 				/* fetch a given message */
-    int (*trail)(int, struct query *, int);
+    int (*trail)(int, struct query *, const char *);
 				/* eat trailer of a message */
-    int (*delete)(int, struct query *, int);
+    int (*delete_msg)(int, struct query *, int);
 				/* delete method */
     int (*mark_seen)(int, struct query *, int);
 				/* mark as seen method */
+    int (*end_mailbox_poll)(int, struct query *);
+				/* end-of-mailbox processing */
     int (*logout_cmd)(int, struct query *);
 				/* logout command */
     flag retry;			/* can getrange poll for new messages? */
@@ -209,12 +239,7 @@ struct hostdata		/* shared among all user connections to given server */
     struct idlist *akalist;		/* server name first, then akas */
     struct idlist *localdomains;	/* list of pass-through domains */
     int protocol;			/* protocol type */
-#if INET6_ENABLE
-    char *service;			/* IPv6 service name */
-    void *netsec;			/* IPv6 security request */
-#else /* INET6_ENABLE */
-    int port;				/* TCP/IP service port number */
-#endif /* INET6_ENABLE */
+    char *service;			/* service name */
     int interval;			/* # cycles to skip between polls */
     int authenticate;			/* authentication mode to try */
     int timeout;			/* inactivity timout in seconds */
@@ -227,16 +252,21 @@ struct hostdata		/* shared among all user connections to given server */
 #ifdef SDPS_ENABLE
     flag sdps;				/* use Demon Internet SDPS *ENV */
 #endif /* SDPS_ENABLE */
-    flag checkalias;                  	/* resolve aliases by comparing IPs? */
+    flag checkalias;			/* resolve aliases by comparing IPs? */
+    flag tracepolls;			/* if TRUE, add poll trace info to Received */
     char *principal;			/* Kerberos principal for mail service */
     char *esmtp_name, *esmtp_password;	/* ESMTP AUTH information */
 
 #if defined(linux) || defined(__FreeBSD__)
+#define CAN_MONITOR
+#endif
+
+#ifdef CAN_MONITOR
     char *interface;
     char *monitor;
     int  monitor_io;
     struct interface_pair_s *interface_pair;
-#endif /* linux */
+#endif
 
     char *plugin,*plugout;
 
@@ -245,10 +275,19 @@ struct hostdata		/* shared among all user connections to given server */
     int poll_count;			/* count of polls so far */
     char *queryname;			/* name to attempt DNS lookup on */
     char *truename;			/* "true name" of server host */
-    char *trueaddr;                     /* IP address of truename, as char */
+    struct sockaddr *trueaddr;		/* IP address of truename */
+    size_t trueaddr_len;		/* size of trueaddr data */
     struct hostdata *lead_server;	/* ptr to lead query for this server */
     int esmtp_options;
+    int workarounds;			/* track which workarounds the user was warned about */
 };
+
+/*
+ * bit flags to set in workarounds after the corresponding warning,
+ * which we assume to be server-specific, has been printed,
+ * so we don't spam our users in daemon mode.
+ */
+#define WKA_TOP (1L << 0)		/* Maillennium TOP -> RETR override warning */
 
 struct query
 {
@@ -280,6 +319,7 @@ struct query
     flag keep;			/* if TRUE, leave messages undeleted */
     flag fetchall;		/* if TRUE, fetch all (not just unseen) */
     flag flush;			/* if TRUE, delete messages already seen */
+    flag limitflush;		/* if TRUE, delete oversized mails */
     flag rewrite;		/* if TRUE, canonicalize recipient addresses */
     flag stripcr;		/* if TRUE, strip CRs in text */
     flag forcecr;		/* if TRUE, force CRs before LFs in text */
@@ -304,23 +344,24 @@ struct query
     flag sslcertck;		/* Strictly check the server cert. */
     char *sslfingerprint;	/* Fingerprint to check against */
     char *properties;		/* passthrough properties for extensions */
-    flag tracepolls;		/* if TRUE, add poll trace info to Received */
 
     /* internal use -- per-poll state */
     flag active;		/* should we actually poll this server? */
-    const char *destaddr;	/* destination host for this query */
+    char *destaddr;		/* destination host for this query */
     int errcount;		/* count transient errors in last pass */
     int authfailcount;		/* count of authorization failures */
     int wehaveauthed;		/* We've managed to logon at least once! */
     int wehavesentauthnote;	/* We've sent an authorization failure note */
     int wedged;			/* wedged by auth failures or timeouts? */
     char *smtphost;		/* actual SMTP host we connected to */
+    char smtphostmode;		/* what's the actual SMTP host's wire protocol? */
     int smtp_socket;		/* socket descriptor for SMTP connection */
     unsigned int uid;		/* UID of user to deliver to */
     struct idlist *skipped;	/* messages skipped on the mail server */
     struct idlist *oldsaved, *newsaved;
     struct idlist **oldsavedend;
     char lastdigest[DIGESTLEN];	/* last MD5 hash seen on this connection */
+    char *folder;		/* folder currently being polled */
 
     /* internal use -- per-message state */
     int mimemsg;		/* bitmask indicating MIME body-type */
@@ -384,6 +425,7 @@ extern flag peek_capable;	/* can we read msgs without setting seen? */
 extern struct runctl run;	/* global controls for this run */
 extern flag nodetach;		/* if TRUE, don't detach daemon process */
 extern flag quitmode;		/* if --quit was set */
+extern int  quitind;		/* optind after position of last --quit option */
 extern flag check_only;		/* if --check was set */
 extern char *rcfile;		/* path name of rc file */
 extern int linelimit;		/* limit # lines retrieved per site */
@@ -400,6 +442,11 @@ extern char shroud[PASSWORDLEN*2+3];	/* string to shroud in debug output */
 extern char *sdps_envfrom;
 extern char *sdps_envto;
 #endif /* SDPS_ENABLE */
+
+extern const char *iana_charset;	/* IANA assigned charset name */
+
+/* from ucs/norm_charmap.c */
+const char *norm_charmap(const char *name);
 
 /* prototypes for globally callable functions */
 
@@ -432,7 +479,7 @@ void report_at_line ();
 
 /* driver.c -- main driver loop */
 void set_timeout(int);
-int isidletimeout(void);
+int is_idletimeout(void);
 void resetidletimeout(void);
 int do_protocol(struct query *, const struct method *);
 
@@ -460,12 +507,6 @@ int gen_transact();
 #endif
 extern struct msgblk msgblk;
 
-/* lock.c: concurrency locking */
-void lock_setup(void), lock_assert(void);
-void lock_or_die(void), lock_do_release(void);
-int lock_state(void);
-void lock_dispose(void);
-
 /* use these to track what was happening when the nonresponse timer fired */
 #define GENERAL_WAIT	0	/* unknown wait type */
 #define OPEN_WAIT	1	/* waiting from mailserver open */
@@ -492,6 +533,7 @@ extern int mytimeout;
 
 /* idle.c */
 int interruptible_idle(int interval);
+extern volatile int lastsig;
 
 /* sink.c: forwarding */
 void smtp_close(struct query *, int);
@@ -501,10 +543,10 @@ int stuffline(struct query *, char *);
 int open_sink(struct query*, struct msgblk *, int*, int*);
 void release_sink(struct query *);
 int close_sink(struct query *, struct msgblk *, flag);
-int open_warning_by_mail(struct query *, struct msgblk *);
+int open_warning_by_mail(struct query *);
 #if defined(HAVE_STDARG_H)
-void stuff_warning(struct query *, const char *, ... )
-    __attribute__ ((format (printf, 2, 3)))
+void stuff_warning(const char *, struct query *, const char *, ... )
+    __attribute__ ((format (printf, 3, 4)))
     ;
 #else
 void stuff_warning();
@@ -512,8 +554,8 @@ void stuff_warning();
 void close_warning_by_mail(struct query *, struct msgblk *);
 
 /* rfc822.c: RFC822 header parsing */
-unsigned char *reply_hack(unsigned char *, const unsigned char *, int *);
-unsigned char *nxtaddr(const unsigned char *);
+char *reply_hack(char *, const char *, size_t *);
+char *nxtaddr(const char *);
 
 /* uid.c: UID support */
 extern int dofastuidl;
@@ -546,17 +588,17 @@ int prc_parse_file(const char *, const flag);
 int prc_filecheck(const char *, const flag);
 
 /* base64.c */
-void to64frombits(unsigned char *, const unsigned char *, int);
-int from64tobits(char *, const char *, int maxlen);
+void to64frombits(char *, const void *, int);
+int from64tobits(void *, const char *, int maxlen);
 
 /* unmime.c */
 /* Bit-mask returned by MimeBodyType */
 #define MSG_IS_7BIT       0x01
 #define MSG_IS_8BIT       0x02
 #define MSG_NEEDS_DECODE  0x80
-extern void UnMimeHeader(unsigned char *buf);
-extern int  MimeBodyType(unsigned char *hdrs, int WantDecode);
-extern int  UnMimeBodyline(unsigned char **buf, flag delimited, flag issoftline);
+extern void UnMimeHeader(char *buf);
+extern int  MimeBodyType(char *hdrs, int WantDecode);
+extern int  UnMimeBodyline(char **buf, flag delimited, flag issoftline);
 
 /* interface.c */
 void interface_init(void);
@@ -572,23 +614,8 @@ int interface_approve(struct hostdata *, flag domonitor);
 #endif
 XMALLOCTYPE *xmalloc(size_t);
 XMALLOCTYPE *xrealloc(/*@null@*/ XMALLOCTYPE *, size_t);
+#define xfree(p) { if (p) { free(p); } (p) = 0; }
 char *xstrdup(const char *);
-#if defined(HAVE_ALLOCA_H)
-#include <alloca.h>
-#else
-#ifdef _AIX
-#pragma alloca
-#endif
-#endif
-#define	xalloca(ptr, t, n)	if (!(ptr = (t) alloca(n)))\
-       {report(stderr, GT_("alloca failed")); exit(PS_UNDEFINED);}
-#if 0
-/*
- * This is a hack to help xgettext which cannot find strings in
- * macro definitions like the one for xalloca above.
- */
-static char *dummy = gettext_noop("alloca failed");
-#endif
 
 /* protocol driver and methods */
 int doPOP2 (struct query *); 
@@ -600,7 +627,7 @@ int doODMR (struct query *);
 /* authentication functions */
 int do_cram_md5(int sock, char *command, struct query *ctl, char *strip);
 int do_rfc1731(int sock, char *command, char *truename);
-int do_gssauth(int sock, char *command, char *hostname, char *username);
+int do_gssauth(int sock, char *command, char *service, char *hostname, char *username);
 int do_otp(int sock, char *command, struct query *ctl);
 
 /* miscellanea */
@@ -611,23 +638,33 @@ extern char currentwd[1024], rcfiledir[1024];
 struct query *hostalloc(struct query *); 
 int parsecmdline (int, char **, struct runctl *, struct query *);
 char *prependdir (const char *, const char *);
-char *MD5Digest (unsigned char *);
-void hmac_md5 (unsigned char *, size_t, unsigned char *, size_t, unsigned char *, size_t);
-int POP3_auth_rpa(unsigned char *, unsigned char *, int socket);
+char *MD5Digest (unsigned const char *);
+void hmac_md5 (char *, size_t, char *, size_t, unsigned char *, size_t);
+int POP3_auth_rpa(char *, char *, int socket);
 typedef RETSIGTYPE (*SIGHANDLERTYPE) (int);
 void deal_with_sigchld(void);
 RETSIGTYPE null_signal_handler(int sig);
 SIGHANDLERTYPE set_signal_handler(int sig, SIGHANDLERTYPE handler);
-int daemonize(const char *, void (*)(int));
+int daemonize(const char *);
 char *fm_getpassword(char *);
 void escapes(const char *, char *);
 char *visbuf(const char *);
 const char *showproto(int);
 void dump_config(struct runctl *runp, struct query *querylist);
 int is_host_alias(const char *, struct query *);
-char *host_fqdn(void);
+
+/** Try to obtain fully qualified hostname of current host. Exit with
+ * PS_DNS if \a required is true and there is a DNS error. Exit with
+ * PS_DNS if gethostname() fails, independent of the value of \a
+ * required.
+ * \return
+ * - fully qualified hostname if \a required is non-zero.
+ * - unqualified or fully qualified hostname if \a required is zero (0).
+ */
+char *host_fqdn(int required /** exit with PS_DNS if the name cannot be qualified */);
 char *rfc822timestamp(void);
-flag isafile(int);
+flag is_a_file(int);
+char *rfc2047e(const char*, const char *);
 
 void yyerror(const char *);
 int yylex(void);
@@ -645,11 +682,11 @@ void itimerthread(void*);
 #define chdir _chdir2
 #endif /* _EMX_ */
 
-# if HAVE_STRERROR
-#  ifndef strerror		/* On some systems, strerror is a macro */
-char *strerror ();
+#ifdef HAVE_STRERROR
+#  if !defined(strerror) && !defined(HAVE_DECL_STRERROR)	/* On some systems, strerror is a macro */
+char *strerror (int);
 #  endif
-# endif /* HAVE_STRERROR */
+#endif /* HAVE_STRERROR */
 
 #define STRING_DISABLED	(char *)-1
 #define STRING_DUMMY	""
@@ -658,6 +695,10 @@ char *strerror ();
 #ifndef S_IXGRP
 #define S_IXGRP 0000010
 #endif
+#endif
+
+#ifndef HAVE_STPCPY
+char *stpcpy(char *, const char*);
 #endif
 
 #ifdef FETCHMAIL_DEBUG
@@ -678,4 +719,34 @@ char *strerror ();
 #define ROOT_UID 0
 #endif /* __CYGWIN__ */
 
+extern int mailserver_socket_temp;
+extern char *program_name;
+
+/* POSIX space characters,
+ * <tab>;<newline>;<vertical-tab>;<form-feed>;<carriage-return>;<space> */
+#define POSIX_space "\t\n\v\f\r "
+
+/* strlcpy/strlcat prototypes */
+#ifndef HAVE_STRLCAT
+size_t
+strlcat(char *dst, const char *src, size_t siz);
+#endif
+#ifndef HAVE_STRLCPY
+size_t
+strlcpy(char *dst, const char *src, size_t siz);
+#endif
+
+/** Resolve the a TCP service name or a string containing only a decimal
+ * positive integer to a port number. Returns -1 for error. */
+int servport(const char *service);
+
+#ifndef HAVE_GETNAMEINFO
+# define NI_NUMERICHOST	1
+# define NI_NUMERICSERV	2
+# define NI_NOFQDN	4
+# define NI_NAMEREQD	8
+# define NI_DGRAM	16
+#endif
+
+#endif
 /* fetchmail.h ends here */

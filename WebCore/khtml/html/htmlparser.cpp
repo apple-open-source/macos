@@ -31,6 +31,7 @@
 
 #include "dom/dom_exception.h"
 
+#include "KWQAssertions.h"
 #include "html/html_baseimpl.h"
 #include "html/html_blockimpl.h"
 #include "html/html_canvasimpl.h"
@@ -72,6 +73,7 @@ public:
     HTMLStackElem( int _id,
                    int _level,
                    DOM::NodeImpl *_node,
+                   bool _didRefNode,
                    HTMLStackElem * _next
         )
         :
@@ -79,13 +81,21 @@ public:
         level(_level),
         strayTableContent(false),
         node(_node),
+        didRefNode(_didRefNode),
         next(_next)
         { }
+    
+    void derefNode()
+    {
+        if (didRefNode)
+            node->deref();
+    }
 
     int       id;
     int       level;
     bool      strayTableContent;
     NodeImpl *node;
+    bool didRefNode;
     HTMLStackElem *next;
 };
 
@@ -113,7 +123,7 @@ public:
  *
  */
 KHTMLParser::KHTMLParser(KHTMLView *_parent, DocumentImpl *doc, bool includesComments) 
-    : current(0), currentIsReferenced(false), includesCommentsInDOM(includesComments)
+    : current(0), didRefCurrent(false), includesCommentsInDOM(includesComments)
 {
     //kdDebug( 6035 ) << "parser constructor" << endl;
 #if SPEED_DEBUG > 0
@@ -129,7 +139,7 @@ KHTMLParser::KHTMLParser(KHTMLView *_parent, DocumentImpl *doc, bool includesCom
 }
 
 KHTMLParser::KHTMLParser(DOM::DocumentFragmentImpl *i, DocumentImpl *doc, bool includesComments)
-    : current(0), currentIsReferenced(false), includesCommentsInDOM(includesComments)
+    : current(0), didRefCurrent(false), includesCommentsInDOM(includesComments)
 {
     HTMLWidget = 0;
     document = doc;
@@ -181,13 +191,13 @@ void KHTMLParser::reset()
 
 void KHTMLParser::setCurrent(DOM::NodeImpl *newCurrent) 
 {
-    bool newCurrentIsReferenced = newCurrent && newCurrent != doc();
-    if (newCurrentIsReferenced) 
+    bool didRefNewCurrent = newCurrent && newCurrent != doc();
+    if (didRefNewCurrent) 
 	newCurrent->ref(); 
-    if (currentIsReferenced) 
+    if (didRefCurrent) 
 	current->deref(); 
     current = newCurrent;
-    currentIsReferenced = newCurrentIsReferenced;
+    didRefCurrent = didRefNewCurrent;
 }
 
 void KHTMLParser::parseToken(Token *t)
@@ -318,8 +328,16 @@ bool KHTMLParser::insertNode(NodeImpl *n, bool flat)
             pushBlock(id, tagPriority(id));
             if (newNode == current)
                 popBlock(id);
-            else
-                setCurrent(newNode);
+            else {
+                // The pushBlock function transfers ownership of current to the block stack
+                // so we're guaranteed that didRefCurrent is false. The code below is an
+                // optimized version of setCurrent that takes advantage of that fact and also
+                // assumes that newNode is neither 0 nor a pointer to the document.
+                ASSERT(!didRefCurrent);
+                newNode->ref(); 
+                current = newNode;
+                didRefCurrent = true;
+            }
 #if SPEED_DEBUG < 2
             if(!n->attached() && HTMLWidget)
                 n->attach();
@@ -1151,7 +1169,9 @@ void KHTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
             HTMLStackElem* nextElem = currElem->next;
             if (!isResidualStyleTag(currElem->id)) {
                 prevElem->next = nextElem;
+                prevElem->derefNode();
                 prevElem->node = currElem->node;
+                prevElem->didRefNode = currElem->didRefNode;
                 delete currElem;
             }
             else
@@ -1174,9 +1194,13 @@ void KHTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
             if (isResidualStyleTag(currElem->node->id())) {
                 // Create a clone of this element.
                 currNode = currElem->node->cloneNode(false);
+                currNode->ref();
 
                 // Change the stack element's node to point to the clone.
+                // This adopts the reference we obtained above by calling ref().
+                currElem->derefNode();
                 currElem->node = currNode;
+                currElem->didRefNode = true;
                 
                 // Attach the previous node as a child of this new node.
                 if (prevNode)
@@ -1236,7 +1260,9 @@ void KHTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
         currElem = currElem->next;
     }
     prevElem->next = elem->next;
+    prevElem->derefNode();
     prevElem->node = elem->node;
+    prevElem->didRefNode = elem->didRefNode;
     delete elem;
     
     // Step 7: Reopen intermediate inlines, e.g., <b><p><i>Foo</b>Goo</p>.
@@ -1246,8 +1272,7 @@ void KHTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
     while (curr && curr != maxElem) {
         // We will actually schedule this tag for reopening
         // after we complete the close of this entire block.
-        NodeImpl* currNode = current;
-        if (isResidualStyleTag(curr->id)) {
+        if (isResidualStyleTag(curr->id))
             // We've overloaded the use of stack elements and are just reusing the
             // struct with a slightly different meaning to the variables.  Instead of chaining
             // from innermost to outermost, we build up a list of all the tags we need to reopen
@@ -1256,11 +1281,7 @@ void KHTMLParser::handleResidualStyleCloseTagAcrossBlocks(HTMLStackElem* elem)
             // We also set curr->node to be the actual element that corresponds to the ID stored in
             // curr->id rather than the node that you should pop to when the element gets pulled off
             // the stack.
-            popOneBlock(false);
-            curr->node = currNode;
-            curr->next = residualStyleStack;
-            residualStyleStack = curr;
-        }
+            moveOneBlockToStack(residualStyleStack);
         else
             popOneBlock();
 
@@ -1304,6 +1325,7 @@ void KHTMLParser::reopenResidualStyleTags(HTMLStackElem* elem, DOM::NodeImpl* ma
         
         // Advance to the next tag that needs to be reopened.
         HTMLStackElem* next = elem->next;
+        elem->derefNode();
         delete elem;
         elem = next;
     }
@@ -1311,9 +1333,9 @@ void KHTMLParser::reopenResidualStyleTags(HTMLStackElem* elem, DOM::NodeImpl* ma
 
 void KHTMLParser::pushBlock(int _id, int _level)
 {
-    HTMLStackElem *Elem = new HTMLStackElem(_id, _level, current, blockStack);
-
-    blockStack = Elem;
+    blockStack = new HTMLStackElem(_id, _level, current, didRefCurrent, blockStack);
+    didRefCurrent = false;
+    
     addForbidden(_id, forbiddenTag);
 }
 
@@ -1386,8 +1408,7 @@ void KHTMLParser::popBlock( int _id )
 
             // Schedule this tag for reopening
             // after we complete the close of this entire block.
-            NodeImpl* currNode = current;
-            if (isAffectedByStyle && isResidualStyleTag(Elem->id)) {
+            if (isAffectedByStyle && isResidualStyleTag(Elem->id))
                 // We've overloaded the use of stack elements and are just reusing the
                 // struct with a slightly different meaning to the variables.  Instead of chaining
                 // from innermost to outermost, we build up a list of all the tags we need to reopen
@@ -1396,11 +1417,7 @@ void KHTMLParser::popBlock( int _id )
                 // We also set Elem->node to be the actual element that corresponds to the ID stored in
                 // Elem->id rather than the node that you should pop to when the element gets pulled off
                 // the stack.
-                popOneBlock(false);
-                Elem->next = residualStyleStack;
-                Elem->node = currNode;
-                residualStyleStack = Elem;
-            }
+                moveOneBlockToStack(residualStyleStack);
             else
                 popOneBlock();
             Elem = blockStack;
@@ -1410,13 +1427,13 @@ void KHTMLParser::popBlock( int _id )
     reopenResidualStyleTags(residualStyleStack, malformedTableParent);
 }
 
-void KHTMLParser::popOneBlock(bool delBlock)
+inline HTMLStackElem* KHTMLParser::popOneBlockCommon()
 {
     HTMLStackElem *Elem = blockStack;
 
     // we should never get here, but some bad html might cause it.
 #ifndef PARSER_DEBUG
-    if(!Elem) return;
+    if (!Elem) return 0;
 #else
     kdDebug( 6035 ) << "popping block: " << getTagName(Elem->id).string() << "(" << Elem->id << ")" << endl;
 #endif
@@ -1438,13 +1455,47 @@ void KHTMLParser::popOneBlock(bool delBlock)
     removeForbidden(Elem->id, forbiddenTag);
 
     blockStack = Elem->next;
-    setCurrent(Elem->node);
+    current = Elem->node;
+    didRefCurrent = Elem->didRefNode;
 
     if (Elem->strayTableContent)
         inStrayTableContent--;
     
-    if (delBlock)
-        delete Elem;
+    return Elem;
+}
+
+void KHTMLParser::popOneBlock()
+{
+    // Store the current node before popOneBlockCommon overwrites it.
+    NodeImpl* lastCurrent = current;
+    bool didRefLastCurrent = didRefCurrent;
+    
+    delete popOneBlockCommon();
+    
+    if (didRefLastCurrent)
+        lastCurrent->deref();
+}
+
+void KHTMLParser::moveOneBlockToStack(HTMLStackElem*& head)
+{
+    // We'll be using the stack element we're popping, but for the current node.
+    // See the two callers for details.
+    
+    // Store the current node before popOneBlockCommon overwrites it.
+    NodeImpl* lastCurrent = current;
+    bool didRefLastCurrent = didRefCurrent;
+    
+    // Pop the block, but don't deref the current node as popOneBlock does because
+    // we'll be using the pointer in the new stack element.
+    HTMLStackElem* elem = popOneBlockCommon();
+    
+    // Transfer the current node into the stack element.
+    // No need to deref the old elem->node because popOneBlockCommon transferred
+    // it into the current/didRefCurrent fields.
+    elem->node = lastCurrent;
+    elem->didRefNode = didRefLastCurrent;
+    elem->next = head;
+    head = elem;
 }
 
 void KHTMLParser::popInlineBlocks()

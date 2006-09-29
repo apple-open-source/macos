@@ -33,7 +33,7 @@ static unsigned char unhex(unsigned char c)
       return 16;	/* invalid hex character */
 }
 
-static int qp_char(unsigned char c1, unsigned char c2, unsigned char *c_out)
+static int qp_char(unsigned char c1, unsigned char c2, char *c_out)
 {
   c1 = unhex(c1);
   c2 = unhex(c2);
@@ -59,7 +59,7 @@ static int qp_char(unsigned char c1, unsigned char c2, unsigned char *c_out)
 static const char MIMEHDR_INIT[]  = "=?";	/* Start of coded sequence */
 static const char MIMEHDR_END[]   = "?=";	/* End of coded sequence */
 
-void UnMimeHeader(unsigned char *hdr)
+void UnMimeHeader(char *hdr)
 {
   /* Decode a buffer containing data encoded according to RFC
    * 2047. This only handles content-transfer-encoding; conversion
@@ -75,8 +75,8 @@ void UnMimeHeader(unsigned char *hdr)
    */
 
   int  state = S_COPY_PLAIN;
-  unsigned char *p_in, *p_out, *p;
-  unsigned char enc = '\0';		/* initialization pacifies -Wall */
+  char *p_in, *p_out, *p;
+  char enc = '\0';		/* initialization pacifies -Wall */
   int  i;
 
   /* Speed up in case this is not a MIME-encoded header */
@@ -123,7 +123,7 @@ void UnMimeHeader(unsigned char *hdr)
 
 	/* *(p+1) is the transfer encoding, *(p+2) must be a '?' */
 	if (*(p+2) == '?') {
-	  enc = tolower(*(p+1));
+	  enc = tolower((unsigned char)*(p+1));
 	  p_in = p+3;
 	  state = S_COPY_MIME;
 	}
@@ -200,11 +200,11 @@ void UnMimeHeader(unsigned char *hdr)
 	 * There is more MIME data later on. Is there
          * whitespace  only before the delimiter? 
 	 */
-        unsigned char *q;
+        char *q;
         int  wsp_only = 1;
 
         for (q=p_in; (wsp_only && (q < p)); q++)
-          wsp_only = isspace(*q);
+          wsp_only = isspace((unsigned char)*q);
 
         if (wsp_only) {
 	  /* 
@@ -259,7 +259,7 @@ static int  CurrTypeNeedsDecode = 0;
  * at the beginning, and a terminating null.
  */
 #define MAX_DELIM_LEN 70
-static unsigned char MultipartDelimiter[MAX_DELIM_LEN+3];
+static char MultipartDelimiter[MAX_DELIM_LEN+3];
 
 
 /* This string replaces the "Content-Transfer-Encoding: quoted-printable"
@@ -267,15 +267,16 @@ static unsigned char MultipartDelimiter[MAX_DELIM_LEN+3];
  * must be no longer than the original string.
  */
 static const char ENC8BIT[] = "Content-Transfer-Encoding: 8bit";
-static void SetEncoding8bit(unsigned char *XferEncOfs)
+static void SetEncoding8bit(char *XferEncOfs)
 {
-  unsigned char *p;
+  char *p;
 
   if (XferEncOfs != NULL) {
      memcpy(XferEncOfs, ENC8BIT, sizeof(ENC8BIT) - 1);
 
      /* If anything left, in this header, replace with whitespace */
-     for (p=XferEncOfs+sizeof(ENC8BIT)-1; (*p >= ' '); p++) *p=' ';
+     for (p=XferEncOfs+sizeof(ENC8BIT)-1; ((unsigned char)*p >= ' '); p++)
+       *p=' ';
   }
 }
 
@@ -291,7 +292,7 @@ static char *GetBoundary(char *CntType)
   do {
     p2 = strchr(p1, ';'); 
     if (p2)
-      for (p2++; isspace(*p2); p2++);
+      for (p2++; isspace((unsigned char)*p2); p2++);
 
     p1 = p2;
   } while ((p1) && (strncasecmp(p1, "boundary", 8) != 0));
@@ -301,7 +302,7 @@ static char *GetBoundary(char *CntType)
     return NULL;
 
   /* Skip "boundary", whitespace and '='; check that we do have a '=' */
-  for (p1+=8, flag=0; (isspace(*p1) || (*p1 == '=')); p1++)
+  for (p1+=8, flag=0; (isspace((unsigned char)*p1) || (*p1 == '=')); p1++)
     flag |= (*p1 == '=');
   if (!flag)
     return NULL;
@@ -327,7 +328,7 @@ static char *GetBoundary(char *CntType)
 }
 
 
-int CheckContentType(char *CntType)
+static int CheckContentType(char *CntType)
 {
   /*
    * Static array of Content-Type's for which we will do
@@ -349,7 +350,7 @@ int CheckContentType(char *CntType)
   if (CntType == NULL) return 0;
 
   /* Skip whitespace, if any */
-  for (; isspace(*p); p++) ;
+  for (; isspace((unsigned char)*p); p++) ;
 
   for (i=0; 
        (DecodedTypes[i] && 
@@ -377,127 +378,131 @@ int CheckContentType(char *CntType)
  *
  * The return value is a bitmask.
  */
-int MimeBodyType(unsigned char *hdrs, int WantDecode)
+int MimeBodyType(char *hdrs, int WantDecode)
 {
-  unsigned char *NxtHdr = hdrs;
-  unsigned char *XferEnc, *XferEncOfs, *CntType, *MimeVer, *p;
-  int  HdrsFound = 0;     /* We only look for three headers */
-  int  BodyType;          /* Return value */ 
+    char *NxtHdr = hdrs;
+    char *XferEnc, *XferEncOfs, *CntType, *MimeVer, *p;
+    int  HdrsFound = 0;     /* We only look for three headers */
+    int  BodyType;          /* Return value */ 
 
-  /* Setup for a standard (no MIME, no QP, 7-bit US-ASCII) message */
-  MultipartDelimiter[0] = '\0';
-  CurrEncodingIsQP = CurrTypeNeedsDecode = 0;
-  BodyState = S_BODY_DATA;
-  BodyType = 0;
+    /* Setup for a standard (no MIME, no QP, 7-bit US-ASCII) message */
+    MultipartDelimiter[0] = '\0';
+    CurrEncodingIsQP = CurrTypeNeedsDecode = 0;
+    BodyState = S_BODY_DATA;
+    BodyType = 0;
 
-  /* Just in case ... */
-  if (hdrs == NULL)
+    /* Just in case ... */
+    if (hdrs == NULL)
+	return BodyType;
+
+    XferEnc = XferEncOfs = CntType = MimeVer = NULL;
+
+    do {
+	if (strncasecmp("Content-Transfer-Encoding:", NxtHdr, 26) == 0) {
+	    XferEncOfs = NxtHdr;
+	    p = nxtaddr(NxtHdr);
+	    if (p != NULL) {
+		xfree(XferEnc);
+		XferEnc = xstrdup(p);
+		HdrsFound++;
+	    }
+	}
+	else if (strncasecmp("Content-Type:", NxtHdr, 13) == 0) {
+	    /*
+	     * This one is difficult. We cannot use the standard
+	     * nxtaddr() routine, since the boundary-delimiter is
+	     * (probably) enclosed in quotes - and thus appears
+	     * as an rfc822 comment, and nxtaddr() "eats" up any
+	     * spaces in the delimiter. So, we have to do this
+	     * by hand.
+	     */
+
+	    /* Skip the "Content-Type:" part and whitespace after it */
+	    for (NxtHdr += 13; ((*NxtHdr == ' ') || (*NxtHdr == '\t')); NxtHdr++);
+
+	    /* 
+	     * Get the full value of the Content-Type header;
+	     * it might span multiple lines. So search for
+	     * a newline char, but ignore those that have a
+	     * have a TAB or space just after the NL (continued
+	     * lines).
+	     */
+	    p = NxtHdr-1;
+	    do {
+		p=strchr((p+1),'\n'); 
+	    } while ( (p != NULL) && ((*(p+1) == '\t') || (*(p+1) == ' ')) );
+	    if (p == NULL) p = NxtHdr + strlen(NxtHdr);
+
+	    xfree(CntType);
+	    CntType = xmalloc(p-NxtHdr+1);
+	    strlcpy(CntType, NxtHdr, p-NxtHdr+1);
+	    HdrsFound++;
+	}
+	else if (strncasecmp("MIME-Version:", NxtHdr, 13) == 0) {
+	    p = nxtaddr(NxtHdr);
+	    if (p != NULL) {
+		xfree(MimeVer);
+		MimeVer = xstrdup(p);
+		HdrsFound++;
+	    }
+	}
+
+	NxtHdr = (strchr(NxtHdr, '\n'));
+	if (NxtHdr != NULL) NxtHdr++;
+    } while ((NxtHdr != NULL) && (*NxtHdr) && (HdrsFound != 3));
+
+
+    /* Done looking through the headers, now check what they say */
+    if ((MimeVer != NULL) && (strcmp(MimeVer, "1.0") == 0)) {
+
+	CurrTypeNeedsDecode = CheckContentType(CntType);
+
+	/* Check Content-Type to see if this is a multipart message */
+	if ( (CntType != NULL) &&
+		((strncasecmp(CntType, "multipart/mixed", 16) == 0) ||
+		 (strncasecmp(CntType, "message/", 8) == 0)) ) {
+
+	    char *p1 = GetBoundary(CntType);
+
+	    if (p1 != NULL) {
+		/* The actual delimiter is "--" followed by 
+		   the boundary string */
+		strcpy(MultipartDelimiter, "--");
+		strlcat(MultipartDelimiter, p1, sizeof(MultipartDelimiter));
+		MultipartDelimiter[sizeof(MultipartDelimiter)-1] = '\0';
+		BodyType = (MSG_IS_8BIT | MSG_NEEDS_DECODE);
+	    }
+	}
+
+	/* 
+	 * Check Content-Transfer-Encoding, but
+	 * ONLY for non-multipart messages (BodyType == 0).
+	 */
+	if ((XferEnc != NULL) && (BodyType == 0)) {
+	    if (strcasecmp(XferEnc, "quoted-printable") == 0) {
+		CurrEncodingIsQP = 1;
+		BodyType = (MSG_IS_8BIT | MSG_NEEDS_DECODE);
+		if (WantDecode && CurrTypeNeedsDecode) {
+		    SetEncoding8bit(XferEncOfs);
+		}
+	    }
+	    else if (strcasecmp(XferEnc, "7bit") == 0) {
+		CurrEncodingIsQP = 0;
+		BodyType = (MSG_IS_7BIT);
+	    }
+	    else if (strcasecmp(XferEnc, "8bit") == 0) {
+		CurrEncodingIsQP = 0;
+		BodyType = (MSG_IS_8BIT);
+	    }
+	}
+
+    }
+
+    xfree(XferEnc);
+    xfree(CntType);
+    xfree(MimeVer);
+
     return BodyType;
-
-  XferEnc = XferEncOfs = CntType = MimeVer = NULL;
-
-  do {
-    if (strncasecmp("Content-Transfer-Encoding:", NxtHdr, 26) == 0) {
-      XferEncOfs = NxtHdr;
-      p = nxtaddr(NxtHdr);
-      if (p != NULL) {
-	xalloca(XferEnc, char *, strlen(p) + 1);
-	strcpy(XferEnc, p);
-	HdrsFound++;
-      }
-    }
-    else if (strncasecmp("Content-Type:", NxtHdr, 13) == 0) {
-      /*
-       * This one is difficult. We cannot use the standard
-       * nxtaddr() routine, since the boundary-delimiter is
-       * (probably) enclosed in quotes - and thus appears
-       * as an rfc822 comment, and nxtaddr() "eats" up any
-       * spaces in the delimiter. So, we have to do this
-       * by hand.
-       */
-
-      /* Skip the "Content-Type:" part and whitespace after it */
-      for (NxtHdr += 13; ((*NxtHdr == ' ') || (*NxtHdr == '\t')); NxtHdr++);
-
-      /* 
-       * Get the full value of the Content-Type header;
-       * it might span multiple lines. So search for
-       * a newline char, but ignore those that have a
-       * have a TAB or space just after the NL (continued
-       * lines).
-       */
-      p = NxtHdr-1;
-      do {
-        p=strchr((p+1),'\n'); 
-      } while ( (p != NULL) && ((*(p+1) == '\t') || (*(p+1) == ' ')) );
-      if (p == NULL) p = NxtHdr + strlen(NxtHdr);
-
-      xalloca(CntType, char *, p-NxtHdr+2);
-      strncpy(CntType, NxtHdr, (p-NxtHdr));
-      *(CntType+(p-NxtHdr)) = '\0';
-      HdrsFound++;
-    }
-    else if (strncasecmp("MIME-Version:", NxtHdr, 13) == 0) {
-      p = nxtaddr(NxtHdr);
-      if (p != NULL) {
-	xalloca(MimeVer, char *, strlen(p) + 1);
-	strcpy(MimeVer, p);
-	HdrsFound++;
-      }
-    }
-
-    NxtHdr = (strchr(NxtHdr, '\n'));
-    if (NxtHdr != NULL) NxtHdr++;
-  } while ((NxtHdr != NULL) && (*NxtHdr) && (HdrsFound != 3));
-
-
-  /* Done looking through the headers, now check what they say */
-  if ((MimeVer != NULL) && (strcmp(MimeVer, "1.0") == 0)) {
-
-    CurrTypeNeedsDecode = CheckContentType(CntType);
-
-    /* Check Content-Type to see if this is a multipart message */
-    if ( (CntType != NULL) &&
-         ((strncasecmp(CntType, "multipart/mixed", 16) == 0) ||
-	  (strncasecmp(CntType, "message/", 8) == 0)) ) {
-
-      char *p1 = GetBoundary(CntType);
-
-      if (p1 != NULL) {
-	/* The actual delimiter is "--" followed by 
-	   the boundary string */
-	strcpy(MultipartDelimiter, "--");
-	strncat(MultipartDelimiter, p1, MAX_DELIM_LEN);
-	MultipartDelimiter[sizeof(MultipartDelimiter)-1] = '\0';
-	BodyType = (MSG_IS_8BIT | MSG_NEEDS_DECODE);
-      }
-    }
-
-    /* 
-     * Check Content-Transfer-Encoding, but
-     * ONLY for non-multipart messages (BodyType == 0).
-     */
-    if ((XferEnc != NULL) && (BodyType == 0)) {
-      if (strcasecmp(XferEnc, "quoted-printable") == 0) {
-	CurrEncodingIsQP = 1;
-	BodyType = (MSG_IS_8BIT | MSG_NEEDS_DECODE);
-	if (WantDecode && CurrTypeNeedsDecode) {
-           SetEncoding8bit(XferEncOfs);
-        }
-      }
-      else if (strcasecmp(XferEnc, "7bit") == 0) {
-	CurrEncodingIsQP = 0;
-	BodyType = (MSG_IS_7BIT);
-      }
-      else if (strcasecmp(XferEnc, "8bit") == 0) {
-	CurrEncodingIsQP = 0;
-	BodyType = (MSG_IS_8BIT);
-      }
-    }
-
-  }
-
-  return BodyType;
 }
 
 
@@ -506,10 +511,10 @@ int MimeBodyType(unsigned char *hdrs, int WantDecode)
  * Return flag set if this line ends with a soft line-break.
  * 'bufp' is modified to point to the end of the output buffer.
  */
-static int DoOneQPLine(unsigned char **bufp, flag delimited, flag issoftline)
+static int DoOneQPLine(char **bufp, flag delimited, flag issoftline)
 {
-  unsigned char *buf = *bufp;
-  unsigned char *p_in, *p_out, *p;
+  char *buf = *bufp;
+  char *p_in, *p_out, *p;
   int n;
   int ret = 0;
 
@@ -588,9 +593,9 @@ static int DoOneQPLine(unsigned char **bufp, flag delimited, flag issoftline)
  * 'bufp' is modified to point to the end of the output buffer.
  */
 
-int UnMimeBodyline(unsigned char **bufp, flag delimited, flag softline)
+int UnMimeBodyline(char **bufp, flag delimited, flag softline)
 {
-  unsigned char *buf = *bufp;
+  char *buf = *bufp;
   int ret = 0;
 
   switch (BodyState) {
@@ -660,7 +665,7 @@ int outlevel = 0;
 int main(int argc, char *argv[])
 {
   unsigned int BufSize;
-  unsigned char *buffer, *buf_p;
+  char *buffer, *buf_p;
   int nl_count, i, bodytype;
 
 #ifdef DEBUG
@@ -668,15 +673,16 @@ int main(int argc, char *argv[])
   FILE *fd_orig, *fd_conv;
   char fnam[100];
 
+  /* we don't need snprintf here, but for consistency, we'll use it */
   pid = getpid();
-  sprintf(fnam, "/tmp/i_unmime.%x", pid);
+  snprintf(fnam, sizeof(fnam), "/tmp/i_unmime.%lx", (long)pid);
   fd_orig = fopen(fnam, "w");
-  sprintf(fnam, "/tmp/o_unmime.%x", pid);
+  snprintf(fnam, sizeof(fnam), "/tmp/o_unmime.%lx", (long)pid);
   fd_conv = fopen(fnam, "w");
 #endif
 
   BufSize = BUFSIZE_INCREMENT;    /* Initial size of buffer */
-  buf_p = buffer = (unsigned char *) xmalloc(BufSize);
+  buf_p = buffer = (char *) xmalloc(BufSize);
   nl_count = 0;
 
   do {
@@ -695,7 +701,7 @@ int main(int argc, char *argv[])
     }
 
     buf_p++;
-    if ((buf_p - buffer) == BufSize) {
+    if ((unsigned)(buf_p - buffer) == BufSize) {
        /* Buffer is full! Get more room. */
        buffer = xrealloc(buffer, BufSize+BUFSIZE_INCREMENT);
        buf_p = buffer + BufSize;

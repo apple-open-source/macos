@@ -27,6 +27,7 @@
 
 */
 
+#include "CipherSuite.h"
 #include "ssl.h"
 #include "sslContext.h"
 #include "sslMemory.h"
@@ -1492,7 +1493,6 @@ OSStatus sslDhGenerateKeyPair(
  
 /* the alg isn't important; we just want to be able to cook up lots of bits */
 #define DERIVE_KEY_ALG			CSSM_ALGID_RC5
-#define DERIVE_KEY_MAX_BYTES	255
 
 OSStatus sslDhKeyExchange(
 	SSLContext		*ctx,
@@ -1512,11 +1512,6 @@ OSStatus sslDhKeyExchange(
 	if(ctx->dhPeerPublic.length == 0) {
 		/* comes from peer, don't panic */
 		sslErrorLog("cdsaDhKeyExchange: null peer public key\n");
-		return errSSLProtocol;
-	}
-	if(deriveSizeInBits > (DERIVE_KEY_MAX_BYTES * 8)) {
-		sslErrorLog("cdsaDhKeyExchange: deriveSizeInBits %u bits\n",
-			(unsigned)deriveSizeInBits);
 		return errSSLProtocol;
 	}
 	
@@ -1566,7 +1561,7 @@ OSStatus sslDhKeyExchange(
  * Currently we just verify that we have a cert and private signing 
  * key, if needed, and that the signing key's algorithm matches the
  * expected key exchange method.
- * This is currnetly only called from FindCipherSpec(), after
+ * This is currently only called from FindCipherSpec(), after
  * it sets ctx->selectedCipherSpec to a (supposedly) valid value.
  */
 OSStatus sslVerifyNegotiatedCipher(
@@ -1575,6 +1570,14 @@ OSStatus sslVerifyNegotiatedCipher(
 	if(ctx->protocolSide == SSL_ClientSide) {
 		return noErr;
 	}
+	#if 	SSL_PAC_SERVER_ENABLE
+	if((ctx->masterSecretCallback != NULL) &&
+	   (ctx->sessionTicket.data != NULL)) {
+		/* EAP via PAC resumption; we can do it */
+		return noErr;
+	}
+	#endif	/* SSL_PAC_SERVER_ENABLE */
+
 	CSSM_ALGORITHMS requireAlg = CSSM_ALGID_NONE;
 	
     switch (ctx->selectedCipherSpec->keyExchangeMethod) {

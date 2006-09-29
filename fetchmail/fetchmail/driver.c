@@ -23,23 +23,23 @@
 #if defined(HAVE_SYS_ITIMER_H)
 #include <sys/itimer.h>
 #endif
-#include  <sys/time.h>
 #include  <signal.h>
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
 
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
 #ifdef HAVE_NET_SOCKET_H
 #include <net/socket.h>
 #endif
-#ifdef HESIOD
+#include <netdb.h>
+#ifdef HAVE_PKG_hesiod
 #include <hesiod.h>
 #endif
 
-#if defined(HAVE_RES_SEARCH) || defined(HAVE_GETHOSTBYNAME)
-#include <netdb.h>
-#include "mx.h"
-#endif /* defined(HAVE_RES_SEARCH) || defined(HAVE_GETHOSTBYNAME) */
+#include <langinfo.h>
 
 #include "kerberos.h"
 #ifdef KERBEROS_V4
@@ -50,6 +50,7 @@
 #include "socket.h"
 
 #include "fetchmail.h"
+#include "getaddrinfo.h"
 #include "tunable.h"
 
 /* throw types for runtime errors */
@@ -69,12 +70,12 @@ int batchcount;		/* count of messages sent in current batch */
 flag peek_capable;	/* can we peek for better error recovery? */
 int mailserver_socket_temp = -1;	/* socket to free if connect timeout */ 
 
-volatile static int timeoutcount = 0;	/* count consecutive timeouts */
-volatile static int idletimeout = 0;	/* timeout occured in idle stage? */
+static volatile int timeoutcount = 0;	/* count consecutive timeouts */
+static volatile int idletimeout = 0;	/* timeout occured in idle stage? */
 
 static jmp_buf	restart;
 
-int isidletimeout(void)
+int is_idletimeout(void)
 /* last timeout occured in idle stage? */
 {
     return idletimeout;
@@ -88,7 +89,7 @@ void resetidletimeout(void)
 void set_timeout(int timeleft)
 /* reset the nonresponse-timeout */
 {
-#if !defined(__EMX__) && !defined(__BEOS__) 
+#if !defined(__EMX__) && !defined(__BEOS__)
     struct itimerval ntimeout;
 
     if (timeleft == 0)
@@ -104,6 +105,7 @@ void set_timeout(int timeleft)
 static RETSIGTYPE timeout_handler (int signal)
 /* handle SIGALRM signal indicating a server timeout */
 {
+    (void)signal;
     if(stage != STAGE_IDLE) {
 	timeoutcount++;
 	longjmp(restart, THROW_TIMEOUT);
@@ -114,6 +116,7 @@ static RETSIGTYPE timeout_handler (int signal)
 static RETSIGTYPE sigpipe_handler (int signal)
 /* handle SIGPIPE signal indicating a broken stream socket */
 {
+    (void)signal;
     longjmp(restart, THROW_SIGPIPE);
 }
 
@@ -139,7 +142,6 @@ int socket;		/* socket to server host */
 char *canonical;	/* server name */
 char *principal;
 {
-    char * host_primary;
     KTEXT ticket;
     MSG_DAT msg_data;
     CREDENTIALS cred;
@@ -170,7 +172,7 @@ char *principal;
 	}
     }
   
-    xalloca(ticket, KTEXT, sizeof (KTEXT_ST));
+    ticket = xmalloc(sizeof (KTEXT_ST));
     rem = (krb_sendauth (0L, socket, ticket,
 			 prin ? prin : "pop",
 			 inst ? inst : canonical,
@@ -182,6 +184,7 @@ char *principal;
 			 ((struct sockaddr_in *) 0),
 			 ((struct sockaddr_in *) 0),
 			 "KPOPV0.1"));
+    free(ticket);
     if (prin_copy)
     {
         free(prin_copy);
@@ -210,24 +213,21 @@ const char *canonical;  /* server name */
     krb5_auth_context auth_context = NULL;
 
     krb5_init_context(&context);
-#ifdef HAVE_KRB5_INIT_ETS
-    krb5_init_ets(context);
-#endif
     krb5_auth_con_init(context, &auth_context);
 
-    if (retval = krb5_cc_default(context, &ccdef)) {
+    if ((retval = krb5_cc_default(context, &ccdef))) {
         report(stderr, "krb5_cc_default: %s\n", error_message(retval));
         return(PS_ERROR);
     }
 
-    if (retval = krb5_cc_get_principal(context, ccdef, &client)) {
+    if ((retval = krb5_cc_get_principal(context, ccdef, &client))) {
         report(stderr, "krb5_cc_get_principal: %s\n", error_message(retval));
         return(PS_ERROR);
     }
 
-    if (retval = krb5_sname_to_principal(context, canonical, "pop",
+    if ((retval = krb5_sname_to_principal(context, canonical, "pop",
            KRB5_NT_UNKNOWN,
-           &server)) {
+           &server))) {
         report(stderr, "krb5_sname_to_principal: %s\n", error_message(retval));
         return(PS_ERROR);
     }
@@ -332,14 +332,22 @@ static void send_size_warnings(struct query *ctl)
      * but it's not a disaster, either, since the skipped mail will not
      * be deleted.
      */
-    if (open_warning_by_mail(ctl, (struct msgblk *)NULL))
+    if (open_warning_by_mail(ctl))
 	return;
-    stuff_warning(ctl,
-	   GT_("Subject: Fetchmail oversized-messages warning.\n"
-	     "\n"
-	     "The following oversized messages remain on the mail server %s:"),
-		  ctl->server.pollname);
- 
+    stuff_warning(iana_charset, ctl,
+	   GT_("Subject: Fetchmail oversized-messages warning"));
+    stuff_warning(NULL, ctl, "%s", "");
+    if (ctl->limitflush)
+	stuff_warning(NULL, ctl,
+		GT_("The following oversized messages were deleted on server %s account %s:"),
+		ctl->server.pollname, ctl->remotename);
+    else
+	stuff_warning(NULL, ctl,
+		GT_("The following oversized messages remain on server %s account %s:"),
+		ctl->server.pollname, ctl->remotename);
+
+    stuff_warning(NULL, ctl, "%s", "");
+
     if (run.poll_interval == 0)
 	max_warning_poll_count = 0;
     else
@@ -352,9 +360,14 @@ static void send_size_warnings(struct query *ctl)
 	{
 	    nbr = current->val.status.mark;
 	    size = atoi(current->id);
-	    stuff_warning(ctl, 
-		    GT_("\t%d msg %d octets long skipped by fetchmail.\n"),
-		    nbr, size);
+	    if (ctl->limitflush)
+		stuff_warning(NULL, ctl,
+			GT_("  %d msg %d octets long deleted by fetchmail."),
+			nbr, size);
+	    else
+		stuff_warning(NULL, ctl,
+			GT_("  %d msg %d octets long skipped by fetchmail."),
+			nbr, size);
 	}
 	current->val.status.num++;
 	current->val.status.mark = 0;
@@ -363,10 +376,12 @@ static void send_size_warnings(struct query *ctl)
 	    current->val.status.num = 0;
     }
 
+    stuff_warning(NULL, ctl, "%s", "");
+
     close_warning_by_mail(ctl, (struct msgblk *)NULL);
 }
 
-static void mark_oversized(struct query *ctl, int num, int size)
+static void mark_oversized(struct query *ctl, int size)
 /* mark a message oversized */
 {
     struct idlist *current=NULL, *tmp=NULL;
@@ -374,12 +389,7 @@ static void mark_oversized(struct query *ctl, int num, int size)
     int cnt;
 
     /* convert size to string */
-#ifdef HAVE_SNPRINTF
-    snprintf(sizestr, sizeof(sizestr),
-#else
-    sprintf(sizestr,
-#endif /* HAVE_SNPRINTF */
-      "%d", size);
+    snprintf(sizestr, sizeof(sizestr), "%d", size);
 
     /* build a list of skipped messages
      * val.id = size of msg (string cnvt)
@@ -396,16 +406,9 @@ static void mark_oversized(struct query *ctl, int num, int size)
     cnt = current ? current->val.status.num : 0;
 
     /* if entry exists, increment the count */
-    if (current && str_in_list(&current, sizestr, FALSE))
+    if (current && (tmp = str_in_list(&current, sizestr, FALSE)))
     {
-	for ( ; current; current = current->next)
-	{
-	    if (strcmp(current->id, sizestr) == 0)
-	    {
-		current->val.status.mark++;
-		break;
-	    }
-	}
+	tmp->val.status.mark++;
     }
     /* otherwise, create a new entry */
     /* initialise with current poll count */
@@ -417,7 +420,7 @@ static void mark_oversized(struct query *ctl, int num, int size)
 }
 
 static int fetch_messages(int mailserver_socket, struct query *ctl, 
-			  int count, int *msgsizes, int maxfetch,
+			  int count, int **msgsizes, int maxfetch,
 			  int *fetches, int *dispatches, int *deletions)
 /* fetch messages in lockstep mode */
 {
@@ -425,17 +428,22 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
     int num, firstnum = 1, lastnum = 0, err, len;
     int fetchsizelimit = ctl->fetchsizelimit;
     int msgsize;
+    int initialfetches = *fetches;
 
     if (ctl->server.base_protocol->getpartialsizes && NUM_NONZERO(fetchsizelimit))
     {
 	/* for POP3, we can get the size of one mail only! Unfortunately, this
 	 * protocol specific test cannot be done elsewhere as the protocol
 	 * could be "auto". */
-	if (ctl->server.protocol == P_POP3)
+	switch (ctl->server.protocol)
+	{
+	    case P_POP3: case P_APOP: case P_RPOP:
 	    fetchsizelimit = 1;
+	}
 
 	/* Time to allocate memory to store the sizes */
-	xalloca(msgsizes, int *, sizeof(int) * fetchsizelimit);
+	xfree(*msgsizes);
+	*msgsizes = (int *)xmalloc(sizeof(int) * fetchsizelimit);
     }
 
     /*
@@ -517,16 +525,17 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    if (lastnum > count)
 		lastnum = count;
 	    for (i = 0; i < fetchsizelimit; i++)
-		msgsizes[i] = 0;
+		(*msgsizes)[i] = 0;
 
 	    stage = STAGE_GETSIZES;
-	    err = (ctl->server.base_protocol->getpartialsizes)(mailserver_socket, num, lastnum, msgsizes);
-	    if (err != 0)
+	    err = (ctl->server.base_protocol->getpartialsizes)(mailserver_socket, num, lastnum, *msgsizes);
+	    if (err != 0) {
 		return err;
+	    }
 	    stage = oldstage;
 	}
 
-	msgsize = msgsizes ? msgsizes[num-firstnum] : 0;
+	msgsize = *msgsizes ? (*msgsizes)[num-firstnum] : 0;
 
 	/* check if the message is oversized */
 	if (NUM_NONZERO(ctl->limit) && (msgsize > ctl->limit))
@@ -536,10 +545,11 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 
 	if (msgcode < 0)
 	{
-	    if ((msgcode == MSGLEN_TOOLARGE) && !check_only)
+	    if (msgcode == MSGLEN_TOOLARGE)
 	    {
-		mark_oversized(ctl, num, msgsize);
-		suppress_delete = TRUE;
+		mark_oversized(ctl, msgsize);
+		if (!ctl->limitflush)
+		    suppress_delete = TRUE;
 	    }
 	    if (outlevel > O_SILENT)
 	    {
@@ -601,8 +611,8 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 			     num, count);
 
 		if (len > 0)
-		    report_build(stdout, GT_(" (%d %soctets)"),
-				 len, wholesize ? "" : GT_("header "));
+		    report_build(stdout, wholesize ? GT_(" (%d octets)")
+				 : GT_(" (%d header octets)"), len);
 		if (outlevel >= O_VERBOSE)
 		    report_complete(stdout, "\n");
 		else
@@ -632,13 +642,13 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	    /* tell server we got it OK and resynchronize */
 	    if (separatefetchbody && ctl->server.base_protocol->trail)
 	    {
-		if (outlevel >= O_VERBOSE && !isafile(1))
+		if (outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
 		{
 		    fputc('\n', stdout);
 		    fflush(stdout);
 		}
 
-		if ((err = (ctl->server.base_protocol->trail)(mailserver_socket, ctl, num)))
+		if ((err = (ctl->server.base_protocol->trail)(mailserver_socket, ctl, tag)))
 		    return(err);
 	    }
 
@@ -690,13 +700,13 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		/* tell server we got it OK and resynchronize */
 		if (ctl->server.base_protocol->trail)
 		{
-		    if (outlevel >= O_VERBOSE && !isafile(1))
+		    if (outlevel >= O_VERBOSE && !is_a_file(1) && !run.use_syslog)
 		    {
 			fputc('\n', stdout);
 			fflush(stdout);
 		    }
 
-		    err = (ctl->server.base_protocol->trail)(mailserver_socket, ctl, num);
+		    err = (ctl->server.base_protocol->trail)(mailserver_socket, ctl, tag);
 		    if (err != 0)
 			return(err);
 		}
@@ -765,15 +775,16 @@ flagthemail:
 	    if (outlevel > O_SILENT) 
 		report(stdout, GT_(" retained\n"));
 	}
-	else if (ctl->server.base_protocol->delete
+	else if (ctl->server.base_protocol->delete_msg
 		 && !suppress_delete
 		 && ((msgcode >= 0 && !ctl->keep)
-		     || (msgcode == MSGLEN_OLD && ctl->flush)))
+		     || (msgcode == MSGLEN_OLD && ctl->flush)
+		     || (msgcode == MSGLEN_TOOLARGE && ctl->limitflush)))
 	{
 	    (*deletions)++;
 	    if (outlevel > O_SILENT) 
 		report_complete(stdout, GT_(" flushed\n"));
-	    err = (ctl->server.base_protocol->delete)(mailserver_socket, ctl, num);
+	    err = (ctl->server.base_protocol->delete_msg)(mailserver_socket, ctl, num);
 	    if (err != 0)
 		return(err);
 	}
@@ -805,33 +816,38 @@ flagthemail:
 	/* perhaps this as many as we're ready to handle */
 	if (maxfetch && maxfetch <= *fetches && num < count)
 	{
-	    report(stdout, GT_("fetchlimit %d reached; %d messages left on server %s account %s\n"),
-		   maxfetch, count - *fetches, ctl->server.truename, ctl->remotename);
+	    int remcount = count - (*fetches - initialfetches);
+	    report(stdout,
+		   ngettext("fetchlimit %d reached; %d message left on server %s account %s\n",
+			    "fetchlimit %d reached; %d messages left on server %s account %s\n", remcount),
+		   maxfetch, remcount, ctl->server.truename, ctl->remotename);
 	    return(PS_MAXFETCH);
 	}
-    }
+    } /* for (num = 1; num <= count; num++) */
 
     return(PS_SUCCESS);
 }
 
-static int do_session(ctl, proto, maxfetch)
 /* retrieve messages from server using given protocol method table */
-struct query *ctl;		/* parsed options with merged-in defaults */
-const struct method *proto;	/* protocol method table */
-const int maxfetch;		/* maximum number of messages to fetch */
+static int do_session(
+	/* parsed options with merged-in defaults */
+	struct query *ctl,
+	/* protocol method table */
+	const struct method *proto,
+	/* maximum number of messages to fetch */
+	const int maxfetch)
 {
-    int js;
-#ifdef HAVE_VOLATILE
+    static int *msgsizes;
     volatile int err, mailserver_socket = -1;	/* pacifies -Wall */
-#else
-    int err, mailserver_socket = -1;
-#endif /* HAVE_VOLATILE */
+    int tmperr;
+    int deletions = 0, js;
     const char *msg;
     SIGHANDLERTYPE pipesave;
     SIGHANDLERTYPE alrmsave;
 
     ctl->server.base_protocol = proto;
 
+    msgsizes = NULL;
     pass = 0;
     err = 0;
     init_transact(proto);
@@ -845,6 +861,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 
     if ((js = setjmp(restart)))
     {
+	/* exception caught */
 #ifdef HAVE_SIGPROCMASK
 	/*
 	 * Don't rely on setjmp() to restore the blocked-signal mask.
@@ -897,16 +914,16 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	     * timeouts just mean the frequency of mail is low.
 	     */
 	    if (timeoutcount > MAX_TIMEOUTS 
-		&& !open_warning_by_mail(ctl, (struct msgblk *)NULL))
+		&& !open_warning_by_mail(ctl))
 	    {
-		stuff_warning(ctl,
-			      GT_("Subject: fetchmail sees repeated timeouts\n"));
-		stuff_warning(ctl,
+		stuff_warning(iana_charset, ctl,
+			      GT_("Subject: fetchmail sees repeated timeouts"));
+		stuff_warning(NULL, ctl, "%s", "");
+		stuff_warning(NULL, ctl,
 			      GT_("Fetchmail saw more than %d timeouts while attempting to get mail from %s@%s.\n"), 
 			      MAX_TIMEOUTS,
-			      ctl->remotename,
-			      ctl->server.truename);
-		stuff_warning(ctl, 
+			      ctl->remotename, ctl->server.truename);
+		stuff_warning(NULL, ctl, 
     GT_("This could mean that your mailserver is stuck, or that your SMTP\n" \
     "server is wedged, or that your mailbox file on the server has been\n" \
     "corrupted by a server error.  You can run `fetchmail -v -v' to\n" \
@@ -922,14 +939,10 @@ const int maxfetch;		/* maximum number of messages to fetch */
     }
     else
     {
+	/* setjmp returned zero -> normal operation */
 	char buf[MSGBUFSIZE+1], *realhost;
-	int count, new, bytes, deletions = 0;
-	int *msgsizes = (int *)NULL;
-#if INET6_ENABLE
+	int count, newm, bytes;
 	int fetches, dispatches, oldphase;
-#else /* INET6_ENABLE */
-	int port, fetches, dispatches, oldphase;
-#endif /* INET6_ENABLE */
 	struct idlist *idp;
 
 	/* execute pre-initialization command, if any */
@@ -945,15 +958,8 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	oldphase = phase;
 	phase = OPEN_WAIT;
 	set_timeout(mytimeout);
-#if !INET6_ENABLE
-#ifdef SSL_ENABLE
-	port = ctl->server.port ? ctl->server.port : ( ctl->use_ssl ? ctl->server.base_protocol->sslport : ctl->server.base_protocol->port );
-#else
-	port = ctl->server.port ? ctl->server.port : ctl->server.base_protocol->port;
-#endif
-#endif /* !INET6_ENABLE */
 
-#ifdef HESIOD
+#ifdef HAVE_PKG_hesiod
 	/* If either the pollname or vianame are "hesiod" we want to
 	   lookup the user's hesiod pobox host */
 	if (!strcasecmp(ctl->server.queryname, "hesiod")) {
@@ -973,7 +979,6 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	}
 #endif /* HESIOD */
 
-#ifdef HAVE_GETHOSTBYNAME
 	/*
 	 * Canonicalize the server truename for later use.  This also
 	 * functions as a probe for whether the mailserver is accessible.
@@ -996,20 +1001,21 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		    goto closeUp;
 		}
 
+		xfree(ctl->server.truename);
 		ctl->server.truename = xstrdup(leadname);
 	    }
 	    else
 	    {
-		struct hostent	*namerec;
-		    
-		/* 
-		 * Get the host's IP, so we can report it like this:
-		 *
-		 * Received: from hostname [10.0.0.1]
-		 */
-		errno = 0;
-		namerec = gethostbyname(ctl->server.queryname);
-		if (namerec == (struct hostent *)NULL)
+		struct addrinfo hints, *res;
+		int error;
+
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_flags = AI_CANONNAME;
+
+		error = getaddrinfo(ctl->server.queryname, NULL, &hints, &res);
+		if (error)
 		{
 		    report(stderr,
 			   GT_("couldn't find canonical DNS name of %s (%s)\n"),
@@ -1019,38 +1025,37 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		    phase = oldphase;
 		    goto closeUp;
 		}
-		else 
+		else
 		{
-		    ctl->server.truename=xstrdup((char *)namerec->h_name);
-		    ctl->server.trueaddr=xmalloc(namerec->h_length);
-		    memcpy(ctl->server.trueaddr, 
-			   namerec->h_addr_list[0],
-			   namerec->h_length);
+		    xfree(ctl->server.truename);
+		    /* Older FreeBSD versions return NULL in ai_canonname
+		     * if they cannot canonicalize, rather than copying
+		     * the queryname here, as IEEE Std 1003.1-2001
+		     * requires. Work around NULL. */
+		    if (res->ai_canonname != NULL) {
+			ctl->server.truename = xstrdup(res->ai_canonname);
+		    } else {
+			ctl->server.truename = xstrdup(ctl->server.queryname);
+		    }
+		    ctl->server.trueaddr = (struct sockaddr *)xmalloc(res->ai_addrlen);
+		    ctl->server.trueaddr_len = res->ai_addrlen;
+		    memcpy(ctl->server.trueaddr, res->ai_addr, res->ai_addrlen);
+		    freeaddrinfo(res);
 		}
 	    }
 	}
-#endif /* HAVE_GETHOSTBYNAME */
 
 	realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
 
 	/* allow time for the port to be set up if we have a plugin */
 	if (ctl->server.plugin)
 	    (void)sleep(1);
-#if INET6_ENABLE
 	if ((mailserver_socket = SockOpen(realhost, 
 			     ctl->server.service ? ctl->server.service : ( ctl->use_ssl ? ctl->server.base_protocol->sslservice : ctl->server.base_protocol->service ),
-			     ctl->server.netsec, ctl->server.plugin)) == -1)
-#else /* INET6_ENABLE */
-	if ((mailserver_socket = SockOpen(realhost, port, NULL, ctl->server.plugin)) == -1)
-#endif /* INET6_ENABLE */
+			     ctl->server.plugin)) == -1)
 	{
 	    char	errbuf[BUFSIZ];
-#if !INET6_ENABLE
 	    int err_no = errno;
-#ifdef HAVE_RES_SEARCH
-	    if (err_no != 0 && h_errno != 0)
-		report(stderr, GT_("internal inconsistency\n"));
-#endif
 	    /*
 	     * Avoid generating a bogus error every poll cycle when we're
 	     * in daemon mode but the connection to the outside world
@@ -1061,30 +1066,7 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	    {
 		report_build(stderr, GT_("%s connection to %s failed"), 
 			     ctl->server.base_protocol->name, ctl->server.pollname);
-#ifdef HAVE_RES_SEARCH
-		if (h_errno != 0)
-		{
-		    if (h_errno == HOST_NOT_FOUND)
-			strcpy(errbuf, GT_("host is unknown."));
-#ifndef __BEOS__
-		    else if (h_errno == NO_ADDRESS)
-			strcpy(errbuf, GT_("name is valid but has no IP address."));
-#endif
-		    else if (h_errno == NO_RECOVERY)
-			strcpy(errbuf, GT_("unrecoverable name server error."));
-		    else if (h_errno == TRY_AGAIN)
-			strcpy(errbuf, GT_("temporary name server error."));
-		    else
-#ifdef HAVE_SNPRINTF
-			snprintf(errbuf, sizeof(errbuf),
-#else
-			sprintf(errbuf,
-#endif /* HAVE_SNPRINTF */
-			  GT_("unknown DNS error %d."), h_errno);
-		}
-		else
-#endif /* HAVE_RES_SEARCH */
-		    strcpy(errbuf, strerror(err_no));
+		    strlcpy(errbuf, strerror(err_no), sizeof(errbuf));
 		report_complete(stderr, ": %s\n", errbuf);
 
 #ifdef __UNUSED
@@ -1095,19 +1077,18 @@ const int maxfetch;		/* maximum number of messages to fetch */
 		 * where your SLIP or PPP link is down...
 		 */
 		/* warn the system administrator */
-		if (open_warning_by_mail(ctl, (struct msgblk *)NULL) == 0)
+		if (open_warning_by_mail(ctl) == 0)
 		{
-		    stuff_warning(ctl,
-			 GT_("Subject: Fetchmail unreachable-server warning.\n"
-			   "\n"
-			   "Fetchmail could not reach the mail server %s:")
+		    stuff_warning(iana_charset, ctl,
+			 GT_("Subject: Fetchmail unreachable-server warning."));
+		    stuff_warning(NULL, ctl, "");
+		    stuff_warning(NULL, ctl, GT_("Fetchmail could not reach the mail server %s:"),
 				  ctl->server.pollname);
-		    stuff_warning(ctl, errbuf, ctl->server.pollname);
+		    stuff_warning(NULL, ctl, errbuf, ctl->server.pollname);
 		    close_warning_by_mail(ctl, (struct msgblk *)NULL);
 		}
 #endif
 	    }
-#endif /* INET6_ENABLE */
 	    err = PS_SOCKET;
 	    set_timeout(0);
 	    phase = oldphase;
@@ -1128,8 +1109,8 @@ const int maxfetch;		/* maximum number of messages to fetch */
 	    ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1) 
 	{
 	    report(stderr, GT_("SSL connection failed.\n"));
-	    err = PS_AUTHFAIL;
-	    goto closeUp;
+	    err = PS_SOCKET;
+	    goto cleanUp;
 	}
 	
 	/* Fetchmail didn't hang on SSLOpen, 
@@ -1209,23 +1190,25 @@ const int maxfetch;		/* maximum number of messages to fetch */
 			&& !ctl->wehavesentauthnote
 			&& ((ctl->wehaveauthed && ++ctl->authfailcount >= 10)
 			    || (!ctl->wehaveauthed && ++ctl->authfailcount >= 3))
-			&& !open_warning_by_mail(ctl, (struct msgblk *)NULL))
+			&& !open_warning_by_mail(ctl))
 		    {
 			ctl->wehavesentauthnote = 1;
-			stuff_warning(ctl,
-				      GT_("Subject: fetchmail authentication failed on %s@%s\n"),
+			stuff_warning(iana_charset, ctl,
+				      GT_("Subject: fetchmail authentication failed on %s@%s"),
 			    ctl->remotename, ctl->server.truename);
-			stuff_warning(ctl,
+			stuff_warning(NULL, ctl, "%s", "");
+			stuff_warning(NULL, ctl,
 				      GT_("Fetchmail could not get mail from %s@%s.\n"), 
 				      ctl->remotename,
 				      ctl->server.truename);
-			if (ctl->wehaveauthed)
-			    stuff_warning(ctl, GT_("\
+			if (ctl->wehaveauthed) {
+			    stuff_warning(NULL, ctl, GT_("\
 The attempt to get authorization failed.\n\
 Since we have already succeeded in getting authorization for this\n\
 connection, this is probably another failure mode (such as busy server)\n\
 that fetchmail cannot distinguish because the server didn't send a useful\n\
-error message.\n\
+error message."));
+			    stuff_warning(NULL, ctl, GT_("\
 \n\
 However, if you HAVE changed your account details since starting the\n\
 fetchmail daemon, you need to stop the daemon, change your configuration\n\
@@ -1234,8 +1217,8 @@ of fetchmail, and then restart the daemon.\n\
 The fetchmail daemon will continue running and attempt to connect\n\
 at each cycle.  No future notifications will be sent until service\n\
 is restored."));
-			else
-			    stuff_warning(ctl, GT_("\
+			} else {
+			    stuff_warning(NULL, ctl, GT_("\
 The attempt to get authorization failed.\n\
 This probably means your password is invalid, but some servers have\n\
 other failure modes that fetchmail cannot distinguish from this\n\
@@ -1244,6 +1227,7 @@ because they don't send useful error messages on login failure.\n\
 The fetchmail daemon will continue running and attempt to connect\n\
 at each cycle.  No future notifications will be sent until service\n\
 is restored."));
+			}
 			close_warning_by_mail(ctl, (struct msgblk *)NULL);
 		    }
 		}
@@ -1282,16 +1266,17 @@ is restored."));
 			   GT_("Authorization OK on %s@%s\n"),
 			   ctl->remotename,
 			   ctl->server.truename);
-		    if (!open_warning_by_mail(ctl, (struct msgblk *)NULL))
+		    if (!open_warning_by_mail(ctl))
 		    {
-			stuff_warning(ctl,
-			      GT_("Subject: fetchmail authentication OK on %s@%s\n"),
+			stuff_warning(iana_charset, ctl,
+			      GT_("Subject: fetchmail authentication OK on %s@%s"), 
 				      ctl->remotename, ctl->server.truename);
-			stuff_warning(ctl,
+			stuff_warning(NULL, ctl, "%s", "");
+			stuff_warning(NULL, ctl,
 			      GT_("Fetchmail was able to log into %s@%s.\n"), 
 				      ctl->remotename,
 				      ctl->server.truename);
-			stuff_warning(ctl, 
+			stuff_warning(NULL, ctl, 
 				      GT_("Service has been restored.\n"));
 			close_warning_by_mail(ctl, (struct msgblk *)NULL);
 		    
@@ -1312,6 +1297,7 @@ is restored."));
 	/* now iterate over each folder selected */
 	for (idp = ctl->mailboxes; idp; idp = idp->next)
 	{
+	    ctl->folder = idp->id;
 	    pass = 0;
 	    do {
 		dispatches = 0;
@@ -1330,26 +1316,17 @@ is restored."));
 
 		/* compute # of messages and number of new messages waiting */
 		stage = STAGE_GETRANGE;
-		err = (ctl->server.base_protocol->getrange)(mailserver_socket, ctl, idp->id, &count, &new, &bytes);
+		err = (ctl->server.base_protocol->getrange)(mailserver_socket, ctl, idp->id, &count, &newm, &bytes);
 		if (err != 0)
 		    goto cleanUp;
 
 		/* show user how many messages we downloaded */
 		if (idp->id)
-#ifdef HAVE_SNPRINTF
 		    (void) snprintf(buf, sizeof(buf),
-#else
-		    (void) sprintf(buf,
-#endif /* HAVE_SNPRINTF */
 				   GT_("%s at %s (folder %s)"),
 				   ctl->remotename, ctl->server.pollname, idp->id);
 		else
-#ifdef HAVE_SNPRINTF
-		    (void) snprintf(buf, sizeof(buf),
-#else
-		    (void) sprintf(buf,
-#endif /* HAVE_SNPRINTF */
-			       GT_("%s at %s"),
+		    (void) snprintf(buf, sizeof(buf), GT_("%s at %s"),
 				   ctl->remotename, ctl->server.pollname);
 		if (outlevel > O_SILENT)
 		{
@@ -1357,17 +1334,17 @@ is restored."));
 			report(stdout, GT_("Polling %s\n"), ctl->server.truename);
 		    else if (count != 0)
 		    {
-			if (new != -1 && (count - new) > 0)
-			    report_build(stdout, GT_("%d %s (%d %s) for %s"),
-				  count, count > 1 ? GT_("messages") :
-				                     GT_("message"),
-				  count-new, 
-				  GT_("seen"),
+			if (newm != -1 && (count - newm) > 0)
+			    report_build(stdout, ngettext("%d message (%d %s) for %s", "%d messages (%d %s) for %s", (unsigned long)count),
+				  count,
+				  count - newm, 
+				  ngettext("seen", "seen", (unsigned long)count-newm),
 				  buf);
 			else
-			    report_build(stdout, GT_("%d %s for %s"), 
-				  count, count > 1 ? GT_("messages") :
-				                     GT_("message"), buf);
+			    report_build(stdout, ngettext("%d message for %s",
+							  "%d messages for %s",
+							  count), 
+				  count, buf);
 			if (bytes == -1)
 			    report_complete(stdout, ".\n");
 			else
@@ -1387,9 +1364,9 @@ is restored."));
 
 		if (check_only)
 		{
-		    if (new == -1 || ctl->fetchall)
-			new = count;
-		    fetches = new;	/* set error status correctly */
+		    if (newm == -1 || ctl->fetchall)
+			newm = count;
+		    fetches = newm;	/* set error status correctly */
 		    /*
 		     * There used to be a `goto noerror' here, but this
 		     * prevented checking of multiple folders.  This
@@ -1408,10 +1385,11 @@ is restored."));
 		     * count, and allocate a malloc area that would overlap
 		     * a portion of the stack.
 		     */
-		    if (count > INT_MAX/sizeof(int))
+		    if ((unsigned)count > INT_MAX/sizeof(int))
 		    {
 			report(stderr, GT_("bogus message count!"));
-			return(PS_PROTOCOL);
+			err = PS_PROTOCOL;
+			goto cleanUp;
 		    }
 
 		    /* 
@@ -1427,7 +1405,8 @@ is restored."));
 		    if (proto->getsizes &&
 			!(proto->getpartialsizes && NUM_NONZERO(ctl->fetchsizelimit)))
 		    {
-			xalloca(msgsizes, int *, sizeof(int) * count);
+			xfree(msgsizes);
+			msgsizes = (int *)xmalloc(sizeof(int) * count);
 			for (i = 0; i < count; i++)
 			    msgsizes[i] = 0;
 
@@ -1449,10 +1428,10 @@ is restored."));
 
 		    /* fetch in lockstep mode */
 		    err = fetch_messages(mailserver_socket, ctl, 
-					 count, msgsizes,
+					 count, &msgsizes,
 					 maxfetch,
 					 &fetches, &dispatches, &deletions);
-		    if (err)
+		    if (err != PS_SUCCESS && err != PS_MAXFETCH)
 			goto cleanUp;
 
 		    if (!check_only && ctl->skipped
@@ -1462,6 +1441,17 @@ is restored."));
 			send_size_warnings(ctl);
 		    }
 		}
+
+		/* end-of-mailbox processing before we repoll or switch to another one */
+		if (ctl->server.base_protocol->end_mailbox_poll)
+		{
+		    err = (ctl->server.base_protocol->end_mailbox_poll)(mailserver_socket, ctl);
+		    if (err)
+			goto cleanUp;
+		}
+		/* Return now if we have reached the fetchlimit */
+		if (maxfetch && maxfetch <= fetches)
+		    goto no_error;
 	    } while
 		  /*
 		   * Only re-poll if we either had some actual forwards and 
@@ -1471,15 +1461,33 @@ is restored."));
 		  (dispatches && ctl->server.base_protocol->retry && !ctl->keep && !ctl->errcount);
 	}
 
-    /* no_error: */
-	/* ordinary termination with no errors -- officially log out */
-	err = (ctl->server.base_protocol->logout_cmd)(mailserver_socket, ctl);
+	/* XXX: From this point onwards, preserve err unless a new error has occurred */
+
+    no_error:
+	/* PS_SUCCESS, PS_MAXFETCH: ordinary termination with no errors -- officially log out */
+	stage = STAGE_LOGOUT;
+	tmperr = (ctl->server.base_protocol->logout_cmd)(mailserver_socket, ctl);
+	if (tmperr != PS_SUCCESS)
+	    err = tmperr;
 	/*
 	 * Hmmmm...arguably this would be incorrect if we had fetches but
 	 * no dispatches (due to oversized messages, etc.)
 	 */
-	if (err == 0)
-	    err = (fetches > 0) ? PS_SUCCESS : PS_NOMAIL;
+	else if (err == PS_SUCCESS && fetches == 0)
+	    err = PS_NOMAIL;
+	/*
+	 * Close all SMTP delivery sockets.  For optimum performance
+	 * we'd like to hold them open til end of run, but (1) this
+	 * loses if our poll interval is longer than the MTA's
+	 * inactivity timeout, and (2) some MTAs (like smail) don't
+	 * deliver after each message, but rather queue up mail and
+	 * wait to actually deliver it until the input socket is
+	 * closed.
+	 *
+	 * don't send QUIT for ODMR case because we're acting as a
+	 * proxy between the SMTP server and client.
+	 */
+	smtp_close(ctl, ctl->server.protocol != P_ODMR);
 	cleanupSockClose(mailserver_socket);
 	goto closeUp;
 
@@ -1493,6 +1501,15 @@ is restored."));
 
 	/* try to clean up all streams */
 	release_sink(ctl);
+	/*
+	 * Sending SMTP QUIT on signal is theoretically nice, but led
+	 * to a subtle bug.  If fetchmail was terminated by signal
+	 * while it was shipping message text, it would hang forever
+	 * waiting for a command acknowledge.  In theory we could
+	 * enable the QUIT only outside of the message send.  In
+	 * practice, we don't care.  All mailservers hang up on a
+	 * dropped TCP/IP connection anyway.
+	 */
 	smtp_close(ctl, 0);
 	if (mailserver_socket != -1) {
 	    cleanupSockClose(mailserver_socket);
@@ -1507,7 +1524,8 @@ is restored."));
 	}
     }
 
-    msg = (const char *)NULL;	/* sacrifice to -Wall */
+    /* no report on PS_AUTHFAIL */
+    msg = NULL;
     switch (err)
     {
     case PS_SOCKET:
@@ -1535,28 +1553,28 @@ is restored."));
 	msg = GT_("DNS lookup");
 	break;
     case PS_UNDEFINED:
-	report(stderr, GT_("undefined error\n"));
+	msg = GT_("undefined");
 	break;
     }
-    /* no report on PS_MAXFETCH or PS_UNDEFINED or PS_AUTHFAIL */
-    if (err==PS_SOCKET || err==PS_SYNTAX
-		|| err==PS_IOERR || err==PS_ERROR || err==PS_PROTOCOL 
-		|| err==PS_LOCKBUSY || err==PS_SMTP || err==PS_DNS)
-    {
-	char	*stem;
-
-	if (phase == FORWARDING_WAIT || phase == LISTENER_WAIT)
-	    stem = GT_("%s error while delivering to SMTP host %s\n");
+    if (msg) {
+	if (phase == FORWARDING_WAIT || phase == LISTENER_WAIT
+		|| err == PS_SMTP)
+	    report(stderr, GT_("%s error while fetching from %s@%s and delivering to SMTP host %s\n"),
+		    msg, ctl->remotename, ctl->server.pollname,
+		    ctl->smtphost ? ctl->smtphost : GT_("unknown"));
 	else
-	    stem = GT_("%s error while fetching from %s\n");
-	report(stderr, stem, msg, ctl->server.pollname);
+	    report(stderr, GT_("%s error while fetching from %s@%s\n"),
+		    msg, ctl->remotename, ctl->server.pollname);
     }
 
 closeUp:
+    xfree(msgsizes);
+    ctl->folder = NULL;
+
     /* execute wrapup command, if any */
-    if (ctl->postconnect && (err = system(ctl->postconnect)))
+    if (ctl->postconnect && (tmperr = system(ctl->postconnect)))
     {
-	report(stderr, GT_("post-connection command failed with status %d\n"), err);
+	report(stderr, GT_("post-connection command failed with status %d\n"), tmperr);
 	if (err == PS_SUCCESS)
 	    err = PS_SYNTAX;
     }
@@ -1567,10 +1585,9 @@ closeUp:
     return(err);
 }
 
-int do_protocol(ctl, proto)
-/* retrieve messages from server using given protocol method table */
-struct query *ctl;		/* parsed options with merged-in defaults */
-const struct method *proto;	/* protocol method table */
+/** retrieve messages from server using given protocol method table */
+int do_protocol(struct query *ctl /** parsed options with merged-in defaults */,
+		const struct method *proto /** protocol method table */)
 {
     int	err;
 
@@ -1607,7 +1624,8 @@ const struct method *proto;	/* protocol method table */
 	    return(PS_SYNTAX);
 	}
     }
-    if (!proto->getsizes && NUM_SPECIFIED(ctl->limit))
+    if (!(proto->getsizes || proto->getpartialsizes)
+	    && NUM_SPECIFIED(ctl->limit))
     {
 	report(stderr,
 		GT_("Option --limit is not supported with %s\n"),

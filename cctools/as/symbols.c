@@ -43,6 +43,8 @@ struct obstack notes = { 0 };
 symbolS *symbol_rootP = NULL;
 /* last struct symbol we made, or NULL */
 symbolS *symbol_lastP = NULL;
+/* The last symbol we assigned an index to. */
+symbolS *symbol_lastIndexedP = NULL;
 
 symbolS	abs_symbol = { {{0}} };
 
@@ -71,6 +73,8 @@ static local_label_countT local_label_counter[10];
 
 static				/* Returned to caller, then copied. */
   char symbol_name_build[12];	/* used for created names ("4f") */
+
+static long int symbol_count = 0;	/* The number of symbols we've declared. */
 
 static void make_stab_for_symbol(
     symbolS *symbolP);
@@ -179,6 +183,7 @@ struct frag    *frag)	/* For sy_frag. */
   symbolP -> sy_desc		= desc;
   symbolP -> sy_value		= value;
   symbolP -> sy_frag		= frag;
+  symbolP -> sy_prev_by_index	= NULL; /* Don't know what this is yet. */
   symbolP -> sy_next		= NULL;	/* End of chain. */
   symbolP -> sy_forward		= NULL; /* JF */
   symbolP -> expression		= NULL;
@@ -202,6 +207,26 @@ struct frag    *frag)	/* For sy_frag. */
   return (symbolP);
 }
 
+/*
+ *			symbol_assign_index()
+ *
+ * Assigns the next index to the given symbol.
+ *
+ * Asserts that the symbol has not been assigned an index yet.
+ *
+ */
+void
+symbol_assign_index(
+struct symbol *symbolP)
+{
+  if (symbolP->sy_prev_by_index != NULL)
+    {
+      as_fatal("symbol %s already has an index", symbolP->sy_name);
+    }
+  symbolP->sy_prev_by_index = symbol_lastIndexedP;
+  symbol_lastIndexedP = symbolP;
+}
+
 /*
  *			colon()
  *
@@ -250,6 +275,7 @@ char *sym_name) /* symbol name, as a cannonical string */
 	      symbolP -> sy_other = frchain_now->frch_nsect;
 	      symbolP -> sy_desc &= ~REFERENCE_TYPE;
 	      symbolP -> sy_desc &= ~N_WEAK_REF;
+	      symbol_assign_index(symbolP);
 	      if((symbolP->sy_desc & N_WEAK_DEF) == N_WEAK_DEF &&
 		 (frchain_now->frch_section.flags & S_COALESCED) != S_COALESCED)
 		  as_fatal("symbol: %s can't be a weak_definition (currently "
@@ -284,6 +310,7 @@ char *sym_name) /* symbol name, as a cannonical string */
 			    (valueT)(obstack_next_free(&frags)-frag_now->fr_literal),
 			    frag_now);
       symbol_table_insert (symbolP);
+      symbol_assign_index (symbolP);
 #ifdef NeXT_MOD	/* generate stabs for debugging assembly code */
       if(flagseen['g'])
 	  make_stab_for_symbol(symbolP);
@@ -474,7 +501,7 @@ unsigned long	offset)	  /* Offset from frag address. */
 	if(frchain_now->frch_isym_root == NULL){
 #ifdef CHECK_INDIRECTS
 	    if(offset != 0)
-		as_warn("missing or bad indirect symbol for section (%s,%s)",
+		as_bad("missing or bad indirect symbol for section (%s,%s)",
 			frchain_now->frch_section.segname,
 			frchain_now->frch_section.sectname);
 #endif
@@ -490,7 +517,7 @@ unsigned long	offset)	  /* Offset from frag address. */
 		stride = sizeof(unsigned long);
 	    if(frag == frchain_now->frch_isym_last->isy_frag){
 		if(offset - frchain_now->frch_isym_last->isy_offset != stride)
-		    as_warn("missing or bad indirect symbol for section "
+		    as_bad("missing or bad indirect symbol for section "
 			    "(%s,%s)", frchain_now->frch_section.segname,
 			    frchain_now->frch_section.sectname);
 	    }
@@ -507,7 +534,7 @@ unsigned long	offset)	  /* Offset from frag address. */
 		    if(frag != fr_next->fr_next ||
 		       fr_fix + fr_next->fr_fix != stride ||
 		       offset != 0)
-			as_warn("missing or bad indirect symbol for section "
+			as_bad("missing or bad indirect symbol for section "
 				"(%s,%s)", frchain_now->frch_section.segname,
 				frchain_now->frch_section.sectname);
 		}
@@ -523,7 +550,7 @@ unsigned long	offset)	  /* Offset from frag address. */
 			  fr_next->fr_next != NULL)
 			fr_next = fr_next->fr_next;
 		    if(frag != fr_next || offset != 0)
-			as_warn("missing or bad indirect symbol for section "
+			as_bad("missing or bad indirect symbol for section "
 				"(%s,%s)", frchain_now->frch_section.segname,
 				frchain_now->frch_section.sectname);
 		}

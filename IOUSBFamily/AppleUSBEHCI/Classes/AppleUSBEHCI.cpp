@@ -1275,7 +1275,7 @@ ErrorExit:
 
 
 IOReturn 
-AppleUSBEHCI::EnableAsyncSchedule(void)
+AppleUSBEHCI::EnableAsyncSchedule(bool waitForON)
 {
     int			i;
     IOReturn	stat = kIOReturnSuccess;
@@ -1283,35 +1283,22 @@ AppleUSBEHCI::EnableAsyncSchedule(void)
     if (!(_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDAsyncEnable)))
     {
 		USBLog(7, "AppleUSBEHCI[%p]::EnableAsyncSchedule: enabling schedule",  this);
-		// first make certain that it really is disabled
-		for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
-			IOSleep(1);
-		if (i)
+		// 4627732 - we used to wait for the bits to get synched up, but there doesn't seem to be
+		// a compelling reason to do so according to the EHCI spec, so we no longer do that
+		if (_errataBits & kErrataAgereEHCIAsyncSched)
 		{
-			if (i >= 100)
-			{
-				USBLog(1, "AppleUSBEHCI[%p]::EnableAsyncSchedule: ERROR: USBCMD and USBSTS won't synchronize OFF",  this);
-				stat = kIOReturnInternalError;
-			}
-			else
-			{
-				USBLog(7, "AppleUSBEHCI[%p]::EnableAsyncSchedule: had to wait %d ms for CMD and STS to synch up OFF",  this, i);
-			}
+			_pEHCIRegisters->USBCMD &= HostToUSBLong(~kEHCICMDRunStop);
+			while (!(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit))
+				;
+			_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDAsyncEnable | kEHCICMDRunStop);
+		}
+		else
+		{
+			_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDAsyncEnable);
 		}
 		
-		if (!stat)
+		if (waitForON)			// 4627732 - only wait if we explicitly say to
 		{
-			if (_errataBits & kErrataAgereEHCIAsyncSched)
-			{
-				_pEHCIRegisters->USBCMD &= HostToUSBLong(~kEHCICMDRunStop);
-				while (!(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit))
-					;
-				_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDAsyncEnable | kEHCICMDRunStop);
-			}
-			else
-			{
-				_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDAsyncEnable);
-			}
 			for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
 				IOSleep(1);
 			if (i)
@@ -1348,33 +1335,20 @@ AppleUSBEHCI::EnableAsyncSchedule(void)
 
 
 IOReturn 
-AppleUSBEHCI::DisableAsyncSchedule(void)
+AppleUSBEHCI::DisableAsyncSchedule(bool waitForOFF)
 {
     int		i;
     IOReturn	stat = kIOReturnSuccess;
 	
     if (_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDAsyncEnable))
     {
-		// first make certain that it really is enabled
-		for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
-			IOSleep(1);
-		if (i)
-		{
-			if (i >= 100)
-			{
-				USBLog(1, "AppleUSBEHCI[%p]::DisableAsyncSchedule: ERROR: USBCMD and USBSTS won't synchronize ON",  this);
-				stat = kIOReturnInternalError;
-			}
-			else
-			{
-				USBLog(7, "AppleUSBEHCI[%p]::DisableAsyncSchedule: had to wait %d ms for CMD and STS to synch up ON",  this, i);
-			}
-		}
-		
-		if (!stat)
-		{
-			_pEHCIRegisters->USBCMD &= HostToUSBLong(~kEHCICMDAsyncEnable);
+		USBLog(7, "AppleUSBEHCI[%p]::DisableAsyncSchedule: disabling schedule",  this);
+		// 4627732 - we used to wait for the bits to get synched up, but there doesn't seem to be
+		// a compelling reason to do so according to the EHCI spec, so we no longer do that
+		_pEHCIRegisters->USBCMD &= HostToUSBLong(~kEHCICMDAsyncEnable);
 			
+		if (waitForOFF)					// 4627732 - only wait if we explicitly say to
+		{
 			for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSAsyncScheduleStatus); i++)
 				IOSleep(1);
 			if (i)
@@ -1411,9 +1385,9 @@ AppleUSBEHCI::DisableAsyncSchedule(void)
 
 
 IOReturn 
-AppleUSBEHCI::EnablePeriodicSchedule(void)
+AppleUSBEHCI::EnablePeriodicSchedule(bool waitForON)
 {
-    int		i;
+    int			i;
     IOReturn	stat = kIOReturnSuccess;
 	
 	if (_inAbortIsochEP)
@@ -1423,26 +1397,14 @@ AppleUSBEHCI::EnablePeriodicSchedule(void)
 	}
     if (!(_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable)))
     {
-		// first make certain that it really is disabled
-		for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
-			IOSleep(1);
-		if (i)
-		{
-			if (i >= 100)
-			{
-				USBLog(1, "AppleUSBEHCI[%p]::EnablePeriodicSchedule: ERROR: USBCMD and USBSTS won't synchronize OFF",  this);
-				stat = kIOReturnInternalError;
-			}
-			else
-			{
-				USBLog(7, "AppleUSBEHCI[%p]::EnablePeriodicSchedule: had to wait %d ms for CMD and STS to synch up OFF",  this, i);
-			}
-		}
+		USBLog(7, "AppleUSBEHCI[%p]::EnablePeriodicSchedule: enabling schedule",  this);
+		// 4627732 - we used to wait for the bits to get synched up, but there doesn't seem to be
+		// a compelling reason to do so according to the EHCI spec, so we no longer do that
 		
-		if (!stat)
-		{
-			_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDPeriodicEnable);
+		_pEHCIRegisters->USBCMD |= HostToUSBLong(kEHCICMDPeriodicEnable);
 			
+		if (waitForON)					// 4627732 - only wait if we explicitly say to
+		{
 			for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
 				IOSleep(1);
 			if (i)
@@ -1479,34 +1441,20 @@ AppleUSBEHCI::EnablePeriodicSchedule(void)
 
 
 IOReturn 
-AppleUSBEHCI::DisablePeriodicSchedule(void)
+AppleUSBEHCI::DisablePeriodicSchedule(bool waitForOFF)
 {
     int		i;
     IOReturn	stat = kIOReturnSuccess;
 	
     if (_pEHCIRegisters->USBCMD & HostToUSBLong(kEHCICMDPeriodicEnable))
     {
-		// first make certain that it really is enabled
-		for (i=0; (i < 100) && !(USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
-			IOSleep(1);
+		USBLog(7, "AppleUSBEHCI[%p]::DisablePeriodicSchedule: disabling schedule",  this);
+		// 4627732 - we used to wait for the bits to get synched up, but there doesn't seem to be
+		// a compelling reason to do so according to the EHCI spec, so we no longer do that
+		_pEHCIRegisters->USBCMD &= HostToUSBLong(~kEHCICMDPeriodicEnable);
 			
-		if (i)
+		if (waitForOFF)					// 4627732 - only wait if we explicitly say to
 		{
-			if (i >= 100)
-			{
-				USBLog(1, "AppleUSBEHCI[%p]::DisablePeriodicSchedule: ERROR: USBCMD and USBSTS won't synchronize ON",  this);
-				stat = kIOReturnInternalError;
-			}
-			else
-			{
-				USBLog(7, "AppleUSBEHCI[%p]::DisablePeriodicSchedule: had to wait %d ms for CMD and STS to synch up ON",  this, i);
-			}
-		}
-		
-		if (!stat)
-		{
-			_pEHCIRegisters->USBCMD &= HostToUSBLong(~kEHCICMDPeriodicEnable);
-			
 			for (i=0; (i < 100) && (USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCISTSPeriodicScheduleStatus); i++)
 				IOSleep(1);
 

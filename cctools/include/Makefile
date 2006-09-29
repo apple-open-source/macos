@@ -11,7 +11,8 @@ FILES = mach-o/ldsyms.h mach-o/reloc.h \
 	mach-o/nlist.h mach-o/stab.h mach-o/loader.h mach-o/fat.h \
 	mach-o/dyld_debug.h mach-o/arch.h mach-o/gmon.h mach-o/ranlib.h \
 	mach-o/swap.h mach-o/getsect.h mach-o/i386/swap.h \
-	mach-o/ppc/swap.h mach-o/ppc/reloc.h mach-o/dyld.h mach-o/dyld_gdb.h
+	mach-o/ppc/swap.h mach-o/ppc/reloc.h mach-o/x86_64/reloc.h \
+	mach-o/dyld.h mach-o/dyld_gdb.h
 
 LOCFILES = mach-o/rld_state.h mach-o/rld.h mach-o/sarld.h mach-o/kld.h \
 	   mach-o/redo_prebinding.h \
@@ -120,6 +121,9 @@ common_install:
 	cd mach-o/ppc; \
 	    install -c -m 444 ${IFLAGS} reloc.h swap.h \
 	    ${DSTROOT}${$(RC_OS)_INCDIR}/mach-o/ppc
+	cd mach-o/x86_64; \
+	    install -c -m 444 ${IFLAGS} reloc.h \
+	    ${DSTROOT}${$(RC_OS)_INCDIR}/mach-o/x86_64
 	cd mach-o/m68k; \
 	    install -c -m 444 ${IFLAGS} swap.h \
 	    ${DSTROOT}${$(RC_OS)_LOCINCDIR}/mach-o/m68k
@@ -156,6 +160,7 @@ common_install:
 dirs:
 	$(MKDIRS) ${DSTROOT}${$(RC_OS)_INCDIR}/mach-o/i386
 	$(MKDIRS) ${DSTROOT}${$(RC_OS)_INCDIR}/mach-o/ppc
+	$(MKDIRS) ${DSTROOT}${$(RC_OS)_INCDIR}/mach-o/x86_64
 	$(MKDIRS) ${DSTROOT}${$(RC_OS)_LOCINCDIR}/mach-o/m68k
 	$(MKDIRS) ${DSTROOT}${$(RC_OS)_LOCINCDIR}/mach-o/sparc
 	$(MKDIRS) ${DSTROOT}${$(RC_OS)_LOCINCDIR}/mach-o/hppa

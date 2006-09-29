@@ -117,6 +117,8 @@ struct mach_header_64 {
 #define	MH_BUNDLE	0x8		/* dynamically bound bundle file */
 #define	MH_DYLIB_STUB	0x9		/* shared library stub for static */
 					/*  linking only, no section contents */
+#define	MH_DSYM		0xa		/* companion file with only debug */
+					/*  sections */
 
 /* Constants for the flags field of the mach_header */
 #define	MH_NOUNDEFS	0x1		/* the object file has no undefined
@@ -240,6 +242,7 @@ struct load_command {
 #define	LC_SEGMENT_64	0x19	/* 64-bit segment of this file to be
 				   mapped */
 #define	LC_ROUTINES_64	0x1a	/* 64-bit image routines */
+#define LC_UUID		0x1b	/* the uuid */
 
 /*
  * A variable length string in a load command is represented by an lc_str
@@ -422,6 +425,7 @@ struct section_64 { /* for 64-bit architectures */
 #define	S_INTERPOSING			0xd	/* section with only pairs of
 						   function pointers for
 						   interposing */
+#define	S_16BYTE_LITERALS	0xe	/* section with only 16 byte literals */
 /*
  * Constants for the section attributes part of the flags field of a section
  * structure.
@@ -441,6 +445,16 @@ struct section_64 { /* for 64-bit architectures */
 						   reference live blocks */
 #define S_ATTR_SELF_MODIFYING_CODE 0x04000000	/* Used with i386 code stubs
 						   written on by dyld */
+/*
+ * If a segment contains any sections marked with S_ATTR_DEBUG then all
+ * sections in that segment must have this attribute.  No section other than
+ * a section marked with this attribute may reference the contents of this
+ * section.  A section with this attribute may contain no symbols and must have
+ * a section type S_REGULAR.  The static linker will not copy section contents
+ * from sections with this attribute into its output file.  These sections
+ * generally contain DWARF debugging info.
+ */ 
+#define	S_ATTR_DEBUG		 0x02000000	/* a debug section */
 #define SECTION_ATTRIBUTES_SYS	 0x00ffff00	/* system setable attributes */
 #define S_ATTR_SOME_INSTRUCTIONS 0x00000400	/* section contains some
 						   machine instructions */
@@ -1036,6 +1050,16 @@ struct prebind_cksum_command {
     uint32_t cmd;	/* LC_PREBIND_CKSUM */
     uint32_t cmdsize;	/* sizeof(struct prebind_cksum_command) */
     uint32_t cksum;	/* the check sum or zero */
+};
+
+/*
+ * The uuid load command contains a single 128-bit unique random number that
+ * identifies an object produced by the static link editor.
+ */
+struct uuid_command {
+    uint32_t	cmd;		/* LC_UUID */
+    uint32_t	cmdsize;	/* sizeof(struct uuid_command) */
+    uint8_t	uuid[16];	/* the 128-bit uuid */
 };
 
 /*

@@ -64,6 +64,8 @@ static EAPClientPluginFuncFreePacket eapmschapv2_free_packet;
 static EAPClientPluginFuncRequireProperties eapmschapv2_require_props;
 static EAPClientPluginFuncPublishProperties eapmschapv2_publish_props;
 static EAPClientPluginFuncPacketDump eapmschapv2_packet_dump;
+static EAPClientPluginFuncSessionKey eapmschapv2_session_key;
+static EAPClientPluginFuncServerKey eapmschapv2_server_key;
 
 typedef struct {
     NTPasswordBlock		encrypted_password;
@@ -239,6 +241,8 @@ typedef struct {
     uint8_t			peer_challenge[MSCHAP2_CHALLENGE_SIZE];
     uint8_t			nt_response[MSCHAP_NT_RESPONSE_SIZE];
     uint8_t			auth_challenge[MSCHAP2_CHALLENGE_SIZE];
+    uint8_t			session_key[NT_SESSION_KEY_SIZE * 2];
+    bool			session_key_valid;
     uint8_t			pkt_buffer[1024];
 } EAPMSCHAPv2PluginData, * EAPMSCHAPv2PluginDataRef;
 
@@ -256,6 +260,7 @@ EAPMSCHAPv2PluginDataInit(EAPMSCHAPv2PluginDataRef context)
     context->plugin_state = kEAPClientStateAuthenticating;
     context->need_password = FALSE;
     context->need_new_password = FALSE;
+    context->session_key_valid = FALSE;
     return;
 }
 
@@ -302,13 +307,19 @@ eapmschapv2_free_packet(EAPClientPluginDataRef plugin, EAPPacketRef arg)
 
 static EAPMSCHAPv2ResponsePacketRef
 EAPMSCHAPv2ResponsePacketCreate(EAPClientPluginDataRef plugin, 
-				int identifier, int mschapv2_id)
+				int identifier, int mschapv2_id,
+				EAPClientStatus * client_status)
 {
+    CFDataRef				client_challenge;
     EAPMSCHAPv2PluginDataRef 		context;
     EAPMSCHAPv2ResponsePacketRef	out_pkt_p;
     MSCHAP2ResponseRef			resp_p;
     int					out_length;
 
+    /* check for out-of-band client challenge */
+    client_challenge
+	= CFDictionaryGetValue(plugin->properties,
+			       kEAPClientPropEAPMSCHAPv2ClientChallenge);
     context = (EAPMSCHAPv2PluginDataRef)plugin->private;
     out_length = sizeof(*out_pkt_p) + plugin->username_length;
     out_pkt_p = (EAPMSCHAPv2ResponsePacketRef)
@@ -318,9 +329,24 @@ EAPMSCHAPv2ResponsePacketCreate(EAPClientPluginDataRef plugin,
 			out_length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE,
 			NULL);
 
-    /* remember the peer challenge and nt response for later */
-    MSChapFillWithRandom(context->peer_challenge,
-			 sizeof(context->peer_challenge));
+    if (client_challenge != NULL) {
+	if (CFDataGetLength(client_challenge)
+	    != sizeof(context->peer_challenge)) {
+	    syslog(LOG_NOTICE,
+		   "EAPMSCHAPv2ResponsePacketCreate: internal error %d !=%d",
+		   CFDataGetLength(client_challenge),
+		   sizeof(context->peer_challenge));
+	    *client_status = kEAPClientStatusInternalError;
+	    context->plugin_state = kEAPClientStateFailure;
+	    return (NULL);
+	}
+	memcpy(context->peer_challenge, CFDataGetBytePtr(client_challenge),
+	       sizeof(context->peer_challenge));
+    }
+    else {
+	MSChapFillWithRandom(context->peer_challenge,
+			     sizeof(context->peer_challenge));
+    }
     MSChap2(context->auth_challenge, context->peer_challenge, 	
 	    plugin->username, plugin->password, plugin->password_length,
 	    context->nt_response);
@@ -332,8 +358,13 @@ EAPMSCHAPv2ResponsePacketCreate(EAPClientPluginDataRef plugin,
 				 out_length - EAP_MSCHAP2_MS_LENGTH_DIFFERENCE);
     out_pkt_p->value_size = sizeof(out_pkt_p->response);
     resp_p = (MSCHAP2ResponseRef)out_pkt_p->response;
-    memcpy(resp_p->peer_challenge, context->peer_challenge, 
-	   sizeof(context->peer_challenge));
+    if (client_challenge == NULL) {
+	memcpy(resp_p->peer_challenge, context->peer_challenge, 
+	       sizeof(context->peer_challenge));
+    }
+    else {
+	memset(resp_p->peer_challenge, 0, sizeof(resp_p->peer_challenge));
+    }
     memset(resp_p->reserved, 0, sizeof(resp_p->reserved));
     memcpy(resp_p->nt_response, context->nt_response, 
 	   sizeof(context->nt_response));
@@ -352,6 +383,7 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
     EAPMSCHAPv2PluginDataRef 		context;
     EAPMSCHAPv2ChallengePacketRef	challenge_p;
     EAPMSCHAPv2ResponsePacketRef	out_pkt_p;
+    CFDataRef				server_challenge;
 
     if (in_length < sizeof(*challenge_p)) {
 	syslog(LOG_NOTICE, "eapmschapv2_challenge: length %d < %d",
@@ -369,11 +401,32 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
 	goto done;
     }
 
-    /* remember the auth challenge for later */
-    memcpy(context->auth_challenge, challenge_p->challenge,
-	   sizeof(context->auth_challenge));
+    /* check for out-of-band server challenge */
+    server_challenge
+	= CFDictionaryGetValue(plugin->properties,
+			       kEAPClientPropEAPMSCHAPv2ServerChallenge);
+    if (server_challenge != NULL) {
+	if (CFDataGetLength(server_challenge) 
+	    != sizeof(context->auth_challenge)) {
+	    syslog(LOG_NOTICE,
+		   "eapmschapv2_challenge: internal error %d !=%d",
+		   CFDataGetLength(server_challenge),
+		   sizeof(context->auth_challenge));
+	    *client_status = kEAPClientStatusInternalError;
+	    context->plugin_state = kEAPClientStateFailure;
+	    goto done;
+	}
+	memcpy(context->auth_challenge, CFDataGetBytePtr(server_challenge),
+	       sizeof(context->auth_challenge));
+    }
+    else {
+	/* remember the auth challenge for later */
+	memcpy(context->auth_challenge, challenge_p->challenge,
+	       sizeof(context->auth_challenge));
+    }
     out_pkt_p = EAPMSCHAPv2ResponsePacketCreate(plugin, in_pkt_p->identifier,
-						challenge_p->mschapv2_id);
+						challenge_p->mschapv2_id,
+						client_status);
     if (out_pkt_p == NULL) {
 	goto done;
     }
@@ -382,6 +435,29 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
 
  done:
     return (NULL);
+}
+
+static void
+eapmschapv2_compute_session_key(EAPClientPluginDataRef plugin)
+{
+    EAPMSCHAPv2PluginDataRef 		context;
+    uint8_t				master_key[NT_MASTER_KEY_SIZE];
+
+    context = (EAPMSCHAPv2PluginDataRef)plugin->private;
+
+    MSChap2_MPPEGetMasterKey(plugin->password, plugin->password_length,
+			     context->nt_response,
+			     master_key);
+    MSChap2_MPPEGetAsymetricStartKey(master_key,
+				     context->session_key,
+				     NT_SESSION_KEY_SIZE,
+				     TRUE, TRUE);
+    MSChap2_MPPEGetAsymetricStartKey(master_key,
+				     context->session_key + NT_SESSION_KEY_SIZE,
+				     NT_SESSION_KEY_SIZE,
+				     FALSE, TRUE);
+    context->session_key_valid = TRUE;
+    return;
 }
 
 static EAPMSCHAPv2PacketRef
@@ -413,32 +489,34 @@ eapmschapv2_success_request(EAPClientPluginDataRef plugin,
     }
     r_p = (EAPMSCHAPv2SuccessRequestPacketRef)in_pkt_p;
     /* process success request */
-    if (MSChap2AuthResponseValid(plugin->password, plugin->password_length,
+    if (MSChap2AuthResponseValid((const uint8_t *)plugin->password,
+				 plugin->password_length,
 				 context->nt_response,
 				 context->peer_challenge,
 				 context->auth_challenge,
-				 plugin->username, r_p->auth_response) 
+				 (const uint8_t *)plugin->username,
+				 r_p->auth_response) 
 	== FALSE) {
 	syslog(LOG_NOTICE,
 	       "eapmschapv2_success_request: invalid server auth response");
 	context->plugin_state = kEAPClientStateFailure;
 	context->state = kMSCHAPv2ClientStateFailure;
 	*client_status = kEAPClientStatusFailed;
+	goto done;
     }
-    else {
-	switch (context->state) {
-	case kMSCHAPv2ClientStateResponseSent:
-	    syslog(LOG_NOTICE,
-		   "eapmschapv2_success_request: successfully authenticated");
-	    break;
-	case kMSCHAPv2ClientStateChangePasswordSent:
-	    syslog(LOG_NOTICE,
-		   "eapmschapv2_success_request: change password succeeded");
-	    break;
-	default:
-	    break;
-	}
+    switch (context->state) {
+    case kMSCHAPv2ClientStateResponseSent:
+	syslog(LOG_NOTICE,
+	       "eapmschapv2_success_request: successfully authenticated");
+	break;
+    case kMSCHAPv2ClientStateChangePasswordSent:
+	syslog(LOG_NOTICE,
+	       "eapmschapv2_success_request: change password succeeded");
+	break;
+    default:
+	break;
     }
+    eapmschapv2_compute_session_key(plugin);
     context->state = kMSCHAPv2ClientStateSuccess;
     out_pkt_p = (EAPMSCHAPv2SuccessResponsePacketRef)
 	EAPPacketCreate(context->pkt_buffer, sizeof(context->pkt_buffer),
@@ -1073,6 +1151,35 @@ eapmschapv2_version()
     return (kEAPClientPluginVersion);
 }
 
+static void * 
+eapmschapv2_session_key(EAPClientPluginDataRef plugin, int * key_length)
+{
+    EAPMSCHAPv2PluginDataRef	context;
+
+    context = (EAPMSCHAPv2PluginDataRef)plugin->private;
+    *key_length = 0;
+    if (context->session_key_valid == FALSE) {
+	return (NULL);
+    }
+    *key_length = sizeof(context->session_key);
+    return (context->session_key);
+}
+
+static void * 
+eapmschapv2_server_key(EAPClientPluginDataRef plugin, int * key_length)
+{
+    EAPMSCHAPv2PluginDataRef	context;
+
+    context = (EAPMSCHAPv2PluginDataRef)plugin->private;
+    *key_length = 0;
+    if (context->session_key_valid == FALSE) {
+	return (NULL);
+    }
+    *key_length = sizeof(context->session_key);
+    return (context->session_key);
+}
+
+
 static struct func_table_ent {
     const char *		name;
     void *			func;
@@ -1087,6 +1194,8 @@ static struct func_table_ent {
     { kEAPClientPluginFuncNameFree, eapmschapv2_free },
     { kEAPClientPluginFuncNameProcess, eapmschapv2_process },
     { kEAPClientPluginFuncNameFreePacket, eapmschapv2_free_packet },
+    { kEAPClientPluginFuncNameSessionKey, eapmschapv2_session_key },
+    { kEAPClientPluginFuncNameServerKey, eapmschapv2_server_key },
     { kEAPClientPluginFuncNameRequireProperties, eapmschapv2_require_props },
     { kEAPClientPluginFuncNamePublishProperties, eapmschapv2_publish_props },
     { kEAPClientPluginFuncNamePacketDump, eapmschapv2_packet_dump },

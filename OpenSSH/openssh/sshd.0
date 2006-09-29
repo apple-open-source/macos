@@ -21,7 +21,7 @@ DESCRIPTION
      sshd works as follows:
 
    SSH protocol version 1
-     Each host has a host-specific RSA key (normally 1024 bits) used to iden-
+     Each host has a host-specific RSA key (normally 2048 bits) used to iden-
      tify the host.  Additionally, when the daemon starts, it generates a
      server RSA key (normally 768 bits).  This key is normally regenerated ev-
      ery hour if it has been used, and is never stored on disk.
@@ -38,9 +38,9 @@ DESCRIPTION
      tion algorithm to use from those offered by the server.
 
      Next, the server and the client enter an authentication dialog.  The
-     client tries to authenticate itself using .rhosts authentication, .rhosts
-     authentication combined with RSA host authentication, RSA challenge-re-
-     sponse authentication, or password based authentication.
+     client tries to authenticate itself using .rhosts authentication combined
+     with RSA host authentication, RSA challenge-response authentication, or
+     password based authentication.
 
      Regardless of the authentication type, the account is checked to ensure
      that it is accessible.  An account is not accessible if it is locked,
@@ -53,10 +53,8 @@ DESCRIPTION
      field should be set to something other than these values (eg `NP' or
      `*NP*' ).
 
-     rhosts authentication is normally disabled because it is fundamentally
-     insecure, but can be enabled in the server configuration file if desired.
-     System security is not improved unless rshd, rlogind, and rexecd are dis-
-     abled (thus completely disabling rlogin and rsh into the machine).
+     rshd, rlogind, and rexecd are disabled (thus completely disabling rlogin
+     and rsh into the machine).
 
    SSH protocol version 2
      Version 2 works similarly: Each host has a host-specific key (RSA or DSA)
@@ -97,8 +95,8 @@ DESCRIPTION
      fied in the configuration file.
 
      sshd rereads its configuration file when it receives a hangup signal,
-     SIGHUP, by executing itself with the name it was started as, i.e.,
-     /usr/sbin/sshd.
+     SIGHUP, by executing itself with the name and options it was started
+     with, e.g., /usr/sbin/sshd.
 
      The options are as follows:
 
@@ -202,8 +200,7 @@ LOGIN PROCESS
 
            1.   If the login is on a tty, and no command has been specified,
                 prints last login time and /etc/motd (unless prevented in the
-                configuration file or by $HOME/.hushlogin; see the FILES sec-
-                tion).
+                configuration file or by ~/.hushlogin; see the FILES section).
 
            2.   If the login is on a tty, records login time.
 
@@ -214,21 +211,20 @@ LOGIN PROCESS
 
            5.   Sets up basic environment.
 
-           6.   Reads the file $HOME/.ssh/environment, if it exists, and users
-                are allowed to change their environment.  See the
+           6.   Reads the file ~/.ssh/environment, if it exists, and users are
+                allowed to change their environment.  See the
                 PermitUserEnvironment option in sshd_config(5).
 
            7.   Changes to user's home directory.
 
-           8.   If $HOME/.ssh/rc exists, runs it; else if /etc/ssh/sshrc ex-
-                ists, runs it; otherwise runs xauth.  The ``rc'' files are
-                given the X11 authentication protocol and cookie in standard
-                input.
+           8.   If ~/.ssh/rc exists, runs it; else if /etc/ssh/sshrc exists,
+                runs it; otherwise runs xauth.  The ``rc'' files are given the
+                X11 authentication protocol and cookie in standard input.
 
            9.   Runs user's shell or command.
 
 AUTHORIZED_KEYS FILE FORMAT
-     $HOME/.ssh/authorized_keys is the default file that lists the public keys
+     ~/.ssh/authorized_keys is the default file that lists the public keys
      that are permitted for RSA authentication in protocol version 1 and for
      public key authentication (PubkeyAuthentication) in protocol version 2.
      AuthorizedKeysFile may be used to specify an alternative file.
@@ -246,9 +242,10 @@ AUTHORIZED_KEYS FILE FORMAT
      or ``ssh-rsa''.
 
      Note that lines in this file are usually several hundred bytes long (be-
-     cause of the size of the public key encoding).  You don't want to type
-     them in; instead, copy the identity.pub, id_dsa.pub or the id_rsa.pub
-     file and edit it.
+     cause of the size of the public key encoding) up to a limit of 8 kilo-
+     bytes, which permits DSA keys up to 8 kilobits and RSA keys up to 16
+     kilobits.  You don't want to type them in; instead, copy the
+     identity.pub, id_dsa.pub or the id_rsa.pub file and edit it.
 
      sshd enforces a minimum RSA key modulus size for protocol 1 and protocol
      2 keys of 768 bits.
@@ -330,10 +327,10 @@ AUTHORIZED_KEYS FILE FORMAT
      permitopen="10.2.1.55:80",permitopen="10.2.1.56:25" 1024 33 23...2323
 
 SSH_KNOWN_HOSTS FILE FORMAT
-     The /etc/ssh/ssh_known_hosts and $HOME/.ssh/known_hosts files contain
-     host public keys for all known hosts.  The global file should be prepared
-     by the administrator (optional), and the per-user file is maintained au-
-     tomatically: whenever the user connects from an unknown host its key is
+     The /etc/ssh/ssh_known_hosts and ~/.ssh/known_hosts files contain host
+     public keys for all known hosts.  The global file should be prepared by
+     the administrator (optional), and the per-user file is maintained auto-
+     matically: whenever the user connects from an unknown host its key is
      added to the per-user file.
 
      Each line in these files contains the following fields: hostnames, bits,
@@ -345,6 +342,12 @@ SSH_KNOWN_HOSTS FILE FORMAT
      authenticating a server).  A pattern may also be preceded by `!' to indi-
      cate negation: if the host name matches a negated pattern, it is not ac-
      cepted (by that line) even if it matched another pattern on the line.
+
+     Alternately, hostnames may be stored in a hashed form which hides host
+     names and addresses should the file's contents be disclosed.  Hashed
+     hostnames start with a `|' character.  Only one hashed hostname may ap-
+     pear on a single line and none of the above negation or wildcard opera-
+     tors may be applied.
 
      Bits, exponent, and modulus are taken directly from the RSA host key;
      they can be obtained, e.g., from /etc/ssh/ssh_host_key.pub.  The optional
@@ -369,6 +372,10 @@ SSH_KNOWN_HOSTS FILE FORMAT
 
      closenet,...,130.233.208.41 1024 37 159...93 closenet.hut.fi
      cvs.openbsd.org,199.185.137.3 ssh-rsa AAAA1234.....=
+
+     # A hashed hostname
+     |1|JfKTdBh7rNbXkVAQCRp4OQoPfmI=|USECr3SWf1JUPsms5AqfD5QfxkM= ssh-rsa
+     AAAA1234.....=
 
 FILES
      /etc/ssh/sshd_config
@@ -408,7 +415,7 @@ FILES
              The content of this file is not sensitive; it can be world-read-
              able.
 
-     $HOME/.ssh/authorized_keys
+     ~/.ssh/authorized_keys
              Lists the public keys (RSA or DSA) that can be used to log into
              the user's account.  This file must be readable by root (which
              may on some machines imply it being world-readable if the user's
@@ -418,7 +425,7 @@ FILES
              identity.pub, id_dsa.pub and/or id_rsa.pub files into this file,
              as described in ssh-keygen(1).
 
-     /etc/ssh/ssh_known_hosts, $HOME/.ssh/known_hosts
+     /etc/ssh/ssh_known_hosts, ~/.ssh/known_hosts
              These files are consulted when using rhosts with RSA host authen-
              tication or protocol version 2 hostbased authentication to check
              the public key of the host.  The key must be listed in one of
@@ -426,7 +433,16 @@ FILES
              verify that it is connecting to the correct remote host.  These
              files should be writable only by root/the owner.
              /etc/ssh/ssh_known_hosts should be world-readable, and
-             $HOME/.ssh/known_hosts can, but need not be, world-readable.
+             ~/.ssh/known_hosts can, but need not be, world-readable.
+
+     /etc/motd
+             See motd(5).
+
+     ~/.hushlogin
+             This file is used to suppress printing the last login time and
+             /etc/motd, if PrintLastLog and PrintMotd, respectively, are en-
+             abled.  It does not suppress printing of the banner specified by
+             Banner.
 
      /etc/nologin
              If this file exists, sshd refuses to let anyone except root log
@@ -438,37 +454,40 @@ FILES
              Access controls that should be enforced by tcp-wrappers are de-
              fined here.  Further details are described in hosts_access(5).
 
-     $HOME/.rhosts
-             This file contains host-username pairs, separated by a space, one
-             per line.  The given user on the corresponding host is permitted
-             to log in without a password.  The same file is used by rlogind
-             and rshd.  The file must be writable only by the user; it is rec-
-             ommended that it not be accessible by others.
+     ~/.rhosts
+             This file is used during RhostsRSAAuthentication and
+             HostbasedAuthentication and contains host-username pairs, sepa-
+             rated by a space, one per line.  The given user on the corre-
+             sponding host is permitted to log in without a password.  The
+             same file is used by rlogind and rshd.  The file must be writable
+             only by the user; it is recommended that it not be accessible by
+             others.
 
              It is also possible to use netgroups in the file.  Either host or
              user name may be of the form +@groupname to specify all hosts or
              all users in the group.
 
-     $HOME/.shosts
+     ~/.shosts
              For ssh, this file is exactly the same as for .rhosts.  However,
              this file is not used by rlogin and rshd, so using this permits
              access using SSH only.
 
      /etc/hosts.equiv
-             This file is used during rhosts authentication.  In the simplest
-             form, this file contains host names, one per line.  Users on
-             those hosts are permitted to log in without a password, provided
-             they have the same user name on both machines.  The host name may
-             also be followed by a user name; such users are permitted to log
-             in as any user on this machine (except root).  Additionally, the
-             syntax ``+@group'' can be used to specify netgroups.  Negated en-
-             tries start with `-'.
+             This file is used during RhostsRSAAuthentication and
+             HostbasedAuthentication authentication.  In the simplest form,
+             this file contains host names, one per line.  Users on those
+             hosts are permitted to log in without a password, provided they
+             have the same user name on both machines.  The host name may also
+             be followed by a user name; such users are permitted to log in as
+             any user on this machine (except root).  Additionally, the syntax
+             ``+@group'' can be used to specify netgroups.  Negated entries
+             start with `-'.
 
              If the client host/user is successfully matched in this file, lo-
              gin is automatically permitted provided the client and server us-
-             er names are the same.  Additionally, successful RSA host authen-
-             tication is normally required.  This file must be writable only
-             by root; it is recommended that it be world-readable.
+             er names are the same.  Additionally, successful client host key
+             authentication is required.  This file must be writable only by
+             root; it is recommended that it be world-readable.
 
              Warning: It is almost never a good idea to use user names in
              hosts.equiv.  Beware that it really means that the named user(s)
@@ -484,7 +503,7 @@ FILES
              file may be useful in environments that want to run both
              rsh/rlogin and ssh.
 
-     $HOME/.ssh/environment
+     ~/.ssh/environment
              This file is read into the environment at login (if it exists).
              It can only contain empty lines, comment lines (that start with
              `#'), and assignment lines of the form name=value.  The file
@@ -492,7 +511,7 @@ FILES
              anyone else.  Environment processing is disabled by default and
              is controlled via the PermitUserEnvironment option.
 
-     $HOME/.ssh/rc
+     ~/.ssh/rc
              If this file exists, it is run with /bin/sh after reading the en-
              vironment files but before starting the user's shell or command.
              It must not produce any output on stdout; stderr must be used in-
@@ -527,9 +546,9 @@ FILES
              readable by anyone else.
 
      /etc/ssh/sshrc
-             Like $HOME/.ssh/rc.  This can be used to specify machine-specific
-             login-time initializations globally.  This file should be
-             writable only by root, and should be world-readable.
+             Like ~/.ssh/rc.  This can be used to specify machine-specific lo-
+             gin-time initializations globally.  This file should be writable
+             only by root, and should be world-readable.
 
 SEE ALSO
      scp(1), sftp(1), ssh(1), ssh-add(1), ssh-agent(1), ssh-keygen(1),
@@ -552,4 +571,4 @@ AUTHORS
      versions 1.5 and 2.0.  Niels Provos and Markus Friedl contributed support
      for privilege separation.
 
-OpenBSD 3.5                   September 25, 1999                             9
+OpenBSD 3.8                   September 25, 1999                             9

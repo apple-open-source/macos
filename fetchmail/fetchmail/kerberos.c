@@ -65,7 +65,7 @@ int do_rfc1731(int sock, char *command, char *truename)
      * in network byte order.
      */
 
-    if (result = gen_recv(sock, buf1, sizeof buf1)) {
+    if ((result = gen_recv(sock, buf1, sizeof buf1)) != 0) {
 	return result;
     }
 
@@ -96,14 +96,14 @@ int do_rfc1731(int sock, char *command, char *truename)
     strncpy(srvinst, truename, (sizeof srvinst)-1);
     srvinst[(sizeof srvinst)-1] = '\0';
     for (p = srvinst; *p; p++) {
-      if (isupper(*p)) {
-	*p = tolower(*p);
+      if (isupper((unsigned char)*p)) {
+	*p = tolower((unsigned char)*p);
       }
     }
 
     strncpy(srvrealm, (char *)krb_realmofhost(srvinst), (sizeof srvrealm)-1);
     srvrealm[(sizeof srvrealm)-1] = '\0';
-    if (p = strchr(srvinst, '.')) {
+    if ((p = strchr(srvinst, '.')) != NULL) {
       *p = '\0';
     }
 
@@ -146,13 +146,13 @@ int do_rfc1731(int sock, char *command, char *truename)
 	report(stderr, 
 	       GT_("non-null instance (%s) might cause strange behavior\n"),
 		tktinst);
-	strcat(tktuser, ".");
-	strcat(tktuser, tktinst);
+	strlcat(tktuser, ".", sizeof(tktuser));
+	strlcat(tktuser, tktinst, sizeof(tktuser));
     }
 
     if (strcmp(tktrealm, srvrealm) != 0) {
-	strcat(tktuser, "@");
-	strcat(tktuser, tktrealm);
+	strlcat(tktuser, "@", sizeof(tktuser));
+	strlcat(tktuser, tktrealm, sizeof(tktuser));
     }
 
     result = krb_mk_req(&authenticator, "imap", srvinst, srvrealm,
@@ -186,7 +186,7 @@ int do_rfc1731(int sock, char *command, char *truename)
      * checksum it previously sent.
      */
     
-    if (result = gen_recv(sock, buf1, sizeof buf1))
+    if ((result = gen_recv(sock, buf1, sizeof buf1)) != 0)
 	return result;
 
     /* The client must construct data with the first four octets
@@ -216,7 +216,7 @@ int do_rfc1731(int sock, char *command, char *truename)
 
     des_ecb_encrypt((des_cblock *)buf2, (des_cblock *)buf2, schedule, 0);
     memcpy(challenge2.cstr, buf2, 4);
-    if (ntohl(challenge2.cint) != challenge1.cint + 1) {
+    if ((int32)ntohl(challenge2.cint) != challenge1.cint + 1) {
 	report(stderr, GT_("challenge mismatch\n"));
 	return PS_AUTHFAIL;
     }	    
@@ -236,7 +236,7 @@ int do_rfc1731(int sock, char *command, char *truename)
     authenticator.dat[4] = 1;
 
     len = strlen(tktuser);
-    strncpy(authenticator.dat+8, tktuser, len);
+    strncpy((char *)authenticator.dat+8, tktuser, len);
     authenticator.length = len + 8 + 1;
     while (authenticator.length & 7) {
 	authenticator.length++;

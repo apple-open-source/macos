@@ -62,6 +62,16 @@ OSStatus SSLInternalClientRandom(
    void *rand,  		// mallocd by caller, SSL_CLIENT_SRVR_RAND_SIZE
    size_t *randSize);	// in/out   
 
+/* 
+ * Obtain the sizes of the currently negotiated HMAC digest, session 
+ * key, and session key IV.
+ */
+OSStatus SSLGetCipherSizes(
+	SSLContextRef context,
+	size_t *digestSize,
+	size_t *symmetricKeySize,
+	size_t *ivSize);
+
 OSStatus SSLInternal_PRF(
    SSLContextRef context,
    const void *secret,
@@ -113,6 +123,65 @@ OSStatus
 SSLGetEncryptionCertificate (
 	SSLContextRef	context,
 	CFArrayRef		*certRefs);				// RETURNED, *not* retained
+
+/*
+ * Override the default session cache timeout for a cache entry created for
+ * the current session.
+ */
+OSStatus 
+SSLSetSessionCacheTimeout(
+	SSLContextRef context, 
+	uint32 timeoutInSeconds);
+
+/*
+ * Callback function for EAP-style PAC-based session resumption. 
+ * This function is called by SecureTransport to obtain the 
+ * master secret. 
+ */
+typedef void (*SSLInternalMasterSecretFunction)(
+	SSLContextRef ctx,
+	const void *arg,		/* opaque to SecureTransport; app-specific */
+	void *secret,			/* mallocd by caller, SSL_MASTER_SECRET_SIZE */
+	size_t *secretLength);  /* in/out */
+
+/*
+ * Register a callback for obtaining the master_secret when performing 
+ * PAC-based session resumption. At the time the callback is called,
+ * the following are guaranteed to be valid:
+ *
+ *  -- serverRandom (via SSLInternalServerRandom())
+ *  -- clientRandom (via SSLInternalClientRandom())
+ *  -- negotiated protocol version (via SSLGetNegotiatedProtocolVersion())
+ *  -- negotiated CipherSuite (via SSLGetNegotiatedCipher())
+ *
+ * Currently, PAC-based session resumption is only implemented on 
+ * the client side for Deployment builds.
+ *
+ * On the client side, this callback occurs if/when the server sends a
+ * ChangeCipherSpec message immediately following its ServerHello
+ * message (i.e., it's skipped the entire Key Exchange phase of 
+ * negotiation). 
+ *
+ * On the server side (Development builds only) this callback occurs
+ * immediately upon receipt of the Client Hello message, before we send
+ * the Server Hello. 
+ */
+OSStatus
+SSLInternalSetMasterSecretFunction(
+	SSLContextRef ctx, 
+	SSLInternalMasterSecretFunction mFunc, 
+	const void *arg);		/* opaque to SecureTransport; app-specific */
+
+/* 
+ * Provide an opaque SessionTicket for use in PAC-based session 
+ * resumption. Client side only. The provided ticket is sent in
+ * the ClientHello message as a SessionTicket extension. 
+ * The maximum ticketLength is 2**16-1. 
+ */
+OSStatus SSLInternalSetSessionTicket(
+   SSLContextRef ctx,
+   const void *ticket,   	
+   size_t ticketLength);
 
 #ifdef __cplusplus
 }

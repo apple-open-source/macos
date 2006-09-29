@@ -280,9 +280,9 @@ mountmsdosfs(devvp, mp, context, argp)
 	 * Read the boot sector of the filesystem, and then check the
 	 * boot signature.  If not a dos boot sector then error out.
 	 *
-	 * NOTE: 2048 is a maximum sector size in current...
+	 * NOTE: 4096 is a maximum sector size in current...
 	 */
-	error = (int)buf_meta_bread(devvp, 0, 2048, vfs_context_ucred(context), &bp);
+	error = (int)buf_meta_bread(devvp, 0, 4096, vfs_context_ucred(context), &bp);
 	if (error)
 		goto error_exit;
 	buf_markaged(bp);
@@ -481,7 +481,7 @@ mountmsdosfs(devvp, mp, context, argp)
 			 * characters are an extension, and it will put a period before the
 			 * extension.
 			 */
-			for (i=0; i<11; i++) {
+			for (i=0; i<SHORT_NAME_LEN; i++) {
 				uc = extboot->exVolumeLabel[i];
 				if (i==0 && uc == SLOT_E5)
 					uc = 0xE5;
@@ -822,8 +822,8 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
 	    int len;
 	    size_t unichars;
 		u_int16_t c;
-	    u_int16_t volName[11];
-	    u_char label[11];
+	    u_int16_t volName[SHORT_NAME_LEN];
+	    u_char label[SHORT_NAME_LEN];
 
 		len = strlen(attr->f_vol_name);
         if (len > 63)
@@ -835,7 +835,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
         if (error)
             return error;
         unichars /= 2;	/* Bytes to characters */
-		if (unichars > 11)
+		if (unichars > SHORT_NAME_LEN)
 			return EINVAL;
 
         /*
@@ -850,7 +850,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
          */
         
         /* Name is trailing space padded, so init to all spaces. */
-        for (i=0; i<11; ++i)
+        for (i=0; i<SHORT_NAME_LEN; ++i)
             label[i] = ' ';
 
         for (i=0; i<unichars; ++i) {
@@ -872,9 +872,9 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
         error = (int)buf_meta_bread(pmp->pm_devvp, 0, pmp->pm_BlockSize, vfs_context_ucred(context), &bp);
         if (!error) {
             if (FAT32(pmp))
-                bcopy(label, (char*)buf_dataptr(bp)+71, 11);
+                bcopy(label, (char*)buf_dataptr(bp)+71, SHORT_NAME_LEN);
             else
-                bcopy(label, (char*)buf_dataptr(bp)+43, 11);
+                bcopy(label, (char*)buf_dataptr(bp)+43, SHORT_NAME_LEN);
             buf_bdwrite(bp);
             bp = NULL;
         }
@@ -890,7 +890,7 @@ static int	msdosfs_vfs_setattr(mount_t mp, struct vfs_attr *attr, vfs_context_t 
         if (pmp->pm_label_cluster != CLUST_EOFE) {
         	error = readep(pmp, pmp->pm_label_cluster, pmp->pm_label_offset, &bp, NULL, context);
             if (!error) {
-                bcopy(label, (char *)buf_dataptr(bp) + pmp->pm_label_offset, 11);
+                bcopy(label, (char *)buf_dataptr(bp) + pmp->pm_label_offset, SHORT_NAME_LEN);
                 buf_bdwrite(bp);
                 bp = NULL;
             }
@@ -1131,7 +1131,7 @@ static int get_root_label(struct mount *mp, vfs_context_t context)
                  * characters are an extension, and it will put a period before the
                  * extension.
                  */
-				for (i=0; i<11; i++) {
+				for (i=0; i<SHORT_NAME_LEN; i++) {
 					uc = dep->deName[i];
 					if (i==0 && uc == SLOT_E5)
 						uc = 0xE5;

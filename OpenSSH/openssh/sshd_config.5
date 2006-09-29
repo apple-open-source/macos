@@ -34,7 +34,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $OpenBSD: sshd_config.5,v 1.29 2004/03/08 10:18:57 dtucker Exp $
+.\" $OpenBSD: sshd_config.5,v 1.44 2005/07/25 11:59:40 markus Exp $
 .Dd September 25, 1999
 .Dt SSHD_CONFIG 5
 .Os
@@ -61,6 +61,39 @@ The possible
 keywords and their meanings are as follows (note that
 keywords are case-insensitive and arguments are case-sensitive):
 .Bl -tag -width Ds
+.It Cm AcceptEnv
+Specifies what environment variables sent by the client will be copied into
+the session's
+.Xr environ 7 .
+See
+.Cm SendEnv
+in
+.Xr ssh_config 5
+for how to configure the client.
+Note that environment passing is only supported for protocol 2.
+Variables are specified by name, which may contain the wildcard characters
+.Ql \&*
+and
+.Ql \&? .
+Multiple environment variables may be separated by whitespace or spread
+across multiple
+.Cm AcceptEnv
+directives.
+Be warned that some environment variables could be used to bypass restricted
+user environments.
+For this reason, care should be taken in the use of this directive.
+The default is not to accept any environment variables.
+.It Cm AddressFamily
+Specifies which address family should be used by
+.Nm sshd .
+Valid arguments are
+.Dq any ,
+.Dq inet
+(use IPv4 only) or
+.Dq inet6
+(use IPv6 only).
+The default is
+.Dq any .
 .It Cm AllowGroups
 This keyword can be followed by a list of group name patterns, separated
 by spaces.
@@ -73,7 +106,6 @@ can be used as
 wildcards in the patterns.
 Only group names are valid; a numerical group ID is not recognized.
 By default, login is allowed for all groups.
-.Pp
 .It Cm AllowTcpForwarding
 Specifies whether TCP forwarding is permitted.
 The default is
@@ -81,7 +113,6 @@ The default is
 Note that disabling TCP forwarding does not improve security unless
 users are also denied shell access, as they can always install their
 own forwarders.
-.Pp
 .It Cm AllowUsers
 This keyword can be followed by a list of user name patterns, separated
 by spaces.
@@ -97,7 +128,6 @@ By default, login is allowed for all users.
 If the pattern takes the form USER@HOST then USER and HOST
 are separately checked, restricting logins to particular
 users from particular hosts.
-.Pp
 .It Cm AuthorizedKeysFile
 Specifies the file that contains the public keys that can be used
 for user authentication.
@@ -120,7 +150,6 @@ The contents of the specified file are sent to the remote user before
 authentication is allowed.
 This option is only available for protocol version 2.
 By default, no banner is displayed.
-.Pp
 .It Cm ChallengeResponseAuthentication
 Specifies whether challenge response authentication is allowed.
 All authentication styles from
@@ -131,21 +160,26 @@ The default is
 .It Cm Ciphers
 Specifies the ciphers allowed for protocol version 2.
 Multiple ciphers must be comma-separated.
+The supported ciphers are
+.Dq 3des-cbc ,
+.Dq aes128-cbc ,
+.Dq aes192-cbc ,
+.Dq aes256-cbc ,
+.Dq aes128-ctr ,
+.Dq aes192-ctr ,
+.Dq aes256-ctr ,
+.Dq arcfour128 ,
+.Dq arcfour256 ,
+.Dq arcfour ,
+.Dq blowfish-cbc ,
+and
+.Dq cast128-cbc .
 The default is
-.Pp
 .Bd -literal
-  ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour,
-    aes192-cbc,aes256-cbc,aes128-ctr,aes192-ctr,aes256-ctr''
+  ``aes128-cbc,3des-cbc,blowfish-cbc,cast128-cbc,arcfour128,
+    arcfour256,arcfour,aes192-cbc,aes256-cbc,aes128-ctr,
+    aes192-ctr,aes256-ctr''
 .Ed
-.It Cm ClientAliveInterval
-Sets a timeout interval in seconds after which if no data has been received
-from the client,
-.Nm sshd
-will send a message through the encrypted
-channel to request a response from the client.
-The default
-is 0, indicating that these messages will not be sent to the client.
-This option applies to protocol version 2 only.
 .It Cm ClientAliveCountMax
 Sets the number of client alive messages (see above) which may be
 sent without
@@ -173,14 +207,25 @@ If
 .Cm ClientAliveCountMax
 is left at the default, unresponsive ssh clients
 will be disconnected after approximately 45 seconds.
+.It Cm ClientAliveInterval
+Sets a timeout interval in seconds after which if no data has been received
+from the client,
+.Nm sshd
+will send a message through the encrypted
+channel to request a response from the client.
+The default
+is 0, indicating that these messages will not be sent to the client.
+This option applies to protocol version 2 only.
 .It Cm Compression
-Specifies whether compression is allowed.
+Specifies whether compression is allowed, or delayed until
+the user has authenticated successfully.
 The argument must be
-.Dq yes
+.Dq yes ,
+.Dq delayed ,
 or
 .Dq no .
 The default is
-.Dq yes .
+.Dq delayed .
 .It Cm DenyGroups
 This keyword can be followed by a list of group name patterns, separated
 by spaces.
@@ -193,7 +238,6 @@ can be used as
 wildcards in the patterns.
 Only group names are valid; a numerical group ID is not recognized.
 By default, login is allowed for all groups.
-.Pp
 .It Cm DenyUsers
 This keyword can be followed by a list of user name patterns, separated
 by spaces.
@@ -217,16 +261,25 @@ This prevents other remote hosts from connecting to forwarded ports.
 .Cm GatewayPorts
 can be used to specify that
 .Nm sshd
-should bind remote port forwardings to the wildcard address,
-thus allowing remote hosts to connect to forwarded ports.
-The argument must be
+should allow remote port forwardings to bind to non-loopback addresses, thus
+allowing other hosts to connect.
+The argument may be
+.Dq no
+to force remote port forwardings to be available to the local host only,
 .Dq yes
-or
-.Dq no .
+to force remote port forwardings to bind to the wildcard address, or
+.Dq clientspecified
+to allow the client to select the address to which the forwarding is bound.
 The default is
 .Dq no .
 .It Cm GSSAPIAuthentication
 Specifies whether user authentication based on GSSAPI is allowed.
+The default is
+.Dq no .
+Note that this option applies to protocol version 2 only.
+.It Cm GSSAPIKeyExchange
+Specifies whether key exchange based on GSSAPI is allowed. GSSAPI key exchange 
+doesn't rely on ssh keys to verify host identity.
 The default is
 .Dq no .
 Note that this option applies to protocol version 2 only.
@@ -265,26 +318,6 @@ keys are used for version 1 and
 or
 .Dq rsa
 are used for version 2 of the SSH protocol.
-.It Cm GssapiAuthentication
-Specifies whether authentication based on GSSAPI may be used, either using
-the result of a successful key exchange, or using GSSAPI user
-authentication.
-The default is 
-.Dq yes .
-Note that this option applies to protocol version 2 only.
-.It Cm GssapiKeyExchange
-Specifies whether key exchange based on GSSAPI may be used. When using
-GSSAPI key exchange the server need not have a host key.
-The default is
-.Dq yes .
-Note that this option applies to protocol version 2 only.
-.It Cm GssapiUseSessionCredCache
-Specifies whether a unique credentials cache name should be generated per
-session for storing delegated credentials.
-The default is
-.Dq yes .
-Note that this option applies to protocol version 2 only.
-
 .It Cm IgnoreRhosts
 Specifies that
 .Pa .rhosts
@@ -305,7 +338,7 @@ The default is
 Specifies whether
 .Nm sshd
 should ignore the user's
-.Pa $HOME/.ssh/known_hosts
+.Pa ~/.ssh/known_hosts
 during
 .Cm RhostsRSAAuthentication
 or
@@ -406,6 +439,12 @@ for data integrity protection.
 Multiple algorithms must be comma-separated.
 The default is
 .Dq hmac-md5,hmac-sha1,hmac-ripemd160,hmac-sha1-96,hmac-md5-96 .
+.It Cm MaxAuthTries
+Specifies the maximum number of authentication attempts permitted per
+connection.
+Once the number of failures reaches half this value,
+additional failures are logged.
+The default is 6.
 .It Cm MaxStartups
 Specifies the maximum number of concurrent unauthenticated connections to the
 .Nm sshd
@@ -441,7 +480,7 @@ server allows login to accounts with empty password strings.
 The default is
 .Dq no .
 .It Cm PermitRootLogin
-Specifies whether root can login using
+Specifies whether root can log in using
 .Xr ssh 1 .
 The argument must be
 .Dq yes ,
@@ -454,9 +493,7 @@ The default is
 .Pp
 If this option is set to
 .Dq without-password
-password authentication is disabled for root.  Note that other authentication
-methods (e.g., keyboard-interactive/PAM) may still allow root to login using
-a password.
+password authentication is disabled for root.
 .Pp
 If this option is set to
 .Dq forced-commands-only
@@ -470,7 +507,7 @@ All other authentication methods are disabled for root.
 .Pp
 If this option is set to
 .Dq no
-root is not allowed to login.
+root is not allowed to log in.
 .It Cm PermitUserEnvironment
 Specifies whether
 .Pa ~/.ssh/environment
@@ -502,7 +539,8 @@ See also
 .It Cm PrintLastLog
 Specifies whether
 .Nm sshd
-should print the date and time when the user last logged in.
+should print the date and time of the last user login when a user logs
+in interactively.
 The default is
 .Dq yes .
 .It Cm PrintMotd
@@ -603,7 +641,7 @@ To disable TCP keepalive messages, the value should be set to
 .It Cm UseDNS
 Specifies whether
 .Nm sshd
-should lookup the remote host name and check that
+should look up the remote host name and check that
 the resolved host name for the remote IP address maps back to the
 very same IP address.
 The default is
@@ -628,12 +666,25 @@ If
 .Cm UsePrivilegeSeparation
 is specified, it will be disabled after authentication.
 .It Cm UsePAM
-Enables PAM authentication (via challenge-response) and session set up.
-If you enable this, you should probably disable
-.Cm PasswordAuthentication .
-If you enable
-.CM UsePAM
-then you will not be able to run sshd as a non-root user.  The default is
+Enables the Pluggable Authentication Module interface.
+If set to
+.Dq yes
+this will enable PAM authentication using
+.Cm ChallengeResponseAuthentication
+and PAM account and session module processing for all authentication types.
+.Pp
+Because PAM challenge-response authentication usually serves an equivalent
+role to password authentication, you should disable either
+.Cm PasswordAuthentication
+or
+.Cm ChallengeResponseAuthentication.
+.Pp
+If
+.Cm UsePAM
+is enabled, you will not be able to run
+.Xr sshd 8
+as a non-root user.
+The default is
 .Dq no .
 .It Cm UsePrivilegeSeparation
 Specifies whether

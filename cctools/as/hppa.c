@@ -316,14 +316,14 @@ reg = pa_parse_number(&s);
 /** PJH: The following 2 calls to as_bad() might eventually **/
 /**      want to end up as as_warn().  **/
 				if (   the_insn.exp.X_add_number > 15 ) {
-					as_bad("5 bit immediate: " TA_DFMT
+					as_bad("5 bit immediate: %lld"
 					       " > 15. Set to 15",
 						the_insn.exp.X_add_number);
 					the_insn.exp.X_add_number = 15;
 				}
 				else if ( the_insn.exp.X_add_number < -16 ) {
 						as_bad("5 bit immediate: "
-						   TA_DFMT " < -16. Set to -16",
+						   "%lld < -16. Set to -16",
 						    the_insn.exp.X_add_number);
 						the_insn.exp.X_add_number = -16;
 					}
@@ -1461,7 +1461,7 @@ int *sizeP)
 void
 md_number_to_chars(
 char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int n)
 {
 
@@ -1485,7 +1485,7 @@ int n)
 void
 md_number_to_imm(
 unsigned char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int n,
 fixS *fixP,
 int nsect)

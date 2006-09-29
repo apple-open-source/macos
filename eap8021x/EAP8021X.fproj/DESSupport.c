@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/param.h>
 #include "DESSupport.h"
 #ifndef USE_CRYPT
 #include <openssl/des.h>

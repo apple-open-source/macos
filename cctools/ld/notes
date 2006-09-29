@@ -23,12 +23,405 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
-Changes for the 5.20 release (the cctools-590.23.3 release):
+Changes for the 5.23 release (the cctools-619 release):
+- Fixed a bug that caused the "internal error: output_local_symbols()'
+  inconsistent local symbol count" when discarding a weak symbol from an object
+  file for a symbol in a shared library.  The fix was to remove the call to
+  maybe_remove_dwarf_symbol() in merge_dylib_module_symbols() in symbols.c 
+  and let this call happen when it get to the label
+  use_symbol_definition_from_this_dylib.  The same change was also done in
+  merge_bundle_loader_symbols() in symbols.c .  Radar bug #4570143.
+- Fixed a bug in the parsing of the -allow_stack_execute flag.  In main() in
+  ld.c in the second loop over the argv[] to pick up the object files was
+  missing a test for "allow_stack_execute" and it was incorrectly thinking it
+  had an argument.  Radar bug #4571206.
+
+Changes for the 5.23 release (the cctools-617 release):
+- Changed pass1_archive() in pass1.c to no longer check the timestamp of the
+  archive against the table of contents archive member.  Radar bug #4462449.
+
+Changes for the 5.23 release (the cctools-613 release):
+- Changed layout.c to add macros that rename structure members of the 
+  ppc and i386 thread states for Unix conformance.  Radar bug #4508798.
+
+Changes for the 5.22 release picked up from cctools-590.42 (the cctools-610
+release):
+- Fixed another bug in the handling of the -Y undefined symbol tracing.  This 
+  is more fall out of Radar bug #3737622.  Where the code was changed when
+  linking two-level, to not search libraries that can't be encode as ordinals.  
+  The code just inside the outer loop needed to have one of its checks changed
+  so that it ignores any object with cur_obj->dylib set to TRUE no matter if the
+  if is for a module linked from a dylib or not (cur_obj->dylib_module != NULL).
+  Radar bug #4521358.
+
+Changes for the 5.22 release (the cctools-590.40.1 release):
+- Ignore multiple -syslibroot flags if they specify the same argument. Radar
+  bug #4354876.
+
+Changes for the 5.22 release (the cctools-590.31.1 release):
+- Changed to invoke ld64 without any extra arguments when given a 64-bit
+  object file.
+
+Changes for the 5.21 release (the cctools-590.41 release):
+- Fixed problems with the handling of the ___dso_handle linker defined symbol
+  when it appears in an object used with -bundle_loader.  It needs to not cause
+  an error when it only appears in the -bundle_loader file and still only be
+  defined in the output file when it is referenced by the linked objects.  To
+  handle the case when it appears in the -bundle_loader file but is not
+  referenced by the objects, a test was added for this special case in
+  setup_link_editor_symbol() in symbols.c to treat it like the symbol was not
+  present.  Then to handle the case when the symbol is referenced an additional
+  condition was added to the error check in define_link_editor_symbol() in
+  symbols.c to not cause the error if the symbol was defined in the
+  -bundle_loader file and also move the return from the function for that case
+  to only happen when the error happens.  Radar bug #4482300.
+
+Changes for the 5.21 release (the cctools-590.39 release):
+- Removed the -I flag for private headers as it would no longer compile with it.
+- Fixed a bug in the handling of the -Y undefined symbol tracing.  This appears
+  to be more fall out of Radar bug #3737622.  Where the code was changed when
+  linking two-level, to not search libraries that can't be encode as ordinals.  
+  The fix done is safe, in that merged_symbols with twolevel_reference field set
+  to TRUE are not ever to be traced with the -Y option.  So an extra test was
+  added to the loop for -Y symbol tracing in process_undefineds() in symbols.c .
+  Radar bug #4495010.
+
+Changes for the 5.21 release (the cctools-590.38 release):
+- Don't warn about an empty debug_info section.  The change was in
+  read_dwarf_info() in pass1.c to add the extra condtional
+  "debug_info->size == 0" to the if statement with the comment "No DWARF means
+  nothing to do".  Radar bug #4492686.
+- Fixed a bug that caused the "internal error: output_local_symbols()
+  inconsistent local symbol count" when there were multiply defined symbols and
+  the -m flag was used.  The fix was to add a new local boolean variable,
+  discarded_multiply_defined_symbol, to merged_symbols() in symbols.c that gets
+  set to FALSE at the start of merging each symbol and gets set to TRUE if the
+  symbol is multiply defined.  Then in the if conditional before
+  count_dwarf_symbols() is called the additional test of
+  ! discarded_multiply_defined_symbol was added.  Radar bug #4487503.
+- Fixed a bug that caused the "internal error: output_local_symbols()'
+  inconsistent local symbol count" when converting common to undefined in an
+  object compiled with DWARF.  The fix was to move the call to
+  maybe_remove_dwarf_symbol() in merge_dylib_module_symbols() in symbols.c 
+  right after the label use_symbol_definition_from_this_dylib.  This call needs
+  to be made BEFORE a merged_symbol has its definition_object changed to the
+  cur_obj.  The same change was also done in merge_bundle_loader_symbols()
+  in symbols.c .  Radar bug #4446605.
+- Changed the handling of symbols names listed in the -unexported_symbols_list
+  file and now no longer check to see of they are seen in the linked objects.
+  The change is in main() in ld.c and is just the removal of the loop of code
+  that checks the remove_symbols[] array for seen symbols.  Radar bug #4465511.
+- Changed the handling of the -Y flag to not cause an error when multiple -Y
+  flags are specified.  When multiple -Y flags are specified the last one is
+  used.  The change is in main() in ld.c and is just the removal of the test
+  for Yflag != 0 and the error message.  Radar bug #4461031.
+
+Changes for the 5.21 release (the cctools-590.37 release):
+- Fixed a problem with causing the link editor defined symbol ___dso_handle to
+  be made into a private extern with the -exported_symbols_list or
+  -unexported_symbols_list options.  The code in define_link_editor_symbol() in
+  symbols.c around the call to exports_list_processing() needed to adjust
+  the private extern symbols count if the symbol was made into a private extern.
+  And not be called at all if the symbol started out as a private extern.
+  Radar bug #4461173.
+- Fixed problems with -dead_strip removing sections with contents created from
+  files.  Radar bug #4439885.
+  - In layout_ordered_sections() in sections.c the loop that looks for merged
+    sections with order files or when -dead_strip is specified had an expression
+    added to the if() to skip certian sections.  If the section was created from
+    a file it is also skipped so that layout_ordered_section() is not called
+    which was zeroing out the section size.
+  - In resize_live_sections() in sections.c the loop that looks for S_REGULAR
+    section types was changed.  An extra condition was added to the if()
+    expression so it would not call resize_live_section() when the section was
+    created from a file.
+  - In flush_scatter_copied_sections() in sections.c the if() test for calling
+    sections with order files or when dead code stripping was specified was
+    changed.  A test was added when the section was created from a file so
+    output_flush() in not called in this case.
+  - Added setting S_ATTR_NO_DEAD_STRIP in process_section_specs() in spec.c for
+    sections created from files.  
+
+Changes for the 5.21 release (the cctools-590.36 release):
+- Changed the link editor defined symbol from __dso_handle to ___dso_handle.
+  Radar bug #3992244.
+
+Changes for the 5.21 release (the cctools-590.35 release):
+- Added the link editor defined symbol __dso_handle for all images used with
+  dyld.  Radar #3992244.
+  - Changed setup_link_editor_symbols() in symbols.c to define __dso_handle in
+    addition to the existing symbol.  Broke out most of the existing code into
+    a new static routine setup_link_editor_symbol() passed a symbol_name.
+  - The new static routine setup_link_editor_symbol() used most of the code
+    from the previous setup_link_editor_symbols() but was changed to handle
+    one or more symbols defined in the link_edit_symbols_object.
+  - Changed define_link_editor_dylib_symbols() in symbols.c to also set the
+    value of __dso_handle symbols.  Broke out some of the code into the new
+    static routine define_link_editor_dylib_symbol().
+
+Changes for the 5.21 release (the cctools-590.33 release):
+- Split maybe_remove_dwarf_symbol out of merge_symbols in symbols.c.  Call
+  maybe_remove_dwarf_symbol from similar code in merge_dylib_module_symbols
+  and merge_bundle_loader_symbols.  Radar bug #4428677.
+- Change merge_symbols and output_local_symbols in symbols.c to suppress
+  compilation directory SO stab when none is provided/necessary and append
+  '/' to it otherwise.  Change read_dwarf_info in pass1.c to set
+  dwarf_comp_dir to NULL when no compilation directory is provided.
+  Radar bug #4426731.
+
+Changes for the 5.21 release (the cctools-590.32 release):
+- Added the environment variable LD_LIBRARY_PATH as list of colon separated
+  paths to be searched just before the standard paths.  Radar bug #4314159.
+  - Added the variables ld_library_paths and nld_library_paths to pass1.[ch]
+  - Added code to main() in ld.c to look for the environment variable
+    LD_LIBRARY_PATH and if found parse out the colon separated paths and filling
+    in the two variables above.
+  - Changed in search_for_file() and search_paths_for_lname() in pass1.c adding
+    another loop between the one for search_dirs[] and standard_dirs[] for
+    ld_library_paths[].
+- Changed to allow LD_PRINT_OPTIONS as an environment variable. This prints
+  the options to stderr.
+- Fixed Bug #4420393 by changing prefix from Build & Integration to XBS.
+- Fixed Bug #4214105 by changing allowable environment variables from
+  RC_TRACE_* to LD_TRACE_*. For now, backwards compatible with RC_TRACE_*
+- Fixed Bug #4214101 by allowing LD_TRACE_FILE
+- Updated all rc_trace_* variables to use ld_trace_*.
+- Make set_obj_resolved_path in objects.c a stub when SA_RLD is defined.
+  Radar bug #4402489.
+- Suppress dwarf map entries for S_ATTR_STRIP_STATIC_SYMS sections.
+  Radar bug #4419133.
+  - Change count_dwarf_symbols to ignore symbols in such sections.
+  - Change add_dwarf_map_for_sym to take a parameter indicating the section
+    and ignore symbols in such sections.
+  - Change output_local_symbols to pass the original section to
+    add_dwarf_map_for_sym.
+- Change merge_symbols in symbols.c so that when a weak coalesced
+  symbol is ignored in favour of a strong coalesced symbol, the debug map
+  entries relating to that symbol are removed from the count.  Radar
+  bug #4421606.
+
+Changes for the 5.21 release (the cctools-590.31 release):
+- Changed to only emit an LC_UUID command if a debug section is seen on input
+  or an LC_UUID command is seen on input.  Radar bug #4415529.
+  - Added the suppress and emit boolean field to the uuid_info struct in
+    layout.[ch]
+  - Changed main() in ld.c to set output_uuid_info.suppress if -no_uuid is
+    specified.
+  - Changed merge_sections() in sections.c to set output_uuid_info.emit to TRUE
+    if a debug section is seen in the input file.
+  - Changed check_cur_obj() in pass1.c to set output_uuid_info.emit to TRUE if
+    an LC_UUID load command is seen in the input file.
+  - Changed layout_segments() in layout.c to test output_uuid_info.suppress for
+    != TRUE and output_uuid_info.emit for TRUE before creating the LC_UUID
+    command.
 - Fixed two places in layout_segments() in layout.c that were calling
   lookup_symbol() and were not updated with the changes to Radar bug #4299546 on
   how the check for an undefined symbol is made.  Both the lookup of the entry
   point and the shared library init routine name code needed a fix to use
   merged_symbol->name_len == 0 not merged_symbol != NULL.  Radar bug #4401068.
+
+Changes for the 5.21 release (the cctools-590.30 release):
+- Change output_local_symbols in symbols.c to give the N_OSO stab in the
+  DWARF map a n_desc of 1.  Bug # 4414139.
+- DWARF updates now 4383509 is fixed.  Bug # 4409967.
+  - Update debugcompunit.c and debugline.c to latest version; fix
+    read_sleb128, and have read_comp_unit add the abbrev offset.
+  - Have read_dwarf_info in pass1.c add the line number information offset
+    and verify that it's reasonable.
+  - Remove unused variable 'limit' from add_dwarf_map_for_sym in symbols.c.
+- Add support for generating the DWARF debug map.  Bug #4370126.
+  - New files debugcompunit.[ch], debugline.[ch], dwarf2.h.
+  - Additional fields dwarf_name, dwarf_num_paths and dwarf_comp_dir in
+    'struct object' in objects.h.  The format of dwarf_source_data is a
+    sequence of size_t-sized words made up of subsequences.  Each
+    subsequence describes the source files which the debug_line information
+    says contributed to the code of the entity starting at a particular
+    symbol.
+
+    The subsequences are sorted by the index of the symbol to which they
+    refer.  The format of a subsequence is a word containing the index
+    of the symbol, a word giving the end of the entity starting with
+    that symbol, and then one or more words which are file numbers
+    with their high bit set.
+
+    A file number is simply an index into cur_obj->dwarf_paths; each
+    dwarf_paths entry is either NULL (if not used) or the path of the
+    source file.  dwarf_num_paths is the length of dwarf_paths.
+  - New function read_dwarf_info in pass1.c which looks for DWARF
+    sections in cur_obj and if found, fills in the dwarf_name and
+    dwarf_comp_dir fields in cur_obj.
+  - Change function merge in pass1.c to call read_dwarf_info when debug
+    symbols are generated.
+  - New function count_dwarf_symbols in symbols.c which returns the
+    number of DWARF symbols that would be generated by a symbol, which
+    must be in the current object.  It is the pass1 counterpart of
+    add_dwarf_map_for_sym.
+  - Change function merge_symbols in symbols.c to allocate space for
+    DWARF debug map symbols.
+  - Change function discard_local_symbols_for_section in symbols.c to
+    remove space for DWARF debug map symbols associated with local symbols
+    which will no longer be needed.
+  - Change function remove_dead_N_GSYM_stabs_for_cur_obj in symbols.c to
+    remove space for DWARF debug map symbols associated with global symbols
+    which will no longer be needed.
+  - New function add_dwarf_map_entry in symbols.c which adds a single
+    DWARF map symbol to the symbol list.
+  - New function add_dwarf_map_for_sym in symbols.c which adds the
+    DWARF symbols for a single object file symbol to the symbol list.
+    It is the pass2 counterterpart of count_dwarf_symbols.
+  - Change function output_local_symbols in symbols.c to output the DWARF
+    debug map: add initial DWARF map symbols, add SOL strings to the
+    local string table, add debug map entries for global and local symbols
+    whose definitions in this object were actually output, add a terminal
+    DWARF map symbol.
+
+Changes for the 5.21 release (the cctools-590.29 release):
+- Removed the check added to the relocation routines for Radar bug #4213478 that
+  to cause an error if there was a relocation entry for a coalesced symbol plus
+  a non-zero offset.  Turns out this is used in libstdc++ and now it has been
+  determined that the problem that was trying to detect will not happen. Changes
+  were in ppc_reloc.c, generic_reloc.c, i860_reloc.c, hppa_reloc.c, m88k_reloc.c
+  and sparc_reloc.c .  Radar bug #4405403.
+
+Changes for the 5.21 release (the cctools-590.28 release):
+- Changed check_cur_obj() in pass1.c so that it byteswaps the LC_UUID load
+  command.  Radar bug #4401375.
+- Added a check to the relocation routines to cause an error if there is a
+  relocation entry for a coalesced symbol plus a non-zero offset.  Changes were
+  in ppc_reloc.c, generic_reloc.c, i860_reloc.c, hppa_reloc.c, m88k_reloc.c and
+  sparc_reloc.c .  Radar bug #4213478.
+
+Changes for the 5.21 release (the cctools-590.27 release):
+- Fixed a warning about unused variable `stat_buf' in 
+  get_stroff_and_mtime_for_N_OSO() in symbols.c for the static KLD case.
+
+Changes for the 5.21 release (the cctools-590.26 release):
+- Added the missing case for the LC_UUID load command to be ignored in
+  check_cur_obj() in pass1.c . Radar bug #
+
+Changes for the 5.21 release (the cctools-590.25 release):
+- Added support for DWARF.  Radar bug #3415593.
+  - Added the enum bool field debug_only to the merged_segment struct in
+    sections.h to indicate that the sections in the segment contain the
+    S_ATTR_DEBUG attribute .
+  - Changed create_merged_section() in sections.c to set the new debug_only
+    field when creating a new segment based on the S_ATTR_DEBUG attribute for
+    the first section placed in the segment.  And added a check when the
+    section is found to make sure the debug_only field in the segment matches
+    the S_ATTR_DEBUG attribute for the section.
+  - Changed merge_sections() in sections.c to always set the S_ATTR_DEBUG on
+    the merged section if the section in the object has it set.  And then
+    simply continue and not account for the section's size, relocs, etc.
+  - In pass2() in pass2.c in the loop for each non-literal content section
+    a test for the debug attribute, S_ATTR_DEBUG, was added.  And if set then
+    a continue is done to not cause output_section() to be called on it.
+  - In relayout_relocs() in sections.c in the first loop for regular sections
+    a test for the debug attribute, S_ATTR_DEBUG, was added.  And if set then
+    a continue is done to not cause count_relocs() to be called on it.
+  - Added a new routine, remove_debug_segments() to sections.[ch] to remove
+    the debug segments from the list of merged_segments.
+  - Added a call to the new routine, remove_debug_segments(), in layout() in
+    layout.c to just before layout_order_sections() is called and before the
+    dead code stripping routines are called.
+  - Changed layout_segments() in layout.c to move up the saving of
+    merged_segments into original_merged_segments to the start of the routine.
+  - Changed RLD routine reset_merged_sections() in sections.c to first add the
+    debug segments back on the list of merged_segments.
+  - Added a check to check_cur_obj() in pass1.c to make sure all debug sections
+    are of type S_REGULAR.
+  - Added a check at the end of check_symbol() in symbols.c to make sure the
+    symbol is not in a debug section.
+  - Added two checks in the *_reloc() routines to test to illegal references to
+    debug sections from local relocation enties (one for the reloc entry and one
+    for its pair if it exists). The changes are in:
+      ppc_reloc() in ppc_reloc.c
+      generic_reloc() in generic_reloc.c
+      hppa_reloc() in hppa_reloc.c
+      i860_reloc() in i860_reloc.c
+      m88k_reloc() in m88k_reloc.c
+      sparc_reloc() in sparc_reloc.c
+  - Added a check to process_section_specs() in specs.c to check for debug
+    sections that have an order file specified and issue a warning that they
+    are ignored.
+  - Added a check in merge_symbols() when -sectobjectsymbols is set to see
+    the the section is not a debug section and if so issue a warning.
+  - Changed the way N_OSO stabs were previously handled so now the linker never
+    adds them but only changes the name in some cases.  This requires a matching
+    compiler change (Radar bug #4386531) even for stabs to always produce the
+    N_OSO stab in the object file. This is how things are to work:
+    * The compiler when producing dwarf debug info will produce a N_OSO stab
+      with:
+	.debug_note "", 0x66, 0, 1, 0
+      That is the the name of "" (that is a one byte string with single '\0'
+      character) and an n_desc field value of 1.
+    * The compiler when producing stabs debug info will produce a N_OSO stab
+      with:
+	.stabs "", 0x66, 0, 0, 0
+      Again with a name of "" but with an n_desc field value of 0.
+    * When the linker encounters a N_OSO stab with a name of "" and an n_desc
+      field of 1 it will change the name to the full path of the object and set
+      the n_value field to the mod time of the object (or archive mod time).
+    * When the linker encounters an N_OSO stab with a name of "" and an n_desc
+      field of 0 its behavior depends if -Sp is specified or not.  If -Sp is
+      specified it will change the name to the full path of the object and set
+      the n_value field to the mod time of the object (or archive mod time).
+      If -Sp is not specified it will change the N_OSO stabs names to "".
+    The above is implemented with the following changes:
+    - Added the new routine set_obj_resolved_path() to objects.[ch] to set the
+      resolved_path field of an object_file struct for use by N_OSO stabs.
+    - Changed is_output_local_symbol() in in symbols.[ch] to now be passed the
+      n_desc field and all changed all the callers to now pass n_desc.  Then
+      code was added for N_OSO stabs to return the size of their names as
+      outlined above based on the n_name field, n_desc field and if -Sp is
+      specified.
+    - Removed the old code in merge_symbols() in symbols.c that tracked where
+      to add the N_OSO stab and its name.
+    - In merge_symbols() in symbols.c at the end of the routine that handles
+      STRIP_DUP_INCLS, the three places that called strlen() on the symbol's
+      string were replace with calls to is_output_local_symbol() and the use
+      of output_strlen becase the symbol maybe a N_OSO that we are changing the
+      name of.
+    - Added the new routine get_stroff_and_mtime_for_N_OSO() in symbols.c to
+      be used by output_local_symbols() to help put out N_OSO stabs.
+    - Removed the old code in output_local_symbols() in symbols.c to put out
+      an N_OSO stabs in the correct place.  And added code in there to set the
+      name of the N_OSO stabs as outlined above.
+  - For the strip_level of STRIP_NONE the optimization of just using the
+    entrire string table to avoid doing a strlen() on all the local strings
+    had to be removed since we now may have to add strings for N_OSO stabs.
+    So now this is just delt with by letting is_output_local_symbol() get
+    called and accounting string sizes normally.
+    - Removed code in merge_symbols() in symbols.c for strip_level ==
+      STRIP_NONE to increment local_string_size by cur_obj->symtab->strsize.
+      And the code to always increment cur_obj->nlocalsym and nlocal_symbols.
+    - Removed a test in discard_local_symbols_for_section() in symbols.c
+      of strip_level==STRIP_NONE before the call to is_output_local_symbol().
+      And removed two later tests before decrementing local_string_size .
+    - Removed a test in remove_dead_N_GSYM_stabs_for_cur_obj() in symbols.c
+      of strip_level==STRIP_NONE before the call to is_output_local_symbol().
+      And removed a later test before decrementing local_string_size .
+    - Removed a test in output_local_symbols() in symbols.c of
+      strip_level == STRIP_NONE || strip_level == STRIP_DUP_INCLS
+      of strip_level==STRIP_NONE and STRIP_DUP_INCLS before the call to
+      is_output_local_symbol(). And removed later the code that tests
+      strip_level == STRIP_NONE and does a memcpy() to copy out the object's
+      whole symbol table.
+    - Removed a test in local_symbol_output_index() in symbols.c of
+      strip_level==STRIP_NONE before the call to is_output_local_symbol().
+  - Added support for the uuid load command.
+    - Added the output_uuid_info variable to layout.[ch] .
+    - In layout() in layout.c added a call to memset() to zero out
+      output_uuid_info.
+    - Added the new routine uuid() in the new files uuid.[ch] used to set the
+      uuid[] bytes of the uuid_load command.
+    - In layout_segments() in layout.c added the code to set the values into
+      uuid load command and call the new uuid() routine.
+    - In output_headers() in pass2.c added the code to copy out the uuid load
+      command into the output file.
+
+Changes for the 5.20 release (the cctools-590.23.2 release):
+- Changed the Makefile back so the OFLAG was not commented out. Radar bug
+  #4371058.
 
 Changes for the 5.20 release (the cctools-590.23.1 release):
 - Fixed a bug that caused a crash in remove_merged_symbols() in symbols.c when
@@ -37,7 +430,7 @@ Changes for the 5.20 release (the cctools-590.23.1 release):
   of the merged_symbol_list struct.  The loop in remove_merged_symbols() that
   caused the crash was also changed to be more robust by looping backwards over
   only the used elements in the array and adding additional checks to avoid
-  indirection through possible bad pointers.  Radar bug #4371058
+  indirection through possible bad pointers.  Radar bug #4371058.
 
 Changes for the 5.20 release (the cctools-590.22 release):
 - Fixed a bug in literal_pointer_output() in literal_pointers.c where it was

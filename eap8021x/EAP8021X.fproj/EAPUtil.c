@@ -98,6 +98,8 @@ EAPTypeStr(EAPType type)
 	return ("MSCHAPv2");
     case kEAPTypeExtensions:
 	return ("PEAP-Extensions");
+    case kEAPTypeEAPFAST:
+	return ("EAP-FAST");
     default:
 	break;
     }

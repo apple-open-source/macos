@@ -39,7 +39,7 @@
 #include "pathnames.h"
 #include "log.h"
 
-RCSID("$Id: ssh-rand-helper.c,v 1.16 2003/11/21 12:56:47 djm Exp $");
+RCSID("$Id: ssh-rand-helper.c,v 1.26 2005/07/17 07:26:44 djm Exp $");
 
 /* Number of bytes we write out */
 #define OUTPUT_SEED_SIZE	48
@@ -63,15 +63,7 @@ RCSID("$Id: ssh-rand-helper.c,v 1.16 2003/11/21 12:56:47 djm Exp $");
 # define SSH_PRNG_COMMAND_FILE   SSHDIR "/ssh_prng_cmds"
 #endif
 
-#ifdef HAVE___PROGNAME
 extern char *__progname;
-#else
-char *__progname;
-#endif
-
-#ifndef offsetof
-# define offsetof(type, member) ((size_t) &((type *)0)->member)
-#endif
 
 #define WHITESPACE " \t\n"
 
@@ -131,7 +123,7 @@ get_random_bytes_prngd(unsigned char *buf, int len,
     unsigned short tcp_port, char *socket_path)
 {
 	int fd, addr_len, rval, errors;
-	char msg[2];
+	u_char msg[2];
 	struct sockaddr_storage addr;
 	struct sockaddr_in *addr_in = (struct sockaddr_in *)&addr;
 	struct sockaddr_un *addr_un = (struct sockaddr_un *)&addr;
@@ -143,8 +135,8 @@ get_random_bytes_prngd(unsigned char *buf, int len,
 	if (socket_path != NULL &&
 	    strlen(socket_path) >= sizeof(addr_un->sun_path))
 		fatal("Random pool path is too long");
-	if (len > 255)
-		fatal("Too many bytes to read from PRNGD");
+	if (len <= 0 || len > 255)
+		fatal("Too many bytes (%d) to read from PRNGD", len);
 
 	memset(&addr, '\0', sizeof(addr));
 
@@ -198,7 +190,7 @@ reopen:
 		goto done;
 	}
 
-	if (atomicio(read, fd, buf, len) != len) {
+	if (atomicio(read, fd, buf, len) != (size_t)len) {
 		if (errno == EPIPE && errors < 10) {
 			close(fd);
 			errors++;
@@ -215,6 +207,22 @@ done:
 	if (fd != -1)
 		close(fd);
 	return rval;
+}
+
+static int
+seed_from_prngd(unsigned char *buf, size_t bytes)
+{
+#ifdef PRNGD_PORT
+	debug("trying egd/prngd port %d", PRNGD_PORT);
+	if (get_random_bytes_prngd(buf, bytes, PRNGD_PORT, NULL) == 0)
+		return 0;
+#endif
+#ifdef PRNGD_SOCKET
+	debug("trying egd/prngd socket %s", PRNGD_SOCKET);
+	if (get_random_bytes_prngd(buf, bytes, 0, PRNGD_SOCKET) == 0)
+		return 0;
+#endif
+	return -1;
 }
 
 double
@@ -390,8 +398,8 @@ hash_command_output(entropy_cmd_t *src, unsigned char *hash)
 	debug3("Time elapsed: %d msec", msec_elapsed);
 
 	if (waitpid(pid, &status, 0) == -1) {
-	       error("Couldn't wait for child '%s' completion: %s",
-		   src->cmdstring, strerror(errno));
+		error("Couldn't wait for child '%s' completion: %s",
+		    src->cmdstring, strerror(errno));
 		return 0.0;
 	}
 
@@ -542,10 +550,11 @@ prng_check_seedfile(char *filename)
 void
 prng_write_seedfile(void)
 {
-	int fd;
+	int fd, save_errno;
 	unsigned char seed[SEED_FILE_SIZE];
-	char filename[MAXPATHLEN];
+	char filename[MAXPATHLEN], tmpseed[MAXPATHLEN];
 	struct passwd *pw;
+	mode_t old_umask;
 
 	pw = getpwuid(getuid());
 	if (pw == NULL)
@@ -560,7 +569,10 @@ prng_write_seedfile(void)
 	snprintf(filename, sizeof(filename), "%.512s/%s", pw->pw_dir,
 	    SSH_PRNG_SEED_FILE);
 
-	debug("writing PRNG seed to file %.100s", filename);
+	strlcpy(tmpseed, filename, sizeof(tmpseed));
+	if (strlcat(tmpseed, ".XXXXXXXXXX", sizeof(tmpseed)) >=
+	    sizeof(tmpseed))
+		fatal("PRNG seed filename too long");
 
 	if (RAND_bytes(seed, sizeof(seed)) <= 0)
 		fatal("PRNG seed extraction failed");
@@ -568,15 +580,31 @@ prng_write_seedfile(void)
 	/* Don't care if the seed doesn't exist */
 	prng_check_seedfile(filename);
 
-	if ((fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0600)) == -1) {
-		debug("WARNING: couldn't access PRNG seedfile %.100s "
-		    "(%.100s)", filename, strerror(errno));
+	old_umask = umask(0177);
+
+	if ((fd = mkstemp(tmpseed)) == -1) {
+		debug("WARNING: couldn't make temporary PRNG seedfile %.100s "
+		    "(%.100s)", tmpseed, strerror(errno));
 	} else {
-		if (atomicio(vwrite, fd, &seed, sizeof(seed)) < sizeof(seed))
+		debug("writing PRNG seed to file %.100s", tmpseed);
+		if (atomicio(vwrite, fd, &seed, sizeof(seed)) < sizeof(seed)) {
+			save_errno = errno;
+			close(fd);
+			unlink(tmpseed);
 			fatal("problem writing PRNG seedfile %.100s "
-			    "(%.100s)", filename, strerror(errno));
+			    "(%.100s)", filename, strerror(save_errno));
+		}
 		close(fd);
+		debug("moving temporary PRNG seed to file %.100s", filename);
+		if (rename(tmpseed, filename) == -1) {
+			save_errno = errno;
+			unlink(tmpseed);
+			fatal("problem renaming PRNG seedfile from %.100s "
+			    "to %.100s (%.100s)", tmpseed, filename,
+			    strerror(save_errno));
+		}
 	}
+	umask(old_umask);
 }
 
 void
@@ -755,7 +783,7 @@ usage(void)
 	fprintf(stderr, "Usage: %s [options]\n", __progname);
 	fprintf(stderr, "  -v          Verbose; display verbose debugging messages.\n");
 	fprintf(stderr, "              Multiple -v increases verbosity.\n");
-	fprintf(stderr, "  -x          Force output in hexidecimal (for debugging)\n");
+	fprintf(stderr, "  -x          Force output in hexadecimal (for debugging)\n");
 	fprintf(stderr, "  -X          Force output in binary\n");
 	fprintf(stderr, "  -b bytes    Number of bytes to output (default %d)\n",
 	    OUTPUT_SEED_SIZE);
@@ -823,21 +851,16 @@ main(int argc, char **argv)
 	debug("Seeded RNG with %i bytes from system calls",
 	    (int)stir_from_system());
 
-#ifdef PRNGD_PORT
-	if (get_random_bytes_prngd(buf, bytes, PRNGD_PORT, NULL) == -1)
-		fatal("Entropy collection failed");
-	RAND_add(buf, bytes, bytes);
-#elif defined(PRNGD_SOCKET)
-	if (get_random_bytes_prngd(buf, bytes, 0, PRNGD_SOCKET) == -1)
-		fatal("Entropy collection failed");
-	RAND_add(buf, bytes, bytes);
-#else
-	/* Read in collection commands */
-	if (prng_read_commands(SSH_PRNG_COMMAND_FILE) == -1)
-		fatal("PRNG initialisation failed -- exiting.");
-	debug("Seeded RNG with %i bytes from programs",
-	    (int)stir_from_programs());
-#endif
+	/* try prngd, fall back to commands if prngd fails or not configured */
+	if (seed_from_prngd(buf, bytes) == 0) {
+		RAND_add(buf, bytes, bytes);
+	} else {
+		/* Read in collection commands */
+		if (prng_read_commands(SSH_PRNG_COMMAND_FILE) == -1)
+			fatal("PRNG initialisation failed -- exiting.");
+		debug("Seeded RNG with %i bytes from programs",
+		    (int)stir_from_programs());
+	}
 
 #ifdef USE_SEED_FILES
 	prng_write_seedfile();
@@ -864,4 +887,16 @@ main(int argc, char **argv)
 	xfree(buf);
 
 	return ret == bytes ? 0 : 1;
+}
+
+/*
+ * We may attempt to re-seed during mkstemp if we are using the one in the
+ * compat library (via mkstemp -> _gettemp -> arc4random -> seed_rng) so we
+ * need our own seed_rng().  We must also check that we have enough entropy.
+ */
+void
+seed_rng(void)
+{
+	if (!RAND_status())
+		fatal("Not enough entropy in RNG");
 }

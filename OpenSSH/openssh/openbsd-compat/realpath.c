@@ -1,11 +1,7 @@
 /* OPENBSD ORIGINAL: lib/libc/stdlib/realpath.c */
 
 /*
- * Copyright (c) 1994
- *	The Regents of the University of California.  All rights reserved.
- *
- * This code is derived from software contributed to Berkeley by
- * Jan-Simon Pendry.
+ * Copyright (c) 2003 Constantin S. Svintsoff <kostik@iclub.nsu.ru>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -15,14 +11,14 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
+ * 3. The names of the authors may not be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
  * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
@@ -36,136 +32,165 @@
 
 #if !defined(HAVE_REALPATH) || defined(BROKEN_REALPATH)
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char *rcsid = "$OpenBSD: realpath.c,v 1.10 2003/08/01 21:04:59 millert Exp $";
-#endif /* LIBC_SCCS and not lint */
-
 #include <sys/param.h>
 #include <sys/stat.h>
 
 #include <errno.h>
-#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
 /*
- * MAXSYMLINKS
- */
-#ifndef MAXSYMLINKS
-#define MAXSYMLINKS 5
-#endif
-
-/*
- * char *realpath(const char *path, char resolved_path[MAXPATHLEN]);
+ * char *realpath(const char *path, char resolved[PATH_MAX]);
  *
  * Find the real name of path, by removing all ".", ".." and symlink
  * components.  Returns (resolved) on success, or (NULL) on failure,
  * in which case the path which caused trouble is left in (resolved).
  */
 char *
-realpath(const char *path, char *resolved)
+realpath(const char *path, char resolved[PATH_MAX])
 {
 	struct stat sb;
-	int fd, n, needslash, serrno = 0;
-	char *p, *q, wbuf[MAXPATHLEN], start[MAXPATHLEN];
-	int symlinks = 0;
+	char *p, *q, *s;
+	size_t left_len, resolved_len;
+	unsigned symlinks;
+	int serrno, slen;
+	char left[PATH_MAX], next_token[PATH_MAX], symlink[PATH_MAX];
 
-	/* Save the starting point. */
-	getcwd(start,MAXPATHLEN);	
-	if ((fd = open(".", O_RDONLY)) < 0) {
-		(void)strlcpy(resolved, ".", MAXPATHLEN);
+	serrno = errno;
+	symlinks = 0;
+	if (path[0] == '/') {
+		resolved[0] = '/';
+		resolved[1] = '\0';
+		if (path[1] == '\0')
+			return (resolved);
+		resolved_len = 1;
+		left_len = strlcpy(left, path + 1, sizeof(left));
+	} else {
+		if (getcwd(resolved, PATH_MAX) == NULL) {
+			strlcpy(resolved, ".", PATH_MAX);
+			return (NULL);
+		}
+		resolved_len = strlen(resolved);
+		left_len = strlcpy(left, path, sizeof(left));
+	}
+	if (left_len >= sizeof(left) || resolved_len >= PATH_MAX) {
+		errno = ENAMETOOLONG;
 		return (NULL);
 	}
-	close(fd);
-
-	/* Convert "." -> "" to optimize away a needless lstat() and chdir() */
-	if (path[0] == '.' && path[1] == '\0')
-		path = "";
 
 	/*
-	 * Find the dirname and basename from the path to be resolved.
-	 * Change directory to the dirname component.
-	 * lstat the basename part.
-	 *     if it is a symlink, read in the value and loop.
-	 *     if it is a directory, then change to that directory.
-	 * get the current directory name and append the basename.
+	 * Iterate over path components in `left'.
 	 */
-	strlcpy(resolved, path, MAXPATHLEN);
-loop:
-	q = strrchr(resolved, '/');
-	if (q != NULL) {
-		p = q + 1;
-		if (q == resolved)
-			q = "/";
-		else {
-			do {
-				--q;
-			} while (q > resolved && *q == '/');
-			q[1] = '\0';
-			q = resolved;
+	while (left_len != 0) {
+		/*
+		 * Extract the next path component and adjust `left'
+		 * and its length.
+		 */
+		p = strchr(left, '/');
+		s = p ? p : left + left_len;
+		if (s - left >= sizeof(next_token)) {
+			errno = ENAMETOOLONG;
+			return (NULL);
 		}
-		if (chdir(q) < 0)
-			goto err1;
-	} else
-		p = resolved;
-
-	/* Deal with the last component. */
-	if (*p != '\0' && lstat(p, &sb) == 0) {
-		if (S_ISLNK(sb.st_mode)) {
-			if (++symlinks > MAXSYMLINKS) {
-				serrno = ELOOP;
-				goto err1;
+		memcpy(next_token, left, s - left);
+		next_token[s - left] = '\0';
+		left_len -= s - left;
+		if (p != NULL)
+			memmove(left, s + 1, left_len + 1);
+		if (resolved[resolved_len - 1] != '/') {
+			if (resolved_len + 1 >= PATH_MAX) {
+				errno = ENAMETOOLONG;
+				return (NULL);
 			}
-			n = readlink(p, resolved, MAXPATHLEN-1);
-			if (n < 0)
-				goto err1;
-			resolved[n] = '\0';
-			goto loop;
+			resolved[resolved_len++] = '/';
+			resolved[resolved_len] = '\0';
 		}
-		if (S_ISDIR(sb.st_mode)) {
-			if (chdir(p) < 0)
-				goto err1;
-			p = "";
+		if (next_token[0] == '\0')
+			continue;
+		else if (strcmp(next_token, ".") == 0)
+			continue;
+		else if (strcmp(next_token, "..") == 0) {
+			/*
+			 * Strip the last path component except when we have
+			 * single "/"
+			 */
+			if (resolved_len > 1) {
+				resolved[resolved_len - 1] = '\0';
+				q = strrchr(resolved, '/') + 1;
+				*q = '\0';
+				resolved_len = q - resolved;
+			}
+			continue;
+		}
+
+		/*
+		 * Append the next path component and lstat() it. If
+		 * lstat() fails we still can return successfully if
+		 * there are no more path components left.
+		 */
+		resolved_len = strlcat(resolved, next_token, PATH_MAX);
+		if (resolved_len >= PATH_MAX) {
+			errno = ENAMETOOLONG;
+			return (NULL);
+		}
+		if (lstat(resolved, &sb) != 0) {
+			if (errno == ENOENT && p == NULL) {
+				errno = serrno;
+				return (resolved);
+			}
+			return (NULL);
+		}
+		if (S_ISLNK(sb.st_mode)) {
+			if (symlinks++ > MAXSYMLINKS) {
+				errno = ELOOP;
+				return (NULL);
+			}
+			slen = readlink(resolved, symlink, sizeof(symlink) - 1);
+			if (slen < 0)
+				return (NULL);
+			symlink[slen] = '\0';
+			if (symlink[0] == '/') {
+				resolved[1] = 0;
+				resolved_len = 1;
+			} else if (resolved_len > 1) {
+				/* Strip the last path component. */
+				resolved[resolved_len - 1] = '\0';
+				q = strrchr(resolved, '/') + 1;
+				*q = '\0';
+				resolved_len = q - resolved;
+			}
+
+			/*
+			 * If there are any path components left, then
+			 * append them to symlink. The result is placed
+			 * in `left'.
+			 */
+			if (p != NULL) {
+				if (symlink[slen - 1] != '/') {
+					if (slen + 1 >= sizeof(symlink)) {
+						errno = ENAMETOOLONG;
+						return (NULL);
+					}
+					symlink[slen] = '/';
+					symlink[slen + 1] = 0;
+				}
+				left_len = strlcat(symlink, left, sizeof(left));
+				if (left_len >= sizeof(left)) {
+					errno = ENAMETOOLONG;
+					return (NULL);
+				}
+			}
+			left_len = strlcpy(left, symlink, sizeof(left));
 		}
 	}
 
 	/*
-	 * Save the last component name and get the full pathname of
-	 * the current directory.
+	 * Remove trailing slash except when the resolved pathname
+	 * is a single "/".
 	 */
-	(void)strlcpy(wbuf, p, sizeof wbuf);
-	if (getcwd(resolved, MAXPATHLEN) == 0)
-		goto err1;
-
-	/*
-	 * Join the two strings together, ensuring that the right thing
-	 * happens if the last component is empty, or the dirname is root.
-	 */
-	if (resolved[0] == '/' && resolved[1] == '\0')
-		needslash = 0;
-	else
-		needslash = 1;
-
-	if (*wbuf) {
-		if (strlen(resolved) + strlen(wbuf) + needslash >= MAXPATHLEN) {
-			serrno = ENAMETOOLONG;
-			goto err1;
-		}
-		if (needslash)
-			strlcat(resolved, "/", MAXPATHLEN);
-		strlcat(resolved, wbuf, MAXPATHLEN);
-	}
-
-	/* Go back to where we came from. */
-	if (chdir(start) < 0) {
-		serrno = errno;
-		goto err2;
-	}
+	if (resolved_len > 1 && resolved[resolved_len - 1] == '/')
+		resolved[resolved_len - 1] = '\0';
 	return (resolved);
-
-err1:	chdir(start);
-err2:	errno = serrno;
-	return (NULL);
 }
 #endif /* !defined(HAVE_REALPATH) || defined(BROKEN_REALPATH) */

@@ -1,23 +1,31 @@
 /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * This file contains Original Code and/or Modifications of Original Code 
+ * as defined in and that are subject to the Apple Public Source License 
+ * Version 2.0 (the 'License'). You may not use this file except in 
+ * compliance with the License.  The rights granted to you under the 
+ * License may not be used to create, or enable the creation or 
+ * redistribution of, unlawful or unlicensed copies of an Apple operating 
+ * system, or to circumvent, violate, or enable the circumvention or 
+ * violation of, any terms of an Apple operating system software license 
+ * agreement.
+ *
+ * Please obtain a copy of the License at 
+ * http://www.opensource.apple.com/apsl/ and read it before using this 
+ * file.
+ *
+ * The Original Code and all software distributed under the License are 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
+ * Please see the License for the specific language governing rights and 
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
  */
 /*
  * @OSF_COPYRIGHT@
@@ -160,6 +168,8 @@ ipc_task_init(
 				parent->exc_actions[i].flavor;
 		    task->exc_actions[i].behavior = 
 				parent->exc_actions[i].behavior;
+		    task->exc_actions[i].privileged =
+				parent->exc_actions[i].privileged;
 		}/* for */
 		task->itk_host =
 			ipc_port_copy_send(parent->itk_host);
@@ -285,10 +295,8 @@ ipc_task_reset(
 {
 	ipc_port_t old_kport, new_kport;
 	ipc_port_t old_sself;
-#if 0
 	ipc_port_t old_exc_actions[EXC_TYPES_COUNT];
 	int i;
-#endif
 
 	new_kport = ipc_port_alloc_kernel();
 	if (new_kport == IP_NULL)
@@ -311,12 +319,14 @@ ipc_task_reset(
 	ipc_kobject_set(old_kport, IKO_NULL, IKOT_NONE);
 	ipc_kobject_set(new_kport, (ipc_kobject_t) task, IKOT_TASK);
 
-#if 0
 	for (i = FIRST_EXCEPTION; i < EXC_TYPES_COUNT; i++) {
-		old_exc_actions[i] = task->exc_action[i].port;
-		task->exc_actions[i].port = IP_NULL;
+		if (!task->exc_actions[i].privileged) {
+			old_exc_actions[i] = task->exc_actions[i].port;
+			task->exc_actions[i].port = IP_NULL;
+		} else {
+			old_exc_actions[i] = IP_NULL;
+		}
 	}/* for */
-#endif
 
 	itk_unlock(task);
 
@@ -325,13 +335,11 @@ ipc_task_reset(
 	if (IP_VALID(old_sself))
 		ipc_port_release_send(old_sself);
 
-#if 0
 	for (i = FIRST_EXCEPTION; i < EXC_TYPES_COUNT; i++) {
 		if (IP_VALID(old_exc_actions[i])) {
 			ipc_port_release_send(old_exc_actions[i]);
 		}
 	}/* for */
-#endif
 
 	/* destroy the kernel port */
 	ipc_port_dealloc_kernel(old_kport);
@@ -1335,6 +1343,7 @@ task_set_exception_ports(
 	thread_state_flavor_t	new_flavor)
 {
 	ipc_port_t		old_port[EXC_TYPES_COUNT];
+	boolean_t privileged = current_task()->sec_token.val[0] == 0;
 	register int	i;
 
 	if (task == TASK_NULL)
@@ -1371,6 +1380,7 @@ task_set_exception_ports(
 				ipc_port_copy_send(new_port);
 			task->exc_actions[i].behavior = new_behavior;
 			task->exc_actions[i].flavor = new_flavor;
+			task->exc_actions[i].privileged = privileged;
 		}
 		else
 			old_port[i] = IP_NULL;
@@ -1523,6 +1533,7 @@ task_swap_exception_ports(
 	thread_state_flavor_array_t	flavors)
 {
 	ipc_port_t		old_port[EXC_TYPES_COUNT];
+	boolean_t privileged = current_task()->sec_token.val[0] == 0;
 	unsigned int	i, j, count;
 
 	if (task == TASK_NULL)
@@ -1581,6 +1592,7 @@ task_swap_exception_ports(
 			task->exc_actions[i].port =	ipc_port_copy_send(new_port);
 			task->exc_actions[i].behavior = new_behavior;
 			task->exc_actions[i].flavor = new_flavor;
+			task->exc_actions[i].privileged = privileged;
 			if (count > *CountCnt)
 				break;
 		}

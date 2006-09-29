@@ -61,6 +61,9 @@
 /* Diffie-Hellman */
 #define sslDhDebug(args...)				secdebug("sslDh", ## args)
 
+/* EAP-FAST PAC-based session resumption */
+#define sslEapDebug(args...)			secdebug("sslEap", ## args)
+
 #ifdef	NDEBUG
 
 #define SSLChangeHdskState(ctx, newState) { ctx->state=newState; }

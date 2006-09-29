@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
+ * Copyright (c) 2005 Damien Miller.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,7 +24,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: misc.c,v 1.23 2003/10/28 09:08:06 markus Exp $");
+RCSID("$OpenBSD: misc.c,v 1.34 2005/07/08 09:26:18 dtucker Exp $");
 
 #include "misc.h"
 #include "log.h"
@@ -46,7 +47,7 @@ chop(char *s)
 }
 
 /* set/unset filedescriptor to non-blocking */
-void
+int
 set_nonblock(int fd)
 {
 	int val;
@@ -54,20 +55,23 @@ set_nonblock(int fd)
 	val = fcntl(fd, F_GETFL, 0);
 	if (val < 0) {
 		error("fcntl(%d, F_GETFL, 0): %s", fd, strerror(errno));
-		return;
+		return (-1);
 	}
 	if (val & O_NONBLOCK) {
-		debug2("fd %d is O_NONBLOCK", fd);
-		return;
+		debug3("fd %d is O_NONBLOCK", fd);
+		return (0);
 	}
 	debug2("fd %d setting O_NONBLOCK", fd);
 	val |= O_NONBLOCK;
-	if (fcntl(fd, F_SETFL, val) == -1)
-		debug("fcntl(%d, F_SETFL, O_NONBLOCK): %s",
-		    fd, strerror(errno));
+	if (fcntl(fd, F_SETFL, val) == -1) {
+		debug("fcntl(%d, F_SETFL, O_NONBLOCK): %s", fd,
+		    strerror(errno));
+		return (-1);
+	}
+	return (0);
 }
 
-void
+int
 unset_nonblock(int fd)
 {
 	int val;
@@ -75,17 +79,20 @@ unset_nonblock(int fd)
 	val = fcntl(fd, F_GETFL, 0);
 	if (val < 0) {
 		error("fcntl(%d, F_GETFL, 0): %s", fd, strerror(errno));
-		return;
+		return (-1);
 	}
 	if (!(val & O_NONBLOCK)) {
-		debug2("fd %d is not O_NONBLOCK", fd);
-		return;
+		debug3("fd %d is not O_NONBLOCK", fd);
+		return (0);
 	}
 	debug("fd %d clearing O_NONBLOCK", fd);
 	val &= ~O_NONBLOCK;
-	if (fcntl(fd, F_SETFL, val) == -1)
-		debug("fcntl(%d, F_SETFL, O_NONBLOCK): %s",
+	if (fcntl(fd, F_SETFL, val) == -1) {
+		debug("fcntl(%d, F_SETFL, ~O_NONBLOCK): %s",
 		    fd, strerror(errno));
+		return (-1);
+	}
+	return (0);
 }
 
 /* disable nagle on socket */
@@ -269,6 +276,48 @@ convtime(const char *s)
 	return total;
 }
 
+/*
+ * Search for next delimiter between hostnames/addresses and ports.
+ * Argument may be modified (for termination).
+ * Returns *cp if parsing succeeds.
+ * *cp is set to the start of the next delimiter, if one was found.
+ * If this is the last field, *cp is set to NULL.
+ */
+char *
+hpdelim(char **cp)
+{
+	char *s, *old;
+
+	if (cp == NULL || *cp == NULL)
+		return NULL;
+
+	old = s = *cp;
+	if (*s == '[') {
+		if ((s = strchr(s, ']')) == NULL)
+			return NULL;
+		else
+			s++;
+	} else if ((s = strpbrk(s, ":/")) == NULL)
+		s = *cp + strlen(*cp); /* skip to end (see first case below) */
+
+	switch (*s) {
+	case '\0':
+		*cp = NULL;	/* no more fields*/
+		break;
+
+	case ':':
+	case '/':
+		*s = '\0';	/* terminate */
+		*cp = s + 1;
+		break;
+
+	default:
+		return NULL;
+	}
+
+	return old;
+}
+
 char *
 cleanhostname(char *host)
 {
@@ -308,7 +357,7 @@ addargs(arglist *args, char *fmt, ...)
 {
 	va_list ap;
 	char buf[1024];
-	int nalloc;
+	u_int nalloc;
 
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, ap);
@@ -326,3 +375,151 @@ addargs(arglist *args, char *fmt, ...)
 	args->list[args->num++] = xstrdup(buf);
 	args->list[args->num] = NULL;
 }
+
+/*
+ * Expands tildes in the file name.  Returns data allocated by xmalloc.
+ * Warning: this calls getpw*.
+ */
+char *
+tilde_expand_filename(const char *filename, uid_t uid)
+{
+	const char *path;
+	char user[128], ret[MAXPATHLEN];
+	struct passwd *pw;
+	u_int len, slash;
+
+	if (*filename != '~')
+		return (xstrdup(filename));
+	filename++;
+
+	path = strchr(filename, '/');
+	if (path != NULL && path > filename) {		/* ~user/path */
+		slash = path - filename;
+		if (slash > sizeof(user) - 1)
+			fatal("tilde_expand_filename: ~username too long");
+		memcpy(user, filename, slash);
+		user[slash] = '\0';
+		if ((pw = getpwnam(user)) == NULL)
+			fatal("tilde_expand_filename: No such user %s", user);
+	} else if ((pw = getpwuid(uid)) == NULL)	/* ~/path */
+		fatal("tilde_expand_filename: No such uid %d", uid);
+
+	if (strlcpy(ret, pw->pw_dir, sizeof(ret)) >= sizeof(ret))
+		fatal("tilde_expand_filename: Path too long");
+
+	/* Make sure directory has a trailing '/' */
+	len = strlen(pw->pw_dir);
+	if ((len == 0 || pw->pw_dir[len - 1] != '/') &&
+	    strlcat(ret, "/", sizeof(ret)) >= sizeof(ret))
+		fatal("tilde_expand_filename: Path too long");
+
+	/* Skip leading '/' from specified path */
+	if (path != NULL)
+		filename = path + 1;
+	if (strlcat(ret, filename, sizeof(ret)) >= sizeof(ret))
+		fatal("tilde_expand_filename: Path too long");
+
+	return (xstrdup(ret));
+}
+
+/*
+ * Expand a string with a set of %[char] escapes. A number of escapes may be
+ * specified as (char *escape_chars, char *replacement) pairs. The list must
+ * be terminated by a NULL escape_char. Returns replaced string in memory
+ * allocated by xmalloc.
+ */
+char *
+percent_expand(const char *string, ...)
+{
+#define EXPAND_MAX_KEYS	16
+	struct {
+		const char *key;
+		const char *repl;
+	} keys[EXPAND_MAX_KEYS];
+	u_int num_keys, i, j;
+	char buf[4096];
+	va_list ap;
+
+	/* Gather keys */
+	va_start(ap, string);
+	for (num_keys = 0; num_keys < EXPAND_MAX_KEYS; num_keys++) {
+		keys[num_keys].key = va_arg(ap, char *);
+		if (keys[num_keys].key == NULL)
+			break;
+		keys[num_keys].repl = va_arg(ap, char *);
+		if (keys[num_keys].repl == NULL)
+			fatal("percent_expand: NULL replacement");
+	}
+	va_end(ap);
+
+	if (num_keys >= EXPAND_MAX_KEYS)
+		fatal("percent_expand: too many keys");
+
+	/* Expand string */
+	*buf = '\0';
+	for (i = 0; *string != '\0'; string++) {
+		if (*string != '%') {
+ append:
+			buf[i++] = *string;
+			if (i >= sizeof(buf))
+				fatal("percent_expand: string too long");
+			buf[i] = '\0';
+			continue;
+		}
+		string++;
+		if (*string == '%')
+			goto append;
+		for (j = 0; j < num_keys; j++) {
+			if (strchr(keys[j].key, *string) != NULL) {
+				i = strlcat(buf, keys[j].repl, sizeof(buf));
+				if (i >= sizeof(buf))
+					fatal("percent_expand: string too long");
+				break;
+			}
+		}
+		if (j >= num_keys)
+			fatal("percent_expand: unknown key %%%c", *string);
+	}
+	return (xstrdup(buf));
+#undef EXPAND_MAX_KEYS
+}
+
+/*
+ * Read an entire line from a public key file into a static buffer, discarding
+ * lines that exceed the buffer size.  Returns 0 on success, -1 on failure.
+ */
+int
+read_keyfile_line(FILE *f, const char *filename, char *buf, size_t bufsz,
+   u_long *lineno)
+{
+	while (fgets(buf, bufsz, f) != NULL) {
+		(*lineno)++;
+		if (buf[strlen(buf) - 1] == '\n' || feof(f)) {
+			return 0;
+		} else {
+			debug("%s: %s line %lu exceeds size limit", __func__,
+			    filename, *lineno);
+			/* discard remainder of line */
+			while (fgetc(f) != '\n' && !feof(f))
+				;	/* nothing */
+		}
+	}
+	return -1;
+}
+
+char *
+tohex(const u_char *d, u_int l)
+{
+	char b[3], *r;
+	u_int i, hl;
+
+	hl = l * 2 + 1;
+	r = xmalloc(hl);
+	*r = '\0';
+	for (i = 0; i < l; i++) {
+		snprintf(b, sizeof(b), "%02x", d[i]);
+		strlcat(r, b, hl);
+	}
+	return (r);
+}
+

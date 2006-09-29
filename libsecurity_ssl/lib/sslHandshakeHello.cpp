@@ -39,8 +39,6 @@
 
 #include <string.h>
 
-static OSStatus SSLEncodeRandom(unsigned char *p, SSLContext *ctx);
-
 /* IE treats null session id as valid; two consecutive sessions with NULL ID
  * are considered a match. Workaround: when resumable sessions are disabled, 
  * send a random session ID. */
@@ -80,9 +78,19 @@ SSLEncodeServerHello(SSLRecord &serverHello, SSLContext *ctx)
     *charPtr++ = SSL_HdskServerHello;
     charPtr = SSLEncodeInt(charPtr, 38 + sessionIDLen, 3);
     charPtr = SSLEncodeInt(charPtr, serverHello.protocolVersion, 2);
-    if ((err = SSLEncodeRandom(charPtr, ctx)) != 0)
+	#if		SSL_PAC_SERVER_ENABLE
+	/* serverRandom might have already been set, in SSLAdvanceHandshake() */
+	if(!ctx->serverRandomValid) {
+    	if ((err = SSLEncodeRandom(ctx->serverRandom, ctx)) != 0) {
+       		return err;
+		}
+	}
+	#else
+	/* This is the normal production code path */
+    if ((err = SSLEncodeRandom(ctx->serverRandom, ctx)) != 0)
         return err;
-    memcpy(ctx->serverRandom, charPtr, SSL_CLIENT_SRVR_RAND_SIZE);
+	#endif	/* SSL_PAC_SERVER_ENABLE */
+    memcpy(charPtr, ctx->serverRandom, SSL_CLIENT_SRVR_RAND_SIZE);
     charPtr += SSL_CLIENT_SRVR_RAND_SIZE;
 	*(charPtr++) = (UInt8)sessionIDLen;
 	#if 	SSL_IE_NULL_RESUME_BUG
@@ -202,6 +210,15 @@ SSLEncodeClientHello(SSLRecord &clientHello, SSLContext *ctx)
     
     length = 39 + 2*(ctx->numValidCipherSpecs) + sessionIDLen;
     
+	/* add in length of ClientHello extensions */
+	if(ctx->sessionTicket.length) {
+		unsigned addl = 2 + /* total extensions length */
+						2 +	/* extension type */
+						2 + /* 2-byte vector length, extension_data */
+						ctx->sessionTicket.length;
+		length += addl;
+	}
+
 	err = sslGetMaxProtVersion(ctx, &clientHello.protocolVersion);
 	if(err) {
 		/* we don't have a protocol enabled */
@@ -238,6 +255,21 @@ SSLEncodeClientHello(SSLRecord &clientHello, SSLContext *ctx)
     *p++ = 1;                               /* 1 byte long vector */
     *p++ = 0;                               /* null compression */
     
+	/* 
+ 	 * Handle ClientHello extensions here. For now, we just support
+	 * one; we might need to make this more generalizable later if
+	 * we add more. 
+	 */
+	if(ctx->sessionTicket.length) {
+		sslEapDebug("Adding %lu bytes of sessionTicket to ClientHello",
+			(unsigned long)ctx->sessionTicket.length);
+		assert(ctx->sessionTicket.length <= 0xffff);
+   		p = SSLEncodeInt(p, ctx->sessionTicket.length + 4, 2);
+   		p = SSLEncodeInt(p, SSL_HE_SessionTicket, 2);
+		p = SSLEncodeInt(p, ctx->sessionTicket.length, 2);
+		memcpy(p, ctx->sessionTicket.data, ctx->sessionTicket.length);
+		p += ctx->sessionTicket.length;
+	}
     assert(p == clientHello.contents.data + clientHello.contents.length);
     
     if ((err = SSLInitMessageHashes(ctx)) != 0)
@@ -254,12 +286,14 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
     UInt8               sessionIDLen, compressionCount;
     UInt8               *charPtr;
     unsigned            i;
+    UInt8				*eom;		/* end of message */
     
     if (message.length < 41) {
     	sslErrorLog("SSLProcessClientHello: msg len error 1\n");
         return errSSLProtocol;
     }
     charPtr = message.data;
+	eom = charPtr + message.length;
     ctx->clientReqProtocol = (SSLProtocolVersion)SSLDecodeInt(charPtr, 2);
     charPtr += 2;
 	err = sslVerifyProtVersion(ctx, ctx->clientReqProtocol, &negVersion);
@@ -299,6 +333,10 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
     cipherListLen = (UInt16)SSLDecodeInt(charPtr, 2);  
 								/* Count of cipherSpecs, must be even & >= 2 */
     charPtr += 2;
+	if((charPtr + cipherListLen) > eom) {
+    	sslErrorLog("SSLProcessClientHello: msg len error 5\n");
+        return errSSLProtocol;
+	}
     if ((cipherListLen & 1) || 
 	    (cipherListLen < 2) || 
 		(message.length < (unsigned)(39 + sessionIDLen + cipherListLen))) {
@@ -322,10 +360,7 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
         return errSSLNegotiation;
     charPtr += 2 * cipherCount;    /* Advance past unchecked cipherCounts */
     ctx->selectedCipher = cipherSpec;
-    if ((err = FindCipherSpec(ctx)) != 0) {
-        return err;
-    }
-    sslLogNegotiateDebug("ssl3 server: selecting cipherKind 0x%x", (unsigned)ctx->selectedCipher);
+	/* validate cipher later, after we get possible sessionTicket */
     
     compressionCount = *(charPtr++);
     if ((compressionCount < 1) || 
@@ -336,13 +371,65 @@ SSLProcessClientHello(SSLBuffer message, SSLContext *ctx)
     }
     /* Ignore list; we're doing null */
     
+	/* 
+ 	 * Handle ClientHello extensions.
+	 */
+	#if		SSL_PAC_SERVER_ENABLE
+	/* skip compression list */
+	charPtr += compressionCount;
+	if(charPtr < eom) {
+		unsigned remLen = eom - charPtr;
+		UInt32 totalExtensLen;
+		UInt32 extenType;
+		UInt32 extenLen;
+		if(remLen < 6) {
+			/* 
+			 * Not enough for extension type and length, but not an error...
+			 * skip it and proceed.
+			 */
+			sslEapDebug("SSLProcessClientHello: too small for any extension");
+			goto proceed;	
+		}
+		totalExtensLen = SSLDecodeInt(charPtr, 2);
+		charPtr += 2;
+		if((charPtr + totalExtensLen) > eom) {
+			sslEapDebug("SSLProcessClientHello: too small for specified total_extension_length");
+			goto proceed;	
+		}
+		extenType = SSLDecodeInt(charPtr, 2);
+		charPtr += 2;
+		extenLen = SSLDecodeInt(charPtr, 2);
+		charPtr += 2;
+		if((charPtr + extenLen) > eom) {
+			sslEapDebug("SSLProcessClientHello: too small for specified extension_length");
+			goto proceed;	
+		}
+		switch(extenType) {
+			case SSL_HE_SessionTicket:
+				SSLFreeBuffer(ctx->sessionTicket, NULL);
+				SSLCopyBufferFromData(charPtr, extenLen, ctx->sessionTicket);
+				sslEapDebug("Saved %lu bytes of sessionTicket from ClientHello",
+					(unsigned long)extenLen);
+				break;
+			default:
+				sslEapDebug("SSLProcessClientHello: unknown extenType (%lu)",
+					(unsigned long)extenType);
+				break;
+		}
+	}
+proceed:
+	#endif
+    if ((err = FindCipherSpec(ctx)) != 0) {
+        return err;
+    }
+    sslLogNegotiateDebug("ssl3 server: selecting cipherKind 0x%x", (unsigned)ctx->selectedCipher);
     if ((err = SSLInitMessageHashes(ctx)) != 0)
         return err;
     
     return noErr;
 }
 
-static OSStatus
+OSStatus
 SSLEncodeRandom(unsigned char *p, SSLContext *ctx)
 {   SSLBuffer   randomData;
     OSStatus    err;

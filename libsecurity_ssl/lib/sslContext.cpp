@@ -194,6 +194,7 @@ SSLDisposeContext				(SSLContext			*ctx)
         SSLFreeBuffer(buf, ctx);
         wait = next;
     }
+    SSLFreeBuffer(ctx->sessionTicket, ctx);
     
 	#if APPLE_DH
     SSLFreeBuffer(ctx->dhParamsPrime, ctx);
@@ -1239,6 +1240,25 @@ OSStatus SSLInternalClientRandom(
 	return noErr;
 }
 
+OSStatus SSLGetCipherSizes(
+	SSLContextRef ctx,
+	size_t *digestSize,
+	size_t *symmetricKeySize,
+	size_t *ivSize)
+{
+	const SSLCipherSpec *currCipher;
+	
+	if((ctx == NULL) || (digestSize == NULL) || 
+	   (symmetricKeySize == NULL) || (ivSize == NULL)) {
+		return paramErr;
+	}
+	currCipher = ctx->selectedCipherSpec;
+	*digestSize = currCipher->macAlgorithm->hash->digestSize;
+	*symmetricKeySize = currCipher->cipher->secretKeySize;
+	*ivSize = currCipher->cipher->ivSize;
+	return noErr;
+}
+
 OSStatus 
 SSLGetResumableSessionInfo(
 	SSLContextRef	ctx,
@@ -1252,13 +1272,18 @@ SSLGetResumableSessionInfo(
 		return paramErr;
 	}
 	if(ctx->sessionMatch) {
-		assert(ctx->sessionID.data != NULL);
 		*sessionWasResumed = true;
 		if(ctx->sessionID.length > *sessionIDLength) {
 			/* really should never happen - means ID > 32 */
 			return paramErr;
 		}
-		memmove(sessionID, ctx->sessionID.data, ctx->sessionID.length);
+		if(ctx->sessionID.length) {
+			/* 
+ 			 * Note PAC-based session resumption can result in sessionMatch
+			 * with no sessionID
+			 */
+			memmove(sessionID, ctx->sessionID.data, ctx->sessionID.length);
+		}
 		*sessionIDLength = ctx->sessionID.length;
 	}
 	else {
@@ -1266,6 +1291,73 @@ SSLGetResumableSessionInfo(
 		*sessionIDLength = 0;
 	}
 	return noErr;
+}
+
+/*
+ * Override the default session cache timeout for a cache entry created for
+ * the current session.
+ */
+OSStatus 
+SSLSetSessionCacheTimeout(
+	SSLContextRef ctx, 
+	uint32 timeoutInSeconds)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	ctx->sessionCacheTimeout = timeoutInSeconds;
+	return noErr;
+}
+
+/*
+ * Register a callback for obtaining the master_secret when performing 
+ * PAC-based session resumption. 
+ */
+OSStatus
+SSLInternalSetMasterSecretFunction(
+	SSLContextRef ctx, 
+	SSLInternalMasterSecretFunction mFunc, 
+	const void *arg)		/* opaque to SecureTransport; app-specific */
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	ctx->masterSecretCallback = mFunc;
+	ctx->masterSecretArg = arg;
+	return noErr;
+}
+
+/* 
+ * Provide an opaque SessionTicket for use in PAC-based session 
+ * resumption. Client side only. The provided ticket is sent in
+ * the ClientHello message as a SessionTicket extension. 
+ *
+ * We won't reject this on the server side, but server-side support
+ * for PAC-based session resumption is currently enabled for 
+ * Development builds only. To fully support this for server side,
+ * besides the rudimentary support that's here for Development builds, 
+ * we'd need a getter for the session ticket, so the app code can
+ * access the SessionTicket when its SSLInternalMasterSecretFunction
+ * callback is called. 
+ */
+OSStatus SSLInternalSetSessionTicket(
+   SSLContextRef ctx,
+   const void *ticket,   	
+   size_t ticketLength)
+{
+	if(ctx == NULL) {
+		return paramErr;
+	}
+	if(sslIsSessionActive(ctx)) {
+		/* can't do this with an active session */
+		return badReqErr;
+	}
+	if(ticketLength > 0xffff) {
+		/* extension data encoded with a 2-byte length! */
+		return paramErr;
+	}
+	SSLFreeBuffer(ctx->sessionTicket, NULL);
+	return SSLCopyBufferFromData(ticket, ticketLength, ctx->sessionTicket);
 }
 
 

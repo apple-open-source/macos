@@ -59,7 +59,7 @@ static char sccsid[] = "@(#)networkdelta.c	8.3 (Berkeley) 4/27/95";
 #endif /* not lint */
 
 #ifdef sgi
-#ident "$Revision: 1.1.1.1 $"
+#ident "$Revision: 1.1 $"
 #endif
 
 #include "globals.h"

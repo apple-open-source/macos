@@ -38,7 +38,8 @@ extern "C" {
 
 extern OSStatus sslAddSession (
 	const SSLBuffer sessionKey, 
-	const SSLBuffer sessionData);
+	const SSLBuffer sessionData,
+	uint32 timeToLive);			/* optional time-to-live in seconds; 0 ==> default */
 
 extern OSStatus sslGetSession (
 	const SSLBuffer sessionKey, 

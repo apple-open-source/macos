@@ -20,6 +20,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#define __darwin_i386_exception_state i386_exception_state
+#define __darwin_i386_float_state i386_float_state
+#define __darwin_i386_thread_state i386_thread_state
+
 #include <mach-o/loader.h>
 #include <mach/m68k/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
@@ -81,6 +85,7 @@ struct load_command *load_commands)
     struct routines_command_64 *rc64;
     struct twolevel_hints_command *hints;
     struct prebind_cksum_command *cs;
+    struct uuid_command *uuid;
     unsigned long flavor, count, nflavor;
     char *p, *state;
 
@@ -135,7 +140,7 @@ struct load_command *load_commands)
 		if(sg->cmdsize != sizeof(struct segment_command) +
 				     sg->nsects * sizeof(struct section)){
 		    error("in swap_object_headers(): malformed load command "
-			  "(inconsistant cmdsize in LC_SEGMENT command %lu for "
+			  "(inconsistent cmdsize in LC_SEGMENT command %lu for "
 			  "the number of sections)", i);
 		    return(FALSE);
 		}
@@ -146,7 +151,7 @@ struct load_command *load_commands)
 		if(sg64->cmdsize != sizeof(struct segment_command_64) +
 				     sg64->nsects * sizeof(struct section_64)){
 		    error("in swap_object_headers(): malformed load command "
-			  "(inconsistant cmdsize in LC_SEGMENT_64 command %lu "
+			  "(inconsistent cmdsize in LC_SEGMENT_64 command %lu "
 			  "for the number of sections)", i);
 		    return(FALSE);
 		}
@@ -398,8 +403,8 @@ struct load_command *load_commands)
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
-				"flavor for flavor number %lu in %s command"
-				" %lu can't byte swap it)", nflavor,
+				"flavor %lu for flavor number %lu in %s command"
+				" %lu can't byte swap it)", flavor, nflavor,
 				ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
 				"LC_THREAD", i);
 			    return(FALSE);
@@ -483,8 +488,8 @@ struct load_command *load_commands)
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
-				"flavor for flavor number %lu in %s command"
-				" %lu can't byte swap it)", nflavor,
+				"flavor %lu for flavor number %lu in %s command"
+				" %lu can't byte swap it)", flavor, nflavor,
 				ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
 				"LC_THREAD", i);
 			    return(FALSE);
@@ -566,8 +571,8 @@ struct load_command *load_commands)
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
-				"flavor for flavor number %lu in %s command"
-				" %lu can't byte swap it)", nflavor,
+				"flavor %lu for flavor number %lu in %s command"
+				" %lu can't byte swap it)", flavor, nflavor,
 				ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
 				"LC_THREAD", i);
 			    return(FALSE);
@@ -604,8 +609,8 @@ struct load_command *load_commands)
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
-				"flavor for flavor number %lu in %s command"
-				" %lu can't byte swap it)", nflavor,
+				"flavor %lu for flavor number %lu in %s command"
+				" %lu can't byte swap it)", flavor, nflavor,
 				ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
 				"LC_THREAD", i);
 			    return(FALSE);
@@ -614,8 +619,15 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(cputype == CPU_TYPE_I386){
+	    	if(cputype == CPU_TYPE_I386
+#ifdef x86_THREAD_STATE64
+		   || cputype == CPU_TYPE_X86_64
+#endif /* x86_THREAD_STATE64 */
+		   ){
 		    i386_thread_state_t *cpu;
+#ifdef x86_THREAD_STATE64
+		    x86_thread_state64_t *cpu64;
+#endif /* x86_THREAD_STATE64 */
 /* current i386 thread states */
 #if i386_THREAD_STATE == 1
 		    struct i386_float_state *fpu;
@@ -739,11 +751,28 @@ struct load_command *load_commands)
 			    state += sizeof(i386_thread_fpstate_t);
 			    break;
 #endif /* i386_THREAD_STATE == -1 */
+#ifdef x86_THREAD_STATE64
+			case x86_THREAD_STATE64:
+			    if(count != x86_THREAD_STATE64_COUNT){
+				error("in swap_object_headers(): malformed "
+				    "load commands (count "
+				    "not x86_THREAD_STATE64_COUNT for "
+				    "flavor number %lu which is an x86_THREAD_"
+				    "STATE64 flavor in %s command %lu)",
+				    nflavor,
+				    ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
+				    "LC_THREAD", i);
+				return(FALSE);
+			    }
+			    cpu64 = (x86_thread_state64_t *)state;
+			    state += sizeof(x86_thread_state64_t);
+			    break;
+#endif /* x86_THREAD_STATE64 */
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
-				"flavor for flavor number %lu in %s command"
-				" %lu can't byte swap it)", nflavor,
+				"flavor %lu for flavor number %lu in %s command"
+				" %lu can't byte swap it)", flavor, nflavor,
 				ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
 				"LC_THREAD", i);
 			    return(FALSE);
@@ -810,8 +839,8 @@ struct load_command *load_commands)
 			default:
 			    error("in swap_object_headers(): malformed "
 				"load commands (unknown "
-				"flavor for flavor number %lu in %s command"
-				" %lu can't byte swap it)", nflavor,
+				"flavor %lu for flavor number %lu in %s command"
+				" %lu can't byte swap it)", flavor, nflavor,
 				ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
 				"LC_THREAD", i);
 			    return(FALSE);
@@ -894,7 +923,7 @@ struct load_command *load_commands)
 
 	    case LC_ROUTINES_64:
 		rc64 = (struct routines_command_64 *)lc;
-		if(rc64->cmdsize != sizeof(struct routines_command)){
+		if(rc64->cmdsize != sizeof(struct routines_command_64)){
 		    error("in swap_object_headers(): malformed load commands ("
 			  "LC_ROUTINES_64 command %lu has incorrect cmdsize",
 			  i);
@@ -922,6 +951,15 @@ struct load_command *load_commands)
 		}
 		break;
 
+	    case LC_UUID:
+		uuid = (struct uuid_command *)lc;
+		if(uuid->cmdsize != sizeof(struct uuid_command)){
+		    error("in swap_object_headers(): malformed load commands "
+			  "(LC_UUID command %lu has incorrect cmdsize", i);
+		    return(FALSE);
+		}
+		break;
+
 	    default:
 		error("in swap_object_headers(): malformed load commands "
 		      "(unknown load command %lu)", i);
@@ -937,10 +975,10 @@ struct load_command *load_commands)
 		return(FALSE);
 	    }
 	}
-	/* check for an inconsistant size of the load commands */
+	/* check for an inconsistent size of the load commands */
 	if((char *)load_commands + sizeofcmds != (char *)lc){
 	    error("in swap_object_headers(): malformed load commands "
-		  "(inconsistant sizeofcmds field in mach header)");
+		  "(inconsistent sizeofcmds field in mach header)");
 	    return(FALSE);
 	}
 
@@ -1170,8 +1208,15 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(cputype == CPU_TYPE_I386){
+	    	if(cputype == CPU_TYPE_I386
+#ifdef x86_THREAD_STATE64
+		   || cputype == CPU_TYPE_X86_64
+#endif /* x86_THREAD_STATE64 */
+		   ){
 		    i386_thread_state_t *cpu;
+#ifdef x86_THREAD_STATE64
+		    x86_thread_state64_t *cpu64;
+#endif /* x86_THREAD_STATE64 */
 /* current i386 thread states */
 #if i386_THREAD_STATE == 1
 		    struct i386_float_state *fpu;
@@ -1238,6 +1283,13 @@ struct load_command *load_commands)
 			    state += sizeof(i386_thread_cthreadstate_t);
 			    break;
 #endif /* i386_THREAD_STATE == -1 */
+#ifdef x86_THREAD_STATE64
+			case x86_THREAD_STATE64:
+			    cpu64 = (x86_thread_state64_t *)state;
+			    swap_x86_thread_state64(cpu64, target_byte_sex);
+			    state += sizeof(x86_thread_state64_t);
+			    break;
+#endif /* x86_THREAD_STATE64 */
 			}
 		    }
 		    break;
@@ -1329,6 +1381,11 @@ struct load_command *load_commands)
 	    case LC_PREBIND_CKSUM:
 		cs = (struct prebind_cksum_command *)lc;
 		swap_prebind_cksum_command(cs, target_byte_sex);
+		break;
+
+	    case LC_UUID:
+		uuid = (struct uuid_command *)lc;
+		swap_uuid_command(uuid, target_byte_sex);
 		break;
 	    }
 

@@ -11,12 +11,17 @@
  *
  * For license terms, see the file COPYING in this directory.
  */
+
+#include "fetchmail.h"
+#ifdef CAN_MONITOR
+
 #include <sys/types.h>
 #include <sys/param.h>
 
-#if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
+#if defined(linux)
+#include <sys/utsname.h>
+#endif
 
-#include "config.h"
 #include <stdio.h>
 #include <string.h>
 #if defined(STDC_HEADERS)
@@ -44,8 +49,6 @@
 #include <net/if_dl.h>
 #endif
 #endif
-#include "config.h"
-#include "fetchmail.h"
 #include "socket.h"
 #include "i18n.h"
 #include "tunable.h"
@@ -60,8 +63,6 @@ struct interface_pair_s {
 	struct in_addr interface_mask;
 } *interface_pair;
 
-static char *netdevfmt;
-
 /*
  * Count of packets to see on an interface before monitor considers it up.
  * Needed because when pppd shuts down the link, the packet counts go up
@@ -70,27 +71,29 @@ static char *netdevfmt;
  */
 #define MONITOR_SLOP		5
 
-#if defined(linux)
+#ifdef linux
+#define have_interface_init
+
+static char *netdevfmt;
 
 void interface_init(void)
-/* figure out which /proc/dev/net format to use */
+/* figure out which /proc/net/dev format to use */
 {
-    FILE *fp = popen("uname -r", "r");	/* still wins if /proc is out */
+    struct utsname utsname;
 
-    /* pre-linux-2.2 format -- transmit packet count in 8th field */
-    netdevfmt = "%d %d %*d %*d %*d %d %*d %d %*d %*d %*d %*d %d";
+    /* Linux 2.2 -- transmit packet count in 10th field */
+    netdevfmt = "%d %d %*d %*d %*d %d %*d %*d %*d %d %*d %*d %d";
 
-    if (!fp)
-	return;
+    if (uname(&utsname) < 0)
+        return;
     else
     {
 	int major, minor;
 
-	if (fscanf(fp, "%d.%d.%*d", &major, &minor) >= 2
-					&& major >= 2 && minor >= 2)
-	    /* Linux 2.2 -- transmit packet count in 10th field */
-	    netdevfmt = "%d %d %*d %*d %*d %d %*d %*d %*d %d %*d %*d %d";
-	pclose(fp);
+	if (sscanf(utsname.release, "%d.%d.%*d", &major, &minor) >= 2
+					&& (major < 2 || (major == 2 && minor < 2)))
+	    /* pre-linux-2.2 format -- transmit packet count in 8th field */
+	    netdevfmt = "%d %d %*d %*d %*d %d %*d %d %*d %*d %*d %*d %d";
     }
 }
 
@@ -224,9 +227,9 @@ openkvm(void)
 static int 
 get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 {
-	char            	tname[16];
+	char			tname[16];
 	char			iname[16];
-	struct ifnet   	        ifnet;
+	struct ifnet		ifnet;
 	unsigned long   	ifnet_addr = ifnet_savedaddr;
 #if __FreeBSD_version >= 300001
 	struct ifnethead	ifnethead;
@@ -241,7 +244,7 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	if (if_egid)
 		setegid(if_egid);
 	
-	for (i = 0; ifname[i] && ifname[i] != '/'; i++)
+	for (i = 0; ifname[i] && ifname[i] != '/' && i < sizeof(iname) - 1; i++)
 		iname[i] = ifname[i];
 		
 	iname[i] = '\0';
@@ -268,12 +271,7 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	{
 		kvm_read(kvmfd, ifnet_addr, &ifnet, sizeof(ifnet));
 		kvm_read(kvmfd, (unsigned long) ifnet.if_name, tname, sizeof tname);
-#ifdef HAVE_SNPRINTF
-		snprintf(tname, sizeof tname,
-#else
-        	sprintf(tname,
-#endif
-			"%s%d", tname, ifnet.if_unit);
+		snprintf(tname, sizeof tname, "%s%d", tname, ifnet.if_unit);
 
 		if (!strcmp(tname, iname))
 		{
@@ -547,8 +545,7 @@ get_ifinfo_end:
 
 #endif /* __FREEBSD_USE_SYSCTL_GET_IFFINFO */
 
-#endif /* defined __FreeBSD__ */
-
+#endif
 
 #ifndef HAVE_INET_ATON
 /*
@@ -736,4 +733,8 @@ int interface_approve(struct hostdata *hp, flag domonitor)
 
 	return(TRUE);
 }
-#endif /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
+#endif /* CAN_MONITOR */
+
+#ifndef have_interface_init
+void interface_init(void) {};
+#endif

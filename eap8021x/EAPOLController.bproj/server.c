@@ -379,13 +379,13 @@ eapolcontroller_client_force_renew(mach_port_t server,
 boolean_t
 server_active()
 {
-    boolean_t 		active = FALSE;
     mach_port_t		server;
     kern_return_t	result;
 
-    result = eapolcontroller_server_port(&server, &active);
-    if (active != FALSE)
+    result = eapolcontroller_server_port(&server);
+    if (result == BOOTSTRAP_SUCCESS) {
 	return (TRUE);
+    }
     return (FALSE);
 }
 
@@ -465,29 +465,8 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 void
 server_init()
 {
-    boolean_t		active;
     kern_return_t 	status;
     CFRunLoopSourceRef	rls;
-
-    active = FALSE;
-    status = bootstrap_status(bootstrap_port, EAPOLCONTROLLER_SERVER, &active);
-
-    switch (status) {
-      case BOOTSTRAP_SUCCESS:
-	  if (active) {
-	      fprintf(stderr, "\"%s\" is currently active.\n", 
-		     EAPOLCONTROLLER_SERVER);
-	      return;
-	  }
-	  break;
-      case BOOTSTRAP_UNKNOWN_SERVICE:
-	  break;
-      default:
-	  fprintf(stderr,
-		 "bootstrap_status(): %s\n", mach_error_string(status));
-	  return;
-	  break;
-    }
 
     server_cfport = CFMachPortCreate(NULL, server_handle_request, NULL, NULL);
     rls = CFMachPortCreateRunLoopSource(NULL, server_cfport, 0);

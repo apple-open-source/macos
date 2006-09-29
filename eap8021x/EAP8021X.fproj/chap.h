@@ -24,6 +24,7 @@
 #ifndef _EAP8021X_CHAP_H
 #define _EAP8021X_CHAP_H
 
+#include <stdint.h>
 
 /* 
  * Modification History
@@ -39,7 +40,7 @@
  *   RFC 1994.
  */
 void
-chap_md5(char identifier, const char * password, int password_length,
-	 const void * challenge, int challenge_len,
-	 char * hash);
+chap_md5(uint8_t identifier, const uint8_t * password, int password_length,
+	 const uint8_t * challenge, int challenge_len,
+	 uint8_t * hash);
 #endif _EAP802_1x_CHAP_H

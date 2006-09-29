@@ -20,19 +20,7 @@ USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 	     echo YES ; else echo NO ; \
 	     fi; )
 
-# This won't happen for a while 
-#ifeq "macos" "$(RC_OS)"
-# PRIVATEHEADERS := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] ||    \
-#			       [ "$(RC_RELEASE)" = "Bunsen" ] ||    \
-#			       [ "$(RC_RELEASE)" = "Gonzo" ]; then \
-#			 echo /System/Library; else echo /MacOSX/System; fi; \
-#		)/Frameworks/System.framework/PrivateHeaders
-#else
-#  PRIVATEHEADERS = /System/Library/Frameworks/System.framework/PrivateHeaders
-#endif
-PRIVATEHEADERS = /System/Library/Frameworks/System.framework/PrivateHeaders
-CFLAGS = $(OFLAG) -g -I../include $(GCC_FLAGS) -DNeXT_MOD -DDEBUG \
-	-I$(NEXT_ROOT)$(PRIVATEHEADERS)
+CFLAGS = $(OFLAG) -g -I../include $(GCC_FLAGS) -DNeXT_MOD -DDEBUG
 
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs

@@ -89,12 +89,16 @@ fprint_data(FILE * out_f, u_char * data_p, int n_bytes)
 	    fprintf(out_f, " ");
     }
     if (line_pos) { /* need to finish up the line */
+	char * extra_space = "";
+	if (line_pos < (CHARS_PER_LINE / 2)) {
+	    extra_space = " ";
+	}
 	for (; line_pos < CHARS_PER_LINE; line_pos++) {
 	    fprintf(out_f, "   ");
 	    line_buf[line_pos] = ' ';
 	}
 	line_buf[CHARS_PER_LINE] = '\0';
-	fprintf(out_f, "   %s\n", line_buf);
+	fprintf(out_f, "  %s%s\n", extra_space, line_buf);
     }
     fflush(out_f);
     return;

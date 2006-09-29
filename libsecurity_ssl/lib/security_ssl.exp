@@ -30,6 +30,7 @@ _SSLHandshake
 _SSLInternalClientRandom
 _SSLInternalMasterSecret
 _SSLInternalServerRandom
+_SSLGetCipherSizes
 _SSLInternal_PRF
 _SSLNewContext
 _SSLRead
@@ -53,3 +54,6 @@ _SSLSetProtocolVersionEnabled
 _SSLSetRsaBlinding
 _SSLSetTrustedRoots
 _SSLWrite
+_SSLSetSessionCacheTimeout
+_SSLInternalSetMasterSecretFunction
+_SSLInternalSetSessionTicket

@@ -61,6 +61,8 @@ struct merged_segment {
     enum bool prot_set;		/* TRUE when protection of this segment is set*/
     enum bool split_dylib;	/* TRUE when this segment is from a dylib */
 				/*  which is MH_SPLIT_SEGS */
+    enum bool debug_only;	/* TRUE if segment contains sections with the */
+				/*  S_ATTR_DEBUG attribute */
 #ifdef RLD
     long set_num;		/* Object set this segment first appears in. */
 #endif /* RLD */
@@ -160,6 +162,8 @@ __private_extern__ unsigned long nreloc;
 __private_extern__ enum bool some_non_subsection_via_symbols_objects;
 
 __private_extern__ void merge_sections(
+    void);
+__private_extern__ void remove_debug_segments(
     void);
 __private_extern__ void merge_literal_sections(
     enum bool redo_live);

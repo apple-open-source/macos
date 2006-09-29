@@ -16,50 +16,56 @@
 #if defined(STDC_HEADERS)
 #include  <stdlib.h>
 #endif
- 
+#include  <errno.h>
+
 #include  "fetchmail.h"
 #include  "socket.h"
 #include  "i18n.h"
 
-#if OPIE_ENABLE
+#ifdef OPIE_ENABLE
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <opie.h>
+#ifdef __cplusplus
+}
+#endif
 #endif /* OPIE_ENABLE */
 
-#ifndef strstr		/* glibc-2.1 declares this as a macro */
-extern char *strstr();	/* needed on sysV68 R3V7.1. */
-#endif /* strstr */
+/* global variables: please reinitialize them explicitly for proper
+ * working in daemon mode */
 
+/* TODO: session variables to be initialized before server greeting */
+#ifdef OPIE_ENABLE
+static char lastok[POPBUFSIZE+1];
+#endif /* OPIE_ENABLE */
+
+/* session variables initialized in capa_probe() or pop3_getauth() */
+#if defined(GSSAPI)
+flag has_gssapi = FALSE;
+#endif /* defined(GSSAPI) */
+#if defined(KERBEROS_V4) || defined(KERBEROS_V5)
+flag has_kerberos = FALSE;
+#endif /* defined(KERBEROS_V4) || defined(KERBEROS_V5) */
+static flag has_cram = FALSE;
+#ifdef OPIE_ENABLE
+flag has_otp = FALSE;
+#endif /* OPIE_ENABLE */
+#ifdef SSL_ENABLE
+static flag has_ssl = FALSE;
+#endif /* SSL_ENABLE */
+
+/* mailbox variables initialized in pop3_getrange() */
 static int last;
+
+/* mail variables initialized in pop3_fetch() */
 #ifdef SDPS_ENABLE
 char *sdps_envfrom;
 char *sdps_envto;
 #endif /* SDPS_ENABLE */
 
-#if OPIE_ENABLE
-static char lastok[POPBUFSIZE+1];
-#endif /* OPIE_ENABLE */
-
-/* these variables are shared between the CAPA probe and the authenticator */
-#if defined(GSSAPI)
-    flag has_gssapi = FALSE;
-#endif /* defined(GSSAPI) */
-#if defined(KERBEROS_V4) || defined(KERBEROS_V5)
-    flag has_kerberos = FALSE;
-#endif /* defined(KERBEROS_V4) || defined(KERBEROS_V5) */
-    flag has_cram = FALSE;
-#ifdef OPIE_ENABLE
-    flag has_otp = FALSE;
-#endif /* OPIE_ENABLE */
-#ifdef SSL_ENABLE
-    flag has_ssl = FALSE;
-#endif /* SSL_ENABLE */
-
-#if NTLM_ENABLE
+#ifdef NTLM_ENABLE
 #include "ntlm.h"
-
-static tSmbNtlmAuthRequest   request;		   
-static tSmbNtlmAuthChallenge challenge;
-static tSmbNtlmAuthResponse  response;
 
 /*
  * NTLM support by Grant Edwards.
@@ -72,12 +78,17 @@ static tSmbNtlmAuthResponse  response;
  * Much source (ntlm.h, smb*.c smb*.h) was borrowed from Samba.
  */
 
-static int do_pop3_ntlm(int sock, struct query *ctl)
+static int do_pop3_ntlm(int sock, struct query *ctl,
+	int msn_instead /** if true, send AUTH MSN, else send AUTH NTLM */)
 {
+    tSmbNtlmAuthRequest request;
+    tSmbNtlmAuthChallenge challenge;
+    tSmbNtlmAuthResponse response;
+
     char msgbuf[2048];
     int result,len;
   
-    gen_send(sock, "AUTH MSN");
+    gen_send(sock, msn_instead ? "AUTH MSN" : "AUTH NTLM");
 
     if ((result = gen_recv(sock, msgbuf, sizeof msgbuf)))
 	return result;
@@ -91,7 +102,7 @@ static int do_pop3_ntlm(int sock, struct query *ctl)
 	dumpSmbNtlmAuthRequest(stdout, &request);
 
     memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, (unsigned char*)&request, SmbLength(&request));
+    to64frombits (msgbuf, &request, SmbLength(&request));
   
     if (outlevel >= O_MONITOR)
 	report(stdout, "POP3> %s\n", msgbuf);
@@ -102,7 +113,7 @@ static int do_pop3_ntlm(int sock, struct query *ctl)
     if ((gen_recv(sock, msgbuf, sizeof msgbuf)))
 	return result;
   
-    len = from64tobits ((unsigned char*)&challenge, msgbuf, sizeof(msgbuf));
+    len = from64tobits (&challenge, msgbuf, sizeof(msgbuf));
     
     if (outlevel >= O_DEBUG)
 	dumpSmbNtlmAuthChallenge(stdout, &challenge);
@@ -113,7 +124,7 @@ static int do_pop3_ntlm(int sock, struct query *ctl)
 	dumpSmbNtlmAuthResponse(stdout, &response);
   
     memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, (unsigned char*)&response, SmbLength(&response));
+    to64frombits (msgbuf, &response, SmbLength(&response));
 
     if (outlevel >= O_MONITOR)
 	report(stdout, "POP3> %s\n", msgbuf);
@@ -148,7 +159,7 @@ static int pop3_ok (int sock, char *argbuf)
 	else
 	    return(PS_PROTOCOL);
 
-	while (isalpha(*bufp))
+	while (isalpha((unsigned char)*bufp))
 	    bufp++;
 
 	if (*bufp)
@@ -156,7 +167,7 @@ static int pop3_ok (int sock, char *argbuf)
 
 	if (strcmp(buf,"+OK") == 0)
 	{
-#if OPIE_ENABLE
+#ifdef OPIE_ENABLE
 	    strcpy(lastok, bufp);
 #endif /* OPIE_ENABLE */
 	    ok = 0;
@@ -210,6 +221,9 @@ static int pop3_ok (int sock, char *argbuf)
 	else
 	    ok = PS_PROTOCOL;
 
+#if POPBUFSIZE > MSGBUFSIZE
+#error "POPBUFSIZE must not be larger than MSGBUFSIZE"
+#endif
 	if (argbuf != NULL)
 	    strcpy(argbuf,bufp);
     }
@@ -219,7 +233,7 @@ static int pop3_ok (int sock, char *argbuf)
 
 
 
-static int capa_probe(sock)
+static int capa_probe(int sock)
 /* probe the capabilities of the remote server */
 {
     int	ok;
@@ -268,13 +282,23 @@ static int capa_probe(sock)
     return(ok);
 }
 
+static void set_peek_capable(struct query *ctl)
+{
+    /* we're peek-capable means that the use of TOP is enabled,
+     * see pop3_fetch for details - short story, we can use TOP if
+     * we have a means of reliably tracking which mail we need to
+     * refetch should the connection abort in the middle.
+     * fetchall forces RETR, as does keep without UIDL */
+    peek_capable = !ctl->fetchall && (!ctl->keep || ctl->server.uidl);
+}
+
 static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 /* apply for connection authorization */
 {
     int ok;
     char *start,*end;
     char *msg;
-#if OPIE_ENABLE
+#ifdef OPIE_ENABLE
     char *challenge;
 #endif /* OPIE_ENABLE */
 #ifdef SSL_ENABLE
@@ -295,6 +319,31 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
     has_ssl = FALSE;
 #endif /* SSL_ENABLE */
 
+    /* Set this up before authentication quits early. */
+    set_peek_capable(ctl);
+    /*
+     * The "Maillennium POP3/PROXY server" deliberately truncates
+     * TOP replies after c. 64 or 80 kByte (we have varying reports), so
+     * disable TOP. Comcast once spewed marketing babble to the extent
+     * of protecting Outlook -- pretty overzealous to break a protocol
+     * for that that Microsoft could have read, too. Comcast aren't
+     * alone in using this software though.
+     * <http://lists.ccil.org/pipermail/fetchmail-friends/2004-April/008523.html>
+     * (Thanks to Ed Wilts for reminding me of that.)
+     *
+     * The warning is printed once per server, until fetchmail exits.
+     * It will be suppressed when --fetchall or other circumstances make
+     * us use RETR anyhow.
+     *
+     * Matthias Andree
+     */
+    if (peek_capable && strstr(greeting, "Maillennium POP3/PROXY server")) {
+	if ((ctl->server.workarounds & WKA_TOP) == 0) {
+	    report(stdout, GT_("Warning: \"Maillennium POP3/PROXY server\" found, using RETR command instead of TOP.\n"));
+	    ctl->server.workarounds |= WKA_TOP;
+	}
+	peek_capable = 0;
+    }
     if (ctl->server.authenticate == A_SSH) {
         return PS_SUCCESS;
     }
@@ -308,25 +357,26 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
     if (!(ctl->server.sdps) && MULTIDROP(ctl) && strstr(greeting, "demon."))
         ctl->server.sdps = TRUE;
 #endif /* SDPS_ENABLE */
+
 #ifdef NTLM_ENABLE
-	/* MSN servers require the use of NTLM (MSN) authentication */
-	if (!strcasecmp(ctl->server.pollname, "pop3.email.msn.com") ||
-	    ctl->server.authenticate == A_NTLM)
-	{
-	    if (!do_pop3_ntlm(sock, ctl))
-	    {
-		return(PS_SUCCESS);
-	    }
-	    else
-	    {
-		return(PS_AUTHFAIL);
-	    }
-	}
+    /* MSN servers require the use of NTLM (MSN) authentication */
+    if (!strcasecmp(ctl->server.pollname, "pop3.email.msn.com") ||
+	    ctl->server.authenticate == A_MSN)
+	return (do_pop3_ntlm(sock, ctl, 1) == 0) ? PS_SUCCESS : PS_AUTHFAIL;
+    if (ctl->server.authenticate == A_NTLM)
+	return (do_pop3_ntlm(sock, ctl, 0) == 0) ? PS_SUCCESS : PS_AUTHFAIL;
+#else
+    if (ctl->server.authenticate == A_NTLM || ctl->server.authenticate == A_MSN)
+    {
+	report(stderr,
+	   GT_("Required NTLM capability not compiled into fetchmail\n"));
+    }
 #endif
 
     switch (ctl->server.protocol) {
     case P_POP3:
 #ifdef RPA_ENABLE
+	/* XXX FIXME: AUTH probing (RFC1734) should become global */
 	/* CompuServe POP3 Servers as of 990730 want AUTH first for RPA */
 	if (strstr(ctl->remotename, "@compuserve.com"))
 	{
@@ -365,7 +415,11 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	 * These authentication methods are blessed by RFC1734,
 	 * describing the POP3 AUTHentication command.
 	 */
-	if (ctl->server.authenticate == A_ANY)
+	if ((ctl->server.authenticate == A_ANY) ||
+	    (ctl->server.authenticate == A_GSSAPI) ||
+	    (ctl->server.authenticate == A_KERBEROS_V4) ||
+	    (ctl->server.authenticate == A_OTP) ||
+	    (ctl->server.authenticate == A_CRAM_MD5))
 	{
 	    if ((ok = capa_probe(sock)) != PS_SUCCESS)
 	    /* we are in STAGE_GETAUTH! */
@@ -408,7 +462,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	       }
 	       report(stderr,
 		       GT_("SSL connection failed.\n"));
-		return(PS_AUTHFAIL);
+		return PS_SOCKET;
 	    }
 	   did_stls = TRUE;
 
@@ -435,11 +489,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	 * rather than doing SASL.
 	 */
 	if (has_kerberos &&
-#if INET6_ENABLE
 	    ctl->server.service && (strcmp(ctl->server.service, KPOP_PORT)!=0)
-#else /* INET6_ENABLE */
-	    ctl->server.port != KPOP_PORT
-#endif /* INET6_ENABLE */
 	    && (ctl->server.authenticate == A_KERBEROS_V4
 	     || ctl->server.authenticate == A_KERBEROS_V5
 	     || ctl->server.authenticate == A_ANY))
@@ -455,7 +505,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	    (ctl->server.authenticate == A_GSSAPI ||
 	     ctl->server.authenticate == A_ANY))
 	{
-	    ok = do_gssauth(sock,"AUTH",ctl->server.truename,ctl->remotename);
+	    ok = do_gssauth(sock,"AUTH","pop",ctl->server.truename,ctl->remotename);
 	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)
 		break;
 	}
@@ -481,15 +531,18 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	}
 
 	/* ordinary validation, no one-time password or RPA */ 
-	gen_transact(sock, "USER %s", ctl->remotename);
+	if ((ok = gen_transact(sock, "USER %s", ctl->remotename)))
+	    break;
 
-#if OPIE_ENABLE
+#ifdef OPIE_ENABLE
 	/* see RFC1938: A One-Time Password System */
-	if (challenge = strstr(lastok, "otp-")) {
+	if ((challenge = strstr(lastok, "otp-"))) {
 	  char response[OPIE_RESPONSE_MAX+1];
 	  int i;
+	  char *n = xstrdup("");
 
-	  i = opiegenerator(challenge, !strcmp(ctl->password, "opie") ? "" : ctl->password, response);
+	  i = opiegenerator(challenge, !strcmp(ctl->password, "opie") ? n : ctl->password, response);
+	  free(n);
 	  if ((i == -2) && !run.poll_interval) {
 	    char secret[OPIE_SECRET_MAX+1];
 	    fprintf(stderr, GT_("Secret pass phrase: "));
@@ -508,7 +561,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	}
 #endif /* OPIE_ENABLE */
 
-	strcpy(shroud, ctl->password);
+	strlcpy(shroud, ctl->password, sizeof(shroud));
 	ok = gen_transact(sock, "PASS %s", ctl->password);
 	shroud[0] = '\0';
 #ifdef SSL_ENABLE
@@ -546,11 +599,11 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	    *++end = '\0';
 
 	/* copy timestamp and password into digestion buffer */
-	xalloca(msg, char *, (end-start+1) + strlen(ctl->password) + 1);
+	msg = xmalloc((end-start+1) + strlen(ctl->password) + 1);
 	strcpy(msg,start);
 	strcat(msg,ctl->password);
-
 	strcpy(ctl->digest, MD5Digest((unsigned char *)msg));
+	free(msg);
 
 	ok = gen_transact(sock, "APOP %s %s", ctl->remotename, ctl->digest);
 	break;
@@ -574,6 +627,12 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	return(ok);
     }
 
+/* Disable the sleep. Based on patch by Brian Candler 2004-04-19/2004-11-08,
+ * accepted by Matthias Andree.
+ *
+ * Rationale: the server must have locked the spool before returning +OK;
+ * this sleep just wastes time and hence, for modem and GSM CSD users, money. */
+#ifdef WANT_BOGUS
     /*
      * Empirical experience shows some server/OS combinations
      * may need a brief pause even after any lockfiles on the
@@ -582,46 +641,92 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
      * this is only ever an issue with extremely large mailboxes.
      */
     sleep(3); /* to be _really_ safe, probably need sleep(5)! */
-
-    /* we're peek-capable if use of TOP is enabled */
-    peek_capable = !(ctl->fetchall || ctl->keep);
+#endif
 
     /* we're approved */
     return(PS_SUCCESS);
 }
 
-static int pop3_gettopid( int sock, int num , char *id)
+/* cut off C string at first POSIX space */
+static void trim(char *s) {
+    s += strcspn(s, POSIX_space);
+    s[0] = '\0';
+}
+
+/* XXX FIXME: using the Message-ID is unsafe, some messages (spam,
+ * broken messages) do not have Message-ID headers, and messages without
+ * those appear to break this code and cause fetchmail (at least version
+ * 6.2.3) to not delete such messages properly after retrieval.
+ * See Sourceforge Bug #780933.
+ *
+ * The other problem is that the TOP command itself is optional, too... */
+static int pop3_gettopid(int sock, int num , char *id, size_t idsize)
 {
     int ok;
     int got_it;
     char buf [POPBUFSIZE+1];
-    sprintf( buf, "TOP %d 1", num );
+    snprintf(buf, sizeof(buf), "TOP %d 1", num);
     if ((ok = gen_transact(sock, buf )) != 0)
-       return ok; 
+       return ok;
     got_it = 0;
     while ((ok = gen_recv(sock, buf, sizeof(buf))) == 0) 
     {
 	if (DOTLINE(buf))
 	    break;
-	if ( ! got_it && ! strncasecmp("Message-Id:", buf, 11 )) {
+	if (!got_it && 0 == strncasecmp("Message-Id:", buf, 11)) {
+	    char *p = buf + 11;
 	    got_it = 1;
-	    /* prevent stack overflows */
-	    buf[IDLEN+12] = 0;
-	    sscanf( buf+12, "%s", id);
+	    p += strspn(p, POSIX_space);
+	    strlcpy(id, p, idsize);
+	    trim(id);
 	}
     }
+    /* XXX FIXME: do not return success here if no Message-ID header was
+     * found. */
     return 0;
 }
 
-static int pop3_getuidl( int sock, int num , char *id)
+/** Parse the UID response (leading +OK must have been
+ * stripped off) in buf, store the number in gotnum, and store the ID
+ * into the caller-provided buffer "id" of size "idsize".
+ * Returns PS_SUCCESS or PS_PROTOCOL for failure. */
+static int parseuid(const char *buf, unsigned long *gotnum, char *id, size_t idsize)
+{
+    const char *i;
+    char *j;
+
+    /* skip leading blanks ourselves */
+    i = buf;
+    i += strspn(i, POSIX_space);
+    errno = 0;
+    *gotnum = strtoul(i, &j, 10);
+    if (j == i || !*j || errno || NULL == strchr(POSIX_space, *j)) {
+	report(stderr, GT_("Cannot handle UIDL response from upstream server.\n"));
+	return PS_PROTOCOL;
+    }
+    j += strspn(j, POSIX_space);
+    strlcpy(id, j, idsize);
+    trim(id);
+    return PS_SUCCESS;
+}
+
+/** request UIDL for single message \a num and stuff the result into the
+ * buffer \a id which can hold \a idsize bytes */
+static int pop3_getuidl(int sock, int num, char *id /** output */, size_t idsize)
 {
     int ok;
     char buf [POPBUFSIZE+1];
+    unsigned long gotnum;
+
     gen_send(sock, "UIDL %d", num);
     if ((ok = pop3_ok(sock, buf)) != 0)
 	return(ok);
-    if (sscanf(buf, "%d %s", &num, id) != 2)
-	return(PS_PROTOCOL);
+    if ((ok = parseuid(buf, &gotnum, id, idsize)))
+	return ok;
+    if (gotnum != (unsigned long)num) {
+	report(stderr, GT_("Server responded with UID for wrong message.\n"));
+	return PS_PROTOCOL;
+    }
     return(PS_SUCCESS);
 }
 
@@ -635,20 +740,20 @@ static int pop3_fastuidl( int sock,  struct query *ctl, unsigned int count, int 
     last_nr = count + 1;
     while (first_nr < last_nr - 1)
     {
-	struct idlist	*new;
+	struct idlist	*newl;
 
 	try_nr = (first_nr + last_nr) / 2;
-	if( (ok = pop3_getuidl( sock, try_nr, id )) != 0 )
+	if ((ok = pop3_getuidl(sock, try_nr, id, sizeof(id))) != 0)
 	    return ok;
-	if ((new = str_in_list(&ctl->oldsaved, id, FALSE)))
+	if ((newl = str_in_list(&ctl->oldsaved, id, FALSE)))
 	{
-	    flag mark = new->val.status.mark;
+	    flag mark = newl->val.status.mark;
 	    if (mark == UID_DELETED || mark == UID_EXPUNGED)
 	    {
 		if (outlevel >= O_VERBOSE)
 		    report(stderr, GT_("id=%s (num=%d) was deleted, but is still present!\n"), id, try_nr);
 		/* just mark it as seen now! */
-		new->val.status.mark = mark = UID_SEEN;
+		newl->val.status.mark = mark = UID_SEEN;
 	    }
 
 	    /* narrow the search region! */
@@ -662,7 +767,7 @@ static int pop3_fastuidl( int sock,  struct query *ctl, unsigned int count, int 
 		first_nr = try_nr;
 
 	    /* save the number */
-	    new->val.status.num = try_nr;
+	    newl->val.status.num = try_nr;
 	}
 	else
 	{
@@ -671,8 +776,8 @@ static int pop3_fastuidl( int sock,  struct query *ctl, unsigned int count, int 
 	    last_nr = try_nr;
 
 	    /* save it */
-	    new = save_str(&ctl->oldsaved, id, UID_UNSEEN);
-	    new->val.status.num = try_nr;
+	    newl = save_str(&ctl->oldsaved, id, UID_UNSEEN);
+	    newl->val.status.num = try_nr;
 	}
     }
     if (outlevel >= O_DEBUG && last_nr <= count)
@@ -686,6 +791,10 @@ static int pop3_fastuidl( int sock,  struct query *ctl, unsigned int count, int 
 
 static int pop3_slowuidl( int sock,  struct query *ctl, int *countp, int *newp)
 {
+    /* XXX FIXME: this code is severely broken. A Cc:d mailing list
+     * message will arrive twice with the same Message-ID, so this
+     * slowuidl code will break. Same goes for messages without
+     * Message-ID headers at all. This code would best be removed. */
     /* This approach tries to get the message headers from the
      * remote hosts and compares the message-id to the already known
      * ones:
@@ -700,10 +809,10 @@ static int pop3_slowuidl( int sock,  struct query *ctl, int *countp, int *newp)
     int first_nr, list_len, try_id, try_nr, add_id;
     int num;
     char id [IDLEN+1];
-    
-    if( (ok = pop3_gettopid( sock, 1, id )) != 0 )
+
+    if ((ok = pop3_gettopid(sock, 1, id, sizeof(id))) != 0)
 	return ok;
-    
+
     if( ( first_nr = str_nr_in_list(&ctl->oldsaved, id) ) == -1 ) {
 	/* the first message is unknown -> all messages are new */
 	*newp = *countp;	
@@ -715,7 +824,7 @@ static int pop3_slowuidl( int sock,  struct query *ctl, int *countp, int *newp)
     try_id = list_len  - first_nr; /* -1 + 1 */
     if( try_id > 1 ) {
 	if( try_id <= *countp ) {
-	    if( (ok = pop3_gettopid( sock, try_id, id )) != 0 )
+	    if ((ok = pop3_gettopid(sock, try_id, id, sizeof(id))) != 0)
 		return ok;
     
 	    try_nr = str_nr_last_in_list(&ctl->oldsaved, id);
@@ -739,7 +848,7 @@ static int pop3_slowuidl( int sock,  struct query *ctl, int *countp, int *newp)
 		    } else 
 			try_id += add_id;
 		    
-		    if( (ok = pop3_gettopid( sock, try_id, id )) != 0 )
+		    if ((ok = pop3_gettopid(sock, try_id, id, sizeof(id))) != 0)
 			return ok;
 		    try_nr = str_nr_in_list(&ctl->oldsaved, id);
 		}
@@ -756,10 +865,10 @@ static int pop3_slowuidl( int sock,  struct query *ctl, int *countp, int *newp)
     /* the first try_id messages are known -> copy them to the newsaved list */
     for( num = first_nr; num < list_len; num++ )
     {
-	struct idlist	*new = save_str(&ctl->newsaved, 
+	struct idlist	*newl = save_str(&ctl->newsaved, 
 				str_from_nr_list(&ctl->oldsaved, num),
 				UID_UNSEEN);
-	new->val.status.num = num - first_nr + 1;
+	newl->val.status.num = num - first_nr + 1;
     }
 
     if( nolinear ) {
@@ -781,6 +890,7 @@ static int pop3_getrange(int sock,
     int ok;
     char buf [POPBUFSIZE+1];
 
+    (void)folder;
     /* Ensure that the new list is properly empty */
     ctl->newsaved = (struct idlist *)NULL;
 
@@ -800,13 +910,15 @@ static int pop3_getrange(int sock,
 	return(ok);
 
     /*
-     * Newer, RFC-1725-conformant POP servers may not have the LAST command.
-     * We work as hard as possible to hide this ugliness, but it makes 
+     * Newer, RFC-1725/1939-conformant POP servers may not have the LAST
+     * command.  We work as hard as possible to hide this, but it makes
      * counting new messages intrinsically quadratic in the worst case.
      */
     last = 0;
     *newp = -1;
-    if (*countp > 0 && !ctl->fetchall)
+    /* if there are messages, and UIDL is desired, use UIDL
+     * also use UIDL if fetchall is unset */
+    if (*countp > 0 && (!ctl->fetchall || ctl->server.uidl))
     {
 	int fastuidl;
 	char id [IDLEN+1];
@@ -814,6 +926,7 @@ static int pop3_getrange(int sock,
 	/* should we do fast uidl this time? */
 	fastuidl = ctl->fastuidl;
 	if (*countp > 7 &&		/* linear search is better if there are few mails! */
+	    !ctl->fetchall &&		/* with fetchall, all uids are required */
 	    !ctl->flush &&		/* with flush, it is safer to disable fastuidl */
 	    NUM_NONZERO (fastuidl))
 	{
@@ -830,8 +943,10 @@ static int pop3_getrange(int sock,
 	    ok = pop3_ok(sock, buf);
 	} else
 	    ok = 1;
+
 	if (ok == 0)
 	{
+	    /* scan LAST reply */
 	    if (sscanf(buf, "%d", &last) == 0)
 	    {
 		report(stderr, GT_("protocol error\n"));
@@ -839,15 +954,16 @@ static int pop3_getrange(int sock,
 	    }
 	    *newp = (*countp - last);
 	}
- 	else
- 	{
+	else
+	{
+	    /* do UIDL */
 	    if (dofastuidl)
 		return(pop3_fastuidl( sock, ctl, *countp, newp));
 	    /* grab the mailbox's UID list */
 	    if ((ok = gen_transact(sock, "UIDL")) != 0)
 	    {
 		/* don't worry, yet! do it the slow way */
-		if((ok = pop3_slowuidl( sock, ctl, countp, newp))!=0)
+		if ((ok = pop3_slowuidl(sock, ctl, countp, newp)))
 		{
 		    report(stderr, GT_("protocol error while fetching UIDLs\n"));
 		    return(PS_ERROR);
@@ -855,54 +971,61 @@ static int pop3_getrange(int sock,
 	    }
 	    else
 	    {
-		int	num;
+		/* UIDL worked - parse reply */
+		unsigned long unum;
 
 		*newp = 0;
- 		while ((ok = gen_recv(sock, buf, sizeof(buf))) == 0)
+		while ((ok = gen_recv(sock, buf, sizeof(buf))) == PS_SUCCESS)
 		{
- 		    if (DOTLINE(buf))
- 			break;
- 		    else if (sscanf(buf, "%d %s", &num, id) == 2)
-		    {
- 			struct idlist	*old, *new;
+		    if (DOTLINE(buf))
+			break;
 
-			new = save_str(&ctl->newsaved, id, UID_UNSEEN);
-			new->val.status.num = num;
+		    if (parseuid(buf, &unum, id, sizeof(id)) == PS_SUCCESS)
+		    {
+			struct idlist	*old, *newl;
+
+			newl = save_str(&ctl->newsaved, id, UID_UNSEEN);
+			newl->val.status.num = unum;
 
 			if ((old = str_in_list(&ctl->oldsaved, id, FALSE)))
 			{
 			    flag mark = old->val.status.mark;
 			    if (mark == UID_DELETED || mark == UID_EXPUNGED)
 			    {
+				/* XXX FIXME: switch 3 occurrences from
+				 * (int)unum or (unsigned int)unum to
+				 * remove the cast and use %lu - not now
+				 * though, time for new release */
 				if (outlevel >= O_VERBOSE)
-				    report(stderr, GT_("id=%s (num=%d) was deleted, but is still present!\n"), id, num);
+				    report(stderr, GT_("id=%s (num=%d) was deleted, but is still present!\n"), id, (int)unum);
 				/* just mark it as seen now! */
 				old->val.status.mark = mark = UID_SEEN;
 			    }
-			    new->val.status.mark = mark;
+			    newl->val.status.mark = mark;
 			    if (mark == UID_UNSEEN)
 			    {
 				(*newp)++;
 				if (outlevel >= O_DEBUG)
-				    report(stdout, GT_("%u is unseen\n"), num);
+				    report(stdout, GT_("%u is unseen\n"), (unsigned int)unum);
 			    }
 			}
 			else
 			{
 			    (*newp)++;
 			    if (outlevel >= O_DEBUG)
-				report(stdout, GT_("%u is unseen\n"), num);
+				report(stdout, GT_("%u is unseen\n"), (unsigned int)unum);
 			    /* add it to oldsaved also! In case, we do not
 			     * swap the lists (say, due to socket error),
 			     * the same mail will not be downloaded again.
 			     */
 			    old = save_str(&ctl->oldsaved, id, UID_UNSEEN);
-			    old->val.status.num = num;
+			    old->val.status.num = unum;
 			}
-		    }
- 		}
- 	    }
- 	}
+		    } else
+			return PS_ERROR;
+		} /* multi-line loop for UIDL reply */
+	    } /* UIDL parser */
+	} /* do UIDL */
     }
 
     return(PS_SUCCESS);
@@ -911,25 +1034,24 @@ static int pop3_getrange(int sock,
 static int pop3_getpartialsizes(int sock, int first, int last, int *sizes)
 /* capture the size of message #first */
 {
-    int	ok;
+    int	ok = 0, i, num;
     char buf [POPBUFSIZE+1];
-    unsigned int num, size;
+    unsigned int size;
 
-    /* for POP3, we can get the size of one mail only! */
-    if (first != last)
-    {
-	report(stderr, "cannot get a range of message sizes (%d-%d).\n", first, last);
-	return(PS_PROTOCOL);
-    }
-    gen_send(sock, "LIST %d", first);
-    if ((ok = pop3_ok(sock, buf)) != 0)
-	return(ok);
-    if (sscanf(buf, "%u %u", &num, &size) == 2) {
-	if (num == first)
-	    sizes[0] = size;
-	else
-	    /* warn about possible attempt to induce buffer overrun */
-	    report(stderr, "Warning: ignoring bogus data for message sizes returned by server.\n");
+    for (i = first; i <= last; i++) {
+	gen_send(sock, "LIST %d", i);
+	if ((ok = pop3_ok(sock, buf)) != 0)
+	    return(ok);
+	if (sscanf(buf, "%d %u", &num, &size) == 2) {
+	    if (num == i)
+		sizes[i - first] = size;
+	    else
+		/* warn about possible attempt to induce buffer overrun
+		 *
+		 * we expect server reply message number and requested
+		 * message number to match */
+		report(stderr, "Warning: ignoring bogus data for message sizes returned by server.\n");
+	}
     }
     return(ok);
 }
@@ -952,7 +1074,7 @@ static int pop3_getsizes(int sock, int count, int *sizes)
 	    if (DOTLINE(buf))
 		break;
 	    else if (sscanf(buf, "%u %u", &num, &size) == 2) {
-		if (num > 0 && num <= count)
+		if (num > 0 && num <= (unsigned)count)
 		    sizes[num - 1] = size;
 		else
 		    /* warn about possible attempt to induce buffer overrun */
@@ -967,7 +1089,7 @@ static int pop3_getsizes(int sock, int count, int *sizes)
 static int pop3_is_old(int sock, struct query *ctl, int num)
 /* is the given message old? */
 {
-    struct idlist *new;
+    struct idlist *newl;
     if (!ctl->oldsaved)
 	return (num <= last);
     else if (dofastuidl)
@@ -979,30 +1101,30 @@ static int pop3_is_old(int sock, struct query *ctl, int num)
 
 	/* in fast uidl, we manipulate the old list only! */
 
-	if ((new = id_find(&ctl->oldsaved, num)))
+	if ((newl = id_find(&ctl->oldsaved, num)))
 	{
 	    /* we already have the id! */
-	    return(new->val.status.mark != UID_UNSEEN);
+	    return(newl->val.status.mark != UID_UNSEEN);
 	}
 
 	/* get the uidl first! */
-	if (pop3_getuidl(sock, num, id) != PS_SUCCESS)
+	if (pop3_getuidl(sock, num, id, sizeof(id)) != PS_SUCCESS)
 	    return(TRUE);
 
-	if ((new = str_in_list(&ctl->oldsaved, id, FALSE))) {
+	if ((newl = str_in_list(&ctl->oldsaved, id, FALSE))) {
 	    /* we already have the id! */
-	    new->val.status.num = num;
-	    return(new->val.status.mark != UID_UNSEEN);
+	    newl->val.status.num = num;
+	    return(newl->val.status.mark != UID_UNSEEN);
 	}
 
 	/* save it */
-	new = save_str(&ctl->oldsaved, id, UID_UNSEEN);
-	new->val.status.num = num;
+	newl = save_str(&ctl->oldsaved, id, UID_UNSEEN);
+	newl->val.status.num = num;
 	return(FALSE);
     }
     else
-        return ((new = id_find(&ctl->newsaved, num)) != NULL &&
-	    new->val.status.mark != UID_UNSEEN);
+        return ((newl = id_find(&ctl->newsaved, num)) != NULL &&
+	    newl->val.status.mark != UID_UNSEEN);
 }
 
 #ifdef UNUSED
@@ -1036,8 +1158,9 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
 
 #ifdef SDPS_ENABLE
     /*
-     * See http://www.demon.net/services/mail/sdps-tech.html
+     * See http://www.demon.net/helpdesk/producthelp/mail/sdps-tech.html/
      * for a description of what we're parsing here.
+     * -- updated 2006-02-22
      */
     if (ctl->server.sdps)
     {
@@ -1055,6 +1178,11 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
 	    switch (linecount) {
 	    case 4:
 		/* No need to wrap envelope from address */
+		/* FIXME: some parts of fetchmail don't handle null
+		 * envelope senders, so use <> to mark null sender
+		 * as a workaround. */
+		if (strspn(buf, " \t") == strlen(buf))
+		    strcpy(buf, "<>");
 		sdps_envfrom = xmalloc(strlen(buf)+1);
 		strcpy(sdps_envfrom,buf);
 		break;
@@ -1067,6 +1195,8 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
 	} while
 	    (!(buf[0] == '.' && (buf[1] == '\r' || buf[1] == '\n' || buf[1] == '\0')));
     }
+#else
+    (void)ctl;
 #endif /* SDPS_ENABLE */
 
     /*
@@ -1084,11 +1214,11 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
      * In that case, marking the seen flag is the only way to prevent the
      * message from being re-fetched on subsequent runs.
      *
-     * Also use RETR if fetchall is on.  This gives us a workaround
-     * for servers like usa.net's that bungle TOP.  It's pretty
-     * harmless because fetchall guarantees that any message dropped
-     * by an interrupted RETR will be picked up on the next poll of the
-     * site.
+     * Also use RETR (that means no TOP, no peek) if fetchall is on.
+     * This gives us a workaround for servers like usa.net's that bungle
+     * TOP.  It's pretty harmless because fetchall guarantees that any
+     * message dropped by an interrupted RETR will be picked up on the
+     * next poll of the site.
      *
      * We take advantage here of the fact that, according to all the
      * POP RFCs, "if the number of lines requested by the POP3 client
@@ -1098,7 +1228,7 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
      * The line count passed (99999999) is the maximum value CompuServe will
      * accept; it's much lower than the natural value 2147483646 (the maximum
      * twos-complement signed 32-bit integer minus 1) */
-    if (ctl->keep || ctl->fetchall)
+    if (!peek_capable)
 	gen_send(sock, "RETR %d", number);
     else
 	gen_send(sock, "TOP %d 99999999", number);
@@ -1141,6 +1271,7 @@ static int pop3_delete(int sock, struct query *ctl, int number)
 static int pop3_mark_seen(int sock, struct query *ctl, int number)
 /* mark a given message as seen */
 {
+    (void)sock;
     mark_uid_seen(ctl, number);
     return(PS_SUCCESS);
 }
@@ -1175,16 +1306,11 @@ static int pop3_logout(int sock, struct query *ctl)
     return(ok);
 }
 
-const static struct method pop3 =
+static const struct method pop3 =
 {
     "POP3",		/* Post Office Protocol v3 */
-#if INET6_ENABLE
     "pop3",		/* standard POP3 port */
     "pop3s",		/* ssl POP3 port */
-#else /* INET6_ENABLE */
-    110,		/* standard POP3 port */
-    995,		/* ssl POP3 port */
-#endif /* INET6_ENABLE */
     FALSE,		/* this is not a tagged protocol */
     TRUE,		/* this uses a message delimiter */
     pop3_ok,		/* parse command response */
@@ -1198,6 +1324,7 @@ const static struct method pop3 =
     NULL,		/* no message trailer */
     pop3_delete,	/* how to delete a message */
     pop3_mark_seen,	/* how to mark a message as seen */
+    NULL,		/* no action at end of mailbox */
     pop3_logout,	/* log out, we're done */
     FALSE,		/* no, we can't re-poll */
 };
@@ -1207,11 +1334,11 @@ int doPOP3 (struct query *ctl)
 {
 #ifndef MBOX
     if (ctl->mailboxes->id) {
-	fprintf(stderr,GT_("Option --remote is not supported with POP3\n"));
+	fprintf(stderr,GT_("Option --folder is not supported with POP3\n"));
 	return(PS_SYNTAX);
     }
 #endif /* MBOX */
-    peek_capable = !ctl->fetchall;
+
     return(do_protocol(ctl, &pop3));
 }
 #endif /* POP3_ENABLE */

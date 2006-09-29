@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/network_cmds/traceroute.tproj/gnuc.h,v 1.2 2004/08/08 00:27:54 lindak Exp $ (LBL) */
+/* @(#) $Header: /Volumes/george/fs-svn/network_cmds/traceroute.tproj/gnuc.h,v 1.2 2004/08/08 00:27:54 lindak Exp $ (LBL) */
 
 /* Define __P() macro, if necessary */
 #ifndef __P

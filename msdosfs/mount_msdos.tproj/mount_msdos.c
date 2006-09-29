@@ -530,7 +530,7 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 	return encoding;
 }
 
-#define MAX_DOS_BLOCKSIZE	2048
+#define MAX_DOS_BLOCKSIZE	4096
 
 struct dosdirentry {
 	u_int8_t name[11];
@@ -591,7 +591,7 @@ static void FindVolumeName(struct msdosfs_args *args)
 	
 	/* Get the bytes per sector */
 	bytesPerSector = buf[11] + buf[12]*256;
-	if (bytesPerSector < 512 || bytesPerSector > 2048 || (bytesPerSector & (bytesPerSector-1)))
+	if (bytesPerSector < 512 || bytesPerSector > MAX_DOS_BLOCKSIZE || (bytesPerSector & (bytesPerSector-1)))
 		errx(EX_OSERR, "Unsupported sector size (%u)", bytesPerSector);
 
 	/* Get the sectors per cluster */

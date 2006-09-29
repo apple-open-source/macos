@@ -9,6 +9,8 @@ lipo \- create or operate on universal files
 .IR "arch_type input_file" "] ..."
 [
 .IR input_file "] ..."
+[\-arch_blank
+.IR arch_type ]
 [\-create]
 [\-thin
 .IR arch_type ]
@@ -41,6 +43,7 @@ types from the input file to create a single new universal output file.
 Only one option can be specified, 
 with the exception of
 .BR \-arch ,
+.BR \-arch_blank ,
 .BR \-output ,
 and
 .BR \-segalign ,
@@ -89,6 +92,13 @@ is an
 object file, a universal file, or some other file whose architecture(s)
 .I lipo
 can figure out.
+.TP
+.BI \-arch_blank " arch_type"
+Specifies that the output for the specified
+.IR arch_type
+will be an MH_DYLIB_STUB file. This flag may not be used with any operation
+other than
+.BR \-create .
 .TP
 .BI \-output " output_file"
 Specifies its argument to be the output file.

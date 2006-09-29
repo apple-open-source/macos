@@ -526,7 +526,7 @@ char ***vecP)
 	    if(strcmp(*argP, "static_branch_prediction_Y_bit") == 0){
 		if(static_branch_prediction_specified &&
 		   static_branch_prediction != STATIC_BRANCH_PREDICTION_Y_BIT)
-		    as_warn("Can't specify both -static_branch_prediction_Y_bit"
+		    as_bad("Can't specify both -static_branch_prediction_Y_bit"
 			    " and -static_branch_prediction_AT_bits");
 		static_branch_prediction_specified = 1;
 		static_branch_prediction = STATIC_BRANCH_PREDICTION_Y_BIT;
@@ -536,7 +536,7 @@ char ***vecP)
 	    else if(strcmp(*argP, "static_branch_prediction_AT_bits") == 0){
 		if(static_branch_prediction_specified &&
 		   static_branch_prediction != STATIC_BRANCH_PREDICTION_AT_BITS)
-		    as_warn("Can't specify both -static_branch_prediction_Y_bit"
+		    as_bad("Can't specify both -static_branch_prediction_Y_bit"
 			    " and -static_branch_prediction_AT_bits");
 		static_branch_prediction_specified = 1;
 		static_branch_prediction = STATIC_BRANCH_PREDICTION_AT_BITS;
@@ -572,7 +572,7 @@ int reg)
 	SKIP_WHITESPACE();
 	if ( * input_line_pointer != ',' ) {
 		*end_name = 0;
-		as_warn("Expected comma after name \"%s\"", name);
+		as_bad("Expected comma after name \"%s\"", name);
 		*end_name = delim;
 		ignore_rest_of_line();
 		return;
@@ -633,7 +633,7 @@ int ignore)
 
 	reg = get_absolute_expression();
 	if(reg < 0 || reg >= 32)
-	    as_warn("register number (%d) out of range (0-31) for .flag_reg",
+	    as_bad("register number (%d) out of range (0-31) for .flag_reg",
 		    reg);
 	demand_empty_rest_of_line();
 	flag_registers = 1;
@@ -653,7 +653,7 @@ int ignore)
 
 	reg = get_absolute_expression();
 	if(reg < 0 || reg >= 32)
-	    as_warn("register number (%d) out of range (0-31) for .noflag_reg",
+	    as_bad("register number (%d) out of range (0-31) for .noflag_reg",
 		    reg);
 	demand_empty_rest_of_line();
 	flag_gregs[reg] = 0;
@@ -698,7 +698,7 @@ char *op)
 		if(static_branch_prediction ==
 		   STATIC_BRANCH_PREDICTION_AT_BITS &&
 		   syntax_warning_issued_for_AT_bits == 0){
-		    as_warning("branch prediction ++/-- syntax always sets the "
+		    as_warn("branch prediction ++/-- syntax always sets the "
 			       "AT-bits");
 		    syntax_warning_issued_for_AT_bits = 1;
 		}
@@ -718,7 +718,7 @@ char *op)
 		if(static_branch_prediction ==
 		   STATIC_BRANCH_PREDICTION_AT_BITS &&
 		   syntax_warning_issued_for_AT_bits == 0){
-		    as_warning("branch prediction ++/-- syntax always sets the "
+		    as_warn("branch prediction ++/-- syntax always sets the "
 			       "AT-bits");
 		    syntax_warning_issued_for_AT_bits = 1;
 		}
@@ -738,7 +738,7 @@ char *op)
 
 	/* try to find the instruction in the hash table */
 	if((format = (struct ppc_opcode *)hash_find(op_hash, op)) == NULL){
-	    as_warn("Invalid mnemonic '%s'", op);
+	    as_bad("Invalid mnemonic '%s'", op);
 	    return;
 	}
 
@@ -755,13 +755,13 @@ char *op)
 	    else{
 		if(retry == 0){
 		    if(error_param_message != NULL)
-			as_warn(error_param_message, error_param_count + 1);
+			as_bad(error_param_message, error_param_count + 1);
 		    else
-			as_warn("Parameter syntax error (parameter %lu)",
+			as_bad("Parameter syntax error (parameter %lu)",
 				error_param_count + 1);
 		}
 		else
-		    as_warn("Parameter syntax error");
+		    as_bad("Parameter syntax error");
 		return;
 	    }
 	}
@@ -785,9 +785,9 @@ char *op)
 	   (insn.opcode & 0xfc000003) == 0xe8000001 || /* ldu */
 	   (insn.opcode & 0xfc0007fe) == 0x7c00006a){  /* ldux */
 	    if(RA(insn.opcode) == 0)
-		as_warn("Invalid form of the instruction (RA must not be 0)");
+		as_bad("Invalid form of the instruction (RA must not be 0)");
 	    if(RA(insn.opcode) == RT(insn.opcode))
-		as_warn("Invalid form of the instruction (RA must not the same "
+		as_bad("Invalid form of the instruction (RA must not the same "
 			"as RT)");
 	}
 	/*
@@ -815,7 +815,7 @@ char *op)
 	   (insn.opcode & 0xfc0007fe) == 0x7c0002ac || /* dst, dstt */
 	   (insn.opcode & 0xfc0007fe) == 0x7c0002ec){  /* dstst, dststt */
 	    if(RA(insn.opcode) == 0)
-		as_warn("Invalid form of the instruction (RA must not be 0)");
+		as_bad("Invalid form of the instruction (RA must not be 0)");
 	}
 	/*
 	 * For the following instruction lmw if RA is in the range of
@@ -824,7 +824,7 @@ char *op)
 	 */
 	if((insn.opcode & 0xfc000000) == 0xb8000000){ /* lmw */
 	    if(RT(insn.opcode) <= RA(insn.opcode))
-		as_warn("Invalid form of the instruction (RA is in the range "
+		as_bad("Invalid form of the instruction (RA is in the range "
 			"of registers to be loaded)");
 	}
 	/*
@@ -840,11 +840,11 @@ char *op)
 		nr = (nb + 3) / 4;
 		if(RA(insn.opcode) >= RT(insn.opcode) &&
 		   RA(insn.opcode) <= RT(insn.opcode) + nr - 1)
-		    as_warn("Invalid form of the instruction (RA is in the "
+		    as_bad("Invalid form of the instruction (RA is in the "
 			    "range of registers to be loaded)");
 		if(RT(insn.opcode) + nr - 1 > 31 &&
 		   RA(insn.opcode) < (RT(insn.opcode) + nr - 1) - 31)
-		    as_warn("Invalid form of the instruction (RA is in the "
+		    as_bad("Invalid form of the instruction (RA is in the "
 			    "range of registers to be loaded)");
 	}
 	/*
@@ -854,10 +854,10 @@ char *op)
 	 */
 	if((insn.opcode & 0xfc0007fe) == 0x7c00042a){  /* lswx */
 	    if(RT(insn.opcode) == RA(insn.opcode))
-		as_warn("Invalid form of the instruction (RT must not the same "
+		as_bad("Invalid form of the instruction (RT must not the same "
 			"as RA)");
 	    if(RT(insn.opcode) == RB(insn.opcode))
-		as_warn("Invalid form of the instruction (RT must not the same "
+		as_bad("Invalid form of the instruction (RT must not the same "
 			"as RB)");
 	}
 #if !defined(ARCH64)
@@ -873,7 +873,7 @@ char *op)
 	   (insn.opcode & 0x00200000) == 0x00200000 &&   /* the L bit */
 	   !force_cpusubtype_ALL &&
 	   archflag_cpusubtype != CPU_SUBTYPE_POWERPC_970){
-	    as_warn("Invalid form of the instruction (64-bit compares not "
+	    as_bad("Invalid form of the instruction (64-bit compares not "
 		    "allowed without -force_cpusubtype_ALL option)");
 	}
 #endif /* !defined(ARCH64) */
@@ -893,7 +893,7 @@ char *op)
 	     */
 	    if((insn.opcode & 0x02800000) == 0x02800000 && /* 1z1zz */
 	       (insn.opcode & 0x01600000) != 0x00000000){
-		as_warn("Invalid form of the instruction (reserved bits in the "
+		as_bad("Invalid form of the instruction (reserved bits in the "
 			"BO field must be zero without -force_cpusubtype_ALL "
 			"option)");
 	    }
@@ -915,7 +915,7 @@ char *op)
 		    val = (insn.opcode & (0x1f << format->ops[i].offset)) >>
 			  format->ops[i].offset;
 		    if(flag_gregs[val])
-			as_warning("flagged register r%lu used", val);
+			as_bad("flagged register r%lu used", val);
 		}
 	    }
 	}
@@ -925,7 +925,7 @@ char *op)
 	 */
 	if(format->cpus != 0 && !force_cpusubtype_ALL){
 	    if(no_ppc601 == 1 && format->cpus == CPU601)
-		as_warning("not allowed 601 instruction \"%s\"", format->name);
+		as_bad("not allowed 601 instruction \"%s\"", format->name);
 #if !defined(ARCH64)
 	    if((format->cpus & IMPL64) == IMPL64
 		&& archflag_cpusubtype != CPU_SUBTYPE_POWERPC_970
@@ -1053,7 +1053,7 @@ char *op)
 		    insn.reloc);
 	    break;
 	default:
-	    as_warn("Unknown relocation type");
+	    as_bad("Unknown relocation type");
 	    break;
 	}
 	if(insn.jbsr_exp.X_add_symbol != NULL){
@@ -2210,24 +2210,22 @@ unsigned long parcnt)
 
 /*
  * md_number_to_chars() is the target machine dependent routine that puts out
- * a binary value of size 4, 2, or 1 bytes into the specified buffer.  This is
- * done in the target machine's byte sex.  In this case the byte order is
+ * a binary value of size 8, 4, 2, or 1 bytes into the specified buffer.  This
+ * is done in the target machine's byte sex.  In this case the byte order is
  * big endian.
  */
 void
 md_number_to_chars(
 char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int nbytes)
 {
 	switch(nbytes){
-#if defined(ARCH64)
 	case 8:
 	    *buf++ = val >> 56;
 	    *buf++ = val >> 48;
 	    *buf++ = val >> 40;
 	    *buf++ = val >> 32;
-#endif /* defined(ARCH64) */
 	case 4:
 	    *buf++ = val >> 24;
 	    *buf++ = val >> 16;
@@ -2253,7 +2251,7 @@ int nbytes)
 void
 md_number_to_imm(
 unsigned char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int nbytes,
 fixS *fixP,
 int nsect)
@@ -2263,13 +2261,11 @@ int nsect)
 	if(fixP->fx_r_type == NO_RELOC ||
 	   fixP->fx_r_type == PPC_RELOC_VANILLA){
 	    switch(nbytes){
-#if defined(ARCH64)
             case 8:
                 *buf++ = val >> 56;
                 *buf++ = val >> 48;
                 *buf++ = val >> 40;
                 *buf++ = val >> 32;
-#endif /* defined(ARCH64) */
 	    case 4:
 		*buf++ = val >> 24;
 		*buf++ = val >> 16;
@@ -2313,13 +2309,13 @@ int nsect)
 	    if((val & 0xffff8000) && ((val & 0xffff8000) != 0xffff8000)){
 		layout_file = fixP->file;
 		layout_line = fixP->line;
-		as_warn("Fixup of " TA_DFMT " too large for field width of 16 "
+		as_bad("Fixup of %lld too large for field width of 16 "
 			"bits", val);
 	    }
 	    if((val & 0x3) != 0){
 		layout_file = fixP->file;
 		layout_line = fixP->line;
-		as_warn("Fixup of " TA_DFMT " is not to a 4 byte address", val);
+		as_bad("Fixup of %lld is not to a 4 byte address", val);
 	    }
 	    /*
 	     * Note PPC_RELOC_BR14 are only used with bc, "branch conditional"
@@ -2358,13 +2354,13 @@ int nsect)
 	    if((val & 0xfc000000) && ((val & 0xfc000000) != 0xfc000000)){
 		layout_file = fixP->file;
 		layout_line = fixP->line;
-		as_warn("Fixup of " TA_DFMT " too large for field width of 26 "
+		as_bad("Fixup of %lld too large for field width of 26 "
 			"bits", val);
 	    }
 	    if((val & 0x3) != 0){
 		layout_file = fixP->file;
 		layout_line = fixP->line;
-		as_warn("Fixup of " TA_DFMT " is not to a 4 byte address", val);
+		as_bad("Fixup of %lld is not to a 4 byte address", val);
 	    }
 	    buf[0] |= (val >> 24) & 0x03;
 	    buf[1] = val >> 16;
@@ -2379,7 +2375,7 @@ int nsect)
 	default:
 	    layout_file = fixP->file;
 	    layout_line = fixP->line;
-	    as_warn("Bad relocation type");
+	    as_bad("Bad relocation type");
 	    break;
 	}
 }
@@ -2439,7 +2435,7 @@ md_estimate_size_before_relax(
 fragS *fragP,
 int segment_type)
 {
-	as_warn("Relaxation should never occur");
+	as_bad("Relaxation should never occur");
 	return(sizeof(long));
 }
 
@@ -2449,5 +2445,5 @@ void
 md_convert_frag(
 fragS *fragP)
 {
-	as_warn("Relaxation should never occur");
+	as_bad("Relaxation should never occur");
 }

@@ -45,16 +45,14 @@ fragS zero_address_frag = {
 /*
  *			frag_grow()
  *
- * Internal.
  * Try to augment current frag by nchars chars.
  * If there is no room, close of the current frag with a ".fill 0"
  * and begin a new frag. Unless the new frag has nchars chars available
  * do not return. Do not set up any fields of *now_frag.
  */
-static
 void
 frag_grow(
-int nchars)
+unsigned int nchars)
 {
     if(frags.chunk_size == 0){
        know(flagseen['n']);
@@ -260,7 +258,28 @@ int max_bytes_to_fill)
     if(fill_size == 1 || fill_size == 2 || fill_size == 4)
 	memcpy(fr_literal, fill, fill_size);
     else
-	as_warn("Invalid width for fill expression.");
+	as_bad("Invalid width for fill expression.");
+}
+
+addressT
+frag_now_fix_octets (void)
+{
+#ifdef NeXT_MOD
+  return ((char *) obstack_next_free (&frags)
+	  - frag_now->fr_literal);
+#else
+  if (now_seg == absolute_section)
+    return abs_section_offset;
+
+  return ((char *) obstack_next_free (&frchain_now->frch_obstack)
+	  - frag_now->fr_literal);
+#endif
+}
+
+addressT
+frag_now_fix (void)
+{
+  return frag_now_fix_octets () / OCTETS_PER_BYTE;
 }
 
 /* end: frags.c */

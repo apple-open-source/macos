@@ -1,5 +1,5 @@
 <HTML>
-<!--This file created 11/30/05 5:27 PM by Claris Home Page version 3.0-->
+<!--This file created 7/26/06 11:01 AM by Claris Home Page version 3.0-->
 <HEAD>
    <TITLE>Mac OS X Compiler Tools Release Notes</TITLE>
    <META NAME=GENERATOR CONTENT="Claris Home Page 3.0">
@@ -7,7 +7,7 @@
    <X-CLARIS-TAGVIEW MODE=minimal>
 </HEAD>
 <BODY BGCOLOR="#FFFFFF">
-<H1>Mac OS X Xcode 2.2.1 Release Notes:<BR>
+<H1>Mac OS X Xcode 2.4 Release Notes:<BR>
 Compiler Tools</H1>
 
 <P><!-- start of path --> <TABLE BORDER=0 CELLSPACING=0 WIDTH=600 valign=left>
@@ -19,11 +19,10 @@ Compiler Tools</H1>
    </TR>
 </TABLE>
 <BR>
-<!-- end of path --> <A HREF="index.html"><IMG SRC="Images/up.gif" WIDTH=36 HEIGHT=16 BORDER=0 ALIGN=bottom></A></P>
+<!-- end of path --> <A HREF="index.html"><IMG SRC="../Images/up.gif" X-CLARIS-USEIMAGEWIDTH X-CLARIS-USEIMAGEHEIGHT ALIGN=bottom></A></P>
 
-<P>These notes are for the MacOS X Xcode 2.2.1 Release of the
-compiler tools. They contain information about the following
-topics:</P>
+<P>These notes are for the MacOS X Xcode 2.4 Release of the compiler
+tools. They contain information about the following topics:</P>
 
 <UL>
    <LI>The Mac OS X Mach-O GNU-based assemblers</LI>
@@ -33,6 +32,44 @@ topics:</P>
    <LI>Mach-O object file tools (<B>nm</B>, <B>otool</B>, and so
    on)</LI>
 </UL>
+
+<H2>Notes Specific to Mac OS X Xcode 2.4 Release</H2>
+
+<P>The tools now support development of 64-bit Mach-O binaries for
+Intel with the -arch x86_64 flag.</P>
+
+<P>The design of the relocation entries for the x86_64 architecture
+does not make it possible to strip local symbols from relocable
+object files. As such the feature of running strip(1) with the -x
+option to limit the symbols to just the exported symbols is not
+available on the x86_64 architecture. And the strip(1) -x option for
+an x86_64 object file does nothing.</P>
+
+<H2>Notes Specific to Mac OS X Xcode 2.3.1 Release</H2>
+
+<P>The one feature of this release is support for the Intel
+Vanderpool instructions in the assembler and disassembler.</P>
+
+<H2>Notes Specific to Mac OS X Xcode 2.3 Release</H2>
+
+<P>The major new feature for this release is the support of the use
+of DWARF for debug information.</P>
+
+<P>The other new feature for this release is the support of the .quad
+assembler directive for the 32-bit assemblers. With this feature the
+assembler now treates all expressions as 64-bit values. This change
+can cause code code to no longer assemble. For example the following
+construct:</P>
+
+<P>addi r11, r11, (-33120 &lt;&lt; 16) &gt;&gt; 16</P>
+
+<P>will now generate an error of the form:</P>
+
+<P>x.s:1:Parameter error: expression out of range (parameter 3)</P>
+
+<P>The correct way this should be coded is:</P>
+
+<P>addi r11, r11, lo16(-33120)</P>
 
 <H2>Notes Specific to Mac OS X Xcode 2.2.1 Release</H2>
 
@@ -1222,6 +1259,6 @@ the PowerPC architecture, is not supported by the Mac OS X assembler.
 This instruction is assembled by <B>ppcasm</B>.</P>
 
 <P><FONT SIZE="-2" FACE="Geneva,Helvetica,Arial">Copyright &copy;
-2003 Apple Computer, Inc.</FONT></P>
+2006 Apple Computer, Inc.</FONT></P>
 </BODY>
 </HTML>

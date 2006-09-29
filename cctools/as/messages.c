@@ -210,7 +210,6 @@ const char *format,
 
 	if(!flagseen['W']){
 	    print_architecture_banner();
-	    bad_error = 1;
 	    as_where();
 	    va_start(ap, format);
 	    vfprintf(stderr, format, ap);
@@ -226,34 +225,21 @@ const char *format,
 	}
 }
 
-/*
- * This is a real warning and does not cause bad_error to be set so it still
- * will produce the output file.
- */
+/* Like as_bad but the file name and line number are passed in.  */
 void
-as_warning(
-const char *format,
-...)
+as_warn_where (char *file, unsigned int line, const char *format, ...)
 {
-    va_list ap;
+  va_list args;
 
-	if(!flagseen['W']){
+  if (!flagseen['W'])
+    {
 	    print_architecture_banner();
-	    as_where();
-	    va_start(ap, format);
-	    vfprintf(stderr, format, ap);
-	    fprintf(stderr, "\n");
-#ifdef OLD_PROJECTBUILDER_INTERFACE
-	    if(talking_to_ProjectBuilder){
-		NXVPrintf(ProjectBuilder_stream, format, ap);
-		NXPrintf(ProjectBuilder_stream, "\n");
-		tell_ProjectBuilder(1 /* warning */);
-	    }
-#endif /* OLD_PROJECTBUILDER_INTERFACE */
-	    va_end(ap);
-	}
+		fprintf(stderr,"%s:%u:", file, line);
+	    va_start (args, format);
+	    vfprintf(stderr, format, args);
+	    va_end (args);
+    }
 }
-
 
 /*
  *			a s _ b a d ( )
@@ -318,4 +304,10 @@ const char *format,
 #endif /* OLD_PROJECTBUILDER_INTERFACE */
 	va_end(ap);
 	exit(1);
+}
+
+void
+sprint_value (char *buf, signed_expr_t val)
+{
+    sprintf (buf, "%qd", val);
 }

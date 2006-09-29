@@ -35,7 +35,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh-add.c,v 1.69 2003/11/21 11:57:03 djm Exp $");
+RCSID("$OpenBSD: ssh-add.c,v 1.72 2005/07/17 07:17:55 djm Exp $");
 
 #include <openssl/evp.h>
 
@@ -47,14 +47,7 @@ RCSID("$OpenBSD: ssh-add.c,v 1.69 2003/11/21 11:57:03 djm Exp $");
 #include "authfd.h"
 #include "authfile.h"
 #include "pathnames.h"
-#include "readpass.h"
 #include "misc.h"
-
-#ifdef HAVE___PROGNAME
-extern char *__progname;
-#else
-char *__progname;
-#endif
 
 /* argv0 */
 extern char *__progname;
@@ -152,7 +145,7 @@ add_file(AuthenticationConnection *ac, const char *filename)
 		/* clear passphrase since it did not work */
 		clear_pass();
 		snprintf(msg, sizeof msg, "Enter passphrase for %.200s: ",
-		   comment);
+		    comment);
 		for (;;) {
 			pass = read_passphrase(msg, RP_ALLOW_STDIN);
 			if (strcmp(pass, "") == 0) {
@@ -396,7 +389,7 @@ main(int argc, char **argv)
 			goto done;
 		}
 
-		for(i = 0; default_files[i]; i++) {
+		for (i = 0; default_files[i]; i++) {
 			snprintf(buf, sizeof(buf), "%s/%s", pw->pw_dir,
 			    default_files[i]);
 			if (stat(buf, &st) < 0)
@@ -409,7 +402,7 @@ main(int argc, char **argv)
 		if (count == 0)
 			ret = 1;
 	} else {
-		for(i = 0; i < argc; i++) {
+		for (i = 0; i < argc; i++) {
 			if (do_file(ac, deleting, argv[i]) == -1)
 				ret = 1;
 		}

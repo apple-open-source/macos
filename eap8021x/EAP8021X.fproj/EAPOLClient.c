@@ -89,20 +89,20 @@ EAPOLClientHandleMessage(CFMachPortRef port, void * msg,
 
 EAPOLClientRef
 EAPOLClientAttach(const char * interface_name, 
-		  EAPOLClientCallBack callback_func,
-		  void * callback_arg, CFDictionaryRef * control_dict, 
+		  EAPOLClientCallBack callback_func, 
+		  void * callback_arg, 
+		  CFDictionaryRef * control_dict, 
 		  int * result_p)
 {
-    boolean_t			active = FALSE;
     mach_port_t			bootstrap;
     EAPOLClientRef		client = NULL;
     xmlDataOut_t		control = NULL;
-    int				control_len = 0;
+    unsigned int		control_len = 0;
     CFMachPortContext		context = {0, NULL, NULL, NULL, NULL};
     mach_port_t			port;
     mach_port_t			port_old;
     int				result = 0;
-    port_t			server;
+    mach_port_t			server;
     kern_return_t		status;
 
     *result_p = 0;
@@ -111,12 +111,7 @@ EAPOLClientAttach(const char * interface_name,
 	result = EINVAL;
 	goto failed;
     }
-    status = eapolcontroller_server_port(&server, &active);
-    if (active == FALSE) {
-	fprintf(stderr, "%s not active\n", EAPOLCONTROLLER_SERVER);
-	result = ENXIO;
-	goto failed;
-    }
+    status = eapolcontroller_server_port(&server);
     if (status != BOOTSTRAP_SUCCESS) {
 	fprintf(stderr, "EAPOLClient: eapolcontroller_server_port(): %s", 
 		mach_error_string(status));
@@ -155,7 +150,9 @@ EAPOLClientAttach(const char * interface_name,
 	result = ENXIO;
 	goto failed;
     }
-    task_set_bootstrap_port(mach_task_self(), bootstrap);
+    if (bootstrap != MACH_PORT_NULL) {
+	task_set_bootstrap_port(mach_task_self(), bootstrap);
+    }
     if (control != NULL) {
 	if (xmlUnserialize((CFPropertyListRef *)control_dict, 
 			   control, control_len) == FALSE) {
@@ -217,7 +214,7 @@ int
 EAPOLClientGetConfig(EAPOLClientRef client, CFDictionaryRef * control_dict)
 {
     xmlDataOut_t		control = NULL;
-    int				control_len = 0;
+    unsigned int		control_len = 0;
     int				result = 0;
     kern_return_t		status;
 

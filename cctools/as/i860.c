@@ -270,7 +270,7 @@ int value)
 	{
 	    exp.X_add_number &= ~3;
 	    as_warn(".org not on instruction boundry. Adjusted to \".org "
-		    TA_DFMT "\"", exp.X_add_number);
+		    "%lld\"", exp.X_add_number);
 	}
 	if ( exp.X_add_symbol == NULL )
 		insn_count = exp.X_add_number >> 2;
@@ -776,14 +776,14 @@ char *str)
 		    	if ( IS_LOGOP(opcode) )
 			{
 			    if ( ((unsigned)the_insn.exp.X_add_number) > 0xFFFF )
-			    	as_warn(TA_DFMT " is too big for 16 bit unsigned value!",
+			    	as_warn("%lld is too big for 16 bit unsigned value!",
 					the_insn.exp.X_add_number);
 			}
 			else
 			{
 			    if ( ((int)the_insn.exp.X_add_number) > 32767 ||
 			    	 ((int)the_insn.exp.X_add_number) < -32768 )
-				as_warn(TA_DFMT " is out of range for 16 bit signed value!",
+				as_warn("%lld is out of range for 16 bit signed value!",
 					the_insn.exp.X_add_number);
 					
 			    if ((align_mask & the_insn.exp.X_add_number) != 0)
@@ -954,7 +954,7 @@ int *sizeP)
 void
 md_number_to_chars(
 char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int n)
 {
 
@@ -1025,7 +1025,7 @@ int n)
 void
 md_number_to_imm(
 unsigned char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int n,
 fixS *fixP,
 int nsect)

@@ -29,6 +29,170 @@
  * on values of fields for correctness should be done (such as proper alignment)
  * and notations on errors should be printed.
  */
+
+#define __cr cr
+#define __ctr ctr
+#define __dar dar
+#define __dsisr dsisr
+#define __exception exception
+#define __fpregs fpregs
+#define __fpscr fpscr
+#define __fpscr_pad fpscr_pad
+#define __lr lr
+#define __mq mq
+#define __pad0 pad0
+#define __pad1 pad1
+#define __r0 r0
+#define __r1 r1
+#define __r10 r10
+#define __r11 r11
+#define __r12 r12
+#define __r13 r13
+#define __r14 r14
+#define __r15 r15
+#define __r16 r16
+#define __r17 r17
+#define __r18 r18
+#define __r19 r19
+#define __r2 r2
+#define __r20 r20
+#define __r21 r21
+#define __r22 r22
+#define __r23 r23
+#define __r24 r24
+#define __r25 r25
+#define __r26 r26
+#define __r27 r27
+#define __r28 r28
+#define __r29 r29
+#define __r3 r3
+#define __r30 r30
+#define __r31 r31
+#define __r4 r4
+#define __r5 r5
+#define __r6 r6
+#define __r7 r7
+#define __r8 r8
+#define __r9 r9
+#define __srr0 srr0
+#define __srr1 srr1
+#define __vrsave vrsave
+#define __xer xer
+
+#define __darwin_i386_exception_state i386_exception_state
+#define __darwin_i386_float_state i386_float_state
+#define __darwin_i386_thread_state i386_thread_state
+#define __busy busy
+#define __c0 c0
+#define __c1 c1
+#define __c2 c2
+#define __c3 c3
+#define __cs cs
+#define __darwin_fp_control fp_control
+#define __darwin_fp_status fp_status
+#define __darwin_mmst_reg mmst_reg
+#define __darwin_xmm_reg xmm_reg
+#define __denorm denorm
+#define __ds ds
+#define __eax eax
+#define __ebp ebp
+#define __ebx ebx
+#define __ecx ecx
+#define __edi edi
+#define __edx edx
+#define __eflags eflags
+#define __eip eip
+#define __err err
+#define __errsumm errsumm
+#define __es es
+#define __esi esi
+#define __esp esp
+#define __faultvaddr faultvaddr
+#define __fpu_cs fpu_cs
+#define __fpu_dp fpu_dp
+#define __fpu_ds fpu_ds
+#define __fpu_fcw fpu_fcw
+#define __fpu_fop fpu_fop
+#define __fpu_fsw fpu_fsw
+#define __fpu_ftw fpu_ftw
+#define __fpu_ip fpu_ip
+#define __fpu_mxcsr fpu_mxcsr
+#define __fpu_mxcsrmask fpu_mxcsrmask
+#define __fpu_reserved fpu_reserved
+#define __fpu_reserved1 fpu_reserved1
+#define __fpu_rsrv1 fpu_rsrv1
+#define __fpu_rsrv2 fpu_rsrv2
+#define __fpu_rsrv3 fpu_rsrv3
+#define __fpu_rsrv4 fpu_rsrv4
+#define __fpu_stmm0 fpu_stmm0
+#define __fpu_stmm1 fpu_stmm1
+#define __fpu_stmm2 fpu_stmm2
+#define __fpu_stmm3 fpu_stmm3
+#define __fpu_stmm4 fpu_stmm4
+#define __fpu_stmm5 fpu_stmm5
+#define __fpu_stmm6 fpu_stmm6
+#define __fpu_stmm7 fpu_stmm7
+#define __fpu_xmm0 fpu_xmm0
+#define __fpu_xmm1 fpu_xmm1
+#define __fpu_xmm2 fpu_xmm2
+#define __fpu_xmm3 fpu_xmm3
+#define __fpu_xmm4 fpu_xmm4
+#define __fpu_xmm5 fpu_xmm5
+#define __fpu_xmm6 fpu_xmm6
+#define __fpu_xmm7 fpu_xmm7
+#define __fpu_xmm8 fpu_xmm8
+#define __fpu_xmm9 fpu_xmm9
+#define __fpu_xmm10 fpu_xmm10
+#define __fpu_xmm11 fpu_xmm11
+#define __fpu_xmm12 fpu_xmm12
+#define __fpu_xmm13 fpu_xmm13
+#define __fpu_xmm14 fpu_xmm14
+#define __fpu_xmm15 fpu_xmm15
+#define __fs fs
+#define __gs gs
+#define __invalid invalid
+#define __mmst_reg mmst_reg
+#define __mmst_rsrv mmst_rsrv
+#define __ovrfl ovrfl
+#define __pc pc
+#define __precis precis
+#define __rc rc
+#define __ss ss
+#define __stkflt stkflt
+#define __tos tos
+#define __trapno trapno
+#define __undfl undfl
+#define __xmm_reg xmm_reg
+#define __zdiv zdiv
+
+#define __rax rax
+#define __rbx rbx
+#define __rcx rcx
+#define __rdx rdx
+#define __rdi rdi
+#define __rsi rsi
+#define __rbp rbp
+#define __rsp rsp
+#define __r8 r8
+#define __r9 r9
+#define __r10 r10
+#define __r11 r11
+#define __r12 r12
+#define __r13 r13
+#define __r14 r14
+#define __r15 r15
+#define __rip rip
+#define __rflags rflags
+
+#define __dr0 dr0
+#define __dr1 dr1
+#define __dr2 dr2
+#define __dr3 dr3
+#define __dr4 dr4
+#define __dr5 dr5
+#define __dr6 dr6
+#define __dr7 dr7
+
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
@@ -104,6 +268,11 @@ static void print_literal8(
     unsigned long l0,
     unsigned long l1,
     double d);
+static void print_literal16(
+    unsigned long l0,
+    unsigned long l1,
+    unsigned long l2,
+    unsigned long l3);
 static int rel_bsearch(
     unsigned long *address,
     struct relocation_info *rel);
@@ -245,6 +414,15 @@ struct fat_arch *fat_arch)
 		break;
 	    }
 	    break;
+	case CPU_TYPE_X86_64:
+	    switch(fat_arch->cpusubtype){
+	    case CPU_SUBTYPE_X86_64_ALL:
+		printf("x86_64\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }		
+	    break;
 	case CPU_TYPE_I860:
 	    switch(fat_arch->cpusubtype){
 	    case CPU_SUBTYPE_I860_ALL:
@@ -300,7 +478,6 @@ struct fat_arch *fat_arch)
 		goto print_arch_unknown;
 	    }
 	    break;
-#ifdef ARCH64
 	case CPU_TYPE_POWERPC64:
 	    switch(fat_arch->cpusubtype){
 	    case CPU_SUBTYPE_POWERPC_ALL:
@@ -313,7 +490,6 @@ struct fat_arch *fat_arch)
 		goto print_arch_unknown;
 	    }		
 	    break;
-#endif /* ARCH64 */
 	case CPU_TYPE_VEO:
 	    switch(fat_arch->cpusubtype){
 	    case CPU_SUBTYPE_VEO_1:
@@ -446,6 +622,16 @@ cpu_subtype_t cpusubtype)
 		goto print_arch_unknown;
 	    }
 	    break;
+	case CPU_TYPE_X86_64:
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_X86_64_ALL:
+		printf("    cputype CPU_TYPE_X86_64\n"
+		       "    cpusubtype CPU_SUBTYPE_X86_64_ALL\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
 	case CPU_TYPE_I860:
 	    switch(cpusubtype){
 	    case CPU_SUBTYPE_I860_ALL:
@@ -518,7 +704,6 @@ cpu_subtype_t cpusubtype)
 		goto print_arch_unknown;
 	    }
 	    break;
-#ifdef ARCH64
 	case CPU_TYPE_POWERPC64:
 	    switch(cpusubtype){
 	    case CPU_SUBTYPE_POWERPC_ALL:
@@ -533,7 +718,6 @@ cpu_subtype_t cpusubtype)
 		goto print_arch_unknown;
 	    }
 	    break;
-#endif /* ARCH64 */
 	case CPU_TYPE_VEO:
 	    switch(cpusubtype){
 	    case CPU_SUBTYPE_VEO_1:
@@ -938,6 +1122,17 @@ enum bool verbose)
 		    break;
 		case CPU_SUBTYPE_POWERPC_970:
 		    printf("     ppc970");
+		    break;
+		default:
+		    printf(" %10d", mh->cpusubtype);
+		    break;
+		}
+		break;
+	    case CPU_TYPE_X86_64:
+		printf("  X86_64");
+		switch(mh->cpusubtype){
+		case CPU_SUBTYPE_X86_64_ALL:
+		    printf("        ALL");
 		    break;
 		default:
 		    printf(" %10d", mh->cpusubtype);
@@ -1358,6 +1553,7 @@ enum bool very_verbose)
     routines_command_t rc;
     struct twolevel_hints_command hints;
     struct prebind_cksum_command cs;
+    struct uuid_command uuid;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != load_commands_byte_sex;
@@ -1611,6 +1807,16 @@ enum bool very_verbose)
 		if(swapped)
 		    swap_prebind_cksum_command(&cs, host_byte_sex);
 		print_prebind_cksum_command(&cs);
+		break;
+
+	    case LC_UUID:
+		memset((char *)&uuid, '\0', sizeof(struct uuid_command));
+		size = left < sizeof(struct uuid_command) ?
+		       left : sizeof(struct uuid_command);
+		memcpy((char *)&uuid, (char *)lc, size);
+		if(swapped)
+		    swap_uuid_command(&uuid, host_byte_sex);
+		print_uuid_command(&uuid);
 		break;
 
 	    default:
@@ -1954,6 +2160,8 @@ enum bool verbose)
 		printf(" LIVE_SUPPORT");
 	    if(section_attributes & S_ATTR_SELF_MODIFYING_CODE)
 		printf(" SELF_MODIFYING_CODE");
+	    if(section_attributes & S_ATTR_DEBUG)
+		printf(" DEBUG");
 	    if(section_attributes & S_ATTR_SOME_INSTRUCTIONS)
 		printf(" SOME_INSTRUCTIONS");
 	    if(section_attributes & S_ATTR_EXT_RELOC)
@@ -2533,6 +2741,32 @@ struct prebind_cksum_command *cksum)
 }
 
 /*
+ * print an LC_UUID command.  The uuid_command structure
+ * specified must be aligned correctly and in the host byte sex.
+ */
+void
+print_uuid_command(
+struct uuid_command *uuid)
+{
+	printf("     cmd LC_UUID\n");
+	printf(" cmdsize %u", uuid->cmdsize);
+	if(uuid->cmdsize != sizeof(struct uuid_command))
+	    printf(" Incorrect size\n");
+	else
+	    printf("\n");
+	printf("   uuid 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x"
+	       "\n", (unsigned int)uuid->uuid[0], (unsigned int)uuid->uuid[1],
+	       (unsigned int)uuid->uuid[2],  (unsigned int)uuid->uuid[3],
+	       (unsigned int)uuid->uuid[4],  (unsigned int)uuid->uuid[5],
+	       (unsigned int)uuid->uuid[6],  (unsigned int)uuid->uuid[7]);
+	printf("        0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x"
+	       "\n", (unsigned int)uuid->uuid[8],  (unsigned int)uuid->uuid[9],
+	       (unsigned int)uuid->uuid[10], (unsigned int)uuid->uuid[11],
+	       (unsigned int)uuid->uuid[12], (unsigned int)uuid->uuid[13],
+	       (unsigned int)uuid->uuid[14], (unsigned int)uuid->uuid[15]);
+}
+
+/*
  * print the thread states from an LC_THREAD or LC_UNIXTHREAD command.  The
  * thread state triples (flavor, count, state) are in memory between begin and
  * and end values specified, and in the specified byte sex.  The mach_header
@@ -2686,7 +2920,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 	    }
 	}
-	if(mh->cputype == CPU_TYPE_HPPA){
+	else if(mh->cputype == CPU_TYPE_HPPA){
 	    while(begin < end){
 		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
@@ -2834,7 +3068,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 	    }
 	}
-	if(mh->cputype == CPU_TYPE_SPARC){
+	else if(mh->cputype == CPU_TYPE_SPARC){
 	    while(begin < end){
 		if(end - begin > (ptrdiff_t)sizeof(unsigned long)){
 		    memcpy((char *)&flavor, begin, sizeof(unsigned long));
@@ -2955,7 +3189,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 	    }
 	}
-	if(mh->cputype == CPU_TYPE_POWERPC ||
+	else if(mh->cputype == CPU_TYPE_POWERPC ||
 	   mh->cputype == CPU_TYPE_POWERPC64 ||
 	   mh->cputype == CPU_TYPE_VEO){
 	    ppc_thread_state_t cpu;
@@ -3160,7 +3394,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 	    }
 	}
-	if(mh->cputype == CPU_TYPE_MC88000){
+	else if(mh->cputype == CPU_TYPE_MC88000){
 	    m88k_thread_state_grf_t cpu;
 	    m88k_thread_state_xrf_t fpu;
 	    m88k_thread_state_user_t user;
@@ -3451,7 +3685,7 @@ enum byte_sex thread_states_byte_sex)
 		}
 	    }
 	}
-	if(mh->cputype == CPU_TYPE_I860){
+	else if(mh->cputype == CPU_TYPE_I860){
 	    struct i860_thread_state_regs cpu;
 
 	    while(begin < end){
@@ -3540,7 +3774,8 @@ enum byte_sex thread_states_byte_sex)
 		}
 	    }
 	}
-	if(mh->cputype == CPU_TYPE_I386){
+	else if(mh->cputype == CPU_TYPE_I386 ||
+	        mh->cputype == CPU_TYPE_X86_64){
 	    i386_thread_state_t cpu;
 /* current i386 thread states */
 #if i386_THREAD_STATE == 1
@@ -3552,6 +3787,19 @@ enum byte_sex thread_states_byte_sex)
 #endif /* defined(i386_EXCEPTION_STATE_COUNT) */
 	    i386_exception_state_t exc;
 	    unsigned long f, g;
+
+#ifdef x86_THREAD_STATE64
+	    x86_thread_state64_t cpu64;
+	    x86_float_state64_t fpu64;
+	    x86_exception_state64_t exc64;
+	    x86_debug_state64_t debug64;
+	    x86_debug_state32_t debug;
+	    struct x86_thread_state ts;
+	    struct x86_float_state fs;
+	    struct x86_exception_state es;
+	    struct x86_debug_state ds;
+#endif /* x86_THREAD_STATE64 */
+
 #endif /* i386_THREAD_STATE == 1 */
 
 /* i386 thread states on older releases */
@@ -3604,6 +3852,9 @@ enum byte_sex thread_states_byte_sex)
 		        memcpy((char *)&cpu, begin, left);
 		        begin += left;
 		    }
+#ifdef x86_THREAD_STATE64
+print_x86_thread_state32:
+#endif /* x86_THREAD_STATE64 */
 		    if(swapped)
 			swap_i386_thread_state(&cpu, host_byte_sex);
 		    printf(
@@ -3657,6 +3908,9 @@ enum byte_sex thread_states_byte_sex)
 		        memcpy((char *)&fpu, begin, left);
 		        begin += left;
 		    }
+#ifdef x86_THREAD_STATE64
+print_x86_float_state32:
+#endif /* x86_THREAD_STATE64 */
 		    if(swapped)
 			swap_i386_float_state(&fpu, host_byte_sex);
 		    printf("\t    fpu_reserved[0] %d fpu_reserved[1] %d\n",
@@ -3800,11 +4054,490 @@ enum byte_sex thread_states_byte_sex)
 		        memcpy((char *)&exc, begin, left);
 		        begin += left;
 		    }
+#ifdef x86_THREAD_STATE64
+print_x86_exception_state32:
+#endif /* x86_THREAD_STATE64 */
 		    if(swapped)
 			swap_i386_exception_state(&exc, host_byte_sex);
 		    printf("\t    trapno 0x%08x err 0x%08x faultvaddr 0x%08x\n",
 			   exc.trapno, exc.err, exc.faultvaddr);
 		    break;
+
+#ifdef x86_THREAD_STATE64
+		case x86_DEBUG_STATE32:
+		    printf("     flavor x86_DEBUG_STATE32\n");
+		    if(count == x86_DEBUG_STATE32_COUNT)
+			printf("      count x86_DEBUG_STATE32_COUNT\n");
+		    else
+			printf("      count %lu (not x86_DEBUG_STATE32_COUNT"
+			       ")\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_debug_state32_t)){
+		        memcpy((char *)&debug, begin,
+			       sizeof(x86_debug_state32_t));
+		        begin += sizeof(x86_debug_state32_t);
+		    }
+		    else{
+		        memset((char *)&debug, '\0',
+			       sizeof(x86_debug_state32_t));
+		        memcpy((char *)&debug, begin, left);
+		        begin += left;
+		    }
+print_x86_debug_state32:
+		    if(swapped)
+			swap_x86_debug_state32(&debug, host_byte_sex);
+		    printf("\t    dr0 0x%08x dr1 0x%08x dr2 0x%08x dr3 "
+			   "0x%08x\n", debug.dr0, debug.dr1, debug.dr2,
+			   debug.dr3);
+		    printf("\t    dr4 0x%08x dr5 0x%08x dr6 0x%08x dr7 "
+			   "0x%08x\n", debug.dr4, debug.dr5, debug.dr6,
+			   debug.dr7);
+		    break;
+
+		case x86_THREAD_STATE64:
+		    printf("     flavor x86_THREAD_STATE64\n");
+		    if(count == x86_THREAD_STATE64_COUNT)
+			printf("      count x86_THREAD_STATE64_COUNT\n");
+		    else
+			printf("      count %lu (not x86_THREAD_STATE64_"
+			       "COUNT)\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_thread_state64_t)){
+		        memcpy((char *)&cpu64, begin,
+			       sizeof(x86_thread_state64_t));
+		        begin += sizeof(x86_thread_state64_t);
+		    }
+		    else{
+		        memset((char *)&cpu64, '\0',
+			       sizeof(x86_thread_state64_t));
+		        memcpy((char *)&cpu64, begin, left);
+		        begin += left;
+		    }
+print_x86_thread_state64:
+		    if(swapped)
+			swap_x86_thread_state64(&cpu64, host_byte_sex);
+
+		    printf("   rax  0x%016llx rbx 0x%016llx rcx  0x%016llx\n"
+			   "   rdx  0x%016llx rdi 0x%016llx rsi  0x%016llx\n"
+			   "   rbp  0x%016llx rsp 0x%016llx r8   0x%016llx\n"
+			   "    r9  0x%016llx r10 0x%016llx r11  0x%016llx\n"
+			   "   r12  0x%016llx r13 0x%016llx r14  0x%016llx\n"
+			   "   r15  0x%016llx rip 0x%016llx\n"
+			   "rflags  0x%016llx cs  0x%016llx fs   0x%016llx\n"
+			   "    gs  0x%016llx\n",
+                        cpu64.rax, cpu64.rbx, cpu64.rcx, cpu64.rdx, cpu64.rdi,
+			cpu64.rsi, cpu64.rbp, cpu64.rsp, cpu64.r8, cpu64.r9,
+			cpu64.r10, cpu64.r11, cpu64.r12, cpu64.r13, cpu64.r14,
+			cpu64.r15, cpu64.rip, cpu64.rflags, cpu64.cs, cpu64.fs,
+			cpu64.gs);
+		    break;
+
+		case x86_FLOAT_STATE64:
+		    printf("     flavor x86_FLOAT_STATE64\n");
+		    if(count == x86_FLOAT_STATE64_COUNT)
+			printf("      count x86_FLOAT_STATE64_COUNT\n");
+		    else
+			printf("      count %lu (not x86_FLOAT_STATE64_"
+			       "COUNT)\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_float_state64_t)){
+		        memcpy((char *)&fpu64, begin,
+			       sizeof(x86_float_state64_t));
+		        begin += sizeof(x86_float_state64_t);
+		    }
+		    else{
+		        memset((char *)&fpu64, '\0',
+			       sizeof(x86_float_state64_t));
+		        memcpy((char *)&fpu64, begin, left);
+		        begin += left;
+		    }
+print_x86_float_state64:
+		    if(swapped)
+			swap_x86_float_state64(&fpu64, host_byte_sex);
+		    printf("\t    fpu_reserved[0] %d fpu_reserved[1] %d\n",
+			   fpu64.fpu_reserved[0], fpu64.fpu_reserved[1]);
+		    printf("\t    control: invalid %d denorm %d zdiv %d ovrfl "
+			   "%d undfl %d precis %d\n",
+			   fpu64.fpu_fcw.invalid,
+			   fpu64.fpu_fcw.denorm,
+			   fpu64.fpu_fcw.zdiv,
+			   fpu64.fpu_fcw.ovrfl,
+			   fpu64.fpu_fcw.undfl,
+			   fpu64.fpu_fcw.precis);
+		    printf("\t\t     pc ");
+		    switch(fpu64.fpu_fcw.pc){
+		    case FP_PREC_24B:
+			printf("FP_PREC_24B ");
+			break;
+		    case FP_PREC_53B:
+			printf("FP_PREC_53B ");
+			break;
+		    case FP_PREC_64B:
+			printf("FP_PREC_64B ");
+			break;
+		    default:
+			printf("%d ", fpu64.fpu_fcw.pc);
+			break;
+		    }
+		    printf("rc ");
+		    switch(fpu64.fpu_fcw.rc){
+		    case FP_RND_NEAR:
+			printf("FP_RND_NEAR ");
+			break;
+		    case FP_RND_DOWN:
+			printf("FP_RND_DOWN ");
+			break;
+		    case FP_RND_UP:
+			printf("FP_RND_UP ");
+			break;
+		    case FP_CHOP:
+			printf("FP_CHOP ");
+			break;
+		    }
+		    printf("\n");
+		    printf("\t    status: invalid %d denorm %d zdiv %d ovrfl "
+			   "%d undfl %d precis %d stkflt %d\n",
+			   fpu64.fpu_fsw.invalid,
+			   fpu64.fpu_fsw.denorm,
+			   fpu64.fpu_fsw.zdiv,
+			   fpu64.fpu_fsw.ovrfl,
+			   fpu64.fpu_fsw.undfl,
+			   fpu64.fpu_fsw.precis,
+			   fpu64.fpu_fsw.stkflt);
+		    printf("\t            errsumm %d c0 %d c1 %d c2 %d tos %d "
+			   "c3 %d busy %d\n",
+			   fpu64.fpu_fsw.errsumm,
+			   fpu64.fpu_fsw.c0,
+			   fpu64.fpu_fsw.c1,
+			   fpu64.fpu_fsw.c2,
+			   fpu64.fpu_fsw.tos,
+			   fpu64.fpu_fsw.c3,
+			   fpu64.fpu_fsw.busy);
+		    printf("\t    fpu_ftw 0x%02x fpu_rsrv1 0x%02x fpu_fop "
+			   "0x%04x fpu_ip 0x%08x\n",
+			   (unsigned int)fpu64.fpu_ftw,
+			   (unsigned int)fpu64.fpu_rsrv1,
+			   (unsigned int)fpu64.fpu_fop,
+			   (unsigned int)fpu64.fpu_ip);
+		    printf("\t    fpu_cs 0x%04x fpu_rsrv2 0x%04x fpu_dp 0x%08x "
+			   "fpu_ds 0x%04x\n",
+			   (unsigned int)fpu64.fpu_cs,
+			   (unsigned int)fpu64.fpu_rsrv2,
+			   (unsigned int)fpu64.fpu_dp,
+			   (unsigned int)fpu64.fpu_ds);
+		    printf("\t    fpu_rsrv3 0x%04x fpu_mxcsr 0x%08x "
+			   "fpu_mxcsrmask 0x%08x\n",
+			   (unsigned int)fpu64.fpu_rsrv3,
+			   (unsigned int)fpu64.fpu_mxcsr,
+			   (unsigned int)fpu64.fpu_mxcsrmask);
+		    printf("\t    fpu_stmm0:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm0);
+		    printf("\t    fpu_stmm1:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm1);
+		    printf("\t    fpu_stmm2:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm2);
+		    printf("\t    fpu_stmm3:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm3);
+		    printf("\t    fpu_stmm4:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm4);
+		    printf("\t    fpu_stmm5:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm5);
+		    printf("\t    fpu_stmm6:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm6);
+		    printf("\t    fpu_stmm7:\n");
+		    print_mmst_reg(&fpu64.fpu_stmm7);
+		    printf("\t    fpu_xmm0:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm0);
+		    printf("\t    fpu_xmm1:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm1);
+		    printf("\t    fpu_xmm2:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm2);
+		    printf("\t    fpu_xmm3:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm3);
+		    printf("\t    fpu_xmm4:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm4);
+		    printf("\t    fpu_xmm5:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm5);
+		    printf("\t    fpu_xmm6:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm6);
+		    printf("\t    fpu_xmm7:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm7);
+		    printf("\t    fpu_xmm8:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm8);
+		    printf("\t    fpu_xmm9:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm9);
+		    printf("\t    fpu_xmm10:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm10);
+		    printf("\t    fpu_xmm11:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm11);
+		    printf("\t    fpu_xmm12:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm12);
+		    printf("\t    fpu_xmm13:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm13);
+		    printf("\t    fpu_xmm14:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm14);
+		    printf("\t    fpu_xmm15:\n");
+		    print_xmm_reg(&fpu64.fpu_xmm15);
+		    printf("\t    fpu_rsrv4:\n");
+		    for(f = 0; f < 6; f++){
+			printf("\t            ");
+			for(g = 0; g < 16; g++){
+			    printf("%02x ",
+				   (unsigned int)(fpu64.fpu_rsrv4[f*g] & 0xff));
+			}
+			printf("\n");
+		    }
+		    printf("\t    fpu_reserved1 0x%08x\n",
+			   (unsigned int)fpu64.fpu_reserved1);
+		    break;
+
+		case x86_EXCEPTION_STATE64:
+		    printf("     flavor x86_EXCEPTION_STATE64\n");
+		    if(count == x86_EXCEPTION_STATE64_COUNT)
+			printf("      count x86_EXCEPTION_STATE64_COUNT\n");
+		    else
+			printf("      count %lu (not x86_EXCEPTION_STATE64_"
+			       "COUNT)\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_exception_state64_t)){
+		        memcpy((char *)&exc64, begin,
+			       sizeof(x86_exception_state64_t));
+		        begin += sizeof(x86_exception_state64_t);
+		    }
+		    else{
+		        memset((char *)&exc64, '\0',
+			       sizeof(x86_exception_state64_t));
+		        memcpy((char *)&exc64, begin, left);
+		        begin += left;
+		    }
+print_x86_exception_state64:
+		    if(swapped)
+			swap_x86_exception_state64(&exc64, host_byte_sex);
+		    printf("\t    trapno 0x%08x err 0x%08x faultvaddr "
+			   "0x%016llx\n", exc64.trapno, exc64.err,
+			   exc64.faultvaddr);
+		    break;
+
+		case x86_DEBUG_STATE64:
+		    printf("     flavor x86_DEBUG_STATE64\n");
+		    if(count == x86_DEBUG_STATE64_COUNT)
+			printf("      count x86_DEBUG_STATE64_COUNT\n");
+		    else
+			printf("      count %lu (not x86_DEBUG_STATE64_COUNT"
+			       ")\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_debug_state64_t)){
+		        memcpy((char *)&debug64, begin,
+			       sizeof(x86_debug_state32_t));
+		        begin += sizeof(x86_debug_state32_t);
+		    }
+		    else{
+		        memset((char *)&debug64, '\0',
+			       sizeof(x86_debug_state64_t));
+		        memcpy((char *)&debug64, begin, left);
+		        begin += left;
+		    }
+print_x86_debug_state64:
+		    if(swapped)
+			swap_x86_debug_state64(&debug64, host_byte_sex);
+		    printf("\t    dr0 0x%016llx dr1 0x%016llx dr2 0x%016llx "
+			   "dr3 0x%016llx\n", debug64.dr0, debug64.dr1,
+			   debug64.dr2, debug64.dr3);
+		    printf("\t    dr4 0x%016llx dr5 0x%016llx dr6 0x%016llx "
+			   "dr7 0x%016llx\n", debug64.dr4, debug64.dr5,
+			   debug64.dr6, debug64.dr7);
+		    break;
+
+		case x86_THREAD_STATE:
+		    printf("     flavor x86_THREAD_STATE\n");
+		    if(count == x86_THREAD_STATE_COUNT)
+			printf("      count x86_THREAD_STATE_COUNT\n");
+		    else
+			printf("      count %lu (not x86_THREAD_STATE_COUNT)\n",
+			       count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_thread_state_t)){
+		        memcpy((char *)&ts, begin,
+			       sizeof(x86_thread_state_t));
+		        begin += sizeof(x86_thread_state_t);
+		    }
+		    else{
+		        memset((char *)&ts, '\0',
+			       sizeof(x86_thread_state_t));
+		        memcpy((char *)&ts, begin, left);
+		        begin += left;
+		    }
+		    if(swapped)
+			swap_x86_state_hdr(&ts.tsh, host_byte_sex);
+		    if(ts.tsh.flavor == x86_THREAD_STATE32){
+			printf("\t    tsh.flavor x86_THREAD_STATE32 ");
+			if(ts.tsh.count == x86_THREAD_STATE32_COUNT)
+			    printf("tsh.count x86_THREAD_STATE32_COUNT\n");
+			else
+			    printf("tsh.count %d (not x86_THREAD_STATE32_"
+				   "COUNT\n", ts.tsh.count);
+			cpu = ts.uts.ts32;
+			goto print_x86_thread_state32;
+		    }
+		    else if(ts.tsh.flavor == x86_THREAD_STATE64){
+			printf("\t    tsh.flavor x86_THREAD_STATE64 ");
+			if(ts.tsh.count == x86_THREAD_STATE64_COUNT)
+			    printf("tsh.count x86_THREAD_STATE64_COUNT\n");
+			else
+			    printf("tsh.count %d (not x86_THREAD_STATE64_"
+				   "COUNT\n", ts.tsh.count);
+			cpu64 = ts.uts.ts64;
+			goto print_x86_thread_state64;
+		    }
+		    else{
+			printf("\t    tsh.flavor %d tsh.count %d\n",
+			       ts.tsh.flavor, ts.tsh.count);
+		    }
+		    break;
+
+		case x86_FLOAT_STATE:
+		    printf("     flavor x86_FLOAT_STATE\n");
+		    if(count == x86_FLOAT_STATE_COUNT)
+			printf("      count x86_FLOAT_STATE_COUNT\n");
+		    else
+			printf("      count %lu (not x86_FLOAT_STATE_COUNT)\n",
+			       count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_float_state_t)){
+		        memcpy((char *)&fs, begin,
+			       sizeof(x86_float_state_t));
+		        begin += sizeof(x86_float_state_t);
+		    }
+		    else{
+		        memset((char *)&fs, '\0',
+			       sizeof(x86_float_state_t));
+		        memcpy((char *)&fs, begin, left);
+		        begin += left;
+		    }
+		    if(swapped)
+			swap_x86_state_hdr(&fs.fsh, host_byte_sex);
+		    if(fs.fsh.flavor == x86_FLOAT_STATE32){
+			printf("\t    fsh.flavor x86_FLOAT_STATE32 ");
+			if(fs.fsh.count == x86_FLOAT_STATE32_COUNT)
+			    printf("tsh.count x86_FLOAT_STATE32_COUNT\n");
+			else
+			    printf("tsh.count %d (not x86_FLOAT_STATE32_COUNT"
+				   "\n", fs.fsh.count);
+			fpu = fs.ufs.fs32;
+			goto print_x86_float_state32;
+		    }
+		    else if(fs.fsh.flavor == x86_FLOAT_STATE64){
+			printf("\t    fsh.flavor x86_FLOAT_STATE64 ");
+			if(fs.fsh.count == x86_FLOAT_STATE64_COUNT)
+			    printf("tsh.count x86_FLOAT_STATE64_COUNT\n");
+			else
+			    printf("tsh.count %d (not x86_FLOAT_STATE64_COUNT"
+				   "\n", fs.fsh.count);
+			fpu64 = fs.ufs.fs64;
+			goto print_x86_float_state64;
+		    }
+		    else{
+			printf("\t    fsh.flavor %d fsh.count %d\n",
+			       fs.fsh.flavor, fs.fsh.count);
+		    }
+		    break;
+
+		case x86_EXCEPTION_STATE:
+		    printf("     flavor x86_EXCEPTION_STATE\n");
+		    if(count == x86_EXCEPTION_STATE_COUNT)
+			printf("      count x86_EXCEPTION_STATE_COUNT\n");
+		    else
+			printf("      count %lu (not x86_EXCEPTION_STATE_"
+			       "COUNT)\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_exception_state_t)){
+		        memcpy((char *)&es, begin,
+			       sizeof(x86_exception_state_t));
+		        begin += sizeof(x86_exception_state_t);
+		    }
+		    else{
+		        memset((char *)&es, '\0',
+			       sizeof(x86_exception_state_t));
+		        memcpy((char *)&es, begin, left);
+		        begin += left;
+		    }
+		    if(swapped)
+			swap_x86_state_hdr(&es.esh, host_byte_sex);
+		    if(es.esh.flavor == x86_EXCEPTION_STATE32){
+			printf("\t    esh.flavor x86_EXCEPTION_STATE32\n");
+			if(es.esh.count == x86_EXCEPTION_STATE32_COUNT)
+			    printf("\t    esh.count x86_EXCEPTION_STATE32_"
+				   "COUNT\n");
+			else
+			    printf("\t    esh.count %d (not x86_EXCEPTION_"
+				   "STATE32_COUNT\n", es.esh.count);
+			exc = es.ues.es32;
+			goto print_x86_exception_state32;
+		    }
+		    else if(es.esh.flavor == x86_EXCEPTION_STATE64){
+			printf("\t    esh.flavor x86_EXCEPTION_STATE64\n");
+			if(es.esh.count == x86_EXCEPTION_STATE64_COUNT)
+			    printf("\t    esh.count x86_EXCEPTION_STATE64_"
+				   "COUNT\n");
+			else
+			    printf("\t    esh.count %d (not x86_EXCEPTION_"
+				   "STATE64_COUNT\n", es.esh.count);
+			exc64 = es.ues.es64;
+			goto print_x86_exception_state64;
+		    }
+		    else{
+			printf("\t    esh.flavor %d esh.count %d\n",
+			       es.esh.flavor, es.esh.count);
+		    }
+		    break;
+
+		case x86_DEBUG_STATE:
+		    printf("     flavor x86_DEBUG_STATE\n");
+		    if(count == x86_DEBUG_STATE_COUNT)
+			printf("      count x86_DEBUG_STATE_COUNT\n");
+		    else
+			printf("      count %lu (not x86_DEBUG_STATE_COUNT"
+			       "\n", count);
+		    left = end - begin;
+		    if(left >= sizeof(x86_debug_state_t)){
+		        memcpy((char *)&ds, begin,
+			       sizeof(x86_debug_state_t));
+		        begin += sizeof(x86_debug_state_t);
+		    }
+		    else{
+		        memset((char *)&ds, '\0',
+			       sizeof(x86_debug_state_t));
+		        memcpy((char *)&ds, begin, left);
+		        begin += left;
+		    }
+		    if(swapped)
+			swap_x86_state_hdr(&ds.dsh, host_byte_sex);
+		    if(ds.dsh.flavor == x86_DEBUG_STATE32){
+			printf("\t    dsh.flavor x86_DEBUG_STATE32\n");
+			if(ds.dsh.count == x86_DEBUG_STATE32_COUNT)
+			    printf("\t    dsh.count x86_DEBUG_STATE32_COUNT\n");
+			else
+			    printf("\t    esh.count %d (not x86_DEBUG_STATE32_"
+				   "_COUNT\n", ds.dsh.count);
+			debug = ds.uds.ds32;
+			goto print_x86_debug_state32;
+		    }
+		    if(ds.dsh.flavor == x86_DEBUG_STATE64){
+			printf("\t    dsh.flavor x86_DEBUG_STATE64\n");
+			if(ds.dsh.count == x86_DEBUG_STATE64_COUNT)
+			    printf("\t    dsh.count x86_DEBUG_STATE64_COUNT\n");
+			else
+			    printf("\t    esh.count %d (not x86_DEBUG_STATE64_"
+				   "_COUNT\n", ds.dsh.count);
+			debug64 = ds.uds.ds64;
+			goto print_x86_debug_state64;
+		    }
+		    else{
+			printf("\t    dsh.flavor %d dsh.count %d\n",
+			       ds.dsh.flavor, ds.dsh.count);
+		    }
+		    break;
+#endif /* x86_THREAD_STATE64 */
 #endif /* i386_THREAD_STATE == 1 */
 
 /* i386 thread states on older releases */
@@ -4457,8 +5190,9 @@ enum bool verbose)
 			 * source.
 			 */
 #if defined(ARCH64)
-			if(mh->cputype == CPU_TYPE_POWERPC64 && 
-			   reloc.r_type == PPC_RELOC_VANILLA) {
+			if((mh->cputype == CPU_TYPE_POWERPC64 && 
+			    reloc.r_type == PPC_RELOC_VANILLA) ||
+			   mh->cputype == CPU_TYPE_X86_64) {
                                 printf("quad   ");
 			}
 			else
@@ -4625,8 +5359,9 @@ enum bool verbose)
 			 * source.
 			 */
 #if defined(ARCH64)
-			if(mh->cputype == CPU_TYPE_POWERPC64 && 
-			   reloc.r_type == PPC_RELOC_VANILLA) {
+			if((mh->cputype == CPU_TYPE_POWERPC64 && 
+			    reloc.r_type == PPC_RELOC_VANILLA) ||
+			   mh->cputype == CPU_TYPE_X86_64) {
                                 printf("quad   ");
 			}
 			else
@@ -4746,6 +5481,13 @@ static char *ppc_r_types[] = {
     "HA16    ", "LO14    ", "SECTDIF ", "PBLAPTR ", "HI16DIF ", "LO16DIF ",
     "HA16DIF ", "JBSR    ", "LO14DIF ", "LOCSDIF "
 };
+#if defined(ARCH64)
+static char *x86_64_r_types[] = {
+    "UNSIGND ", "SIGNED  ", "BRANCH  ", "GOT_LD  ", "GOT     ", "SUB     ",
+    "SIGNED1 ", "SIGNED2 ", "SIGNED4 ", "  9 (?) ", " 10 (?) ", " 11 (?) ",
+    " 12 (?) ", " 13 (?) ", " 14 (?) ", " 15 (?) "
+};
+#endif
 static char *hppa_r_types[] = {
 	"VANILLA ", "PAIR    ", "HI21    ", "LO14    ", "BR17    ",
 	"BL17    ", "JBSR    ", "SECTDIF ", "HI21DIF ", "LO14DIF ",
@@ -4774,6 +5516,11 @@ enum bool predicted)
 	case CPU_TYPE_I386:
 	    printf("%s", generic_r_types[r_type]);
 	    break;
+#if defined(ARCH64)
+	case CPU_TYPE_X86_64:
+		printf("%s", x86_64_r_types[r_type]);
+		break;
+#endif
 	case CPU_TYPE_MC88000:
 	    printf("%s", m88k_r_types[r_type]);
 	    break;
@@ -5476,6 +6223,53 @@ double d)
 }
 
 void
+print_literal16_section(
+char *sect,
+unsigned long sect_size,
+unsigned long sect_addr,
+enum byte_sex literal_byte_sex,
+enum bool print_addresses)
+{
+    enum byte_sex host_byte_sex;
+    enum bool swapped;
+    unsigned long i, l0, l1, l2, l3;
+
+	host_byte_sex = get_host_byte_sex();
+	swapped = host_byte_sex != literal_byte_sex;
+
+	for(i = 0; i < sect_size ; i += 4 * sizeof(unsigned long)){
+	    if(print_addresses == TRUE)
+		printf("%08x  ", (unsigned int)(sect_addr + i));
+	    memcpy((char *)&l0, sect + i, sizeof(unsigned long));
+	    memcpy((char *)&l1, sect + i + sizeof(unsigned long),
+		   sizeof(unsigned long));
+	    memcpy((char *)&l2, sect + i + 2 * sizeof(unsigned long),
+		   sizeof(unsigned long));
+	    memcpy((char *)&l3, sect + i + 3 * sizeof(unsigned long),
+		   sizeof(unsigned long));
+	    if(swapped){
+		l0 = SWAP_LONG(l0);
+		l1 = SWAP_LONG(l1);
+		l2 = SWAP_LONG(l2);
+		l3 = SWAP_LONG(l3);
+	    }
+	    print_literal16(l0, l1, l2, l3);
+	}
+}
+
+static
+void
+print_literal16(
+unsigned long l0,
+unsigned long l1,
+unsigned long l2,
+unsigned long l3)
+{
+	printf("0x%08x 0x%08x 0x%08x 0x%08x\n", (unsigned int)l0, (unsigned int)l1,
+	    (unsigned int)l2, (unsigned int)l3);
+}
+
+void
 print_literal_pointer_section(
 mach_header_t *mh,
 struct load_command *load_commands,
@@ -6030,9 +6824,10 @@ unsigned long addr)
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
 
-	if(cputype == CPU_TYPE_I386){
+	if(cputype == CPU_TYPE_I386 ||
+	   cputype == CPU_TYPE_X86_64){
 	    for(i = 0 ; i < size ; i += j , addr += j){
-		printf("%08x ", (unsigned int)addr);
+		printf(TA_XFMT " ", (target_addr_t)addr);
 		for(j = 0;
 		    j < 16 * sizeof(char) && i + j < size;
 		    j += sizeof(char)){

@@ -92,7 +92,7 @@ SSLAddSessionData(const SSLContext *ctx)
         cert = cert->next;
     }
     
-    err = sslAddSession(ctx->peerID, sessionID);
+    err = sslAddSession(ctx->peerID, sessionID, ctx->sessionCacheTimeout);
     SSLFreeBuffer(sessionID, ctx);
     
     return err;

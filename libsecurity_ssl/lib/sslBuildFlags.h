@@ -67,6 +67,15 @@ extern "C" {
 #define ERROR_LOG_ENABLE			1
 #endif	/* NDEBUG */
 	
+/* 
+ * Server-side PAC-based EAP support currently enabled only for debug builds.
+ */
+#ifdef	NDEBUG
+#define SSL_PAC_SERVER_ENABLE		0
+#else
+#define SSL_PAC_SERVER_ENABLE		1
+#endif
+
 #if defined(__cplusplus)
 }
 #endif

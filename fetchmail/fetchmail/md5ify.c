@@ -20,7 +20,7 @@
 #include "md5.h"
 
 char *
-MD5Digest (unsigned char *s)
+MD5Digest (unsigned const char *s)
 {
   int i;
   MD5_CTX context;
@@ -28,9 +28,9 @@ MD5Digest (unsigned char *s)
   static char ascii_digest [33];
 
   MD5Init(&context);
-  MD5Update(&context, s, strlen(s));
+  MD5Update(&context, s, strlen((const char *)s));
   MD5Final(digest, &context);
-  
+
   for (i = 0;  i < 16;  i++) 
     sprintf(ascii_digest+2*i, "%02x", digest[i]);
  

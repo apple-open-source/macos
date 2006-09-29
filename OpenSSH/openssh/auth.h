@@ -1,4 +1,4 @@
-/*	$OpenBSD: auth.h,v 1.49 2004/01/30 09:48:57 markus Exp $	*/
+/*	$OpenBSD: auth.h,v 1.51 2005/06/06 11:20:36 djm Exp $	*/
 
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
@@ -30,6 +30,7 @@
 
 #include "key.h"
 #include "hostfile.h"
+#include "buffer.h"
 #include <openssl/rsa.h>
 
 #ifdef HAVE_LOGIN_CAP
@@ -52,8 +53,7 @@ struct Authctxt {
 	int		 valid;		/* user exists and is allowed to login */
 	int		 attempt;
 	int		 failures;
-	int		 server_caused_failure;
-	Authmethod	*method;
+	int		 server_caused_failure; 
 	int		 force_pwchange;
 	char		*user;		/* username sent by the client */
 	char		*service;
@@ -70,6 +70,7 @@ struct Authctxt {
 	char		*krb5_ticket_file;
 	char		*krb5_ccname;
 #endif
+	Buffer		*loginmsg;
 	void		*methoddata;
 };
 /*
@@ -132,6 +133,9 @@ int auth_shadow_pwexpired(Authctxt *);
 #endif
 
 #include "auth-pam.h"
+#include "audit.h"
+void remove_kbdint_device(const char *);
+
 void disable_forwarding(void);
 
 void	do_authentication(Authctxt *);
@@ -139,6 +143,7 @@ void	do_authentication2(Authctxt *);
 
 void	auth_log(Authctxt *, int, char *, char *);
 void	userauth_finish(Authctxt *, int, char *);
+void	userauth_send_banner(const char *);
 int	auth_root_allowed(char *);
 
 char	*auth2_read_banner(void);
@@ -159,7 +164,6 @@ char	*get_challenge(Authctxt *);
 int	verify_response(Authctxt *, const char *);
 void	abandon_challenge_response(Authctxt *);
 
-char	*expand_filename(const char *, struct passwd *);
 char	*authorized_keys_file(struct passwd *);
 char	*authorized_keys_file2(struct passwd *);
 
@@ -183,9 +187,14 @@ void	 auth_debug_reset(void);
 
 struct passwd *fakepw(void);
 
-#define AUTH_FAIL_MAX 6
-#define AUTH_FAIL_LOG (AUTH_FAIL_MAX/2)
+int	 sys_auth_passwd(Authctxt *, const char *);
+
 #define AUTH_FAIL_MSG "Too many authentication failures for %.100s"
 
 #define SKEY_PROMPT "\nS/Key Password: "
+
+#if defined(KRB5) && !defined(HEIMDAL)
+#include <krb5.h>
+krb5_error_code ssh_krb5_cc_gen(krb5_context, krb5_ccache *);
+#endif
 #endif

@@ -1,0 +1,84 @@
+diff -Naur /tmp/OpenSSH.roots/OpenSSH/openssh/audit-bsm.c ./audit-bsm.c
+--- /tmp/OpenSSH.roots/OpenSSH/openssh/audit-bsm.c	2005-02-20 02:08:00.000000000 -0800
++++ ./audit-bsm.c	2005-09-30 11:32:45.000000000 -0700
+@@ -71,7 +71,9 @@
+ #define AUToReturnFunc(a,b)	au_to_return((a), (u_int)(b))
+ #endif
+ 
++#if !defined(__APPLE__)
+ extern int	cannot_audit(int);
++#endif
+ extern void	aug_init(void);
+ extern dev_t	aug_get_port(void);
+ extern int 	aug_get_machine(char *, u_int32_t *, u_int32_t *);
+@@ -236,10 +236,18 @@
+ 	/* populate our terminal id structure */
+ #if defined(HAVE_GETAUDIT_ADDR)
+ 	tid->at_port = (dev_t)port;
++#if defined(__APPLE__)
++	/* don't have a aug_get_machine */
++	tid->at_addr[0] = inet_addr(host);
++	tid->at_type = 0;
++	snprintf(buf, sizeof(buf), "%08x", tid->at_addr[0]);
++	debug3("BSM audit: machine ID %s", buf);
++#else
+ 	aug_get_machine((char *)host, &(tid->at_addr[0]), &(tid->at_type));
+ 	snprintf(buf, sizeof(buf), "%08x %08x %08x %08x", tid->at_addr[0],
+ 	    tid->at_addr[1], tid->at_addr[2], tid->at_addr[3]);
+ 	debug3("BSM audit: iptype %d machine ID %s", (int)tid->at_type, buf);
++#endif
+ #else
+ 	/* this is used on IPv4-only machines */
+ 	tid->port = (dev_t)port;
+diff -Naur ../OpenSSH.roots/OpenSSH/openssh/configure ./configure
+--- ../OpenSSH.roots/OpenSSH/openssh/configure	2005-09-27 14:48:46.000000000 -0700
++++ ./configure	2005-10-04 12:49:44.000000000 -0700
+@@ -10846,6 +10846,22 @@
+ #define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
+ _ACEOF
+ 
++				case "$host" in
++				*-*-darwin7* | *-*-darwin8*)
++					echo "$as_me:$LINENO: checking for getaudit_addr usability" >&5
++echo $ECHO_N "checking for getaudit_addr usability... $ECHO_C" >&6
++					echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6
++					;;
++					*)
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_GETAUDIT_ADDR 1
++_ACEOF
++
++					;;
++				esac
++
++
+ fi
+ done
+ 
+diff -Naur ../OpenSSH.roots/OpenSSH/openssh/configure.ac ./configure.ac
+--- ../OpenSSH.roots/OpenSSH/openssh/configure.ac	2005-09-27 14:48:45.000000000 -0700
++++ ./configure.ac	2005-10-04 12:49:01.000000000 -0700
+@@ -1096,7 +1096,21 @@
+ 		AC_CHECK_FUNCS(getaudit, [],
+ 		    [AC_MSG_ERROR(BSM enabled and required function not found)])
+ 		# These are optional
+-		AC_CHECK_FUNCS(getaudit_addr)
++		AC_CHECK_FUNCS(getaudit_addr,
++				[
++				case "$host" in
++				*-*-darwin7* | *-*-darwin8*)
++					AC_MSG_CHECKING(for getaudit_addr usability)
++					AC_MSG_RESULT(no)
++					;;
++					*) AC_DEFINE(HAVE_GETAUDIT_ADDR,
++							1,
++							[Define if libbsm has 'getaudit_addr'.]
++							)
++					;;
++				esac
++				]
++				)
+ 		AC_DEFINE(USE_BSM_AUDIT, [], [Use BSM audit module])
+ 		;;
+ 	  debug)

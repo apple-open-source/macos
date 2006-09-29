@@ -37,6 +37,7 @@ enum {
 };
 
 #define NT_MAXPWLEN			256 	/* unicode chars */
+#define NT_MASTER_KEY_SIZE		16
 #define NT_SESSION_KEY_SIZE		16
 #define NT_PASSWORD_HASH_SIZE		16
 
@@ -115,4 +116,14 @@ NTPasswordHashEncryptOldWithNew(const uint8_t * new_password,
 void
 MSChapFillWithRandom(void * buf, uint32_t len);
 
+void
+MSChap2_MPPEGetMasterKey(const uint8_t * password, uint32_t password_len,
+			 const uint8_t NTResponse[MSCHAP_NT_RESPONSE_SIZE],
+			 uint8_t MasterKey[NT_MASTER_KEY_SIZE]);
+void
+MSChap2_MPPEGetAsymetricStartKey(const uint8_t MasterKey[NT_MASTER_KEY_SIZE],
+				 uint8_t SessionKey[NT_SESSION_KEY_SIZE],
+				 int SessionKeyLength,
+				 bool IsSend,
+				 bool IsServer);
 #endif _EAP8021X_MSCHAP_H

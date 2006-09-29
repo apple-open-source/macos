@@ -35,7 +35,7 @@ typedef unsigned long relax_substateT;
  * rlx_length, and which substate go to, rlx_more, if this sized branch can't 
  * reach it's target.
  */
-typedef struct {
+typedef struct relax_type {
     long	    rlx_forward;  /* Forward  reach. Signed number. > 0. */
     long	    rlx_backward; /* Backward reach. Signed number. < 0. */
     unsigned char   rlx_length;	  /* Bytes length of this address. */

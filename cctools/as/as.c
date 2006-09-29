@@ -514,7 +514,7 @@ char **envp)
 				as_fatal("I expected 'i860' after "
 				       "-arch for this assembler.");
 #endif
-#ifdef I386
+#if defined(I386) && !defined(ARCH64)
 			    if(strcmp(*work_argv, "i486") == 0){
 				if(archflag_cpusubtype != -1 &&
 				   archflag_cpusubtype !=
@@ -611,6 +611,11 @@ char **envp)
 				   "'i586', 'pentium', 'i686', 'pentpro', "
 				   "'pentIIm3', or 'pentIIm5' after -arch "
 				   "for this assembler.");
+#endif
+#if defined(I386) && defined(ARCH64)
+			    if(strcmp(*work_argv, "x86_64") != 0)
+			      as_fatal("I expected 'x86_64' after "
+				       "-arch for this assembler.");
 #endif
 #ifdef HPPA
 			    if(strcmp(*work_argv, "hppa") != 0)

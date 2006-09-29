@@ -30,13 +30,13 @@ extern int DEBUGLEVEL;
 #include <ctype.h>
 #include "smbbyteorder.h"
 #include "smbdes.h"
+#include "smbencrypt.h"
 #include "smbmd4.h"
 
 #ifndef _AIX
 typedef unsigned char uchar;
 #endif
 typedef signed short int16;
-typedef unsigned short uint16;
 typedef int BOOL;
 #define False 0
 #define True  1
@@ -61,7 +61,8 @@ char *StrnCpy(char *dest,const char *src, size_t n)
 
 size_t skip_multibyte_char(char c)
 {
-return 0;
+    (void)c;
+    return 0;
 }
 
 
@@ -108,8 +109,8 @@ while (*s)
       s += skip;
     else
       {
-      if (islower(*s))
-	*s = toupper(*s);
+      if (islower((unsigned char)*s))
+	*s = toupper((unsigned char)*s);
       s++;
       }
     }

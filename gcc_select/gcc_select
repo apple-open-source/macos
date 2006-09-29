@@ -29,7 +29,7 @@
 
 #######################################################################
 
-GCC_SELECT_VERSION="2.18.1"
+GCC_SELECT_VERSION="2.18.2"
 
 #######################################################################
 
@@ -45,8 +45,7 @@ symlink_libs="libcc_dynamic.a	\
 	libcc_kext.a		\
 	libgcc.a		\
 	libcc.a			\
-	libstdc++.a		\
-	libsupc++.a"
+	libstdc++.a"
 symlink_local_libs="libcc_noc++.a"
 
 # List of directories (underneath /usr) containing a 'default' 

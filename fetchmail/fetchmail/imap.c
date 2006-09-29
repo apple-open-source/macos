@@ -19,25 +19,34 @@
 
 #include  "i18n.h"
 
-#if OPIE_ENABLE
-#endif /* OPIE_ENABLE */
-
-#ifndef strstr		/* glibc-2.1 declares this as a macro */
-extern char *strstr();	/* needed on sysV68 R3V7.1. */
-#endif /* strstr */
-
 /* imap_version values */
 #define IMAP2		-1	/* IMAP2 or IMAP2BIS, RFC1176 */
 #define IMAP4		0	/* IMAP4 rev 0, RFC1730 */
 #define IMAP4rev1	1	/* IMAP4 rev 1, RFC2060 */
 
+/* global variables: please reinitialize them explicitly for proper
+ * working in daemon mode */
+
+/* TODO: session variables to be initialized before server greeting */
+static int preauth = FALSE;
+
+/* session variables initialized in capa_probe() or imap_getauth() */
+static char capabilities[MSGBUFSIZE+1];
+static int imap_version = IMAP4;
+static flag do_idle = FALSE, has_idle = FALSE;
+static int expunge_period = 1;
+
+/* mailbox variables initialized in imap_getrange() */
 static int count = 0, recentcount = 0, unseen = 0, deletions = 0;
 static unsigned int startcount = 1;
-static int expunged, expunge_period, saved_timeout = 0;
-static int imap_version, preauth;
-static flag do_idle, has_idle;
-static char capabilities[MSGBUFSIZE+1];
+static int expunged = 0;
 static unsigned int *unseen_messages;
+
+/* for "IMAP> EXPUNGE" */
+static int actual_deletions = 0;
+
+/* for "IMAP> IDLE" */
+static int saved_timeout = 0;
 
 static int imap_ok(int sock, char *argbuf)
 /* parse command response */
@@ -53,76 +62,101 @@ static int imap_ok(int sock, char *argbuf)
 
 	/* all tokens in responses are caseblind */
 	for (cp = buf; *cp; cp++)
-	    if (islower(*cp))
-		*cp = toupper(*cp);
+	    if (islower((unsigned char)*cp))
+		*cp = toupper((unsigned char)*cp);
 
-	/* interpret untagged status responses */
-	if (strstr(buf, "* CAPABILITY"))
-	{
-	    strncpy(capabilities, buf + 12, sizeof(capabilities));
-	    capabilities[sizeof(capabilities)-1] = '\0';
-	}
-	else if (strstr(buf, "EXISTS"))
-	{
-	    count = atoi(buf+2);
-	    /*
-	     * Don't trust the message count passed by the server.
-	     * Without this check, it might be possible to do a
-	     * DNS-spoofing attack that would pass back a ridiculous 
-	     * count, and allocate a malloc area that would overlap
-	     * a portion of the stack.
-	     */
-	    if (count > INT_MAX/sizeof(int))
-	    {
-		report(stderr, "bogus message count!");
-		return(PS_PROTOCOL);
+	/* interpret untagged status responses
+	 * First check if we really have an untagged response, starting
+	 * with "*" SPACE. Then, for each individual check, use a BLANK
+	 * before the word to avoid confusion with the \Recent flag or
+	 * similar */
+	if (buf[0] == '*' && buf[1] == ' ') {
+	    if (strstr(buf, " CAPABILITY")) {
+		strlcpy(capabilities, buf + 12, sizeof(capabilities));
 	    }
-
-	    /*
-	     * Nasty kluge to handle RFC2177 IDLE.  If we know we're idling
-	     * we can't wait for the tag matching the IDLE; we have to tell the
-	     * server the IDLE is finished by shipping back a DONE when we
-	     * see an EXISTS.  Only after that will a tagged response be
-	     * shipped.  The idling flag also gets cleared on a timeout.
-	     */
-	    if (stage == STAGE_IDLE)
+	    else if (strstr(buf, " EXISTS"))
 	    {
-		/* If IDLE isn't supported, we were only sending NOOPs anyway. */
-		if (has_idle)
+		count = atoi(buf+2);
+		/*
+		 * Don't trust the message count passed by the server.
+		 * Without this check, it might be possible to do a
+		 * DNS-spoofing attack that would pass back a ridiculous 
+		 * count, and allocate a malloc area that would overlap
+		 * a portion of the stack.
+		 */
+		if ((unsigned)count > INT_MAX/sizeof(int))
 		{
-		    /* we do our own write and report here to disable tagging */
-		    SockWrite(sock, "DONE\r\n", 6);
-		    if (outlevel >= O_MONITOR)
-		        report(stdout, "IMAP> DONE\n");
+		    report(stderr, GT_("bogus message count!"));
+		    return(PS_PROTOCOL);
 		}
 
-		mytimeout = saved_timeout;
-		stage = STAGE_FETCH;
+		/*
+		 * Nasty kluge to handle RFC2177 IDLE.  If we know we're idling
+		 * we can't wait for the tag matching the IDLE; we have to tell the
+		 * server the IDLE is finished by shipping back a DONE when we
+		 * see an EXISTS.  Only after that will a tagged response be
+		 * shipped.  The idling flag also gets cleared on a timeout.
+		 */
+		if (stage == STAGE_IDLE)
+		{
+		    /* If IDLE isn't supported, we were only sending NOOPs anyway. */
+		    if (has_idle)
+		    {
+			/* we do our own write and report here to disable tagging */
+			SockWrite(sock, "DONE\r\n", 6);
+			if (outlevel >= O_MONITOR)
+			    report(stdout, "IMAP> DONE\n");
+		    }
+
+		    mytimeout = saved_timeout;
+		    stage = STAGE_FETCH;
+		}
+	    }
+	    else if (strstr(buf, " RECENT"))
+	    {
+		recentcount = atoi(buf+2);
+	    }
+	    else if (strstr(buf, " EXPUNGE"))
+	    {
+		/* the response "* 10 EXPUNGE" means that the currently
+		 * tenth (i.e. only one) message has been deleted */
+		if (atoi(buf+2) > 0)
+		{
+		    if (count > 0)
+			count--;
+		    /* Some servers do not report RECENT after an EXPUNGE.
+		     * For such servers, assume that the mail being
+		     * expunged is a recent one. For other servers, we
+		     * should get an updated RECENT report later and this
+		     * assumption will have no effect. */
+		    if (recentcount > 0)
+			recentcount--;
+		    actual_deletions++;
+		}
+	    }
+	    else if (strstr(buf, " PREAUTH"))
+	    {
+		preauth = TRUE;
+	    }
+		/*
+		 * The server may decide to make the mailbox read-only, 
+		 * which causes fetchmail to go into a endless loop
+		 * fetching the same message over and over again. 
+		 * 
+		 * However, for check_only, we use EXAMINE which will
+		 * mark the mailbox read-only as per the RFC.
+		 * 
+		 * This checks for the condition and aborts if 
+		 * the mailbox is read-only. 
+		 *
+		 * See RFC 2060 section 6.3.1 (SELECT).
+		 * See RFC 2060 section 6.3.2 (EXAMINE).
+		 */ 
+	    else if (!check_only && strstr(buf, "[READ-ONLY]"))
+	    {
+		return(PS_LOCKBUSY);
 	    }
 	}
-	/* a space is required to avoid confusion with the \Recent flag */
-	else if (strstr(buf, " RECENT"))
-	{
-	    recentcount = atoi(buf+2);
-	}
-	else if (strstr(buf, "PREAUTH"))
-	    preauth = TRUE;
-	/*
-	 * The server may decide to make the mailbox read-only, 
-	 * which causes fetchmail to go into a endless loop
-	 * fetching the same message over and over again. 
-	 * 
-	 * However, for check_only, we use EXAMINE which will
-	 * mark the mailbox read-only as per the RFC.
-	 * 
-	 * This checks for the condition and aborts if 
-	 * the mailbox is read-only. 
-	 *
-	 * See RFC 2060 section 6.3.1 (SELECT).
-	 * See RFC 2060 section 6.3.2 (EXAMINE).
-	 */ 
-	else if (!check_only && strstr(buf, "[READ-ONLY]"))
-	    return(PS_LOCKBUSY);
     } while
 	(tag[0] != '\0' && strncmp(buf, tag, strlen(tag)));
 
@@ -137,9 +171,9 @@ static int imap_ok(int sock, char *argbuf)
 	char	*cp;
 
 	/* skip the tag */
-	for (cp = buf; !isspace(*cp); cp++)
+	for (cp = buf; !isspace((unsigned char)*cp); cp++)
 	    continue;
-	while (isspace(*cp))
+	while (isspace((unsigned char)*cp))
 	    cp++;
 
         if (strncasecmp(cp, "OK", 2) == 0)
@@ -162,12 +196,8 @@ static int imap_ok(int sock, char *argbuf)
     }
 }
 
-#if NTLM_ENABLE
+#ifdef NTLM_ENABLE
 #include "ntlm.h"
-
-static tSmbNtlmAuthRequest   request;		   
-static tSmbNtlmAuthChallenge challenge;
-static tSmbNtlmAuthResponse  response;
 
 /*
  * NTLM support by Grant Edwards.
@@ -182,9 +212,13 @@ static tSmbNtlmAuthResponse  response;
 
 static int do_imap_ntlm(int sock, struct query *ctl)
 {
+    tSmbNtlmAuthRequest request;
+    tSmbNtlmAuthChallenge challenge;
+    tSmbNtlmAuthResponse response;
+
     char msgbuf[2048];
     int result,len;
-  
+
     gen_send(sock, "AUTHENTICATE NTLM");
 
     if ((result = gen_recv(sock, msgbuf, sizeof msgbuf)))
@@ -199,7 +233,7 @@ static int do_imap_ntlm(int sock, struct query *ctl)
 	dumpSmbNtlmAuthRequest(stdout, &request);
 
     memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, (unsigned char*)&request, SmbLength(&request));
+    to64frombits (msgbuf, &request, SmbLength(&request));
   
     if (outlevel >= O_MONITOR)
 	report(stdout, "IMAP> %s\n", msgbuf);
@@ -210,7 +244,7 @@ static int do_imap_ntlm(int sock, struct query *ctl)
     if ((gen_recv(sock, msgbuf, sizeof msgbuf)))
 	return result;
   
-    len = from64tobits ((char*)&challenge, msgbuf, sizeof(challenge));
+    len = from64tobits (&challenge, msgbuf, sizeof(challenge));
     
     if (outlevel >= O_DEBUG)
 	dumpSmbNtlmAuthChallenge(stdout, &challenge);
@@ -221,7 +255,7 @@ static int do_imap_ntlm(int sock, struct query *ctl)
 	dumpSmbNtlmAuthResponse(stdout, &response);
   
     memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, (unsigned char*)&response, SmbLength(&response));
+    to64frombits (msgbuf, &response, SmbLength(&response));
 
     if (outlevel >= O_MONITOR)
 	report(stdout, "IMAP> %s\n", msgbuf);
@@ -239,10 +273,10 @@ static int do_imap_ntlm(int sock, struct query *ctl)
 }
 #endif /* NTLM */
 
-static int imap_canonicalize(char *result, char *raw, int maxlen)
+static void imap_canonicalize(char *result, char *raw, size_t maxlen)
 /* encode an IMAP password as per RFC1730's quoting conventions */
 {
-    int i, j;
+    size_t i, j;
 
     j = 0;
     for (i = 0; i < strlen(raw) && i < maxlen; i++)
@@ -252,8 +286,6 @@ static int imap_canonicalize(char *result, char *raw, int maxlen)
 	result[j++] = raw[i];
     }
     result[j] = '\0';
-
-    return(i);
 }
 
 static void capa_probe(int sock, struct query *ctl)
@@ -269,7 +301,7 @@ static void capa_probe(int sock, struct query *ctl)
 
 	/* capability checks are supposed to be caseblind */
 	for (cp = capabilities; *cp; cp++)
-	    *cp = toupper(*cp);
+	    *cp = toupper((unsigned char)*cp);
 
 	/* UW-IMAP server 10.173 notifies in all caps, but RFC2060 says we
 	   should expect a response in mixed-case */
@@ -297,13 +329,13 @@ static void capa_probe(int sock, struct query *ctl)
      * Handle idling.  We depend on coming through here on startup
      * and after each timeout (including timeouts during idles).
      */
+    do_idle = ctl->idle;
     if (ctl->idle)
     {
-	do_idle = TRUE;
 	if (strstr(capabilities, "IDLE"))
-	{
 	    has_idle = TRUE;
-	}
+	else
+	    has_idle = FALSE;
 	if (outlevel >= O_VERBOSE)
 	    report(stdout, GT_("will idle after poll\n"));
     }
@@ -319,6 +351,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     flag did_stls = FALSE;
 #endif /* SSL_ENABLE */
 
+    (void)greeting;
     /*
      * Assumption: expunges are cheap, so we want to do them
      * after every message unless user said otherwise.
@@ -364,7 +397,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	       }
                report(stderr,
                       GT_("SSL connection failed.\n"));
-               return(PS_AUTHFAIL);
+               return PS_SOCKET;
            }
 	   did_stls = TRUE;
 
@@ -392,15 +425,18 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     if ((ctl->server.authenticate == A_ANY 
 	 || ctl->server.authenticate == A_GSSAPI)
 	&& strstr(capabilities, "AUTH=GSSAPI"))
-	if(ok = do_gssauth(sock, "AUTHENTICATE", ctl->server.truename, ctl->remotename))
+    {
+	if ((ok = do_gssauth(sock, "AUTHENTICATE", "imap",
+			ctl->server.truename, ctl->remotename)))
 	{
 	    /* SASL cancellation of authentication */
 	    gen_send(sock, "*");
-	    if(ctl->server.authenticate != A_ANY)
+	    if (ctl->server.authenticate != A_ANY)
                 return ok;
-	}
-	else
+	} else  {
 	    return ok;
+	}
+    }
 #endif /* GSSAPI */
 
 #ifdef KERBEROS_V4
@@ -440,19 +476,20 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	    return ok;
     }
 
-#if OPIE_ENABLE
+#ifdef OPIE_ENABLE
     if ((ctl->server.authenticate == A_ANY 
 	 || ctl->server.authenticate == A_OTP)
-	&& strstr(capabilities, "AUTH=X-OTP"))
+	&& strstr(capabilities, "AUTH=X-OTP")) {
 	if ((ok = do_otp(sock, "AUTHENTICATE", ctl)))
 	{
 	    /* SASL cancellation of authentication */
 	    gen_send(sock, "*");
 	    if(ctl->server.authenticate != A_ANY)
                 return ok;
-	}
-	else
+	} else {
 	    return ok;
+	}
+    }
 #else
     if (ctl->server.authenticate == A_OTP)
     {
@@ -503,20 +540,21 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	|| ctl->server.authenticate == A_PASSWORD)
     {
 	/* these sizes guarantee no buffer overflow */
-	char	remotename[NAMELEN*2+1], password[PASSWORDLEN*2+1];
+	char *remotename, *password;
+	size_t rnl, pwl;
+	rnl = 2 * strlen(ctl->remotename) + 1;
+	pwl = 2 * strlen(ctl->password) + 1;
+	remotename = xmalloc(rnl);
+	password = xmalloc(pwl);
 
-	imap_canonicalize(remotename, ctl->remotename, NAMELEN);
-	imap_canonicalize(password, ctl->password, PASSWORDLEN);
+	imap_canonicalize(remotename, ctl->remotename, rnl);
+	imap_canonicalize(password, ctl->password, pwl);
 
-#ifdef HAVE_SNPRINTF
 	snprintf(shroud, sizeof (shroud), "\"%s\"", password);
-#else
-	strcpy(shroud, "\"");
-	strcat(shroud, password);
-	strcat(shroud, "\"");
-#endif
 	ok = gen_transact(sock, "LOGIN \"%s\" \"%s\"", remotename, password);
 	shroud[0] = '\0';
+	free(password);
+	free(remotename);
 #ifdef SSL_ENABLE
 	/* this is for servers which claim to support TLS, but actually
 	 * don't! */
@@ -546,8 +584,26 @@ static int internal_expunge(int sock)
 {
     int	ok;
 
+    actual_deletions = 0;
+
     if ((ok = gen_transact(sock, "EXPUNGE")))
 	return(ok);
+
+    /* if there is a mismatch between the number of mails which should
+     * have been expunged and the number of mails actually expunged,
+     * another email client may be deleting mails. Quit here,
+     * otherwise fetchmail gets out-of-sync with the imap server,
+     * reports the wrong size to the SMTP server on MAIL FROM: and
+     * triggers a "message ... was not the expected length" error on
+     * every subsequent mail */
+    if (deletions > 0 && deletions != actual_deletions)
+    {
+	report(stderr,
+		GT_("mail expunge mismatch (%d actual != %d expected)\n"),
+		actual_deletions, deletions);
+	deletions = 0;
+	return(PS_ERROR);
+    }
 
     expunged += deletions;
     deletions = 0;
@@ -564,7 +620,6 @@ static int imap_idle(int sock)
 {
     int ok;
 
-    stage = STAGE_IDLE;
     saved_timeout = mytimeout;
 
     if (has_idle) {
@@ -572,6 +627,7 @@ static int imap_idle(int sock)
 	 * at least every 28 minutes:
 	 * (the server may have an inactivity timeout) */
 	mytimeout = 1680; /* 28 min */
+	stage = STAGE_IDLE;
 	/* enter IDLE mode */
 	ok = gen_transact(sock, "IDLE");
 
@@ -580,37 +636,43 @@ static int imap_idle(int sock)
 	    SockWrite(sock, "DONE\r\n", 6);
 	    if (outlevel >= O_MONITOR)
 		report(stdout, "IMAP> DONE\n");
-	} else
-	    /* not idle timeout */
-	    return ok;
+	    /* reset stage and timeout here: we are not idling any more */
+	    mytimeout = saved_timeout;
+	    stage = STAGE_FETCH;
+	    /* get OK IDLE message */
+	    ok = imap_ok(sock, NULL);
+	}
     } else {  /* no idle support, fake it */
-	/* when faking an idle, we can't assume the server will
-	 * send us the new messages out of the blue (RFC2060);
-	 * this timeout is potentially the delay before we notice
-	 * new mail (can be small since NOOP checking is cheap) */
-	mytimeout = 28;
+	/* Note: stage and timeout have not been changed here as NOOP
+	 * does not idle */
 	ok = gen_transact(sock, "NOOP");
-	/* if there's an error (not likely) or we just found mail (stage 
-	 * has changed, timeout has also been restored), we're done */
-	if (ok != 0 || stage != STAGE_IDLE)
-	    return(ok);
 
-	/* wait (briefly) for an unsolicited status update */
-	ok = imap_ok(sock, NULL);
-	/* again, this is new mail or an error */
-	if (ok != PS_IDLETIMEOUT)
-	    return(ok);
+	/* no error, but no new mail either */
+	if (ok == PS_SUCCESS && recentcount == 0)
+	{
+	    /* There are some servers who do send new mail
+	     * notification out of the blue. This is in compliance
+	     * with RFC 2060 section 5.3. Wait for that with a low
+	     * timeout */
+	    mytimeout = 28;
+	    stage = STAGE_IDLE;
+	    /* We are waiting for notification; no tag needed */
+	    tag[0] = '\0';
+	    /* wait (briefly) for an unsolicited status update */
+	    ok = imap_ok(sock, NULL);
+	    if (ok == PS_IDLETIMEOUT) {
+		/* no notification came; ok */
+		ok = PS_SUCCESS;
+	    }
+	}
     }
 
     /* restore normal timeout value */
+    set_timeout(0);
     mytimeout = saved_timeout;
     stage = STAGE_FETCH;
 
-    /* get OK IDLE message */
-    if (has_idle)
-        return imap_ok(sock, NULL);
-
-    return PS_SUCCESS;
+    return(ok);
 }
 
 static int imap_getrange(int sock, 
@@ -627,33 +689,14 @@ static int imap_getrange(int sock,
 
     if (pass > 1)
     {
-	/* 
-	 * We have to have an expunge here, otherwise the re-poll will
-	 * infinite-loop picking up un-expunged messages -- unless the
-	 * expunge period is one and we've been nuking each message 
-	 * just after deletion.
-	 */
-	ok = 0;
-	if (deletions) {
-	    ok = internal_expunge(sock);
-	    if (ok)
-	    {
-		report(stderr, GT_("expunge failed\n"));
-		return(ok);
-	    }
-	}
-
-	/*
+	/* deleted mails have already been expunged by
+	 * end_mailbox_poll().
+	 *
 	 * recentcount is already set here by the last imap command which
 	 * returned RECENT on detecting new mail. if recentcount is 0, wait
 	 * for new mail.
-	 */
-
-	/* some servers do not report RECENT after an EXPUNGE. this check
-	 * forces an incorrect recentcount to be ignored. */
-	if (recentcount > count)
-	    recentcount = 0;
-	/* this is a while loop because imap_idle() might return on other
+	 *
+	 * this is a while loop because imap_idle() might return on other
 	 * mailbox changes also */
 	while (recentcount == 0 && do_idle) {
 	    smtp_close(ctl, 1);
@@ -668,7 +711,9 @@ static int imap_getrange(int sock,
 	if (recentcount == 0)
 		count = 0;
 	if (outlevel >= O_DEBUG)
-	    report(stdout, GT_("%d messages waiting after re-poll\n"), count);
+	    report(stdout, ngettext("%d message waiting after re-poll\n",
+				    "%d messages waiting after re-poll\n",
+				    count), count);
     }
     else
     {
@@ -676,23 +721,20 @@ static int imap_getrange(int sock,
 	ok = gen_transact(sock, 
 			  check_only ? "EXAMINE \"%s\"" : "SELECT \"%s\"",
 			  folder ? folder : "INBOX");
+	/* imap_ok returns PS_LOCKBUSY for READ-ONLY folders,
+	 * which we can safely use in fetchall keep only */
+	if (ok == PS_LOCKBUSY && ctl->fetchall && ctl-> keep)
+	    ok = 0;
+
 	if (ok != 0)
 	{
 	    report(stderr, GT_("mailbox selection failed\n"));
 	    return(ok);
 	}
 	else if (outlevel >= O_DEBUG)
-	    report(stdout, GT_("%d messages waiting after first poll\n"), count);
-
-	/* no messages?  then we may need to idle until we get some */
-	while (count == 0 && do_idle) {
-	    ok = imap_idle(sock);
-	    if (ok)
-	    {
-		report(stderr, GT_("re-poll failed\n"));
-		return(ok);
-	    }
-	}
+	    report(stdout, ngettext("%d message waiting after first poll\n",
+				    "%d messages waiting after first poll\n",
+				    count), count);
 
 	/*
 	 * We should have an expunge here to
@@ -708,7 +750,26 @@ static int imap_getrange(int sock,
 		return(ok);
 	    }
 	    if (outlevel >= O_DEBUG)
-		report(stdout, GT_("%d messages waiting after expunge\n"), count);
+		report(stdout, ngettext("%d message waiting after expunge\n",
+					"%d messages waiting after expunge\n",
+					count), count);
+	}
+
+	if (count == 0 && do_idle)
+	{
+	    /* no messages?  then we may need to idle until we get some */
+	    while (count == 0) {
+		ok = imap_idle(sock);
+		if (ok)
+		{
+		    report(stderr, GT_("re-poll failed\n"));
+		    return(ok);
+		}
+	    }
+	    if (outlevel >= O_DEBUG)
+		report(stdout, ngettext("%d message waiting after re-poll\n",
+					"%d messages waiting after re-poll\n",
+					count), count);
 	}
     }
 
@@ -721,7 +782,7 @@ static int imap_getrange(int sock,
     {
 	if (unseen_messages)
 	    free(unseen_messages);
-	unseen_messages = xmalloc(count * sizeof(unsigned int));
+	unseen_messages = (unsigned int *)xmalloc(count * sizeof(unsigned int));
 	memset(unseen_messages, 0, count * sizeof(unsigned int));
 	unseen = 0;
 
@@ -747,21 +808,19 @@ static int imap_getrange(int sock,
 		while (*cp && unseen < count)
 		{
 		    /* skip whitespace */
-		    while (*cp && isspace(*cp))
+		    while (*cp && isspace((unsigned char)*cp))
 			cp++;
 		    if (*cp) 
 		    {
-			unsigned int um;
-			/*
-			 * Message numbers are between 1 and 2^32 inclusive,
-			 * so unsigned int is large enough.
-			 */
-			um=(unsigned int)strtol(cp,&ep,10);
-			if (um <= count)
+			unsigned long um;
+
+			errno = 0;
+			um = strtoul(cp,&ep,10);
+			if (errno == 0 && um <= UINT_MAX && um <= (unsigned)count)
 			{
 			    unseen_messages[unseen++] = um;
 			    if (outlevel >= O_DEBUG)
-				report(stdout, GT_("%u is unseen\n"), um);
+				report(stdout, GT_("%lu is unseen\n"), um);
 			    if (startcount > um)
 				startcount = um;
 			}
@@ -778,7 +837,6 @@ static int imap_getrange(int sock,
 	unseen = -1;
 
     *newp = unseen;
-    count = 0;
     expunged = 0;
     deletions = 0;
 
@@ -837,26 +895,35 @@ static int imap_getpartialsizes(int sock, int first, int last, int *sizes)
 	return(PS_SUCCESS);
     for (;;)
     {
-	unsigned int num, size;
-	int ok;
+	unsigned int size;
+	int ok, num;
 	char *cp;
 
 	if ((ok = gen_recv(sock, buf, sizeof(buf))))
 	    return(ok);
 	/* we want response matching to be case-insensitive */
 	for (cp = buf; *cp; cp++)
-	    *cp = toupper(*cp);
+	    *cp = toupper((unsigned char)*cp);
 	/* an untagged NO means that a message was not readable */
 	if (strstr(buf, "* NO"))
 	    ;
 	else if (strstr(buf, "OK") || strstr(buf, "NO"))
 	    break;
-	else if (sscanf(buf, "* %u FETCH (RFC822.SIZE %u)", &num, &size) == 2) 
+	else if (sscanf(buf, "* %d FETCH (RFC822.SIZE %u)", &num, &size) == 2
+	/* some servers (like mail.internode.on.net bld-mail04) return UID information here
+	 *
+	 * IMAP> A0005 FETCH 1 RFC822.SIZE
+	 * IMAP< * 1 FETCH (UID 16 RFC822.SIZE 1447)
+	 * IMAP< A0005 OK FETCH completed
+	 *
+	 */
+		|| sscanf(buf, "* %d FETCH (UID %*s RFC822.SIZE %u)", &num, &size) == 2)
 	{
 	    if (num >= first && num <= last)
-	        sizes[num - first] = size;
+		sizes[num - first] = size;
 	    else
-		report(stderr, "Warning: ignoring bogus data for message sizes returned by the server.\n");
+		report(stderr,
+			GT_("Warning: ignoring bogus data for message sizes returned by the server.\n"));
 	}
     }
 
@@ -875,6 +942,8 @@ static int imap_is_old(int sock, struct query *ctl, int number)
     flag seen = TRUE;
     int i;
 
+    (void)sock;
+    (void)ctl;
     /* 
      * Expunges change the fetch numbers, but unseen_messages contains
      * indices from before any expungees were done.  So neither the
@@ -883,7 +952,7 @@ static int imap_is_old(int sock, struct query *ctl, int number)
 
     seen = TRUE;
     for (i = 0; i < unseen; i++)
-	if (unseen_messages[i] == number)
+	if (unseen_messages[i] == (unsigned)number)
 	{
 	    seen = FALSE;
 	    break;
@@ -894,9 +963,9 @@ static int imap_is_old(int sock, struct query *ctl, int number)
 
 static char *skip_token(char *ptr)
 {
-    while(isspace(*ptr)) ptr++;
-    while(!isspace(*ptr) && !iscntrl(*ptr)) ptr++;
-    while(isspace(*ptr)) ptr++;
+    while(isspace((unsigned char)*ptr)) ptr++;
+    while(!isspace((unsigned char)*ptr) && !iscntrl((unsigned char)*ptr)) ptr++;
+    while(isspace((unsigned char)*ptr)) ptr++;
     return(ptr);
 }
 
@@ -906,6 +975,7 @@ static int imap_fetch_headers(int sock, struct query *ctl,int number,int *lenp)
     char buf [MSGBUFSIZE+1];
     int	num;
 
+    (void)ctl;
     /* expunges change the fetch numbers */
     number -= expunged;
 
@@ -924,8 +994,18 @@ static int imap_fetch_headers(int sock, struct query *ctl,int number,int *lenp)
 	if ((ok = gen_recv(sock, buf, sizeof(buf))))
 	    return(ok);
  	ptr = skip_token(buf);	/* either "* " or "AXXXX " */
- 	if (sscanf(ptr, "%d FETCH (%*s {%d}", &num, lenp) == 2)
-  	    break;
+	if (sscanf(ptr, "%d FETCH (RFC822.HEADER {%d}", &num, lenp) == 2
+	/* some servers (like mail.internode.on.net bld-mail04) return UID information here
+	 *
+	 * IMAP> A0006 FETCH 1 RFC822.HEADER
+	 * IMAP< * 1 FETCH (UID 16 RFC822.HEADER {1360}
+	 * ...
+	 * IMAP< )
+	 * IMAP< A0006 OK FETCH completed
+	 *
+	 */
+		|| sscanf(ptr, "%d FETCH (UID %*s RFC822.HEADER {%d}", &num, lenp) == 2)
+	    break;
 	/* try to recover from chronically fucked-up M$ Exchange servers */
  	else if (!strncmp(ptr, "NO", 2))
 	{
@@ -955,6 +1035,7 @@ static int imap_fetch_body(int sock, struct query *ctl, int number, int *lenp)
     char buf [MSGBUFSIZE+1], *cp;
     int	num;
 
+    (void)ctl;
     /* expunges change the fetch numbers */
     number -= expunged;
 
@@ -1014,7 +1095,7 @@ static int imap_fetch_body(int sock, struct query *ctl, int number, int *lenp)
     if ((cp = strchr(buf, '{'))) {
         errno = 0;
 	*lenp = (int)strtol(cp + 1, (char **)NULL, 10);
-        if (errno == ERANGE && (*lenp == LONG_MAX || *lenp == LONG_MIN))
+        if (errno == ERANGE || *lenp < 0)
             *lenp = -1;    /* length is too big/small for us to handle */
     }
     else
@@ -1023,23 +1104,28 @@ static int imap_fetch_body(int sock, struct query *ctl, int number, int *lenp)
     return(PS_SUCCESS);
 }
 
-static int imap_trail(int sock, struct query *ctl, int number)
+static int imap_trail(int sock, struct query *ctl, const char *tag)
 /* discard tail of FETCH response after reading message text */
 {
     /* expunges change the fetch numbers */
     /* number -= expunged; */
 
+    (void)ctl;
     for (;;)
     {
-	char buf[MSGBUFSIZE+1];
+	char buf[MSGBUFSIZE+1], *t;
 	int ok;
 
 	if ((ok = gen_recv(sock, buf, sizeof(buf))))
 	    return(ok);
 
 	/* UW IMAP returns "OK FETCH", Cyrus returns "OK Completed" */
-	if (strstr(buf, "OK"))
-	    break;
+	if (strncmp(buf, tag, strlen(tag)) == 0) {
+	    t = buf + strlen(tag);
+	    t += strspn(t, " \t");
+	    if (strncmp(t, "OK", 2) == 0)
+		break;
+	}
     }
 
     return(PS_SUCCESS);
@@ -1050,6 +1136,7 @@ static int imap_delete(int sock, struct query *ctl, int number)
 {
     int	ok;
 
+    (void)ctl;
     /* expunges change the fetch numbers */
     number -= expunged;
 
@@ -1079,7 +1166,10 @@ static int imap_delete(int sock, struct query *ctl, int number)
      * the next session.
      */
     if (NUM_NONZERO(expunge_period) && (deletions % expunge_period) == 0)
-	internal_expunge(sock);
+    {
+	if ((ok = internal_expunge(sock)))
+	    return(ok);
+    }
 
     return(PS_SUCCESS);
 }
@@ -1087,6 +1177,7 @@ static int imap_delete(int sock, struct query *ctl, int number)
 static int imap_mark_seen(int sock, struct query *ctl, int number)
 /* mark the given message as seen */
 {
+    (void)ctl;
     return(gen_transact(sock,
 	imap_version == IMAP4
 	? "STORE %d +FLAGS.SILENT (\\Seen)"
@@ -1094,9 +1185,19 @@ static int imap_mark_seen(int sock, struct query *ctl, int number)
 	number));
 }
 
+static int imap_end_mailbox_poll(int sock, struct query *ctl)
+/* cleanup mailbox before we idle or switch to another one */
+{
+    (void)ctl;
+    if (deletions)
+	internal_expunge(sock);
+    return(PS_SUCCESS);
+}
+
 static int imap_logout(int sock, struct query *ctl)
 /* send logout command */
 {
+    (void)ctl;
     /* if any un-expunged deletions remain, ship an expunge now */
     if (deletions)
 	internal_expunge(sock);
@@ -1110,16 +1211,11 @@ static int imap_logout(int sock, struct query *ctl)
     return(gen_transact(sock, "LOGOUT"));
 }
 
-const static struct method imap =
+static const struct method imap =
 {
     "IMAP",		/* Internet Message Access Protocol */
-#if INET6_ENABLE
     "imap",
     "imaps",
-#else /* INET6_ENABLE */
-    143,                /* standard IMAP2bis/IMAP4 port */
-    993,                /* ssl IMAP2bis/IMAP4 port */
-#endif /* INET6_ENABLE */
     TRUE,		/* this is a tagged protocol */
     FALSE,		/* no message delimiter */
     imap_ok,		/* parse command response */
@@ -1133,6 +1229,7 @@ const static struct method imap =
     imap_trail,		/* eat message trailer */
     imap_delete,	/* delete the message */
     imap_mark_seen,	/* how to mark a message as seen */
+    imap_end_mailbox_poll,	/* end-of-mailbox processing */
     imap_logout,	/* expunge and exit */
     TRUE,		/* yes, we can re-poll */
 };

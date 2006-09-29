@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: progressmeter.c,v 1.19 2004/02/05 15:33:33 markus Exp $");
+RCSID("$OpenBSD: progressmeter.c,v 1.24 2005/06/07 13:25:23 jaredy Exp $");
 
 #include "progressmeter.h"
 #include "atomicio.h"
@@ -42,21 +42,26 @@ static int can_output(void);
 static void format_size(char *, int, off_t);
 static void format_rate(char *, int, off_t);
 
+/* window resizing */
+static void sig_winch(int);
+static void setscreensize(void);
+
 /* updates the progressmeter to reflect the current state of the transfer */
 void refresh_progress_meter(void);
 
 /* signal handler for updating the progress meter */
 static void update_progress_meter(int);
 
-static time_t start; 		/* start progress */
-static time_t last_update; 	/* last progress update */
-static char *file; 		/* name of the file being transferred */
-static off_t end_pos; 		/* ending position of transfer */
-static off_t cur_pos; 		/* transfer position as of last refresh */
+static time_t start;		/* start progress */
+static time_t last_update;	/* last progress update */
+static char *file;		/* name of the file being transferred */
+static off_t end_pos;		/* ending position of transfer */
+static off_t cur_pos;		/* transfer position as of last refresh */
 static volatile off_t *counter;	/* progress counter */
-static long stalled; 		/* how long we have been stalled */
-static int bytes_per_second; 	/* current speed in bytes per second */
-static int win_size; 		/* terminal window size */
+static long stalled;		/* how long we have been stalled */
+static int bytes_per_second;	/* current speed in bytes per second */
+static int win_size;		/* terminal window size */
+static volatile sig_atomic_t win_resized; /* for window resizing */
 
 /* units for format_size */
 static const char unit[] = " KMGT";
@@ -147,6 +152,8 @@ refresh_progress_meter(void)
 		len = snprintf(buf, file_len + 1, "\r%s", file);
 		if (len < 0)
 			len = 0;
+		if (len >= file_len + 1)
+			len = file_len;
 		for (i = len;  i < file_len; i++ )
 			buf[i] = ' ';
 		buf[file_len] = '\0';
@@ -167,7 +174,7 @@ refresh_progress_meter(void)
 
 	/* bandwidth usage */
 	format_rate(buf + strlen(buf), win_size - strlen(buf),
-	    bytes_per_second);
+	    (off_t)bytes_per_second);
 	strlcat(buf, "/s ", win_size);
 
 	/* ETA */
@@ -215,6 +222,10 @@ update_progress_meter(int ignore)
 
 	save_errno = errno;
 
+	if (win_resized) {
+		setscreensize();
+		win_resized = 0;
+	}
 	if (can_output())
 		refresh_progress_meter();
 
@@ -224,32 +235,22 @@ update_progress_meter(int ignore)
 }
 
 void
-start_progress_meter(char *f, off_t filesize, off_t *stat)
+start_progress_meter(char *f, off_t filesize, off_t *ctr)
 {
-	struct winsize winsize;
-
 	start = last_update = time(NULL);
 	file = f;
 	end_pos = filesize;
 	cur_pos = 0;
-	counter = stat;
+	counter = ctr;
 	stalled = 0;
 	bytes_per_second = 0;
 
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize) != -1 &&
-	    winsize.ws_col != 0) {
-		if (winsize.ws_col > MAX_WINSIZE)
-			win_size = MAX_WINSIZE;
-		else
-			win_size = winsize.ws_col;
-	} else
-		win_size = DEFAULT_WINSIZE;
-	win_size += 1;					/* trailing \0 */
-
+	setscreensize();
 	if (can_output())
 		refresh_progress_meter();
 
 	signal(SIGALRM, update_progress_meter);
+	signal(SIGWINCH, sig_winch);
 	alarm(UPDATE_INTERVAL);
 }
 
@@ -266,4 +267,26 @@ stop_progress_meter(void)
 		refresh_progress_meter();
 
 	atomicio(vwrite, STDOUT_FILENO, "\n", 1);
+}
+
+static void
+sig_winch(int sig)
+{
+	win_resized = 1;
+}
+
+static void
+setscreensize(void)
+{
+	struct winsize winsize;
+
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &winsize) != -1 &&
+	    winsize.ws_col != 0) {
+		if (winsize.ws_col > MAX_WINSIZE)
+			win_size = MAX_WINSIZE;
+		else
+			win_size = winsize.ws_col;
+	} else
+		win_size = DEFAULT_WINSIZE;
+	win_size += 1;					/* trailing \0 */
 }

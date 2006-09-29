@@ -2,6 +2,28 @@ TODO:
 - Add -v description to checksyms.
 - The 4.4bsd a.out(5) man page is wrong for Rhapsody.
 
+Changes for the 5.22 release (the cctools-590.38.3 release):
+- Add a new -arch_blank option to lipo(1). Radar bug #4473483.
+
+Changes for the 5.22 release (the cctools-590.37.2 release):
+- Fix two typos in the ld(1) man page. Radar bug #4099445.
+
+Changes for the 5.22 release (the cctools-590.31.1 release):
+- Added support for the x86_64 architecture.  Radar bug #4345090.
+
+Changes for the 5.21 release (the cctools-590.37 release):
+- Added ld(1)'s -t option to the libtool(1) man page.  Radar bug #4213190.
+
+Changes for the 5.21 release (the cctools-590.32 release):
+- Updated the description of the -l flag on the ld(1) man page to include
+  the LD_LIBRARY_PATH environment variable.  Radar bug #4314159.
+
+Changes for the 5.21 release (the cctools-590.31 release):
+- Added the description for -no_uuid to the strip(1) man page.  Radar bug
+  #4415536.
+- Added the description for -no_uuid to the ld(1) man page and the -no_uuid to
+  the libtool(1) man page.  Radar bug #4415529.
+
 Changes for the 5.19 release (the cctools-590.12 release):
 - Added the description for -allow_stack_execute to the ld(1) man page and
   updated the -segprot description.  Radar bug #4281171.

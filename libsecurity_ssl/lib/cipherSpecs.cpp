@@ -27,6 +27,7 @@
 
 */
 
+#include "CipherSuite.h"
 #include "sslContext.h"
 #include "cryptType.h"
 #include "symCipher.h"
@@ -41,9 +42,10 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
 #define ENABLE_3DES		1		/* normally enabled */
-#define ENABLE_RC4		1		/* normally enabled, our first preference */
+#define ENABLE_RC4		1		/* normally enabled */
 #define ENABLE_DES		1		/* normally enabled */
 #define ENABLE_RC2		1		/* normally enabled */
+#define ENABLE_AES		1		/* normally enabled, our first preference */
 
 #define ENABLE_RSA_DES_SHA_NONEXPORT		ENABLE_DES	
 #define ENABLE_RSA_DES_MD5_NONEXPORT		ENABLE_DES
@@ -192,6 +194,39 @@ static const SSLSymmetricCipher SSLCipherRC2_128 = {
 
 #endif	/* ENABLE_RC2*/
 
+#if		ENABLE_AES
+
+static const SSLSymmetricCipher SSLCipherAES_128 = {
+    16,         /* Key size in bytes */
+    16,			/* Secret key size */
+    16,			/* IV size */
+    16,			/* Block size */
+    CSSM_ALGID_AES,
+    CSSM_ALGID_AES,
+    CSSM_ALGMODE_CBC_IV8,
+	CSSM_PADDING_NONE,
+    CDSASymmInit,
+    CDSASymmEncrypt,
+    CDSASymmDecrypt,
+    CDSASymmFinish
+};
+
+static const SSLSymmetricCipher SSLCipherAES_256 = {
+    32,         /* Key size in bytes */
+    32,			/* Secret key size */
+    16,			/* IV size - still 128 bits */
+    16,			/* Block size - still 128 bits */
+    CSSM_ALGID_AES,
+    CSSM_ALGID_AES,
+    CSSM_ALGMODE_CBC_IV8,
+	CSSM_PADDING_NONE,
+    CDSASymmInit,
+    CDSASymmEncrypt,
+    CDSASymmDecrypt,
+    CDSASymmFinish
+};
+
+#endif	/* ENABLE_AES */
 
 /* Even if we don't support NULL_WITH_NULL_NULL for transport, 
  * we need a reference for startup */
@@ -215,6 +250,15 @@ const SSLCipherSpec SSL_NULL_WITH_NULL_NULL_CipherSpec =
 static const SSLCipherSpec KnownCipherSpecs[] =
 {
 	/*** domestic only ***/
+	#if	ENABLE_AES
+	    {   
+	    	TLS_RSA_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
+	    },	
+	#endif	/* ENABLE_AES */
     #if	ENABLE_RSA_RC4_SHA_NONEXPORT
 	    {   
 	    	SSL_RSA_WITH_RC4_128_SHA, 
@@ -233,6 +277,15 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	&SSLCipherRC4_128 
 	    },
     #endif
+	#if	ENABLE_AES
+	    {   
+	    	TLS_RSA_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256 
+	    },	
+	#endif	/* ENABLE_AES */
 	#if	ENABLE_RSA_3DES_SHA
 	    {   
 	    	SSL_RSA_WITH_3DES_EDE_CBC_SHA, 
@@ -307,13 +360,50 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	&SSLCipherRC2_128 
 	    },
     #endif
-	    {   
-	    	SSL_RSA_WITH_NULL_MD5, 
-	    	Exportable, 
-	    	SSL_RSA, 
-	    	&HashHmacMD5, 
-	    	&SSLCipherNull 
+	#if ENABLE_AES
+		{   
+	    	TLS_DHE_DSS_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_DHE_DSS, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
 	    },
+	    {   
+	    	TLS_DHE_RSA_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_DHE_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
+	    },
+	    {   
+	    	TLS_DH_anon_WITH_AES_128_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_DH_anon, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_128 
+	    },
+		{   
+	    	TLS_DHE_DSS_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_DHE_DSS, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256
+	    },
+	    {   
+	    	TLS_DHE_RSA_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_DHE_RSA, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256 
+	    },
+	    {   
+	    	TLS_DH_anon_WITH_AES_256_CBC_SHA, 
+	    	NotExportable, 
+	    	SSL_DH_anon, 
+	    	&HashHmacSHA1, 
+	    	&SSLCipherAES_256 
+	    },
+	#endif
 	#if ENABLE_DH_EPHEM_RSA
 		{
 			SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
@@ -399,6 +489,14 @@ static const SSLCipherSpec KnownCipherSpecs[] =
 	    	&SSLCipherDES40_CBC 
 		},
 	#endif	/* APPLE_DH */
+		/* this one definitely goes last */
+	    {   
+	    	SSL_RSA_WITH_NULL_MD5, 
+	    	Exportable, 
+	    	SSL_RSA, 
+	    	&HashHmacMD5, 
+	    	&SSLCipherNull 
+	    },
 };
 
 static const unsigned CipherSpecCount = sizeof(KnownCipherSpecs) / sizeof(SSLCipherSpec);

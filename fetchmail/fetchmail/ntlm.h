@@ -1,9 +1,6 @@
 /* ntlm.h  -- interface declarations for SMB authentication code */
 
-typedef unsigned short uint16;
-typedef unsigned int   uint32;
-typedef unsigned char  uint8;
-
+#include "smbtypes.h"
 
 /* 
  * These structures are byte-order dependant, and should not

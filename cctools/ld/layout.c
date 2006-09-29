@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,9 +17,19 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#define __srr0 srr0
+#define __r1 r1
+#define __eip eip
+#define __esp esp
+#define __es es
+#define __ds ds
+#define __ss ss
+#define __cs cs
+
 #ifdef SHLIB
 #include "shlib.h"
 #endif /* SHLIB */
@@ -39,8 +49,8 @@
 #include <string.h>
 #include <sys/param.h>
 #include "stuff/openstep_mach.h"
-#include <mach-o/fat.h> 
-#include <mach-o/loader.h> 
+#include <mach-o/fat.h>
+#include <mach-o/loader.h>
 #import <mach/m68k/thread_status.h>
 #undef MACHINE_THREAD_STATE	/* need to undef these to avoid warnings */
 #undef MACHINE_THREAD_STATE_COUNT
@@ -63,6 +73,7 @@
 #include <streams/streams.h>
 #endif /* defined(RLD) && !defined(SA_RLD) &&
 	  !(defined(KLD) && defined(__STATIC__)) */
+
 #include "stuff/arch.h"
 #include "stuff/macosx_deployment_target.h"
 
@@ -80,6 +91,7 @@
 #include "sets.h"
 #include "mach-o/sarld.h"
 #include "indirect_sections.h"
+#include "uuid.h"
 
 #ifdef RLD
 __private_extern__ long RLD_DEBUG_OUTPUT_FILENAME_flag;
@@ -108,6 +120,11 @@ __private_extern__ struct hints_info output_hints_info = { { 0 } };
  * The output file's prebind_cksum load command.
  */
 __private_extern__ struct cksum_info output_cksum_info = { { 0 } };
+
+/*
+ * The output file's prebind_cksum load command.
+ */
+__private_extern__ struct uuid_info output_uuid_info = { 0 };
 
 /*
  * The output file's thread load command and the machine specific information
@@ -174,6 +191,7 @@ layout(void)
 	memset(&output_dysymtab_info, '\0', sizeof(struct dysymtab_info));
 	memset(&output_hints_info, '\0', sizeof(struct hints_info));
 	memset(&output_cksum_info, '\0', sizeof(struct cksum_info));
+	memset(&output_uuid_info, '\0', sizeof(struct uuid_info));
 	memset(&output_thread_info, '\0', sizeof(struct thread_info));
 	memset(&mc680x0, '\0', sizeof(struct m68k_thread_state_regs));
 	memset(&powerpc,     '\0', sizeof(ppc_thread_state_t));
@@ -218,7 +236,7 @@ layout(void)
 	 * be output for dyld. This is needed because the symbol needs to be
 	 * defined and set to a private extern so that file can be laid out
 	 * even though we don't know it's address at this point.
-	 */ 
+	 */
 	if(filetype == MH_EXECUTE ||
 	   filetype == MH_BUNDLE ||
 	   filetype == MH_DYLIB ||
@@ -245,6 +263,14 @@ layout(void)
 	if(debug & (1 << 21))
 	    print_merged_section_stats();
 #endif /* DEBUG */
+
+	/*
+	 * Segments with only debug sections do not appear in the output.
+	 * So before dead code stripping and laying out the segments and
+	 * sections for the output remove them from the merged segment and
+	 * merged sections list.
+	 */
+	remove_debug_segments();
 
 #ifndef RLD
 	/*
@@ -401,7 +427,7 @@ layout_rld_symfile(void)
 	output_symtab_info.symtab_command.strsize =
 	    round(merged_string_size + STRING_SIZE_OFFSET,
 		  sizeof(unsigned long));
-	output_symtab_info.output_strpad = 
+	output_symtab_info.output_strpad =
 	    output_symtab_info.symtab_command.strsize -
 	    (merged_string_size + STRING_SIZE_OFFSET);
 	output_symtab_info.output_merged_strsize = STRING_SIZE_OFFSET;
@@ -489,6 +515,7 @@ layout_segments(void)
 
 #ifdef RLD
 	memset(&object_segment, '\0', sizeof(struct merged_segment));
+	original_merged_segments = merged_segments;
 #endif /* RLD */
 
 	/*
@@ -499,9 +526,6 @@ layout_segments(void)
 	    object_segment.filename = outputfile;
 	    content = &(object_segment.content_sections);
 	    zerofill = &(object_segment.zerofill_sections);
-#ifdef RLD
-	    original_merged_segments = merged_segments;
-#endif /* RLD */
 	    p = &merged_segments;
 	    while(*p){
 		msg = *p;
@@ -590,7 +614,7 @@ layout_segments(void)
 			    /*
 			     * Only if the protection of the static is specified
 			     * to include execute permision do we also cause the
-			     * MH_ALLOW_STACK_EXECUTION bit to get set. 
+			     * MH_ALLOW_STACK_EXECUTION bit to get set.
 			     */
 			    if((stack_segment.sg.maxprot & VM_PROT_EXECUTE) ==
 			       VM_PROT_EXECUTE)
@@ -696,12 +720,12 @@ layout_segments(void)
 			linkedit_segment.sg.filesize += nreloc *
 						sizeof(struct relocation_info);
 		    if(output_for_dyld)
-			linkedit_segment.sg.filesize += 
+			linkedit_segment.sg.filesize +=
 			    (output_dysymtab_info.dysymtab_command.nlocrel +
 			     output_dysymtab_info.dysymtab_command.nextrel) *
 			    sizeof(struct relocation_info);
 		    if(filetype == MH_DYLIB)
-			linkedit_segment.sg.filesize += 
+			linkedit_segment.sg.filesize +=
 			    output_dysymtab_info.dysymtab_command.ntoc *
 				sizeof(struct dylib_table_of_contents) +
 			    output_dysymtab_info.dysymtab_command.nmodtab *
@@ -709,7 +733,7 @@ layout_segments(void)
 			    output_dysymtab_info.dysymtab_command.nextrefsyms *
 				sizeof(struct dylib_reference);
 		    if(nindirectsyms != 0)
-			linkedit_segment.sg.filesize += 
+			linkedit_segment.sg.filesize +=
 			    nindirectsyms * sizeof(unsigned long);
 		    if(strip_level != STRIP_ALL)
 			linkedit_segment.sg.filesize +=
@@ -728,7 +752,7 @@ layout_segments(void)
 		    if(output_for_dyld &&
 		       twolevel_namespace == TRUE &&
 		       twolevel_namespace_hints == TRUE)
-			linkedit_segment.sg.filesize += 
+			linkedit_segment.sg.filesize +=
 			    output_hints_info.twolevel_hints_command.nhints *
 			    sizeof(struct twolevel_hint);
 		    linkedit_segment.sg.vmsize =
@@ -851,7 +875,7 @@ layout_segments(void)
 	    if(msg->prot_set == FALSE){
 		/*
 		 * Only turn on execute protection if any of the sections in
-		 * the segment contain some instructions.  For pre-4.0 objects 
+		 * the segment contain some instructions.  For pre-4.0 objects
 		 * this is always in the (__TEXT,__text) section and is handled
 		 * above anyway.
 		 */
@@ -1032,7 +1056,7 @@ layout_segments(void)
 	    sizeofcmds += mdl->dl->cmdsize;
 	    ncmds++;
 	    /*
-	     * If -headerpad_max_install_names is specified make sure headerpad 
+	     * If -headerpad_max_install_names is specified make sure headerpad
 	     * is big enough to change all the install name of the dylibs in
 	     * the output to MAXPATHLEN.
 	     */
@@ -1102,7 +1126,7 @@ layout_segments(void)
 		      local_string_size +
 		      STRING_SIZE_OFFSET,
 		      sizeof(unsigned long));
-	    output_symtab_info.output_strpad = 
+	    output_symtab_info.output_strpad =
 		output_symtab_info.symtab_command.strsize -
 		(merged_string_size + local_string_size + STRING_SIZE_OFFSET);
 	    output_symtab_info.output_merged_strsize = STRING_SIZE_OFFSET;
@@ -1145,6 +1169,17 @@ layout_segments(void)
 	    ncmds++;
 	    sizeofcmds += output_cksum_info.prebind_cksum_command.cmdsize;
 	}
+	/*
+	 * Create the uuid load command.
+	 */
+	if(output_uuid_info.suppress != TRUE && output_uuid_info.emit == TRUE){
+	    output_uuid_info.uuid_command.cmd = LC_UUID;
+	    output_uuid_info.uuid_command.cmdsize = sizeof(struct uuid_command);
+	    uuid(&(output_uuid_info.uuid_command.uuid[0]));
+	    ncmds++;
+	    sizeofcmds += output_uuid_info.uuid_command.cmdsize;
+	}
+
 	/*
 	 * Create the thread command if this is filetype is to have one.
 	 */
@@ -1206,7 +1241,7 @@ layout_segments(void)
 		output_thread_info.flavor = HPPA_FRAME_THREAD_STATE;
 		output_thread_info.count = HPPA_FRAME_THREAD_STATE_COUNT;
 		output_thread_info.entry_point =
-				(int *)&(hppa_frame_state.ts_pcoq_front); 
+				(int *)&(hppa_frame_state.ts_pcoq_front);
 		output_thread_info.state = &hppa_frame_state;
 		output_thread_info.thread_command.cmdsize += sizeof(long) *
 					    HPPA_FRAME_THREAD_STATE_COUNT;
@@ -1216,7 +1251,7 @@ layout_segments(void)
 		    output_thread_info.second_count =
 						HPPA_INTEGER_THREAD_STATE_COUNT;
 		    output_thread_info.stack_pointer =
-					(int *)&(hppa_integer_state.ts_gr30); 
+					(int *)&(hppa_integer_state.ts_gr30);
 		    output_thread_info.second_state = &hppa_integer_state;
 		    output_thread_info.thread_command.cmdsize +=
 				sizeof(long) * HPPA_INTEGER_THREAD_STATE_COUNT +
@@ -1406,7 +1441,7 @@ layout_segments(void)
 	/*
 	 * For rld() the output format is MH_OBJECT and the contents of the
 	 * first segment (the entire vmsize not just the filesize), if it exists,
-	 * plus headers are allocated and the address the segment is linked to 
+	 * plus headers are allocated and the address the segment is linked to
 	 * is the address of this memory.
 	 */
 	output_size = 0;
@@ -1644,7 +1679,7 @@ layout_segments(void)
 	if(output_for_dyld){
 	    if(output_dysymtab_info.dysymtab_command.nlocrel != 0){
 		output_dysymtab_info.dysymtab_command.locreloff = offset;
-		offset += output_dysymtab_info.dysymtab_command.nlocrel * 
+		offset += output_dysymtab_info.dysymtab_command.nlocrel *
 			  sizeof(struct relocation_info);
 	    }
 	}
@@ -2133,16 +2168,16 @@ struct merged_segment *outputs_linkedit_segment)
 		    (unsigned int)(msg2->sg.vmsize), msg2->filename);
 	    if(prebind_allow_overlap == TRUE)
 		return;
-	    if(rc_trace_prebinding_disabled == TRUE)
-		print("[Logging for Build & Integration] prebinding disabled "
-		      "for %s because (%.16s segment (address = 0x%x size = "
-		      "0x%x) of %s overlaps with %.16s segment (address = 0x%x "
-		      "size = 0x%x) of %s\n", final_output != NULL ?
-		      final_output : outputfile, 
-		      msg1->sg.segname, (unsigned int)(msg1->sg.vmaddr),
-		      (unsigned int)(msg1->sg.vmsize), msg1->filename,
-		      msg2->sg.segname, (unsigned int)(msg2->sg.vmaddr),
-		      (unsigned int)(msg2->sg.vmsize), msg2->filename);
+	    if(ld_trace_prebinding_disabled == TRUE)
+	      ld_trace("[Logging for XBS] prebinding disabled "
+		       "for %s because (%.16s segment (address = 0x%x size = "
+		       "0x%x) of %s overlaps with %.16s segment (address = 0x%x "
+		       "size = 0x%x) of %s\n", final_output != NULL ?
+		       final_output : outputfile,
+		       msg1->sg.segname, (unsigned int)(msg1->sg.vmaddr),
+		       (unsigned int)(msg1->sg.vmsize), msg1->filename,
+		       msg2->sg.segname, (unsigned int)(msg2->sg.vmaddr),
+		       (unsigned int)(msg2->sg.vmsize), msg2->filename);
 	}
 	prebinding = FALSE;
 }
@@ -2372,7 +2407,7 @@ struct merged_section *ms)
 				k < object_file->section_maps[j].nfine_relocs;
 				k++){
 				print("  (input address 0x%08x) ",
-				      (unsigned int) 
+				      (unsigned int)
 				      (object_file->section_maps[j].s->addr +
 					fine_relocs[k].input_offset));
 				if((object_file->section_maps[j].s->flags &
@@ -2393,7 +2428,7 @@ struct merged_section *ms)
 					print("     0x%08x ",
 					      (unsigned int)(ms->s.addr +
 						fine_relocs[k].output_offset));
-				  
+
 				}
 				else if(dead_strip == TRUE &&
 				   fine_relocs[k].live == FALSE)

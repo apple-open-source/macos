@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #ifdef SHLIB
@@ -70,6 +70,11 @@
 #include "sections.h"
 #include "symbols.h"
 #include "sets.h"
+#include "layout.h"
+#ifndef KLD
+#include "debugcompunit.h"
+#include "debugline.h"
+#endif /* ! KLD */
 
 #ifndef RLD
 /* TRUE if -search_paths_first was specified */
@@ -79,6 +84,13 @@ __private_extern__ enum bool search_paths_first = FALSE;
    of them */
 __private_extern__ char **search_dirs = NULL;
 __private_extern__ unsigned long nsearch_dirs = 0;
+
+/*
+ * The user specified directories to search via the environment variable
+ * LD_LIBRARY_PATH.
+ */
+__private_extern__ char **ld_library_paths = NULL;
+__private_extern__ unsigned long nld_library_paths = 0;
 
 /* the standard directories to search for -lx names */
 __private_extern__ char *standard_dirs[] = {
@@ -114,7 +126,7 @@ __private_extern__ char *standard_framework_dirs[] = {
     NULL
 };
 
-/* the pointer to the head of the base object file's segments */
+/* The pointer to the head of the base object file's segments */
 __private_extern__ struct merged_segment *base_obj_segments = NULL;
 #endif /* !defined(RLD) */
 
@@ -223,7 +235,7 @@ static void pass1_object(
 #ifndef RLD
 static void load_init_dylib_module(
     struct dynamic_library *q);
-static enum bool setup_sub_images( 
+static enum bool setup_sub_images(
     struct dynamic_library *p);
 static void check_dylibs_for_definition(
     struct merged_symbol *merged_symbol,
@@ -259,6 +271,10 @@ static int ranlib_bsearch(
 static void check_cur_obj(
     enum bool dylib_only,
     enum bool bundle_loader);
+
+#ifndef KLD
+static void read_dwarf_info(void);
+#endif
 
 static void check_size_offset(
     unsigned long size,
@@ -306,7 +322,7 @@ static char *mkstr(
  * If the file is the object file for a the base of an incremental load then
  * base_name is TRUE and the pointer to the object_file structure for it,
  * base_obj, is set when it is allocated.
- * 
+ *
  * If the file turns out to be just a plain object then merge() is called to
  * merge its symbolic information and it will be unconditionally loaded.
  *
@@ -522,6 +538,14 @@ int *fd)
 	    free(*file_name);
 	}
 	if(*fd == -1){
+	    for(i = 0; i < nld_library_paths ; i++){
+		*file_name = mkstr(ld_library_paths[i], "/", base_name, NULL);
+		if((*fd = open(*file_name, O_RDONLY, 0)) != -1)
+		    break;
+		free(*file_name);
+	    }
+	}
+	if(*fd == -1){
 	    for(i = 0; standard_dirs[i] != NULL ; i++){
 		*file_name = mkstr(standard_dirs[i], base_name, NULL);
 		if((*fd = open(*file_name, O_RDONLY, 0)) != -1)
@@ -585,6 +609,12 @@ int *fd)
 	*fd = -1;
 	for(i = 0; i < nsearch_dirs ; i++){
 	    search_path_for_lname(search_dirs[i], lname_argument, file_name,fd);
+	    if(*fd != -1)
+		return;
+	}
+	for(i = 0; i < nld_library_paths ; i++){
+	    search_path_for_lname(ld_library_paths[i], lname_argument,
+				  file_name, fd);
 	    if(*fd != -1)
 		return;
 	}
@@ -844,7 +874,7 @@ enum bool force_weak)
 	fatal("-arch flag must be specified (fat file: %s does not contain the "
 	      "host architecture or just one architecture)", file_name);
 #endif /* !(defined(KLD) && defined(__STATIC__)) */
-	
+
 pass1_fat_return:
 	errors += previous_errors;
 #ifdef __LITTLE_ENDIAN__
@@ -984,7 +1014,7 @@ enum bool force_weak)
     struct merged_symbol *merged_symbol;
     enum bool member_loaded;
     enum byte_sex toc_byte_sex;
-    enum bool rc_trace_archive_printed;
+    enum bool ld_trace_archive_printed;
 
 #ifndef RLD
     unsigned long ar_size;
@@ -1009,7 +1039,7 @@ enum bool force_weak)
 	}
 #endif
 
-	rc_trace_archive_printed = FALSE;
+	ld_trace_archive_printed = FALSE;
 	if(check_archive_arch(file_name, file_addr, file_size) == FALSE)
 	    return;
 
@@ -1019,7 +1049,7 @@ enum bool force_weak)
 	    fatal("base file of incremental link (argument of -A): %s should't "
 		  "be an archive", file_name);
 	if(bundle_loader)
-	    fatal("-bundle_loader argument: %s should't be an archive", 
+	    fatal("-bundle_loader argument: %s should't be an archive",
 		  file_name);
 
 	/*
@@ -1050,16 +1080,16 @@ enum bool force_weak)
 		}
 		offset += round(symdef_length, sizeof(short));
 	    }
-	    if(rc_trace_archives == TRUE && rc_trace_archive_printed == FALSE){
+	    if(ld_trace_archives == TRUE && ld_trace_archive_printed == FALSE){
 		char resolvedname[MAXPATHLEN];
 		if(realpath(file_name, resolvedname) !=
 		   NULL)
-		    print("[Logging for Build & Integration] Used static "
-			  "archive: %s\n", resolvedname);
+		    ld_trace("[Logging for XBS] Used static "
+			     "archive: %s\n", resolvedname);
 		else
-		    print("[Logging for Build & Integration] Used static "
-			  "archive: %s\n", file_name);
-		rc_trace_archive_printed = TRUE;
+		    ld_trace("[Logging for XBS] Used static "
+			     "archive: %s\n", file_name);
+		ld_trace_archive_printed = TRUE;
 	    }
 	    while(offset < file_size){
 		if(offset + sizeof(struct ar_hdr) > file_size){
@@ -1307,11 +1337,6 @@ down:
 		  "ranlib(1) (can't load from it)", file_name);
 	    return;
 	}
-	if(stat_buf.st_mtime > strtol(symdef_ar_hdr->ar_date, NULL, 10)){
-	    error("table of contents for archive: %s is out of date; rerun "
-		  "ranlib(1) (can't load from it)", file_name);
-	    return;
-	}
 	symdef_length = strtol(symdef_ar_hdr->ar_size, NULL, 10) - ar_name_size;
 	/*
 	 * The contents of a __.SYMDEF file is begins with a word giving the
@@ -1443,17 +1468,17 @@ down:
 		    continue;
 		loaded_offsets[nloaded_offsets++] = ranlibs[i].ran_off;
 
-		if(rc_trace_archives == TRUE &&
-		   rc_trace_archive_printed == FALSE){
+		if(ld_trace_archives == TRUE &&
+		   ld_trace_archive_printed == FALSE){
 		    char resolvedname[MAXPATHLEN];
 		    if(realpath(file_name, resolvedname) !=
 		       NULL)
-			print("[Logging for Build & Integration] Used static "
-			      "archive: %s\n", resolvedname);
+			ld_trace("[Logging for XBS] Used static "
+				 "archive: %s\n", resolvedname);
 		    else
-			print("[Logging for Build & Integration] Used static "
-			      "archive: %s\n", file_name);
-		    rc_trace_archive_printed = TRUE;
+			ld_trace("[Logging for XBS] Used static "
+				 "archive: %s\n", file_name);
+		    ld_trace_archive_printed = TRUE;
 		}
 		/*
 		 * This is an objective-C symbol and the object file at this
@@ -1491,7 +1516,7 @@ down:
 		}
 		if(whyload){
 		    print_obj_name(cur_obj);
-		    print("loaded because of -ObjC flag to get symbol: %s\n", 
+		    print("loaded because of -ObjC flag to get symbol: %s\n",
 			  bsearch_strings + ranlibs[i].ran_un.ran_strx);
 		}
 		merge(FALSE, FALSE, force_weak);
@@ -1545,7 +1570,7 @@ down:
 
 	/*
 	 * Two possible algorithms are used to determine which members from the
-	 * archive are to be loaded.  The first is faster and requires the 
+	 * archive are to be loaded.  The first is faster and requires the
 	 * ranlib structures to be in sorted order (as produced by the ranlib(1)
 	 * -s option).  The only case this can't be done is when more than one
 	 * library member in the same archive defines the same symbol.  In this
@@ -1571,21 +1596,21 @@ down:
 		    delete_from_undefined_list(undefined->prev);
 		    continue;
 		}
-		ranlib = bsearch(undefined->merged_symbol->nlist.n_un.n_name, 
+		ranlib = bsearch(undefined->merged_symbol->nlist.n_un.n_name,
 			   ranlibs, nranlibs, sizeof(struct ranlib),
 			   (int (*)(const void *, const void *))ranlib_bsearch);
 		if(ranlib != NULL){
 
-		    if(rc_trace_archives == TRUE &&
-		       rc_trace_archive_printed == FALSE){
+		    if(ld_trace_archives == TRUE &&
+		       ld_trace_archive_printed == FALSE){
 			char resolvedname[MAXPATHLEN];
 			if(realpath(file_name, resolvedname) != NULL)
-			    print("[Logging for Build & Integration] Used "
-				  "static archive: %s\n", resolvedname);
+			    ld_trace("[Logging for XBS] Used "
+				     "static archive: %s\n", resolvedname);
 			else
-			    print("[Logging for Build & Integration] Used "
-				  "static archive: %s\n", file_name);
-			rc_trace_archive_printed = TRUE;
+			    ld_trace("[Logging for XBS] Used "
+				     "static archive: %s\n", file_name);
+			ld_trace_archive_printed = TRUE;
 		    }
 
 		    /* there is a member that defineds this symbol so load it */
@@ -1627,14 +1652,14 @@ down:
 		    }
 		    if(whyload){
 			print_obj_name(cur_obj);
-			print("loaded to resolve symbol: %s\n", 
+			print("loaded to resolve symbol: %s\n",
 			       undefined->merged_symbol->nlist.n_un.n_name);
 		    }
 
 		    merge(FALSE, FALSE, force_weak);
 
 		    /* make sure this symbol got defined */
-		    if(errors == 0 && 
+		    if(errors == 0 &&
 		       undefined->merged_symbol->nlist.n_type == (N_UNDF|N_EXT)
 		       && undefined->merged_symbol->nlist.n_value == 0){
 			error("malformed table of contents in library: %s "
@@ -1672,18 +1697,18 @@ down:
 			if(merged_symbol->nlist.n_type == (N_UNDF | N_EXT) &&
 			   merged_symbol->nlist.n_value == 0){
 
-			    if(rc_trace_archives == TRUE &&
-			       rc_trace_archive_printed == FALSE){
+			    if(ld_trace_archives == TRUE &&
+			       ld_trace_archive_printed == FALSE){
 				char resolvedname[MAXPATHLEN];
 				if(realpath(file_name, resolvedname) != NULL)
-				    print("[Logging for Build & Integration] "
-					  "Used static archive: %s\n",
-					  resolvedname);
+				    ld_trace("[Logging for XBS] "
+					     "Used static archive: %s\n",
+					     resolvedname);
 				else
-				    print("[Logging for Build & Integration] "
-					  "Used static archive: %s\n",
-					  file_name);
-				rc_trace_archive_printed = TRUE;
+				    ld_trace("[Logging for XBS] "
+					     "Used static archive: %s\n",
+					     file_name);
+				ld_trace_archive_printed = TRUE;
 			    }
 
 			    /*
@@ -1729,7 +1754,7 @@ down:
 			    }
 			    if(whyload){
 				print_obj_name(cur_obj);
-				print("loaded to resolve symbol: %s\n", 
+				print("loaded to resolve symbol: %s\n",
 				       merged_symbol->nlist.n_un.n_name);
 			    }
 
@@ -2072,7 +2097,7 @@ void)
 	 * The code in the following loop adds dynamic libraries to the search
 	 * list and this ordering matches the library search order dyld uses
 	 * for flat-level namespace images and lookups.
-	 * 
+	 *
 	 * But for two-level namespace lookups ld(1) and dyld lookup symbols in
 	 * all the sub_images of a dynamic library when it is encountered in the
 	 * search list.  So this can get different symbols in the flat and
@@ -2080,7 +2105,7 @@ void)
 	 * same symbol in a framework's sub-images.  Or if there are multiple
 	 * umbrella frameworks where their sub-frameworks have multiple
 	 * definitions of the same symbol.
-	 * 
+	 *
 	 * Also to record two-level namespace hints ld(1) must exactly match the
 	 * list of sub-images created for each library so it can assign the
 	 * sub-image indexes and then record them.
@@ -2111,13 +2136,13 @@ void)
 			warning("prebinding disabled because dependent "
 			    "library: %s can't be searched", p->dylib_file !=
 			    NULL ? p->file_name : p->dylib_name);
-			if(rc_trace_prebinding_disabled == TRUE)
-			    print("[Logging for Build & Integration] prebinding"
-				  " disabled for %s because dependent library: "
-				  "%s can't be searched\n", final_output !=
-				  NULL ? final_output : outputfile,
-				  p->dylib_file != NULL ? p->file_name :
-				  p->dylib_name);
+			if(ld_trace_prebinding_disabled == TRUE)
+			    ld_trace("[Logging for XBS] prebinding"
+				     " disabled for %s because dependent library: "
+				     "%s can't be searched\n", final_output !=
+				     NULL ? final_output : outputfile,
+				     p->dylib_file != NULL ? p->file_name :
+				     p->dylib_name);
 			prebinding = FALSE;
 		    }
 		    /* remove this dynamic library from the search list */
@@ -2145,12 +2170,12 @@ void)
 		    warning("prebinding disabled because dependent library: %s "
 			"is not prebound", p->dylib_file != NULL ?
 			p->file_name : p->dylib_name);
-		    if(rc_trace_prebinding_disabled == TRUE)
-			print("[Logging for Build & Integration] prebinding "
-			      "disabled for %s because dependent library: %s "
-			      "is not prebound\n", final_output != NULL ?
-			      final_output : outputfile, p->dylib_file !=
-			      NULL ? p->file_name : p->dylib_name);
+		    if(ld_trace_prebinding_disabled == TRUE)
+			ld_trace("[Logging for XBS] prebinding "
+				 "disabled for %s because dependent library: %s "
+				 "is not prebound\n", final_output != NULL ?
+				 final_output : outputfile, p->dylib_file !=
+				 NULL ? p->file_name : p->dylib_name);
 		    prebinding = FALSE;
 		}
 		lc = (struct load_command *)
@@ -2225,7 +2250,7 @@ void)
 	 * dependent_images set up set up the sub_images for any dynamic
 	 * library that does not have this set up yet.  Since sub_images
 	 * include sub_umbrellas and sub_librarys any dynamic library that
-	 * has sub_umbrellas or sub_librarys must have their sub_umbrella 
+	 * has sub_umbrellas or sub_librarys must have their sub_umbrella
 	 * and sub_librarys images set up first. To do this
 	 * setup_sub_images() will return FALSE for a dynamic library that
 	 * needed one of its sub_umbrellas or sub_libraries set up and we
@@ -2304,7 +2329,7 @@ void)
 						&is_framework, &has_suffix);
 			printf("      [%lu] %s\n", i, short_name != NULL ?
 			       short_name : dep->dylib_name);
-			
+
 		    }
 		    print("    nsub_images = %lu\n",p->nsub_images);
 		    for(i = 0; i < p->nsub_images; i++){
@@ -2313,7 +2338,7 @@ void)
 						&is_framework, &has_suffix);
 			printf("      [%lu] %s\n", i, short_name != NULL ?
 			       short_name : dep->dylib_name);
-			
+
 		    }
 		}
 		else
@@ -2323,7 +2348,7 @@ void)
 #endif /* DEBUG */
 
 	/*
-	 * When building for two-level-namespace, remove from the search path 
+	 * When building for two-level-namespace, remove from the search path
 	 * indirect libraries that cannot be encoded in a library ordinal.
 	 *
 	 * It is unclear what the reason for this part of the logic:
@@ -2473,17 +2498,17 @@ void)
 	    }
 	}
 #endif
-	if(rc_trace_dylibs == TRUE){
+	if(ld_trace_dylibs == TRUE){
 	    for(p = dynamic_libs; p != NULL; p = p->next){
 		if(p->type == DYLIB){
 		    char resolvedname[MAXPATHLEN];
 		    if(realpath(p->definition_obj->file_name, resolvedname) !=
 		       NULL)
-			print("[Logging for Build & Integration] Used dynamic "
-			      "library: %s\n", resolvedname);
+			ld_trace("[Logging for XBS] Used dynamic "
+				 "library: %s\n", resolvedname);
 		    else
-			print("[Logging for Build & Integration] Used dynamic "
-			      "library: %s\n", p->definition_obj->file_name);
+		        ld_trace("[Logging for XBS] Used dynamic "
+				 "library: %s\n", p->definition_obj->file_name);
 		}
 	    }
 	}
@@ -2573,7 +2598,7 @@ void)
 				1 << toc->module_index % 8;
 			if(whyload){
 			    print_obj_name(cur_obj);
-			    print("loaded to resolve symbol: %s ", 
+			    print("loaded to resolve symbol: %s ",
 			       undefined->merged_symbol->nlist.n_un.n_name);
 			    dep = undefined->merged_symbol->referencing_library;
 			    if(dep->umbrella_name != NULL)
@@ -2712,12 +2737,12 @@ undefined_twolevel_reference:
 				1 << toc->module_index % 8;
 			if(whyload){
 			    print_obj_name(cur_obj);
-			    print("loaded to resolve symbol: %s\n", 
+			    print("loaded to resolve symbol: %s\n",
 			       undefined->merged_symbol->nlist.n_un.n_name);
 			}
 			merge_dylib_module_symbols(q);
 			/* make sure this symbol got defined */
-			if(errors == 0 && 
+			if(errors == 0 &&
 			   undefined->merged_symbol->nlist.n_type ==
 			    (N_UNDF|N_EXT)
 			   && undefined->merged_symbol->nlist.n_value == 0){
@@ -2750,16 +2775,16 @@ undefined_twolevel_reference:
 				     (int (*)(const void *, const void *))
 					ranlib_bsearch);
 		    if(ranlib != NULL){
-			if(rc_trace_archives == TRUE &&
-			   p->rc_trace_archive_printed == FALSE){
+			if(ld_trace_archives == TRUE &&
+			   p->ld_trace_archive_printed == FALSE){
 			    char resolvedname[MAXPATHLEN];
 			    if(realpath(p->file_name, resolvedname) != NULL)
-				print("[Logging for Build & Integration] Used "
-				      "static archive: %s\n", resolvedname);
+				ld_trace("[Logging for XBS] Used "
+					 "static archive: %s\n", resolvedname);
 			    else
-				print("[Logging for Build & Integration] Used "
-				      "static archive: %s\n", p->file_name);
-			    p->rc_trace_archive_printed = TRUE;
+				ld_trace("[Logging for XBS] Used "
+					 "static archive: %s\n", p->file_name);
+			    p->ld_trace_archive_printed = TRUE;
 			}
 			/*
 			 * There is a member that defineds this symbol so
@@ -2800,14 +2825,14 @@ undefined_twolevel_reference:
 			}
 			if(whyload){
 			    print_obj_name(cur_obj);
-			    print("loaded to resolve symbol: %s\n", 
+			    print("loaded to resolve symbol: %s\n",
 				   undefined->merged_symbol->nlist.n_un.n_name);
 			}
 
 			merge(FALSE, FALSE, FALSE);
 
 			/* make sure this symbol got defined */
-			if(errors == 0 && 
+			if(errors == 0 &&
 			   undefined->merged_symbol->nlist.n_type ==
 			   (N_UNDF|N_EXT)
 			   && undefined->merged_symbol->nlist.n_value == 0){
@@ -2827,18 +2852,18 @@ undefined_twolevel_reference:
 			if(strcmp(undefined->merged_symbol->nlist.n_un.n_name,
 				  p->ranlib_strings +
 				  p->ranlibs[i].ran_un.ran_strx) == 0){
-			    if(rc_trace_archives == TRUE &&
-			       p->rc_trace_archive_printed == FALSE){
+			    if(ld_trace_archives == TRUE &&
+			       p->ld_trace_archive_printed == FALSE){
 				char resolvedname[MAXPATHLEN];
 				if(realpath(p->file_name, resolvedname) != NULL)
-				    print("[Logging for Build & Integration] "
-					  "Used static archive: %s\n",
-					  resolvedname);
+				    ld_trace("[Logging for XBS] "
+					     "Used static archive: %s\n",
+					     resolvedname);
 				else
-				    print("[Logging for Build & Integration] "
-					  "Used static archive: %s\n",
-					  p->file_name);
-				p->rc_trace_archive_printed = TRUE;
+				    ld_trace("[Logging for XBS] "
+					     "Used static archive: %s\n",
+					     p->file_name);
+				p->ld_trace_archive_printed = TRUE;
 			    }
 			    /*
 			     * There is a member that defineds this symbol so
@@ -2880,14 +2905,14 @@ undefined_twolevel_reference:
 			    }
 			    if(whyload){
 				print_obj_name(cur_obj);
-				print("loaded to resolve symbol: %s\n", 
+				print("loaded to resolve symbol: %s\n",
 				   undefined->merged_symbol->nlist.n_un.n_name);
 			    }
 
 			    merge(FALSE, FALSE, FALSE);
 
 			    /* make sure this symbol got defined */
-			    if(errors == 0 && 
+			    if(errors == 0 &&
 			       undefined->merged_symbol->nlist.n_type ==
 			       (N_UNDF|N_EXT)
 			       && undefined->merged_symbol->nlist.n_value == 0){
@@ -2924,14 +2949,14 @@ undefined_twolevel_reference:
 			cur_obj = p->definition_obj;
 			if(whyload){
 			    print_obj_name(cur_obj);
-			    print("loaded to resolve symbol: %s\n", 
+			    print("loaded to resolve symbol: %s\n",
 			       undefined->merged_symbol->nlist.n_un.n_name);
 			}
 
 			merge_bundle_loader_symbols(p);
 
 			/* make sure this symbol got defined */
-			if(errors == 0 && 
+			if(errors == 0 &&
 			   undefined->merged_symbol->nlist.n_type ==
 			    (N_UNDF|N_EXT)
 			   && undefined->merged_symbol->nlist.n_value == 0){
@@ -3106,12 +3131,12 @@ struct dynamic_library *q)
  * specified "primary" dynamic library.  If not all of its sub_umbrella's and
  * sub_librarys are set up then it will return FALSE and not set up the sub
  * images.  The caller will loop through all the libraries until all libraries
- * are setup.  This routine will return TRUE when it sets up the sub_images and 
+ * are setup.  This routine will return TRUE when it sets up the sub_images and
  * will also set the sub_images_setup field to TRUE in the specified library.
  */
-static       
-enum bool    
-setup_sub_images( 
+static
+enum bool
+setup_sub_images(
 struct dynamic_library *p)
 {
     unsigned long i, j, k, l, n, max_libraries;
@@ -3414,13 +3439,13 @@ enum bool twolevel_namespace_check)
 			 */
 			if(check_dylibs_for_reference(merged_symbol) == TRUE){
 			    if(printed_override == FALSE){
-				if(rc_trace_prebinding_disabled == TRUE)
-				    print("[Logging for Build & Integration] "
-					  "prebinding disabled for %s because "
-					  "of symbols overridden in dependent "
-					  "dynamic shared libraries\n",
-					  final_output != NULL ? final_output :
-					  outputfile);
+				if(ld_trace_prebinding_disabled == TRUE)
+				    ld_trace("[Logging for XBS] "
+					     "prebinding disabled for %s because "
+					     "of symbols overridden in dependent "
+					     "dynamic shared libraries\n",
+					     final_output != NULL ? final_output :
+					     outputfile);
 				warning("prebinding disabled because of symbols"
 				   " overridden in dependent dynamic shared "
 				   "libraries:");
@@ -3599,8 +3624,8 @@ struct dynamic_library *p)
 	    if(p->definition_obj->ar_hdr != NULL)
 		warning("using file: %s for reference to dynamic shared library"
 			" from: %s(%.*s) because no -dylib_file specified",
-			p->dylib_name, p->definition_obj->file_name, 
-			(int)p->definition_obj->ar_name_size, 
+			p->dylib_name, p->definition_obj->file_name,
+			(int)p->definition_obj->ar_name_size,
 			p->definition_obj->ar_name);
 
 	    else
@@ -3622,7 +3647,7 @@ struct dynamic_library *p)
 	    if(executable_path != NULL &&
 	       strncmp(p->dylib_name, "@executable_path",
                        sizeof("@executable_path") - 1) == 0){
-		file_name = mkstr(executable_path, 
+		file_name = mkstr(executable_path,
 				  p->dylib_name + sizeof("@executable_path") -1,
 				  NULL);
 	    }
@@ -3805,7 +3830,7 @@ struct dynamic_library *sub)
 			if(sub->umbrella_name != NULL &&
 			   strcmp((char *)usub + usub->sub_umbrella.offset,
 				  sub->umbrella_name) == 0){
-			    sub->definition_obj->library_ordinal = 
+			    sub->definition_obj->library_ordinal =
 				p->definition_obj->library_ordinal;
 			    set_isub_image(p, sub);
 			    return(TRUE);
@@ -3816,7 +3841,7 @@ struct dynamic_library *sub)
 			if(sub->library_name != NULL &&
 			   strcmp((char *)lsub + lsub->sub_library.offset,
 				  sub->library_name) == 0){
-			    sub->definition_obj->library_ordinal = 
+			    sub->definition_obj->library_ordinal =
 				p->definition_obj->library_ordinal;
 			    set_isub_image(p, sub);
 			    return(TRUE);
@@ -3870,7 +3895,7 @@ struct dynamic_library *sub)
  * libraries.  This returns a pointer to the dynamic_library struct for the
  * dylib_name specified in the dylib_command (or a new dynamic_library struct
  * for archive types).
- */ 
+ */
 __private_extern__
 struct dynamic_library *
 add_dynamic_lib(
@@ -3926,7 +3951,7 @@ struct object_file *definition_obj)
 	}
 	/*
 	 * If this library is not the lists of libraries or is an archive
-	 * library.  Create a new dynamic_library struct for it.  Add it to the 
+	 * library.  Create a new dynamic_library struct for it.  Add it to the
 	 * end of the list of specified libraries.  Then return a pointer new
 	 * dynamic_library struct.
 	 */
@@ -4093,6 +4118,12 @@ enum bool force_weak)
 #endif /* defined(RLD) */
 	}
 
+#ifndef KLD
+	/* read the DWARF information if any */
+	if(strip_level < STRIP_DEBUG)
+	  read_dwarf_info();
+#endif
+
 	/* merged it's sections */
 	merge_sections();
 	if(errors)
@@ -4112,10 +4143,10 @@ merge_return:
  * file and that all the offset and sizes in the headers are within the memory
  * the object file is mapped in.  This allows the rest of the code in the link
  * editor to use the offsets and sizes in the headers without bounds checking.
- * 
+ *
  * Since this is making a pass through the headers a number of things are filled
  * in in the object structrure for this object file including: the symtab field,
- * the dysymtab field, the section_maps and nsection_maps fields (this routine 
+ * the dysymtab field, the section_maps and nsection_maps fields (this routine
  * allocates the section_map structures and fills them in too), the fvmlib_
  * stuff field is set if any SG_FVMLIB segments or LC_LOADFVMLIB commands are
  * seen and the dylib_stuff field is set if the file is a MH_DYLIB or
@@ -4129,7 +4160,9 @@ enum bool dylib_only,
 enum bool bundle_loader)
 {
     unsigned long i, j, section_type;
+    uint32_t magic;
     struct mach_header *mh;
+    struct mach_header_64 *mh64;
     struct load_command l, *lc, *load_commands;
     struct segment_command *sg;
     struct section *s;
@@ -4146,6 +4179,7 @@ enum bool bundle_loader)
     struct sub_client_command *csub;
     struct twolevel_hints_command *hints;
     struct prebind_cksum_command *cs;
+    struct uuid_command *uuid;
     char *fvmlib_name, *dylib_name, *dylib_id_name, *dylinker_name,
 	 *umbrella_name, *sub_umbrella_name, *sub_library_name,*sub_client_name;
     cpu_subtype_t new_cpusubtype;
@@ -4169,18 +4203,57 @@ enum bool bundle_loader)
 			       "extends past the end of the file)");
 	    return;
 	}
-	mh = (struct mach_header *)cur_obj->obj_addr;
-	cur_obj->swapped = FALSE;
-	if(mh->magic == SWAP_LONG(MH_MAGIC)){
+
+	magic = *((uint32_t *)cur_obj->obj_addr);
+
+	if(magic ==  MH_MAGIC ||
+	   magic == SWAP_LONG(MH_MAGIC)){
+	  mh = (struct mach_header *)cur_obj->obj_addr;
+	  if(magic == MH_MAGIC){
+	    cur_obj->swapped = FALSE;
+	  }
+	  else{
 	    cur_obj->swapped = TRUE;
 	    swap_mach_header(mh, host_byte_sex);
+	  }
 	}
-	if(mh->magic != MH_MAGIC){
-	    if((mh->magic != MH_MAGIC_64 &&
-	        mh->magic != SWAP_LONG(MH_MAGIC_64)) ||
-	       no_arch_warnings != TRUE)
-		error_with_cur_obj("bad magic number (not a Mach-O file)");
-	    return;
+	else if(cur_obj->obj_size >= sizeof(struct mach_header_64) &&
+		(magic == MH_MAGIC_64 ||
+		 magic == SWAP_LONG(MH_MAGIC_64))){
+
+	  mh64 = (struct mach_header_64 *)cur_obj->obj_addr;
+	  if(magic == MH_MAGIC_64){
+	    cur_obj->swapped = FALSE;
+	  }
+	  else{
+	    cur_obj->swapped = TRUE;
+        swap_mach_header_64(mh64, host_byte_sex);
+	  }
+
+	  /* If no architecture has been explicitly given, and
+	   *  this is the first object seen, set up arch_flag
+	   *  without interrogating the object file further
+	   */
+	  if(!arch_flag.cputype) {
+		family_arch_flag = get_arch_family_from_cputype(mh64->cputype);
+		if(family_arch_flag == NULL){
+		    error_with_cur_obj("cputype (%d) unknown (file not loaded)",
+			 mh64->cputype);
+		    return;
+		}
+		arch_flag.cputype = mh64->cputype;
+		if(force_cpusubtype_ALL == TRUE)
+		    arch_flag.cpusubtype = family_arch_flag->cpusubtype;
+		else
+		    arch_flag.cpusubtype = mh64->cpusubtype;
+	  }
+
+	  return;
+	}
+	else{
+	  if(no_arch_warnings != TRUE)
+	    error_with_cur_obj("bad magic number (not a Mach-O file)");
+	  return;
 	}
 	if(mh->cputype != 0){
 	    if(target_byte_sex == UNKNOWN_BYTE_SEX){
@@ -4398,7 +4471,7 @@ enum bool bundle_loader)
 			       "be link edited again");
 	    return;
 	}
-	if((mh->flags & MH_DYLDLINK) != 0 && 
+	if((mh->flags & MH_DYLDLINK) != 0 &&
 	   (mh->filetype != MH_DYLIB &&
 	    mh->filetype != MH_DYLIB_STUB &&
 	    mh->filetype != MH_DYLINKER) &&
@@ -4553,6 +4626,13 @@ enum bool bundle_loader)
 			error_with_cur_obj("unknown flags (type) of section %lu"
 					   " (%.16s,%.16s) in load command %lu",
 					   j, s->segname, s->sectname, i);
+			return;
+		    }
+		    if((s->flags & S_ATTR_DEBUG) == S_ATTR_DEBUG &&
+		       section_type != S_REGULAR){
+			error_with_cur_obj("malformed object, debug section %lu"
+			    " (%.16s,%.16s) in load command %lu is not of type "
+			    "S_REGULAR\n", j, s->segname, s->sectname, i);
 			return;
 		    }
 		    if(dynamic == FALSE){
@@ -4787,7 +4867,7 @@ enum bool bundle_loader)
 		}
 		if(fl->fvmlib.name.offset >= fl->cmdsize){
 		    error_with_cur_obj("name.offset of load command %lu extends"
-				       " past the end of the load command", i); 
+				       " past the end of the load command", i);
 		    return;
 		}
 		fvmlib_name = (char *)fl + fl->fvmlib.name.offset;
@@ -4835,7 +4915,7 @@ enum bool bundle_loader)
 		}
 		if(dl->dylib.name.offset >= dl->cmdsize){
 		    error_with_cur_obj("name.offset of load command %lu extends"
-				       " past the end of the load command", i); 
+				       " past the end of the load command", i);
 		    return;
 		}
 		dylib_id_name = (char *)dl + dl->dylib.name.offset;
@@ -4858,7 +4938,7 @@ enum bool bundle_loader)
 		    error_with_cur_obj("%s load command in object "
 			"file (should not be in an input file to the link "
 			"editor for the output file type %s)",
-			l.cmd == LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" : 
+			l.cmd == LC_LOAD_DYLIB ? "LC_LOAD_DYLIB" :
 			"LC_LOAD_WEAK_DYLIB",
 			filetype == MH_FVMLIB ? "MH_FVMLIB" : "MH_DYLINKER");
 		    return;
@@ -4874,7 +4954,7 @@ enum bool bundle_loader)
 		}
 		if(dl->dylib.name.offset >= dl->cmdsize){
 		    error_with_cur_obj("name.offset of load command %lu extends"
-				       " past the end of the load command", i); 
+				       " past the end of the load command", i);
 		    return;
 		}
 		dylib_name = (char *)dl + dl->dylib.name.offset;
@@ -4923,7 +5003,7 @@ enum bool bundle_loader)
 		}
 		if(sub->umbrella.offset >= sub->cmdsize){
 		    error_with_cur_obj("umbrella.offset of load command %lu "
-				"extends past the end of the load command", i); 
+				"extends past the end of the load command", i);
 		    return;
 		}
 		umbrella_name = (char *)sub + sub->umbrella.offset;
@@ -4963,7 +5043,7 @@ enum bool bundle_loader)
 		}
 		if(usub->sub_umbrella.offset >= usub->cmdsize){
 		    error_with_cur_obj("sub_umbrella.offset of load command "
-			"%lu extends past the end of the load command", i); 
+			"%lu extends past the end of the load command", i);
 		    return;
 		}
 		sub_umbrella_name = (char *)usub + usub->sub_umbrella.offset;
@@ -5003,7 +5083,7 @@ enum bool bundle_loader)
 		}
 		if(lsub->sub_library.offset >= lsub->cmdsize){
 		    error_with_cur_obj("sub_library.offset of load command "
-			"%lu extends past the end of the load command", i); 
+			"%lu extends past the end of the load command", i);
 		    return;
 		}
 		sub_library_name = (char *)lsub + lsub->sub_library.offset;
@@ -5043,7 +5123,7 @@ enum bool bundle_loader)
 		}
 		if(csub->client.offset >= csub->cmdsize){
 		    error_with_cur_obj("client.offset of load command %lu "
-				"extends past the end of the load command", i); 
+				"extends past the end of the load command", i);
 		    return;
 		}
 		sub_client_name = (char *)csub + csub->client.offset;
@@ -5090,7 +5170,7 @@ enum bool bundle_loader)
 		}
 		if(dyld->name.offset >= dyld->cmdsize){
 		    error_with_cur_obj("name.offset of load command %lu extends"
-				       " past the end of the load command", i); 
+				       " past the end of the load command", i);
 		    return;
 		}
 		dylinker_name = (char *)dyld + dyld->name.offset;
@@ -5127,7 +5207,7 @@ enum bool bundle_loader)
 		}
 		if(dyld->name.offset >= dyld->cmdsize){
 		    error_with_cur_obj("name.offset of load command %lu extends"
-				       " past the end of the load command", i); 
+				       " past the end of the load command", i);
 		    return;
 		}
 		dylinker_name = (char *)dyld + dyld->name.offset;
@@ -5171,6 +5251,24 @@ enum bool bundle_loader)
 		}
 		if(errors)
 		    return;
+		break;
+
+	    case LC_UUID:
+		uuid = (struct uuid_command *)lc;
+		if(cur_obj->swapped)
+		    swap_uuid_command(uuid, host_byte_sex);
+		if(uuid->cmdsize != sizeof(struct uuid_command)){
+		    error_with_cur_obj("cmdsize of load command %lu incorrect "
+				       "for LC_UUID", i);
+		    return;
+		}
+		if(errors)
+		    return;
+		/*
+		 * If we see an input file with an LC_UUID load command then
+		 * set up to emit one in the output.
+		 */
+		output_uuid_info.emit = TRUE;
 		break;
 
 	    /* all of these are not looked at so they are also not swapped */
@@ -5369,14 +5467,14 @@ enum bool bundle_loader)
 	 * if what we are building is not the umbrella framework for this
 	 * subframework or it is not a another subframework of the same
 	 * umbrella framework.
-	 * 
+	 *
 	 * The following error is a non-standard form but it is exactly what is
 	 * specified when this feature was added.
 	 */
 	if(indirect_dylib == FALSE && sub != NULL &&
 	   (umbrella_framework_name == NULL ||
 	    strcmp(umbrella_name, umbrella_framework_name) != 0)){
-	
+
 	    short_name = guess_short_name(dylib_id_name, &is_framework,
 					  &has_suffix);
 	    /*
@@ -5424,7 +5522,7 @@ enum bool bundle_loader)
  * to be correct in most cases (if they weren't the program would not be
  * executing).  If seg_linkedit is NULL it then the symbol and string table
  * passed in is used instead of seg_linkedit.
- * 
+ *
  * A hand crafted object structure is created so to work with the rest of the
  * code.  Like check_obj() a number of things are filled in in the object
  * structrure including: the symtab field, the section_maps and nsection_maps
@@ -5851,6 +5949,382 @@ char *filename)
 	msg->sg = *sg;
 	msg->filename = filename;
 }
+
+#ifndef KLD
+/*
+ * symbol_address_compare takes two pointers to pointers to symbol entries,
+ * and returns an ordering on them by address.  It also looks for STABS
+ * symbols and if found sets *(int *)fail_p.
+ */
+static int
+symbol_address_compare (void *fail_p, const void *a_p, const void *b_p)
+{
+  const struct nlist * const * aa = a_p;
+  const struct nlist * a = *aa;
+  const struct nlist * const * bb = b_p;
+  const struct nlist * b = *bb;
+
+  if (a->n_type & N_STAB)
+    *(int *)fail_p = 1;
+  if ((a->n_type & N_TYPE) != (b->n_type & N_TYPE))
+    return (a->n_type & N_TYPE) < (b->n_type & N_TYPE) ? -1 : 1;
+  if (a->n_value != b->n_value)
+    {
+      /* This is before the symbols are swapped, so this routine must
+	 swap what it needs.  */
+      if (cur_obj->swapped)
+	return SWAP_LONG (a->n_value) < SWAP_LONG (b->n_value) ? -1 : 1;
+      else
+	return a->n_value < b->n_value ? -1 : 1;
+    }
+
+  else
+    return 0;
+}
+
+/*
+ * read_dwarf_info looks for DWARF sections in cur_obj and if found,
+ * fills in the dwarf_name and dwarf_comp_dir fields in cur_obj.
+ *
+ * Once this routine has completed, no section marked with
+ * S_ATTR_DEBUG will be needed in the link, and so if the object file
+ * layout is appropriate those sections can be unmapped.
+ */
+static void
+read_dwarf_info(void)
+{
+  enum { chunksize = 256 };
+
+  struct ld_chunk {
+    struct ld_chunk * next;
+    size_t filedata[chunksize];
+  };
+
+  int little_endian;
+  struct section * debug_info = NULL;
+  struct section * debug_line = NULL;
+  struct section * debug_abbrev = NULL;
+
+  const char * name;
+  const char * comp_dir;
+  uint64_t stmt_list;
+  int has_stabs = FALSE;
+
+  struct line_reader_data * lrd;
+  /* 'st' is the symbol table, 'sst' is pointers into that table
+     sorted by the symbol's address.  */
+  struct nlist *st;
+  struct nlist **sst;
+
+  struct ld_chunk * chunks;
+  struct ld_chunk * lastchunk;
+  size_t * symdata;
+  size_t lastused;
+  size_t num_line_syms = 0;
+  size_t dwarf_source_i;
+  size_t max_files = 0;
+
+  struct line_info li_start, li_end;
+
+  size_t i;
+
+#if __LITTLE_ENDIAN__
+  little_endian = !cur_obj->swapped;
+#else
+  little_endian = cur_obj->swapped;
+#endif
+
+  /* Find the sections containing the DWARF information we need.  */
+  for (i = 0; i < cur_obj->nsection_maps; i++)
+    {
+      struct section * s = cur_obj->section_maps[i].s;
+
+      if (strncmp (s->segname, "__DWARF", 16) != 0)
+	continue;
+      if (strncmp (s->sectname, "__debug_info", 16) == 0)
+	debug_info = s;
+      else if (strncmp (s->sectname, "__debug_line", 16) == 0)
+	debug_line = s;
+      else if (strncmp (s->sectname, "__debug_abbrev", 16) == 0)
+	debug_abbrev = s;
+    }
+
+  /* No DWARF means nothing to do.
+     However, no line table may just mean that there's no code in this
+     file, in which case processing continues.  */
+  if (! debug_info || ! debug_abbrev || ! cur_obj->symtab
+      || debug_info->size == 0)
+    return;
+
+  /* Read the debug_info (and debug_abbrev) sections, and determine
+     the name and working directory to put in the SO stabs, and also
+     the offset into the line number section.  */
+  if (read_comp_unit ((const uint8_t *) cur_obj->obj_addr + debug_info->offset,
+		      debug_info->size,
+		      ((const uint8_t *)cur_obj->obj_addr
+		       + debug_abbrev->offset),
+		      debug_abbrev->size, little_endian,
+		      &name, &comp_dir, &stmt_list)
+      && name) {
+    cur_obj->dwarf_name = strdup (name);
+    if (comp_dir)
+      cur_obj->dwarf_comp_dir = strdup (comp_dir);
+    else
+      cur_obj->dwarf_comp_dir = NULL;
+  } else {
+    warning_with_cur_obj("could not understand DWARF debug information");
+    return;
+  }
+
+  /* If there is no line table, don't do any more processing.  No N_FUN
+     or N_SOL stabs will be output.  */
+  if (! debug_line || stmt_list == (uint64_t) -1)
+    return;
+
+  /* At this point check_symbol has not been called, so all the code below
+     that processes symbols must not assume that the symbol's contents
+     make any sense.  */
+
+  /* Generate the line number information into
+     cur_obj->dwarf_source_data.  The format of dwarf_source_data is a
+     sequence of size_t-sized words made up of subsequences.  Each
+     subsequence describes the source files which the debug_line information
+     says contributed to the code of the entity starting at a particular
+     symbol.
+
+     The subsequences are sorted by the index of the symbol to which they
+     refer.  The format of a subsequence is a word containing the index
+     of the symbol, a word giving the end of the entity starting with
+     that symbol, and then one or more words which are file numbers
+     with their high bit set.
+
+     A file number is simply an index into cur_obj->dwarf_paths; each
+     dwarf_paths entry is either NULL (if not used) or the path of the
+     source file.  */
+
+  st = (struct nlist *)(cur_obj->obj_addr + cur_obj->symtab->symoff);
+  /* The processing is easier if we have a list of symbols sorted by
+     address.  */
+  sst = allocate (sizeof (struct nlist *) * cur_obj->symtab->nsyms);
+  for (i = 0; i < cur_obj->symtab->nsyms; i++)
+    sst[i] = st + i;
+  qsort_r (sst, cur_obj->symtab->nsyms, sizeof (struct nlist *), &has_stabs,
+	   symbol_address_compare);
+  if (has_stabs) {
+    error_with_cur_obj("has both STABS and DWARF debugging info");
+    free (sst);
+    return;
+  }
+
+  if (stmt_list >= debug_line->size){
+    warning_with_cur_obj("offset in DWARF debug_info for line number data is too large");
+    free (sst);
+    return;
+  }
+
+  lrd = line_open ((const uint8_t *) cur_obj->obj_addr + debug_line->offset
+		   + stmt_list,
+		   debug_line->size - stmt_list, little_endian);
+  if (! lrd) {
+    warning_with_cur_obj("could not understand DWARF line number information");
+    free (sst);
+    return;
+  }
+
+  /* In this first pass, we process the symbols in address order and
+     put them into a linked list of chunks to avoid having to call
+     reallocate().  */
+  chunks = allocate (sizeof (*chunks));
+  chunks->next = NULL;
+  lastchunk = chunks;
+  lastused = 0;
+  /* There's also an index by symbol number so we can easily sort them
+     later.  */
+  symdata = allocate (sizeof (size_t) * cur_obj->symtab->nsyms);
+  memset (symdata, 0, sizeof (size_t) * cur_obj->symtab->nsyms);
+
+  li_start.end_of_sequence = TRUE;
+  for (i = 0; i < cur_obj->symtab->nsyms; i++){
+    struct nlist * s = sst[i];
+    size_t idx = s - st;
+    struct ld_chunk * symchunk;
+    size_t n_value = s->n_value;
+
+    size_t limit, max_limit;
+
+    if ((s->n_type & N_TYPE) != N_SECT
+	|| s->n_sect == NO_SECT)
+      continue;
+    /* Looking for line number information that isn't there is
+       expensive, so we only look for line numbers for symbols in
+       sections that might contain instructions.  */
+    if (! (cur_obj->section_maps[s->n_sect - 1].s->flags
+	   & (S_ATTR_SOME_INSTRUCTIONS | S_ATTR_PURE_INSTRUCTIONS)))
+      continue;
+
+    if (i + 1 < cur_obj->symtab->nsyms
+	&& (sst[i + 1]->n_type & N_TYPE) == N_SECT)
+      limit = sst[i + 1]->n_value;
+    else
+      limit = (uint32_t) -1;
+
+    if (cur_obj->swapped){
+      n_value = SWAP_LONG (n_value);
+      limit = SWAP_LONG (limit);
+    }
+
+    if (li_start.pc > n_value || li_end.pc <= n_value
+	|| li_start.end_of_sequence)
+      {
+	if (! line_find_addr (lrd, &li_start, &li_end, n_value)) {
+	  if (li_start.end_of_sequence)
+	    continue;
+	  else
+	    goto line_err;
+	}
+
+	/* Make the start...end range as large as possible.  */
+	if (li_start.file == li_end.file && ! li_end.end_of_sequence)
+	  if (! line_next (lrd, &li_end, line_stop_file))
+	    goto line_err;
+      }
+
+    symdata[idx] = lastused + 1;
+
+    symchunk = lastchunk;
+    num_line_syms++;
+
+    max_limit = 0;
+    for (;;)
+      {
+	size_t j;
+	struct ld_chunk * curchunk = symchunk;
+
+	/* File numbers this large are probably an error, and if not
+	   they're certainly too large for this linker to handle.  */
+	if (li_start.file >= 0x10000000)
+	  goto line_err;
+
+	if (li_end.pc > max_limit)
+	  max_limit = li_end.pc;
+
+	for (j = symdata[idx]; j < lastused; j++)
+	  {
+	    if (j % chunksize == 0)
+	      curchunk = curchunk->next;
+	    if (curchunk->filedata[j % chunksize] == li_start.file)
+	      goto skipfile;
+	  }
+	lastchunk->filedata[lastused % chunksize] = li_start.file;
+	lastused++;
+	if (li_start.file >= max_files)
+	  max_files = li_start.file + 1;
+	if (lastused % chunksize == 0)
+	  {
+	    lastchunk->next = allocate (sizeof (*chunks));
+	    lastchunk = lastchunk->next;
+	    lastchunk->next = NULL;
+	  }
+
+      skipfile:
+	if (li_end.pc >= limit || li_end.end_of_sequence)
+	  break;
+	li_start = li_end;
+	if (! line_next (lrd, &li_end, line_stop_file))
+	  goto line_err;
+      }
+
+    /* The function ends at either the next symbol, or after the last
+       byte which has a line number.  */
+    if (limit > max_limit)
+      limit = max_limit;
+
+    lastchunk->filedata[lastused % chunksize] = (size_t) -1;
+    lastused++;
+    if (lastused % chunksize == 0)
+      {
+	lastchunk->next = allocate (sizeof (*chunks));
+	lastchunk = lastchunk->next;
+	lastchunk->next = NULL;
+      }
+    lastchunk->filedata[lastused % chunksize] = limit - n_value;
+    lastused++;
+    if (lastused % chunksize == 0)
+      {
+	lastchunk->next = allocate (sizeof (*chunks));
+	lastchunk = lastchunk->next;
+	lastchunk->next = NULL;
+      }
+  }
+
+  free (sst);
+
+  /* Now take the data in the chunks out ordered by symbol index, so
+     the final result can be iterated through easily.  */
+
+  cur_obj->dwarf_paths = allocate (max_files * sizeof (const char *));
+  memset (cur_obj->dwarf_paths, 0, max_files * sizeof (const char *));
+  cur_obj->dwarf_num_paths = max_files;
+
+  cur_obj->dwarf_source_data = allocate ((lastused + num_line_syms*2 + 1)
+					 * sizeof (size_t));
+  dwarf_source_i = 0;
+  for (i = 0; i < cur_obj->symtab->nsyms; i++)
+    if (symdata[i]) {
+      struct ld_chunk * symchunk = chunks;
+      size_t j;
+      size_t * limit_space;
+
+      cur_obj->dwarf_source_data[dwarf_source_i++] = i;
+      limit_space = cur_obj->dwarf_source_data + dwarf_source_i++;
+      for (j = 0; j < (symdata[i] - 1) / chunksize; j++)
+	symchunk = symchunk->next;
+      for (j = symdata[i] - 1;
+	   symchunk->filedata[j % chunksize] != (size_t) -1;
+	   j++) {
+	size_t filenum = symchunk->filedata[j % chunksize];
+	cur_obj->dwarf_source_data[dwarf_source_i++] = filenum | 0x80000000;
+	if (! cur_obj->dwarf_paths[filenum])
+	  cur_obj->dwarf_paths[filenum] = line_file (lrd, filenum);
+	if (j % chunksize == chunksize - 1)
+	  symchunk = symchunk->next;
+      }
+      j++;
+      if (j % chunksize == 0)
+	symchunk = symchunk->next;
+      *limit_space = symchunk->filedata[j % chunksize];
+    }
+  /* Terminate with 0x7fffffff, which is larger than any valid symbol
+     index.  */
+  cur_obj->dwarf_source_data[dwarf_source_i++] = 0x7fffffff;
+
+  /* Finish up by freeing everything.  */
+  line_free (lrd);
+  free (symdata);
+  lastchunk = chunks;
+  while (lastchunk) {
+    struct ld_chunk * tmp = lastchunk->next;
+    free (lastchunk);
+    lastchunk = tmp;
+  };
+
+  return;
+
+ line_err:
+  line_free (lrd);
+  free (sst);
+  free (symdata);
+  lastchunk = chunks;
+  while (lastchunk) {
+    struct ld_chunk * tmp = lastchunk->next;
+    free (lastchunk);
+    lastchunk = tmp;
+  };
+
+  warning_with_cur_obj("invalid DWARF line number information");
+  return;
+}
+#endif
 
 /*
  * Mkstr() creates a string that is the concatenation of a variable number of

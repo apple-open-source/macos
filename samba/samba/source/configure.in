@@ -627,6 +627,22 @@ main() {
 	AC_DEFINE(DARWINOS,1,[Whether the host os is Darwin/MacOSX])
 	AC_DEFINE(STAT_ST_BLOCKSIZE,512)
 	AC_DEFINE(BROKEN_UNICODE_COMPOSE_CHARACTERS, 1, [Does this system use unicode compose characters])
+# CNR	
+# Do the check for pthread_setugid_np...
+#
+	AC_CHECK_HEADER([sys/kauth.h],[
+		AC_CACHE_CHECK([for pthread_setugid_np support],[samba_cv_WITH_PTHREAD_NP],[
+			AC_TRY_LINK([#include <unistd.h>], 
+				[int err; err = pthread_setugid_np(0, 0); return err;],
+				samba_cv_WITH_PTHREAD_NP=yes,samba_cv_WITH_PTHREAD_NP=no)])
+		if test x"$samba_cv_WITH_PTHREAD_NP" = x"yes"; then
+			CPPFLAGS="-DWITH_PTHREAD_NP $CPPFLAGS"
+			AC_DEFINE(WITH_PTHREAD_NP,1,[Whether PTHREAD_API is available])
+			AC_MSG_RESULT(WITH_PTHREAD_NP defined)
+		else
+			AC_MSG_RESULT(Cannot use pthread_setugid_np APIs)
+		fi
+	],[AC_MSG_RESULT([Cannot use pthread_setugid_np APIs])])
 # Add Fink directories for various packages, like dlcompat.
 # Note: iconv does that explicitly below, but other packages
 # don't.

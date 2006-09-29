@@ -19,6 +19,7 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#import "as.h"
 #import "relax.h"
 #import "struc-symbol.h"
 
@@ -70,6 +71,8 @@ typedef struct frag fragS;
  * frag_now->fr_fix + obstack_next_free(&frags) - frag_now->fr_literal.
  */
 extern fragS *frag_now;
+extern addressT frag_now_fix (void);
+extern addressT frag_now_fix_octets (void);
 
 /*
  * Frags ONLY live in this obstack.  We use obstack_next_free() macro 
@@ -80,6 +83,7 @@ extern struct obstack frags;
 /* For foreign-segment symbol fixups. */
 extern fragS zero_address_frag;
 
+void frag_grow (unsigned int nchars);
 extern void frag_new(
     int old_frags_var_max_size);
 extern char * frag_more(

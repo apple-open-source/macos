@@ -21,6 +21,9 @@
 #include <netinet/in.h>  /* for htonl/ntohl */
 
 #ifdef GSSAPI
+#  ifdef HAVE_GSS_H
+#    include <gss.h>
+#  else
 #  ifdef HAVE_GSSAPI_H
 #    include <gssapi.h>
 #  endif
@@ -33,12 +36,13 @@
 #  ifndef HAVE_GSS_C_NT_HOSTBASED_SERVICE
 #    define GSS_C_NT_HOSTBASED_SERVICE gss_nt_service_name
 #  endif
+#  endif
 
 #define GSSAUTH_P_NONE      1
 #define GSSAUTH_P_INTEGRITY 2
 #define GSSAUTH_P_PRIVACY   4
 
-int do_gssauth(int sock, char *command, char *hostname, char *username)
+int do_gssauth(int sock, char *command, char *service, char *hostname, char *username)
 {
     gss_buffer_desc request_buf, send_token;
     gss_buffer_t sec_token;
@@ -53,7 +57,7 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     int result;
 
     /* first things first: get an imap ticket for host */
-    sprintf(buf1, "imap@%s", hostname);
+    snprintf(buf1, sizeof(buf1), "%s@%s", service, hostname);
     request_buf.value = buf1;
     request_buf.length = strlen(buf1) + 1;
     maj_stat = gss_import_name(&min_stat, &request_buf, GSS_C_NT_HOSTBASED_SERVICE,
@@ -65,7 +69,8 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     else if (outlevel >= O_DEBUG) {
         maj_stat = gss_display_name(&min_stat, target_name, &request_buf,
             &mech_name);
-        report(stderr, GT_("Using service name [%s]\n"),request_buf.value);
+        report(stderr, GT_("Using service name [%s]\n"),
+	       (char *)request_buf.value);
         maj_stat = gss_release_buffer(&min_stat, &request_buf);
     }
 
@@ -73,9 +78,9 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
 
     /* upon receipt of the GSSAPI authentication request, server returns
      * null data ready response. */
-    if (result = gen_recv(sock, buf1, sizeof buf1)) {
-        return result;
-    }
+    result = gen_recv(sock, buf1, sizeof buf1);
+    if (result)
+	return result;
 
     /* now start the security context initialisation loop... */
     sec_token = GSS_C_NO_BUFFER;
@@ -98,29 +103,31 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
 					&send_token, 
 					NULL, 
 					NULL);
-        if (maj_stat!=GSS_S_COMPLETE && maj_stat!=GSS_S_CONTINUE_NEEDED) {
-            report(stderr, GT_("Error exchanging credentials\n"));
-            gss_release_name(&min_stat, &target_name);
-            /* wake up server and await NO response */
-            SockWrite(sock, "\r\n", 2);
-            if (result = gen_recv(sock, buf1, sizeof buf1))
-                return result;
-            return PS_AUTHFAIL;
-        }
-        to64frombits(buf1, send_token.value, send_token.length);
-        gss_release_buffer(&min_stat, &send_token);
+	if (maj_stat!=GSS_S_COMPLETE && maj_stat!=GSS_S_CONTINUE_NEEDED) {
+	    report(stderr, GT_("Error exchanging credentials\n"));
+	    gss_release_name(&min_stat, &target_name);
+	    /* wake up server and await NO response */
+	    SockWrite(sock, "\r\n", 2);
+	    result = gen_recv(sock, buf1, sizeof buf1);
+	    if (result)
+		return result;
+	    return PS_AUTHFAIL;
+	}
+	to64frombits(buf1, send_token.value, send_token.length);
+	gss_release_buffer(&min_stat, &send_token);
 
 	suppress_tags = TRUE;
 	gen_send(sock, buf1, strlen(buf1));
 	suppress_tags = FALSE;
 
         if (maj_stat == GSS_S_CONTINUE_NEEDED) {
-	    if (result = gen_recv(sock, buf1, sizeof buf1)) {
+	    result = gen_recv(sock, buf1, sizeof buf1);
+	    if (result) {
 	        gss_release_name(&min_stat, &target_name);
 	        return result;
 	    }
 	    request_buf.length = from64tobits(buf2, buf1 + 2, sizeof(buf2));
-	    if (request_buf.length == -1)	/* in case of bad data */
+	    if ((int)request_buf.length == -1)	/* in case of bad data */
 		request_buf.length = 0;
 	    request_buf.value = buf2;
 	    sec_token = &request_buf;
@@ -130,11 +137,12 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     gss_release_name(&min_stat, &target_name);
 
     /* get security flags and buffer size */
-    if (result = gen_recv(sock, buf1, sizeof buf1))
+    result = gen_recv(sock, buf1, sizeof buf1);
+    if (result)
         return result;
 
     request_buf.length = from64tobits(buf2, buf1 + 2, sizeof(buf2));
-    if (request_buf.length == -1)	/* in case of bad data */
+    if ((int)request_buf.length == -1)	/* in case of bad data */
 	request_buf.length = 0;
     request_buf.value = buf2;
 
@@ -170,7 +178,7 @@ int do_gssauth(int sock, char *command, char *hostname, char *username)
     buf_size = htonl(buf_size); /* do as they do... only matters if we do enc */
     memcpy(buf1, &buf_size, 4);
     buf1[0] = GSSAUTH_P_NONE;
-    strcpy(buf1+4, username); /* server decides if princ is user */
+    strlcpy(buf1+4, username, sizeof(buf1) - 4); /* server decides if princ is user */
     request_buf.length = 4 + strlen(username) + 1;
     request_buf.value = buf1;
     maj_stat = gss_wrap(&min_stat, context, 0, GSS_C_QOP_DEFAULT, &request_buf,

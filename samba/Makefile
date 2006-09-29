@@ -20,7 +20,7 @@ Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-sambabook="$(SHAREDIR)/swat/using_samba"		\
 			--with-configdir="/private/etc"				\
 			--with-privatedir="$(VARDIR)/db/samba"			\
-			--with-libdir="/usr/lib/samba"					\
+			--with-libdir="/usr/lib/samba"				\
 			--with-lockdir="$(VARDIR)/samba"			\
 			--with-logfilebase="$(LOGDIR)/samba"			\
 			--with-piddir="$(RUNDIR)"				\
@@ -30,11 +30,11 @@ Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-ldap						\
 			--with-spinlocks					\
 			--with-libiconv						\
-			--with-readline=no					\
+			--without-readline					\
 			--disable-shared					\
 			--without-libsmbclient					\
 			--with-winbind						\
-			--with-pam
+			--with-pam						
 
 Extra_Install_Flags   = SWATDIR="$(DSTROOT)$(SHAREDIR)/swat"			\
 			SAMBABOOK="$(DSTROOT)$(SHAREDIR)/swat/using_samba"	\

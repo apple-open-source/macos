@@ -1,0 +1,123 @@
+fetchmail-SA-2005-01: security announcement
+
+Topic:		remote code injection vulnerability in fetchmail
+
+Author:		Matthias Andree
+Version:	1.04
+Announced:	2005-07-21
+Type:		buffer overrun/stack corruption/code injection
+Impact:		account or system compromise possible through malicious
+		or compromised POP3 servers
+Danger:		high: in sensitive configurations, a full system
+		compromise is possible
+		(for 6.2.5.1: denial of service for the whole fetchmail
+		system is possible)
+CVE Name:	CVE-2005-2335
+URL:		http://fetchmail.berlios.de/fetchmail-SA-2005-01.txt
+		http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=212762
+		http://www.vuxml.org/freebsd/3497d7be-2fef-45f4-8162-9063751b573a.html
+		http://www.vuxml.org/freebsd/3f4ac724-fa8b-11d9-afcf-0060084a00e5.html
+		http://www.freebsd.org/cgi/query-pr.cgi?pr=83805
+		http://www.heise.de/security/news/meldung/62070
+Thanks:		Edward J. Shornock (located the bug in UIDL code)
+		Miloslav Trmac (pointed out 6.2.5.1 was faulty)
+		Ludwig Nussel (provided minimal correct fix)
+
+Affects:	fetchmail version 6.2.5.1 (denial of service)
+		fetchmail version 6.2.5 (code injection)
+		fetchmail version 6.2.0 (code injection)
+		(other versions have not been checked)
+
+Not affected:	fetchmail 6.2.5.2
+		fetchmail 6.2.5.4
+		fetchmail 6.3.0
+
+		Older versions may not have THIS bug, but had been found
+		to contain other security-relevant bugs.
+
+Corrected:	2005-07-22 01:37 UTC (SVN) - committed bugfix (r4157)
+		2005-07-22                   fetchmail-patch-6.2.5.2 released
+		2005-07-23                   fetchmail-6.2.5.2 tarball released
+		2005-11-13                   fetchmail-6.2.5.4 tarball released
+		2005-11-30                   fetchmail-6.3.0 tarball released
+
+0. Release history
+
+2005-07-20	1.00 - Initial announcement
+2005-07-22	1.01 - Withdrew 6.2.5.1 and 6.2.6-pre5, the fix was buggy
+		       and susceptible to denial of service through
+		       single-byte read from 0 when either a Message-ID:
+		       header was empty (in violation of RFC-822/2822)
+		       or the UIDL response did not contain an UID (in
+		       violation of RFC-1939).
+		     - Add Credits.
+		     - Add 6.2.5.1 failure details to sections 2 and 3
+		     - Revise section 5 and B.
+2005-07-26	1.02 - Revise section 0.
+		     - Add FreeBSD VuXML URL for 6.2.5.1.
+		     - Add heise security URL.
+		     - Mention release of 6.2.5.2 tarball.
+2005-10-27	1.03 - Update CVE Name after CVE naming change
+2005-12-08	1.04 - Mention 6.2.5.4 and 6.3.0 releases "not affected"
+		     - remove patch information
+
+1. Background
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+2. Problem description
+
+The POP3 code in fetchmail-6.2.5 and older that deals with UIDs (from
+the UIDL) reads the responses returned by the POP3 server into
+fixed-size buffers allocated on the stack, without limiting the input
+length to the buffer size. A compromised or malicious POP3 server can
+thus overrun fetchmail's stack.  This affects POP3 and all of its
+variants, for instance but not limited to APOP.
+
+In fetchmail-6.2.5.1, the attempted fix prevented code injection via
+POP3 UIDL, but introduced two possible NULL dereferences that can be
+exploited to mount a denial of service attack.
+
+3. Impact
+
+In fetchmail-6.2.5 and older, very long UIDs can cause fetchmail to
+crash, or potentially make it execute code placed on the stack. In some
+configurations, fetchmail is run by the root user to download mail for
+multiple accounts.
+
+In fetchmail-6.2.5.1, a server that responds with UID lines containing
+only the article number but no UID (in violation of RFC-1939), or a
+message without Message-ID when no UIDL support is available, can crash
+fetchmail.
+
+4. Workaround
+
+No reasonable workaround can be offered at this time.
+
+5. Solution
+
+Upgrade your fetchmail package to version 6.3.0 or newer.
+
+<http://developer.berlios.de/project/showfiles.php?group_id=1824>
+
+A. References
+
+fetchmail home page: <http://fetchmail.berlios.de/>
+
+B. Copyright, License and Warranty
+
+(C) Copyright 2005 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+END OF fetchmail-SA-2005-01.txt

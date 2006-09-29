@@ -29,6 +29,7 @@
  *   -info
  *   -detailed_info
  *   -arch <arch_type> <input_file>
+ *   -arch_blank <arch_type>
  *   -thin <arch_type>
  *   -extract <arch_type>
  *   -remove <arch_type>
@@ -103,7 +104,7 @@ static time_t output_timep[2] = { 0 };
 #endif
 static enum bool archives_in_input = FALSE;
 
-/* flags set from command line arguments to specifify the operation */
+/* flags set from command line arguments to specify the operation */
 static enum bool create_flag = FALSE;
 static enum bool info_flag = FALSE;
 static enum bool detailed_info_flag = FALSE;
@@ -135,6 +136,7 @@ struct segalign {
 static struct segalign *segaligns = NULL;
 static unsigned long nsegaligns = 0;
 
+static enum bool arch_blank_flag = FALSE;
 
 static struct fat_header fat_header = { 0 };
 
@@ -200,6 +202,8 @@ static void check_arch(
     struct thin_file *thin);
 static void usage(
     void);
+static struct thin_file* new_blank_dylib(
+    struct arch_flag arch);
 
 int
 main(
@@ -216,6 +220,7 @@ char *envp[])
     struct segalign *segalign;
     const struct arch_flag *arch_flags;
     enum bool found;
+    struct arch_flag blank_arch;
 
 	input = NULL;
 	/*
@@ -243,6 +248,22 @@ char *envp[])
 			}
 			input->name = argv[a+2];
 			a += 2;
+		    }
+		    else if(strcmp(p, "arch_blank") == 0){
+		    arch_blank_flag = TRUE;
+			if(a + 1 >= argc){
+			    error("missing argument(s) to %s option", argv[a]);
+			    usage();
+			}
+			if(get_arch_from_flag(argv[a+1], &blank_arch) == 0){
+			    error("unknown architecture specification flag: %s "
+				  "in specifying input file %s %s", argv[a+1],
+				  argv[a], argv[a+1]);
+			    arch_usage();
+			    usage();
+			}
+			new_blank_dylib(blank_arch);
+			a += 1;
 		    }
 		    else
 			goto unknown_flag;
@@ -442,6 +463,10 @@ unknown_flag:
 		  ", -remove <arch_type>, -replace <arch_type> <file_name>, "
 		  "-info or -detailed_info can be specified");
 	    usage();
+	}
+	if(arch_blank_flag == TRUE && create_flag == FALSE){
+		error("-arch_blank may only be used with -create");
+		usage();
 	}
 
 	/*
@@ -836,16 +861,6 @@ create_fat(void)
 	}
 	if(close(fd) == -1)
 	    system_fatal("can't close output file: %s", output_file);
-	if(archives_in_input == TRUE){
-	    if(utime(output_file,
-#ifndef __OPENSTEP__
-		     &output_timep) == -1)
-#else
-		     output_timep) == -1)
-#endif
-		system_fatal("can't set the modifiy times for output file: %s",
-			     output_file);
-	}
 }
 
 /*
@@ -1384,6 +1399,17 @@ enum bool swapped)
     struct section *sp, s;
     enum byte_sex host_byte_sex;
 
+	/*
+	 * Special case ppc, ppc64, i386 and x86_64 architectures and return 12.
+	 * We know that with those architectures that the kernel and mmap only
+	 * need file offsets to be page (4096 byte) aligned.
+	 */
+	if(mhp->cputype == CPU_TYPE_POWERPC ||
+	   mhp->cputype == CPU_TYPE_POWERPC64 ||
+	   mhp->cputype == CPU_TYPE_I386 ||
+	   mhp->cputype == CPU_TYPE_X86_64)
+	    return(12);
+
 	host_byte_sex = get_host_byte_sex();
 
 	/* set worst case the link editor uses first */
@@ -1461,6 +1487,17 @@ enum bool swapped)
     struct segment_command_64 *sgp, sg;
     struct section_64 *sp, s;
     enum byte_sex host_byte_sex;
+
+	/*
+	 * Special case ppc, ppc64, i386 and x86_64 architectures and return 12.
+	 * We know that with those architectures that the kernel and mmap only
+	 * need file offsets to be page (4096 byte) aligned.
+	 */
+	if(mhp64->cputype == CPU_TYPE_POWERPC ||
+	   mhp64->cputype == CPU_TYPE_POWERPC64 ||
+	   mhp64->cputype == CPU_TYPE_I386 ||
+	   mhp64->cputype == CPU_TYPE_X86_64)
+	    return(12);
 
 	host_byte_sex = get_host_byte_sex();
 
@@ -1673,6 +1710,15 @@ struct fat_arch *fat_arch)
 		goto print_arch_unknown;
 	    }
 	    break;
+	case CPU_TYPE_X86_64:
+	    switch(fat_arch->cpusubtype){
+	    case CPU_SUBTYPE_X86_64_ALL:
+		printf("x86_64");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
 	case CPU_TYPE_I860:
 	    switch(fat_arch->cpusubtype){
 	    case CPU_SUBTYPE_I860_ALL:
@@ -1876,6 +1922,16 @@ cpu_subtype_t cpusubtype)
 	    case CPU_SUBTYPE_PENTII_M5:
 		printf("    cputype CPU_TYPE_I386\n"
 		       "    cpusubtype CPU_SUBTYPE_PENTII_M5\n");
+		break;
+	    default:
+		goto print_arch_unknown;
+	    }
+	    break;
+	case CPU_TYPE_X86_64:
+	    switch(cpusubtype){
+	    case CPU_SUBTYPE_X86_64_ALL:
+		printf("    cputype CPU_TYPE_X86_64\n"
+		       "    cpusubtype CPU_SUBTYPE_X86_64_ALL\n");
 		break;
 	    default:
 		goto print_arch_unknown;
@@ -2119,6 +2175,80 @@ struct thin_file *thin)
 }
 
 /*
+ * Create a blank dylib.  This is a stub dylib with no load commands.
+ * It is 4096 bytes of zero except for the mach_header.
+ */
+static
+struct thin_file*
+new_blank_dylib(struct arch_flag arch)
+{
+	struct thin_file *file = new_thin();
+	struct mach_header *mh;
+	struct mach_header_64 *mh64;
+	file->name = "blank dylib";
+	file->addr = calloc(1, 4096);
+	file->fat_arch.cputype = 0;
+	file->fat_arch.cpusubtype = 0;
+	file->fat_arch.offset = 0;
+	file->fat_arch.size = 4096;
+	file->fat_arch.align = 12;
+    
+	switch(arch.cputype)
+	{
+		case CPU_TYPE_POWERPC:
+			file->fat_arch.cputype = CPU_TYPE_POWERPC;
+			file->fat_arch.cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
+			mh = (struct mach_header *) file->addr;
+			mh->magic = MH_MAGIC;
+			mh->cputype = CPU_TYPE_POWERPC;
+			mh->cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
+			mh->filetype = MH_DYLIB_STUB;
+#if __LITTLE_ENDIAN__
+			swap_mach_header(mh, get_host_byte_sex());
+#endif
+			break;
+		case CPU_TYPE_POWERPC64:
+			file->fat_arch.cputype = CPU_TYPE_POWERPC64;
+			file->fat_arch.cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
+			mh64 = (struct mach_header_64 *) file->addr;
+			mh64->magic = MH_MAGIC_64;
+			mh64->cputype = CPU_TYPE_POWERPC64;
+			mh64->cpusubtype = CPU_SUBTYPE_POWERPC_ALL;
+			mh64->filetype = MH_DYLIB_STUB;
+#if __LITTLE_ENDIAN__
+			swap_mach_header_64(mh64, get_host_byte_sex());
+#endif
+			break;
+		case CPU_TYPE_I386:
+			file->fat_arch.cputype = CPU_TYPE_I386;
+			file->fat_arch.cpusubtype = CPU_SUBTYPE_I386_ALL;
+			mh = (struct mach_header *) file->addr;
+			mh->magic = MH_MAGIC;
+			mh->cputype = CPU_TYPE_I386;
+			mh->cpusubtype = CPU_SUBTYPE_I386_ALL;
+			mh->filetype = MH_DYLIB_STUB;
+#if __BIG_ENDIAN__
+			swap_mach_header(mh, get_host_byte_sex());
+#endif
+			break;
+		case CPU_TYPE_X86_64:
+			file->fat_arch.cputype = CPU_TYPE_X86_64;
+			file->fat_arch.cpusubtype = CPU_SUBTYPE_X86_64_ALL;
+			mh64 = (struct mach_header_64 *) file->addr;
+			mh64->magic = MH_MAGIC_64;
+			mh64->cputype = CPU_TYPE_X86_64;
+			mh64->cpusubtype = CPU_SUBTYPE_X86_64_ALL;
+			mh64->filetype = MH_DYLIB_STUB;
+#if __BIG_ENDIAN__
+			swap_mach_header_64(mh64, get_host_byte_sex());
+#endif
+			break;
+	}
+	
+	return file;
+}
+
+/*
  * Print the current usage line and exit (by calling fatal).
  */
 static
@@ -2127,7 +2257,8 @@ usage(void)
 {
 	fatal("Usage: %s [input_file] ... [-arch <arch_type> input_file] ... "
 	      "[-info] [-detailed_info] [-output output_file] [-create] "
-	      "[-thin <arch_type>] [-remove <arch_type>] ... "
-	      "[-extract <arch_type>] ... [-extract_family <arch_type>] ..."
+	      "[-arch_blank <arch_type>] [-thin <arch_type>] "
+	      "[-remove <arch_type>] ... [-extract <arch_type>] ... "
+	      "[-extract_family <arch_type>] ..."
 	      "[-replace <arch_type> <file_name>] ...", progname);
 }

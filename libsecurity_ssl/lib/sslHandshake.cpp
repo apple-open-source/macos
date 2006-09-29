@@ -36,6 +36,7 @@
 #include "sslDebug.h"
 #include "appleCdsa.h"
 #include "sslDigests.h"
+#include "cipherSpecs.h"
 
 #include <string.h>
 #include <assert.h>
@@ -245,6 +246,45 @@ wrongMessage:
     return errSSLProtocol;
 }
 
+/*
+ * Given a server-side SSLContext that's fully restored for a resumed session,
+ * queue up the remaining outgoing messages to finish the handshake.
+ */
+static OSStatus
+SSLResumeServerSide(
+	SSLContext *ctx)
+{
+	OSStatus err;
+	if ((err = SSLPrepareAndQueueMessage(SSLEncodeServerHello, ctx)) != 0)
+		return err;
+	if ((err = SSLInitPendingCiphers(ctx)) != 0)
+	{   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
+		return err;
+	}
+	if ((err = SSLPrepareAndQueueMessage(SSLEncodeChangeCipherSpec,
+				ctx)) != 0)
+		return err;
+	/* Install new cipher spec on write side */
+	if ((err = SSLDisposeCipherSuite(&ctx->writeCipher, ctx)) != 0)
+	{   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
+		return err;
+	}
+	ctx->writeCipher = ctx->writePending;
+	ctx->writeCipher.ready = 0;     
+			/* Can't send data until Finished is sent */
+	memset(&ctx->writePending, 0, sizeof(CipherContext));       
+			/* Zero out old data */
+	if ((err = SSLPrepareAndQueueMessage(SSLEncodeFinishedMessage, 
+			ctx)) != 0)
+		return err;
+	/* Finished has been sent; enable data transfer on 
+	 * write channel */
+	ctx->writeCipher.ready = 1;
+	SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
+	return noErr;
+
+}
+
 OSStatus
 SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 {   OSStatus        err;
@@ -268,6 +308,37 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
         case SSL_HdskClientHello:
             assert(ctx->protocolSide == SSL_ServerSide);
 			ctx->sessionMatch = 0;
+			#if 	SSL_PAC_SERVER_ENABLE
+			if((ctx->sessionTicket.data != NULL) && 
+			   (ctx->masterSecretCallback != NULL)) {
+				/*
+				 * Client sent us a session ticket and we know how to ask 
+				 * the app for master secret. Go for it.
+				 */
+				size_t secretLen = SSL_MASTER_SECRET_SIZE;
+				sslEapDebug("Server side resuming based on masterSecretCallback");
+
+				/* the master secret callback requires serverRandom, now... */
+			    if ((err = SSLEncodeRandom(ctx->serverRandom, ctx)) != 0)
+       				 return err;
+				ctx->serverRandomValid = 1;
+				sslEapDebug("serverRandom[4..7] = 0x%x 0x%x 0x%x 0x%x",
+					ctx->serverRandom[4], ctx->serverRandom[5], 
+					ctx->serverRandom[6], ctx->serverRandom[7]);
+
+				ctx->masterSecretCallback(ctx, ctx->masterSecretArg,
+					ctx->masterSecret, &secretLen);
+				ctx->sessionMatch = 1;
+				/* set up selectedCipherSpec */
+				if ((err = FindCipherSpec(ctx)) != 0) {
+					return err;
+				}
+				/* queue up remaining messages to finish handshake */
+				if((err = SSLResumeServerSide(ctx)) != 0) 
+					return err;
+				break;
+			}
+			#endif	/* SSL_PAC_SERVER_ENABLE */
             if (ctx->sessionID.data != 0)   
 			/* If session ID != 0, client is trying to resume */
             {   if (ctx->resumableSession.data != 0)
@@ -293,36 +364,11 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                             return err;
                         }
 						ctx->sessionMatch = 1;
-                        if ((err = SSLPrepareAndQueueMessage(SSLEncodeServerHello, 
-									ctx)) != 0)
-                            return err;
-                        if ((err = SSLInitPendingCiphers(ctx)) != 0 ||
-                            (err = SSLFreeBuffer(sessionIdentifier, ctx)) != 0)
-                        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
-                            return err;
-                        }
-                        if ((err = 
-								SSLPrepareAndQueueMessage(SSLEncodeChangeCipherSpec,
-									ctx)) != 0)
-                            return err;
-                        /* Install new cipher spec on write side */
-                        if ((err = SSLDisposeCipherSuite(&ctx->writeCipher, 
-								ctx)) != 0)
-                        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
-                            return err;
-                        }
-                        ctx->writeCipher = ctx->writePending;
-                        ctx->writeCipher.ready = 0;     
-								/* Can't send data until Finished is sent */
-                        memset(&ctx->writePending, 0, sizeof(CipherContext));       
-								/* Zero out old data */
-                        if ((err = SSLPrepareAndQueueMessage(SSLEncodeFinishedMessage, 
-								ctx)) != 0)
-                            return err;
-                        /* Finished has been sent; enable data t6ransfer on 
-						 * write channel */
-                        ctx->writeCipher.ready = 1;
-                        SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
+						SSLFreeBuffer(sessionIdentifier, ctx);
+
+						/* queue up remaining messages to finish handshake */
+						if((err = SSLResumeServerSide(ctx)) != 0) 
+							return err;
                         break;
                     }
 					else {
@@ -675,8 +721,10 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             else {
                 SSLChangeHdskState(ctx, SSL_HdskStateClientReady);
             }
-            if (ctx->peerID.data != 0)
+            if ((ctx->peerID.data != 0) && (ctx->sessionTicket.data == NULL)) {
+				/* note we avoid caching session data for PAC-style resumption */
                 SSLAddSessionData(ctx);
+			}
             break;
         default:
             assert("Unknown State");
@@ -689,7 +737,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 OSStatus
 SSLPrepareAndQueueMessage(EncodeMessageFunc msgFunc, SSLContext *ctx)
 {   OSStatus        err;
-    SSLRecord       rec;
+    SSLRecord       rec = {0, (SSLProtocolVersion)0, {0, NULL}};
     
     if ((err = msgFunc(rec, ctx)) != 0)
     {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);

@@ -1,13 +1,13 @@
-.TH LD 1 "October 6, 2005" "Apple Computer, Inc."
+.TH LD 1 "March 18, 2006" "Apple Computer, Inc."
 .SH NAME
 ld \- Mach object file link editor
 .SH SYNOPSIS
 .B ld
-[ 
+[
 .I "option \&..."
-] [ 
+] [
 .I "file \&..."
-] 
+]
 .SH DESCRIPTION
 The
 .I ld
@@ -22,8 +22,8 @@ become the input for a further
 .I ld
 run.  (In the latter case, the
 .B \-r
-option must be given to preserve the relocation information.)  Unless an output 
-file is specified, 
+option must be given to preserve the relocation information.)  Unless an output
+file is specified,
 .I ld
 produces a file named
 .BR a.out .
@@ -32,18 +32,18 @@ and there are no undefined symbols.
 .SH "UNIVERSAL FILE SUPPORT"
 The link editor accepts ``universal'' (multiple-architecture) input files, but
 always creates a ``thin'' (single-architecture), standard Mach-O output file.
-The architecture is specified using the  
-.B \-arch 
+The architecture is specified using the
+.B \-arch
 .I " arch_type"
 option.  If this option is not used,
 .IR ld (1)
-attempts to determine the output architecture by examining the first object 
+attempts to determine the output architecture by examining the first object
 file encountered on the command line.  If it is a ``thin''
-file, its architecture determines that of the output file.  If the first input 
-file is a ``universal'' file, the ``best'' architecture for the host is used. 
-(See the explanation of the 
+file, its architecture determines that of the output file.  If the first input
+file is a ``universal'' file, the ``best'' architecture for the host is used.
+(See the explanation of the
 .B \-arch
-option, below.)  
+option, below.)
 .PP
 The compiler driver
 .IR cc (1)
@@ -56,7 +56,7 @@ to create a ``universal'' file from the results of the
 executions.
 .SH "OUTPUT FILE LAYOUT"
 .PP
-The object files are loaded in the order in which they are specified on the 
+The object files are loaded in the order in which they are specified on the
 command line.  The segments and the
 sections in those segments will appear in the output file in the order they are
 encountered in the object files being linked.  All zero fill sections will appear
@@ -83,13 +83,13 @@ in which case a segment name is not used.
 Segments that do not have a specified
 address will be assigned addresses in the order in which they appear
 in the output file.  A segment's address will be assigned
-based on the ending address of the previous segment.  
+based on the ending address of the previous segment.
 If the address of the
-first segment has not been specified by name, 
+first segment has not been specified by name,
 its assigned address will be
 the specified (via
 .BR \-seg1addr )
-or default first segment address. 
+or default first segment address.
 If neither flag is used to specify the first segment's address, its
 default address is zero
 for all formats except the demand-paged executable format
@@ -100,10 +100,10 @@ For demand-paged executable format
 .SM (MH_EXECUTE)
 output files,
 if none of the segments' addresses covers address zero through
-the value of the segment alignment, a segment with no access protection 
+the value of the segment alignment, a segment with no access protection
 will be created to cover those addresses.  This segment, named
 .SM "``_\|_PAGEZERO'',"
-is created so that any attempt to dereference a NULL pointer will cause a 
+is created so that any attempt to dereference a NULL pointer will cause a
 memory exception.
 .PP
 The entry point of the output file is the beginning of
@@ -116,14 +116,14 @@ option is specified).
 supports two types of libraries: static archive libraries and dynamic shared
 libraries.  Searching for undefined symbols is performed differently for dynamic
 shared libraries than it is for static archive libraries.  The searching of
-dynamic shared libraries is described later. 
+dynamic shared libraries is described later.
 .PP
-When a static archive library is specified as an argument to 
-.IR ld , 
-it is searched exactly once, at the 
+When a static archive library is specified as an argument to
+.IR ld ,
+it is searched exactly once, at the
 point it is encountered in the argument list.  Only those members defining an unresolved external
 reference, as defined by the static archive library's table of contents,
-are loaded.  To produce the table of contents, all static archive libraries must be processed by 
+are loaded.  To produce the table of contents, all static archive libraries must be processed by
 .IR ranlib (1).
 .PP
 Generally, a static archive library does not have multiple members that define
@@ -138,7 +138,7 @@ of the static archive library is named
 which is understood to be a sorted table of contents.
 .PP
 If the static archive library does have multiple members that define
-the same symbol, the table of contents that 
+the same symbol, the table of contents that
 .IR ranlib (1)
 produces can't be sorted.  Instead, it follows the order in which the members
 appear in the static archive library.  The link editor searches the table of
@@ -147,7 +147,7 @@ satisfied.  In the unsorted case, the first member of the static archive
 library is named
 .SM "``\_\^\_.SYMDEF'',"
 which is understood to be a table of contents in
-the order of the archive members.  
+the order of the archive members.
 .PP
 Static archive library members can also be loaded in response to
 the
@@ -159,12 +159,12 @@ flags. See their descriptions below.
 .SH DYNAMIC SHARED LIBRARIES
 .PP
 When a dynamic shared library or an object file that was linked against a
-dynamic shared library is specified as an argument to 
+dynamic shared library is specified as an argument to
 .IR ld ,
 that library is placed in the dynamic shared library search list. The order of
 the search list is always the same order the libraries were encountered on the
-command line. When linking -flat_namesapce, all dynamic libraries that the
-dynamic libraries are dependent upon are added to the end of the search list. 
+command line. When linking -flat_namespace, all dynamic libraries that the
+dynamic libraries are dependent upon are added to the end of the search list.
 .PP
 Once the search list is constructed, the static link editor checks for undefined
 symbols by simulating the way the dynamic linker will search for undefined
@@ -196,7 +196,7 @@ to be loaded into the output.  Searching static libraries as dynamic libraries
 can cause problems if the dynamic library later changes to reference symbols
 from the static library that it did not previously reference. In this case when
 the program runs, the dynamic linker will report these symbols as undefined
-because the members for these symbols were not loaded into the output. 
+because the members for these symbols were not loaded into the output.
 
 .SH TWO-LEVEL AND FLAT NAMESPACES
 .PP
@@ -210,7 +210,7 @@ the default).  When a program is using all flat namespace images then only one
 global symbol for each global symbol name is used by all images of the program
 (this was the default in MacOS X 10.0).
 .PP
-When creating a output file with the static link editor that links against
+When creating an output file with the static link editor that links against
 dynamic libraries, the references to symbols in those libraries can be recorded
 at static link time to bind to a specific library definition (two-level
 namespace) or left to be bound at execution time to the first library in the
@@ -297,7 +297,7 @@ flag.
 .PP
 The option
 .B \-dynamic
-must be specified in order to use dynamic shared libraries (and any of the features used to implement them) and/or the dynamic link editor. 
+must be specified in order to use dynamic shared libraries (and any of the features used to implement them) and/or the dynamic link editor.
 To make sure that the output is not using any features that would
 require the dynamic link editor, the flag
 .B \-static
@@ -311,20 +311,20 @@ There is a group of link editor defined symbols for the
 .SM MH_DYLIB
 and
 .SM MH_PRELOAD
-file types (see the header file <mach-o/ldsyms.h>).  Link editor symbols are 
-reserved; it is an error if an input object file defines such a symbol.  
-Only those link editor symbols that are referenced by the object file 
+file types (see the header file <mach-o/ldsyms.h>).  Link editor symbols are
+reserved; it is an error if an input object file defines such a symbol.
+Only those link editor symbols that are referenced by the object file
 appear in the output file's symbol table.
 .PP
 The link editor defined symbol `\_\^\_mh_execute_header'
 (`\_mh_execute_header' in C) is reserved when the output file format is
 .SM MH_EXECUTE.
-This symbol is the address of the Mach header in a Mach-O executable (a 
+This symbol is the address of the Mach header in a Mach-O executable (a
 file of type
-.SM MH_EXECUTE). 
+.SM MH_EXECUTE).
 It does not appear in
-any other Mach-O file type.  It can be used to get to the addresses and 
-sizes of all the segments and sections in the executable.  This can be done by parsing the headers 
+any other Mach-O file type.  It can be used to get to the addresses and
+sizes of all the segments and sections in the executable.  This can be done by parsing the headers
 and load commands (see
 .IR Mach-O (5)).
 .PP
@@ -336,9 +336,9 @@ This symbol is the address of the Mach header in a Mach-O dynamic shared library
 .SM MH_DYLIB)
 and is a private external symbol.
 It does not appear in
-any other Mach-O file type.  It can be used to get to the addresses and 
+any other Mach-O file type.  It can be used to get to the addresses and
 sizes of all the segments and sections in a dynamic shared library.  The
-addresses, however, must have the value 
+addresses, however, must have the value
 .IR _dyld_get_image_vmaddr_slide (3)
 added to them.
 .PP
@@ -350,8 +350,8 @@ beginning and ending of each section within a segment.
 These names are provided for use in a Mach-O preloaded file,
 since it does not have its headers loaded as part of the first segment.
 The names of the symbols for a segment's beginning and end
-have the form: \_\^\_SEGNAME\_\^\_begin and \_\^\_SEGNAME\_\^\_end, 
-where \_\^\_SEGNAME is the name of the segment.  Similarly, the symbols for 
+have the form: \_\^\_SEGNAME\_\^\_begin and \_\^\_SEGNAME\_\^\_end,
+where \_\^\_SEGNAME is the name of the segment.  Similarly, the symbols for
 a section have the form:
 \_\^\_SEGNAME\_\^\_sectname\_\^\_begin and \_\^\_SEGNAME\_\^\_sectname\_\^\_end,
 where \_\^\_sectname is the name of the section in the segment \_\^\_SEGNAME.
@@ -360,7 +360,7 @@ These symbols' types are those of the section that the names refer to.
 .SH OPTIONS
 .PP
 .I Ld
-understands several options.  Filenames and 
+understands several options.  Filenames and
 options that refer to libraries (such as
 .B \-l
 and
@@ -375,7 +375,7 @@ Some
 .I ld
 options overlap with compiler options.  If the compiler driver
 .IR cc (1)
-is used to invoke 
+is used to invoke
 .I ld ,
 it maybe necessary to pass the
 .IR ld (1)
@@ -385,12 +385,12 @@ using
 .BR \-Wl,\-option,argument1,argument2 .
 
 In this release of the static link editor, 64-bit code (-arch ppc64) are processed by a separate
-tool /usr/bin/ld64.  Not all of the ld command line options are recognized by this tool.  
+tool /usr/bin/ld64.  Not all of the ld command line options are recognized by this tool.
 The options not currently support for building 64-bit binaries are flagged
 .BR "(32-bit only)" .
 
 The most common option is:
-.TP 
+.TP
 .BI  \-o " name"
 The output file is named
 .IR name ,
@@ -404,7 +404,7 @@ The following flags are related to architectures:
 Specifies the architecture,
 .I arch_type,
 for the output file. ``Universal'' input files that do not contain this
-specified architecture are ignored.  Only one 
+specified architecture are ignored.  Only one
 .BI \-arch " arch_type"
 can be specified.  See
 .IR arch (3)
@@ -416,20 +416,20 @@ specifies a certain implementation of an architecture (such as
 .BI \-arch " m68040"
 or
 .BI \-arch " i486"
-), the resulting object file has that specific CPU subtype, and it is an 
+), the resulting object file has that specific CPU subtype, and it is an
 error if any input file has a CPU subtype that will not combine to the CPU subtype
-for 
+for
 .IR " arch_type" .
 .IP
 The default output file architecture is determined by the first object file to
 be linked.  If it is a ``thin'' (standard Mach-O) file, or a ``universal'' file
-that contains only one architecture, the output file will have the same 
+that contains only one architecture, the output file will have the same
 architecture.  Otherwise, if it is a ``universal'' file
 containing an architecture that would execute on the host, then the ``best''
-architecture is used, as defined by what the kernel exec(2) would select.  
+architecture is used, as defined by what the kernel exec(2) would select.
 Otherwise, it is an error, and a
 .BI \-arch " arch_type"
-must be specified.  
+must be specified.
 .TP
 .B \-arch_multiple
 This flag is used by the
@@ -448,8 +448,8 @@ flag).  This helps distinguish which architecture the error messages refer to.
 .B \-force_cpusubtype_ALL
 The
 .B \-force_cpusubtype_ALL
-flag causes the CPU subtype to remain the 
-.SM ALL 
+flag causes the CPU subtype to remain the
+.SM ALL
 CPU subtype and not to be combined or
 changed.  This flag has precedence over any
 .BI \-arch " arch_type"
@@ -465,9 +465,9 @@ Allows use of the features associated with dynamic link editor.  The default is
 .TP
 .B \-static
 Causes those features associated with dynamic link editor to be treated as
-an error. (The description for the options that will cause an error if you use them in conjunction with 
+an error. (The description for the options that will cause an error if you use them in conjunction with
 .B \-static
-are marked with the statement "when 
+are marked with the statement "when
 .B \-dynamic
  is used").
 .TP
@@ -541,7 +541,7 @@ prebind an executable's or dynamic shared library's undefined symbols to the
 addresses of the dynamic libraries it is being linked with.
 This optimization can only be done if the libraries don't overlap and
 no symbols are overridden.
-When the resulting program is run and the same libraries are used to run the 
+When the resulting program is run and the same libraries are used to run the
 program as when the program was linked, the dynamic linker can use the prebound
 addresses.
 If not, the dynamic linker undoes the prebinding and binds normally.
@@ -602,7 +602,7 @@ agent if this launched and its prebinding is out of date.  This is used when
 building the prebinding agent itself.
 .PP
 The following flags are related to libraries:
-.TP 
+.TP
 .BI \-l x
 This
 option is an abbreviation for the library name
@@ -610,7 +610,7 @@ option is an abbreviation for the library name
 where
 .I x
 is a string.
-If 
+If
 .B \-dynamic
 is specified the abbreviation for the library name is first search as
 .RI `lib x .dylib'
@@ -621,7 +621,8 @@ is searched for.
 searches for libraries first in any directories
 specified with
 .B \-L
-options, then in the standard directories 
+options, then in any directories specified in the colon separated set of paths
+in the environment variable LD_LIBRARY_PATH, then the standard directories 
 .BR /lib , 
 .BR /usr/lib , 
 and
@@ -643,7 +644,7 @@ but forces the library and all references to it to be marked as weak imports.
 Care must be taken when using this as the use of the non-weak symbol references
 in an object file may cause the program to crash when the symbol or library is
 not present at execution time.
-.TP 
+.TP
 .BI \-weak_library " file_name_path_to_library"
 This is the same as listing a file name path to a library on the link line
 except that it forces the library and all references to it to be marked as
@@ -656,7 +657,7 @@ not present at execution time.
 Add
 .I dir
 to the list of directories in which to search for libraries.
-Directories specified with 
+Directories specified with
 .B \-L
 are searched before the standard directories.
 .TP
@@ -685,24 +686,24 @@ This option changes it so that in each path
 is searched for then
 .RI `lib x .a'
 before the next path in the library search path is searched.
-.TP 
+.TP
 .BI "\-framework " name[,suffix]
 Specifies a framework to link against. Frameworks are dynamic shared libraries,
 but they are stored in different locations, and therefore must be searched for
-differently. When this option is specified, 
+differently. When this option is specified,
 .I ld
 searches for framework `\fIname\fR.framework/\fIname\fR'
 first in any directories
-specified with the 
+specified with the
 .B \-F
-option, then in the standard framework directories 
+option, then in the standard framework directories
 .BR /Library/Frameworks ,
 .BR /Network/Library/Frameworks ,
-and 
+and
 .BR "/System/Library/Frameworks" .
-The placement of the 
+The placement of the
 .B \-framework
-option is significant, as it determines when and how the framework is searched. 
+option is significant, as it determines when and how the framework is searched.
 If the optional suffix is specified the framework is first searched for the
 name with the suffix and then without.
 .TP
@@ -718,7 +719,7 @@ not present at execution time.
 Add
 .I dir
 to the list of directories in which to search for frameworks.
-Directories specified with 
+Directories specified with
 .B \-F
 are searched before the standard framework directories.
 .TP
@@ -731,7 +732,7 @@ This option does not apply to dynamic shared
 libraries.
 .TP
 .BI \-dylib_file " install_name:file_name" (32-bit only)
-Specifies that a dynamic shared library is in a different location than its standard location. Use this option when you link with a library that is dependent on a dynamic library, and the dynamic library is in a location other than its default location. 
+Specifies that a dynamic shared library is in a different location than its standard location. Use this option when you link with a library that is dependent on a dynamic library, and the dynamic library is in a location other than its default location.
 .I install_name
 specifies the path where the library normally resides.
 .I file_name
@@ -755,8 +756,8 @@ in the first segment, and all segments are padded to the segment alignment.
 This has a file type of
 .SM MH_EXECUTE.
 This is the default.  If no segment address is specified at address zero, a
-segment with no protection (no read, write, or execute permission) is created 
-at address zero. 
+segment with no protection (no read, write, or execute permission) is created
+at address zero.
 This segment, whose size is that of the segment
 alignment, is named
 .SM ``_\|_PAGEZERO''.
@@ -834,7 +835,7 @@ if not otherwise specified.
 This flag also prevents final definitions from being
 given to common symbols,
 and suppresses the `undefined symbol' diagnostics.
-.TP 
+.TP
 .B  \-d (32-bit only)
 Force definition of common storage even if the
 .B \-r
@@ -886,7 +887,7 @@ must also be used (see above).
 is a hexadecimal number and must be a multiple of the segment alignment.
 .TP
 .BI "\-seg_addr_table" " filename" " (32-bit only)"
-For dynamic shared libraries the 
+For dynamic shared libraries the
 .B "\-seg1addr"
 or the pair of
 .B "\-segs_read_only_addr"
@@ -951,12 +952,12 @@ Create the link edit segment, named
 This segment contains all the link edit information (relocation information,
 symbol table, string table, etc.) in the object file.  If the segment protection
 for this segment is not specified, the initial protection is not writable.
-This can only be specified when the output file type is not 
+This can only be specified when the output file type is not
 .SM MH_OBJECT
 and
 .SM MH_PRELOAD
 output file types.  To get at the contents of this section, the Mach header
-and load commands must be parsed from the link editor defined symbols like 
+and load commands must be parsed from the link editor defined symbols like
 `\_\^\_mh_execute_header' (see
 .IR Mach-O (5)).
 .TP
@@ -969,7 +970,7 @@ above).
 Specifies the segment size of _\|_PAGEZERO to be of size
 .IR value ,
 where
-.I value 
+.I value
 is a hexadecimal number rounded to the segment alignment.
 The default is the target pagesize (currently, 1000 hexadecimal for the PowerPC
 and for i386).
@@ -978,32 +979,32 @@ and for i386).
 Specifies the initial address of the stack pointer
 .IR value ,
 where
-.I value 
+.I value
 is a hexadecimal number rounded to the segment alignment.
 The default segment alignment is the target pagesize (currently, 1000
 hexadecimal for the PowerPC and for i386).
 If
 .B \-stack_size
-is specified and 
+is specified and
 .B \-stack_addr
 is not, a default stack address specific for the architecture being linked will
 be used and its value printed as a warning message.
 This creates a segment named _\|_UNIXSTACK.  Note that the initial stack address
 will be either at the high address of the segment or the low address of the
-segment depending on which direction the stack grows for the architecture being 
+segment depending on which direction the stack grows for the architecture being
 linked.
 .TP
 .BI "\-stack_size" " value"
 Specifies the size of the stack segment
 .IR value ,
 where
-.I value 
+.I value
 is a hexadecimal number rounded to the segment alignment.
 The default segment alignment is the target pagesize (currently, 1000
 hexadecimal for the PowerPC and for i386).
 If
 .B \-stack_addr
-is specified and 
+is specified and
 .B \-stack_size
 is not, a default stack size specific for the architecture being linked will be
 used and its value printed as a warning message.
@@ -1025,11 +1026,11 @@ is created from the contents of
 .I file.
 The combination of
 .I segname
-and 
+and
 .I sectname
-must be unique; there cannot already be a section 
+must be unique; there cannot already be a section
 .I (segname,sectname)
-in any input object file.  
+in any input object file.
 This option was previously called
 .BR "\-segcreate" ,
 which will continue to be recognized.
@@ -1037,7 +1038,7 @@ which will continue to be recognized.
 .BI "\-sectalign" " segname sectname value"
 The section named
 .I sectname
-in the segment 
+in the segment
 .I segname
 will have its alignment set to
 .IR value ,
@@ -1064,11 +1065,11 @@ symbols in the section.  The output section will be created by ordering
 the blocks as specified by the lines in the
 .I orderfile.
 These blocks are aligned to the output file's section alignment for this
-section.  Any section can be ordered in the output file except symbol pointer and symbol stub sections.  
+section.  Any section can be ordered in the output file except symbol pointer and symbol stub sections.
 .IP
 For non-literal sections, each line of the
 .I orderfile
-contains an object name and a symbol name, separated by a single colon (':').  
+contains an object name and a symbol name, separated by a single colon (':').
 Lines that start with # are ignored and treated as comments.
 If the object file is
 in an archive, the archive name, followed by a single colon, must precede the
@@ -1082,21 +1083,21 @@ with the ``\f3\-jonls +\f2segname sectname\f1'' options to
 The format of the
 .I orderfile
 for literal sections is specific to each type of literal section.  For C
-string literal sections, each line of the order file contains one literal C 
+string literal sections, each line of the order file contains one literal C
 string, which may include ANSI C escape sequences.  For four-byte literal
-sections, the order file format is one 32-bit hex number with a leading 0x 
+sections, the order file format is one 32-bit hex number with a leading 0x
 per
 line, with the rest of the line treated as a comment.  For eight-byte literal
-sections, the order file has two 32-bit hex numbers per line; each number 
+sections, the order file has two 32-bit hex numbers per line; each number
 has a leading 0x, the two numbers are separated by white
 space, and the rest of the line is treated as a comment.
 For literal pointer sections, the lines in the order file represent
-pointers, one per line.  A literal pointer is represented by the name of 
+pointers, one per line.  A literal pointer is represented by the name of
 the segment that contains the literal being pointed to, followed by the
-section name, followed by the literal. These three strings are separated 
+section name, followed by the literal. These three strings are separated
 by colons with no extra white space.
 For all the literal sections, each line in the the order file is simply entered
-into the literal section and will appear in the output file in the same order 
+into the literal section and will appear in the output file in the same order
 as in the
 order file.  There is no check to see whether the literal is present
 in the loaded objects.
@@ -1107,35 +1108,35 @@ the ``\f3\-X \-v \-s \f2segname sectname\f1'' options to
 .B \-sectorder_detail (32-bit only)
 When using the
 .B \-sectorder
-option,  any pairs of object file names and symbol names that are found in 
-the loaded objects, but not specified in the 
+option,  any pairs of object file names and symbol names that are found in
+the loaded objects, but not specified in the
 .IR orderfile ,
 are placed last in the output file's section.   These pairs are ordered by
 object file (as the filenames appear
-on the command line), with the different symbols from a given object 
+on the command line), with the different symbols from a given object
 file being ordered by
 increasing symbol address (that is, the order
 in which the symbols occurred in the object file,
-not their order in the symbol table).  By default, the link editor displays a summary 
+not their order in the symbol table).  By default, the link editor displays a summary
 that simply shows the number
 of symbol names found in the loaded objects but not in the
 .IR orderfile ,
 as well as the number of symbol names listed in the
 .I orderfile
-but not found in the loaded objects.  (The summary is omitted if both values 
+but not found in the loaded objects.  (The summary is omitted if both values
 are zero.)  To instead produce a detailed list of these symbols, use the
 .B \-sectorder_detail
-flag.  If an object file-symbol name pair is listed multiple times, a 
+flag.  If an object file-symbol name pair is listed multiple times, a
 warning is generated, and the first occurrence is used.
 .TP
 .BI "\-sectobjectsymbols" " segname sectname" " (32-bit only)"
-This causes the link editor to generate local symbols in the section 
+This causes the link editor to generate local symbols in the section
 .I sectname
 in the segment
 .IR segname .
-Each object file that has one of these sections will have a local 
+Each object file that has one of these sections will have a local
 symbol created
-whose name is that of the object file, or of the member of the archive. 
+whose name is that of the object file, or of the member of the archive.
 The symbol's value will be the first address where that object file's section
 was loaded.  The symbol has the type N_SECT and its section number is the
 the same as that of the section
@@ -1145,30 +1146,30 @@ This symbol will be placed in the symbol table just before all other local
 symbols
 for the object file.  This feature is typically used where the section is
 .SM (\_\^\_TEXT,\_\^\_text),
-in order to help the debugger debug object files produced by old versions of 
+in order to help the debugger debug object files produced by old versions of
 the compiler or by non-Apple compilers.
 
 .PP
 The following flags are related to name spaces:
-.TP 
+.TP
 .B \-twolevel_namespace
 Specifies the output to be built as a two-level namespace image.
 This option can also be specified by setting the environment variable
 .SM LD_TWOLEVEL_NAMESPACE.
 This is the default.
-.TP 
+.TP
 .B \-flat_namespace
 Specifies the output to be built as a flat namespace image.
 This is not the default (but was the default in MacOS X 10.0).
-.TP 
+.TP
 .B \-force_flat_namespace
 Specifies the executable output to be built and executed treating all its
 dynamic libraries as flat namespace images.  This marks the executable so that
 the dynamic link editor treats all dynamic libraries as flat namespace
 images when the program is executed.
-.TP 
+.TP
 .BI \-bundle_loader " executable" " (32-bit only)"
-This specifies the 
+This specifies the
 .I executable
 that will be loading the bundle output file being linked.  Undefined symbols
 from the bundle are checked against the specified executable like it was one of
@@ -1181,7 +1182,7 @@ symbols is based on the placement of the
 flag relative to the dynamic libraries.  If the the bundle being created with
 .B \-flat_namespace
 then the searching of the executable is done before all dynamic libraries.
-.TP 
+.TP
 .B \-private_bundle (32-bit only)
 This allows symbols defined in the output to also be defined in executable in
 the
@@ -1195,7 +1196,7 @@ the executable with the
 .B NSLINKMODULE_OPTION_PRIVATE
 option to
 .IR NSLinkModule (3).
-.TP 
+.TP
 .B \-twolevel_namespace_hints (32-bit only)
 Specifies to create the output with the two-level namespace hints table to be
 used by the dynamic linker.  This is the default except when the
@@ -1204,7 +1205,7 @@ flag is specified.  If this is used when the
 .B \-bundle
 flag is specified the bundle will fail to load on a MacOS X 10.0 system with a
 malformed object error.
-.TP 
+.TP
 .BI \-multiply_defined " treatment" " (32-bit only)"
 Specifies how multiply defined symbols in dynamic libraries when
 .B \-twolevel_namespace
@@ -1224,7 +1225,7 @@ The default is to treat multiply defined symbols in dynamic libraries as
 warnings when
 .B \-twolevel_namespace
 is in effect.
-.TP 
+.TP
 .BI \-multiply_defined_unused " treatment" " (32-bit only)"
 Specifies how unused multiply defined symbols in dynamic libraries when
 .B \-twolevel_namespace
@@ -1260,15 +1261,15 @@ Display each file in which
 .I sym
 appears, its type, and whether the file defines or references it.  Any
 multiply defined symbols are automatically
-traced.  Like most of the other symbol-related flags, 
+traced.  Like most of the other symbol-related flags,
 .B \-y
 takes only one argument; the flag may be specified more than once in the
-command line to trace more than one symbol.  
+command line to trace more than one symbol.
 .TP
 .BI \-Y " number" " (32-bit only)"
-For the first 
+For the first
 .I number
-undefined symbols, displays each file in which the symbol appears, its type and whether the file defines or references it (that is, the same style of output produced by the 
+undefined symbols, displays each file in which the symbol appears, its type and whether the file defines or references it (that is, the same style of output produced by the
 .B \-y
 option). To keep the output manageable, this option displays at most
 .I number
@@ -1289,13 +1290,13 @@ file that is in error.  This flag's use is strongly discouraged!
 .TP
 .B \-whyload (32-bit only)
 Indicate why each member of a library is loaded.  In other words, indicate
-which currently undefined symbol is being resolved, causing that 
+which currently undefined symbol is being resolved, causing that
 member to be loaded.  This in combination with the above
 .BI \-y sym
-flag can help determine exactly why a link edit is failing due to multiply 
+flag can help determine exactly why a link edit is failing due to multiply
 defined symbols.
 .B
-.TP 
+.TP
 .BI  \-u " sym"
 Enter the argument
 .I sym
@@ -1308,7 +1309,7 @@ to force the loading of the first object file.
 The argument
 .I sym
 is taken to be the symbol name of the entry point of
-the resulting file.  By default, the entry point is the address of the 
+the resulting file.  By default, the entry point is the address of the
 first section in the first segment.
 .TP
 .BI \-i definition:indirect " (32-bit only)"
@@ -1359,7 +1360,7 @@ Allow the symbol
 .I sym
 to be undefined, even if the
 .B \-r
-flag is not given.  Produce an executable file if the only undefined 
+flag is not given.  Produce an executable file if the only undefined
 symbols are those specified with
 .BR \-U.
 .IP
@@ -1382,38 +1383,38 @@ can be:
 .I use_dylibs,
 or
 .I error.
-The default is ignore_dylibs 
+The default is ignore_dylibs
 which means the static linker will use a common defintion from an object file even if a true definition
 exisits in a dynamic library.  If you want your code to use a dynamic library definition, then add
-the extern keyword to your tentative definition (e.g. change 
+the extern keyword to your tentative definition (e.g. change
 .I int foo;
 to
 .I extern int foo;
 ).  The treatment use_dylibs means a definition form a dynamic library should override a common symbol
-in an object file. Note, the 32-bit linker always uses this treatment. 
-The treatment error means the linker should abort whenever if finds a common symbol in 
+in an object file. Note, the 32-bit linker always uses this treatment.
+The treatment error means the linker should abort whenever if finds a common symbol in
 an object file and an external definition with the same name in a dynamic library.
 .TP
 .B \-warn_commons (64-bit only)
-Causes the static linker to write a diagnostic line about how common symbols were processed.  This is 
+Causes the static linker to write a diagnostic line about how common symbols were processed.  This is
 useful for debugging problems with common symbols.
 
 .PP
-The following flags are related to stripping link edit information.  
+The following flags are related to stripping link edit information.
 This information can also be removed by
-.IR strip (1), 
+.IR strip (1),
 which uses the same options.  (The
 exception is the
-.B \-s 
-flag below, but this is the same as  
+.B \-s
+flag below, but this is the same as
 .IR strip (1)
 with no arguments.)
 The following flags are listed in decreasing level of stripping.
-.TP 
+.TP
 .B \-s (32-bit only)
 Completely strip the output; that is, remove the symbol table
 and relocation information.
-.TP 
+.TP
 .B \-x (32-bit only)
 Strips the non-global symbols; only saves external symbols.
 .IP
@@ -1426,24 +1427,24 @@ invoke this option in this way:
 .TP
 .B \-S (32-bit only)
 Strip debugging symbols; only save local and global symbols.
-.TP 
+.TP
 .B \-X (32-bit only)
 Strip local symbols whose names begin with `L'; save all other symbols.
-(The compiler and assembler currently strip these internally-generated 
-labels by default, so they generally do not appear in object files 
+(The compiler and assembler currently strip these internally-generated
+labels by default, so they generally do not appear in object files
 seen by the link editor.)
-.TP 
+.TP
 .B \-Sp
 Strip, edit and add debugging symbols so the debugger can used most of the
 debugging symbols from the object files.
-.TP 
+.TP
 .B \-Si (32-bit only)
 Strip duplicate debugging symbols from include files.  This is
-the default. 
-.TP 
+the default.
+.TP
 .B  \-b (32-bit only)
-Strip the base file's symbols from the output file.  (The base file 
-is given as the argument to the 
+Strip the base file's symbols from the output file.  (The base file
+is given as the argument to the
 .B \-A
 option.)
 .IP
@@ -1460,7 +1461,7 @@ Don't strip any symbols.
 .BI \-exported_symbols_list " filename"
 The specified
 .I filename
-contains lists of global symbol names that will remain as global symbols in the 
+contains lists of global symbol names that will remain as global symbols in the
 output file.  All other global symbols will be treated as if they were marked as
 .I __private_extern__
 and will not be global in the output file. The symbol names listed in
@@ -1480,6 +1481,9 @@ and will not be global in the output file. The symbol names listed in
 must be one per line. Leading and trailing white space are not part of the
 symbol name.  Lines starting with # are ignored, as are lines with only white
 space.
+.TP
+.BI \-no_uuid
+Do not emit an LC_UUID load command in the linked output file.
 
 .TP
 .B -dead_strip (32-bit only)
@@ -1510,14 +1514,14 @@ Cause the errors having to do with files that have the wrong architecture to be
 fatal and stop the link editor.
 .TP
 .B \-M (32-bit only)
-Produce a load map, listing all the segments and sections.  The list 
-includes the address where each input file's section appears in the 
+Produce a load map, listing all the segments and sections.  The list
+includes the address where each input file's section appears in the
 output file, as well as the section's size.
 .IP
 This option overlaps with a compiler option.
 If you use the compiler driver
 .IR cc (1)
-to invoke \fIld\fR, 
+to invoke \fIld\fR,
 invoke this option in this way:
 .B \-Wl,\-M.
 .TP
@@ -1526,7 +1530,7 @@ Display a single line listing each object file that is
 loaded.  Names of objects in archives have the form libfoo.a(bar.o).
 .TP
 .BI \-filelist " listfile[,dirname]"
-Specifies that the linker should link the files listed in 
+Specifies that the linker should link the files listed in
 .I listfile .
 This is an alternative to listing the files on the command line. The file names are listed one per line separated
 only by newlines. (Spaces and tabs are assumed to be part of the file name.)
@@ -1535,28 +1539,28 @@ If the optional directory name,
 is specified, it is prepended to each name in the list file.
 .TP
 .BI "\-headerpad" " value"
-Specifies the minimum amount of space ("padding") following 
+Specifies the minimum amount of space ("padding") following
 the headers for the
 .SM MH_EXECUTE
 format and all output file types with the dynamic linker.
 .I value
-is a hexadecimal number.  
+is a hexadecimal number.
 When a segment's size is rounded up to the segment alignment, there
 is extra space left over, which is placed between the headers and the sections, rather than at the end of the segment.  The
 .B headerpad
-option specifies the minimum size of this padding, 
+option specifies the minimum size of this padding,
 which can be useful if the headers will be altered later.
 The default value is the larger of 2 * sizeof(struct section) so the program
 /usr/bin/objcunique can always add two section headers, or if the output is an
 MH_EXECUTE filetype and
 .B \-prebind
 is specified 3 times the size of the LC_PREBOUND_DYLIB load commands.
-The actual amount of pad will be as large as the amount of the first 
+The actual amount of pad will be as large as the amount of the first
 segment's round-off.
-(That is, take the total size of the first segments' 
-headers and non-zerofill sections, round this size 
-up to the segment alignment, 
-and use the difference between the rounded 
+(That is, take the total size of the first segments'
+headers and non-zerofill sections, round this size
+up to the segment alignment,
+and use the difference between the rounded
 and unrounded sizes as the minimum amount of padding.)
 .TP
 .B \-headerpad_max_install_names (32-bit only)
@@ -1564,14 +1568,14 @@ Add to the header padding enough space to allow changing all dynamic shared
 library paths recorded in the output file to be changed to MAXPATHLEN in length.
 .TP
 .B \-t
-Trace the progress of the link editor; display the name of each file 
+Trace the progress of the link editor; display the name of each file
 that is
 loaded as it is processed in the first and second pass of the link
 editor.
 .TP
 .BI \-A " basefile" " (32-bit only)"
-Incremental loading: linking is to be done in a manner 
-that lets the resulting object be read into an already executing 
+Incremental loading: linking is to be done in a manner
+that lets the resulting object be read into an already executing
 program, the
 .IR basefile .
 .I basefile
@@ -1585,9 +1589,9 @@ Option(s) to specify the addresses of the segments are typically
 needed, since
 the default addresses tend to overlap with the
 .I basefile.
-The default format of the object file is 
+The default format of the object file is
 .SM MH_OBJECT.
-Note: It is strongly recommended that this option NOT be used, 
+Note: It is strongly recommended that this option NOT be used,
 because the dyld package described in
 .IR dyld (3)
 is a much easier alternative.
@@ -1598,7 +1602,7 @@ the library will be installed in for programs that use it.  If this is not
 specified, the name specified in the
 .BI \-o " name"
 option will be used.
-This option is used as the 
+This option is used as the
 .IR libtool (1)
 .BI \-install_name " name"
 option when its
@@ -1653,7 +1657,7 @@ subframeworks with respect to twolevel namespace.
 Specifies that the
 .I library_name
 being linked by a dynamic library is to be treated as one of the
-sublibraries with respect to twolevel namespace.  For example the 
+sublibraries with respect to twolevel namespace.  For example the
 .I library_name
 for
 .I /usr/lib/libobjc_profile.A.dylib
@@ -1692,7 +1696,7 @@ value of 0 and no checking is done when the library is used.
 This option is used as the
 .IR libtool (1)
 .BI \-compatibility_version " number"
-option 
+option
 when its
 .B \-dynamic
 option is set.
@@ -1715,7 +1719,7 @@ are optional and if present must be non-negative numbers less than or
 equal to 255.
 If the version number is not specified, it has a
 value of 0.
-This option is used as the 
+This option is used as the
 .IR libtool (1)
 .BI \-current_version " number"
 option when its
@@ -1763,21 +1767,21 @@ for all other architectures.
 The following environment variables are used by Apple's Build and Integration
 team:
 .TP
-.B RC_TRACE_ARCHIVES
-When this is set it causes a message of the form ``[Logging for Build &
-Integration] Used static archive: 
+.B LD_TRACE_ARCHIVES
+When this is set it causes a message of the form ``[Logging for XBS]
+Used static archive:
 .I filename''
 for each static archive that has members linked into the output.
 .TP
-.B RC_TRACE_DYLIBS
-When this is set it causes a message of the form ``[Logging for Build &
-Integration] Used dynamic library: 
+.B LD_TRACE_DYLIBS
+When this is set it causes a message of the form ``[Logging for XBS]
+Used dynamic library:
 .I filename''
 for each dynamic library linked into the output.
 .TP
 .B RC_TRACE_PREBINDING_DISABLED
-When this is set it causes a message of the form ``[Logging for Build &
-Integration] prebinding disabled for
+When this is set it causes a message of the form ``[Logging for XBS
+prebinding disabled for
 .I filename
 because
 .I reason''.
@@ -1794,6 +1798,16 @@ The argument
 .I filename
 is used in the above message when RC_TRACE_PREBINDING_DISABLED is set.
 .TP
+.B LD_TRACE_FILE
+When this is set, messages displayed due to the
+.B LD_TRACE_ARCHIVES
+,
+.B LD_TRACE_DYLIBS
+, and
+.B LD_TRACE_PREBINDING_DISABLED
+environment variables are printed to the file whose path is specified
+by this variable instead of stdout.
+.TP
 .B LD_SPLITSEGS_NEW_LIBRARIES
 When set and
 .B MACOSX_DEPLOYMENT_TARGET
@@ -1805,8 +1819,8 @@ is set with a file name with a list of library install names and the install
 name is not listed, then this is built as a split shared library.
 
 .PP
-Options available in early versions of the Mach-O link editor 
-may no longer be supported.  
+Options available in early versions of the Mach-O link editor
+may no longer be supported.
 
 .SH FILES
 .ta \w'/Network/Library/Frameworks/*.framework/*\ \ 'u
@@ -1824,5 +1838,5 @@ may no longer be supported.
 .br
 a.out	output file
 .SH "SEE ALSO"
-as(1), ar(1), cc(1), libtool(1), ranlib(1), nm(1), otool(1) lipo(1), 
+as(1), ar(1), cc(1), libtool(1), ranlib(1), nm(1), otool(1) lipo(1),
 arch(3), dyld(3), Mach-O(5), strip(1), redo_prebinding(1)

@@ -1478,7 +1478,7 @@ unsigned int *val)
 void
 md_number_to_chars(
 char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int nbytes)
 {
 	switch(nbytes) {
@@ -1500,7 +1500,7 @@ int nbytes)
 void
 md_number_to_imm(
 unsigned char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int nbytes,
 fixS *fixP,
 int nsect)

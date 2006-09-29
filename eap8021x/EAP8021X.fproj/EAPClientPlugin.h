@@ -92,16 +92,17 @@ typedef struct EAPClientPluginData_s {
     const void *		unique_id;/* used for TLS session resumption */
     const uint32_t		unique_id_length;
 
-    const char *		username;
+    const uint8_t *		username;
     const uint32_t		username_length;
 
-    const char *		password; 	/* may be NULL */
+    const uint8_t *		password; 	/* may be NULL */
     const uint32_t		password_length;
 
     const CFDictionaryRef	properties;	/* may be NULL */
 
+    const bool			system_mode;
 
-    const uint32_t		reserved[8];	/* reserved, don't use */
+    const uint32_t		reserved[7];	/* reserved, don't use */
 } EAPClientPluginData, *EAPClientPluginDataRef;
 
 /*

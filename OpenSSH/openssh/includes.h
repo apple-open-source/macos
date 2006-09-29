@@ -1,4 +1,4 @@
-/*	$OpenBSD: includes.h,v 1.17 2002/01/26 16:44:22 stevesk Exp $	*/
+/*	$OpenBSD: includes.h,v 1.19 2005/05/19 02:42:26 djm Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -17,10 +17,11 @@
 #define INCLUDES_H
 
 #define RCSID(msg) \
-static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
+static /**/const char *const rcsid[] = { (const char *)rcsid, "\100(#)" msg }
 
 #include "config.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
@@ -33,6 +34,7 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #include <grp.h>
 #include <time.h>
 #include <dirent.h>
+#include <stddef.h>
 
 #ifdef HAVE_LIMITS_H
 # include <limits.h> /* For PATH_MAX */
@@ -167,6 +169,10 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 # include <ia.h>
 #endif
 
+#ifdef HAVE_IAF_H
+# include <iaf.h>
+#endif
+
 #ifdef HAVE_TMPDIR_H
 # include <tmpdir.h>
 #endif
@@ -178,6 +184,20 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #if defined(KRB5) && defined(USE_AFS)
 # include <krb5.h>
 # include <kafs.h>
+#endif
+
+#if defined(HAVE_SYS_SYSLOG_H)
+# include <sys/syslog.h>
+#endif
+
+/*
+ * On HP-UX 11.11, shadow.h and prot.h provide conflicting declarations
+ * of getspnam when _INCLUDE__STDC__ is defined, so we unset it here.
+ */
+#ifdef GETSPNAM_CONFLICTING_DEFS
+# ifdef _INCLUDE__STDC__
+#  undef _INCLUDE__STDC__
+# endif
 #endif
 
 #include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */

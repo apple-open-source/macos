@@ -442,29 +442,23 @@ command is used to manipulate the
 variables that may be sent through the
 .Dv TELNET ENVIRON
 option.
-The initial set of variables is taken from the users
-environment, with only the
-.Ev DISPLAY
-and
-.Ev PRINTER
-variables being exported by default.
-The
-.Ev USER
-variable is also exported if the
-.Fl a
-or
-.Fl l
-options are used.
+The initial set of variables is populated with the
+contents of the following environment variables, if
+present: 
+.Ev USER , PRINTER , DISPLAY , TERM , COLUMNS , LINES.
+
+Only the first three are exported, by default.
 .Pp
 Valid arguments for the
 .Ic environ
 command are:
 .Bl -tag -width Fl
-.It Ic define Ar variable value
+.It Ic define Ar variable [value]
 Define the variable
 .Ar variable
 to have a value of
 .Ar value .
+If value is empty, the value is taken from the environment variable.
 Any variables defined by this command are automatically exported.
 The
 .Ar value

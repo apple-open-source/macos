@@ -12,7 +12,28 @@ ifeq "macos" "$(RC_OS)"
 	     fi; )
 endif
 
-STATIC = -static
+ifeq "macos" "$(RC_OS)"
+  STATIC := $(shell if [ "$(RC_RELEASE)" = "Beaker"    ] || \
+		     [ "$(RC_RELEASE)" = "Bunsen"    ] || \
+		     [ "$(RC_RELEASE)" = "Gonzo"     ] || \
+		     [ "$(RC_RELEASE)" = "Kodiak"    ] || \
+		     [ "$(RC_RELEASE)" = "Cheetah"   ] || \
+		     [ "$(RC_RELEASE)" = "Puma"      ] || \
+		     [ "$(RC_RELEASE)" = "Jaguar"    ] || \
+		     [ "$(RC_RELEASE)" = "Panther"   ] || \
+		     [ "$(RC_RELEASE)" = "MuonPrime" ] || \
+		     [ "$(RC_RELEASE)" = "MuonSeed"  ] || \
+		     [ "$(RC_RELEASE)" = "SUPanWheat" ]; then \
+		    echo "-static" ; \
+	    else if [ "$(RC_RELEASE)" = "Tiger" ]; then \
+		    echo "-static" \
+	    else \
+		    echo "" \
+	  ; fi; fi; )
+else
+  STATIC = -static
+endif
+
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -I$(SRCROOT) $(LEGACY)
 else
@@ -48,9 +69,11 @@ ifeq "macos" "$(RC_OS)"
 		     [ "$(RC_RELEASE)" = "MuonSeed"  ] || \
 		     [ "$(RC_RELEASE)" = "SUPanWheat" ]; then \
 		    echo "-L$(NEXT_ROOT)$(SYSTEMDIR) -lc_static" ; \
-	    else \
+	    else if [ "$(RC_RELEASE)" = "Tiger" ]; then \
 		    echo "-L$(NEXT_ROOT)$(SYSTEMDIR) -lc_static -lm_static" \
-	  ; fi; )
+	    else \
+		    echo "" \
+	  ; fi; fi; )
 else
   LIBS = -lc_static
 endif

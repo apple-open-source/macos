@@ -1,4 +1,4 @@
-/*	$OpenBSD: monitor_wrap.h,v 1.13 2003/11/17 11:06:07 markus Exp $	*/
+/*	$OpenBSD: monitor_wrap.h,v 1.14 2004/06/21 17:36:31 avsm Exp $	*/
 
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
@@ -58,15 +58,12 @@ BIGNUM *mm_auth_rsa_generate_challenge(Key *);
 
 #ifdef GSSAPI
 #include "ssh-gss.h"
-OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **ctxt, gss_OID oid);
-OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *ctxt,
-   gss_buffer_desc *recv, gss_buffer_desc *send, OM_uint32 *flags);
+OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
+OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
+   gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
 int mm_ssh_gssapi_userok(char *user);
 OM_uint32 mm_ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
-OM_uint32 mm_ssh_gssapi_sign(Gssctxt *ctxt, gss_buffer_desc *buffer,
-			     gss_buffer_desc *hash);
-char *mm_ssh_gssapi_last_error(Gssctxt *ctxt, OM_uint32 *maj, OM_uint32 *min);
-
+OM_uint32 mm_ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
 #endif
 
 #ifdef USE_PAM
@@ -78,6 +75,11 @@ int mm_sshpam_respond(void *, u_int, char **);
 void mm_sshpam_free_ctx(void *);
 #endif
 
+#ifdef SSH_AUDIT_EVENTS
+#include "audit.h"
+void mm_audit_event(ssh_audit_event_t);
+void mm_audit_run_command(const char *);
+#endif
 
 struct Session;
 void mm_terminate(void);
@@ -103,12 +105,6 @@ int mm_bsdauth_respond(void *, u_int, char **);
 /* skey */
 int mm_skey_query(void *, char **, char **, u_int *, char ***, u_int **);
 int mm_skey_respond(void *, u_int, char **);
-
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-void mm_solaris_audit_bad_pw(const char *what);
-void mm_solaris_audit_maxtrys(void);
-void mm_solaris_audit_not_console(void);
-#endif /* BSM */
 
 /* zlib allocation hooks */
 

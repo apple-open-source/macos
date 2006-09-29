@@ -56,6 +56,9 @@
 #include "printdata.h"
 #include "myCFUtil.h"
 
+/* set a 12-hour session cache timeout */
+#define kEAPTLSSessionCacheTimeoutSeconds	(12 * 60 * 60)
+
 #ifdef NOTYET
 /*
  * Lists of SSLCipherSuites used in setCipherRestrictions. Note that the 
@@ -358,6 +361,7 @@ EAPSSLContextCreate(SSLProtocol protocol, bool is_server,
 	    goto cleanup;
 	}
     }
+    (void)SSLSetSessionCacheTimeout(ctx, kEAPTLSSessionCacheTimeoutSeconds);
     return (ctx);
 
  cleanup:
@@ -510,7 +514,7 @@ EAPTLSComputeKeyData(SSLContextRef ssl_context,
 {
     char		master_secret[SSL_MASTER_SECRET_SIZE];
     size_t		master_secret_length;
-    size_t		offset = 0;
+    size_t		offset;
     char		random[SSL_CLIENT_SRVR_RAND_SIZE * 2];
     size_t		random_size = 0;
     size_t		size;
@@ -537,7 +541,7 @@ EAPTLSComputeKeyData(SSLContextRef ssl_context,
     status = SSLInternalServerRandom(ssl_context, random + offset, &size);
     if (status != noErr) {
 	fprintf(stderr, 
-		"EAPTLSComputeSessionKeyy: SSLInternalClientRandom failed, %s\n",
+		"EAPTLSComputeSessionKey: SSLInternalServerRandom failed, %s\n",
 		EAPSSLErrorString(status));
 	return (status);
     }

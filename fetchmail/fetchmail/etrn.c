@@ -25,7 +25,8 @@ static int etrn_ok (int sock, char *argbuf)
 {
     int ok;
 
-    ok = SMTP_ok(sock);
+    (void)argbuf;
+    ok = SMTP_ok(sock, SMTP_MODE);
     if (ok == SM_UNRECOVERABLE)
 	return(PS_PROTOCOL);
     else
@@ -40,7 +41,8 @@ static int etrn_getrange(int sock, struct query *ctl, const char *id,
     char buf [MSGBUFSIZE+1];
     struct idlist *qnp;		/* pointer to Q names */
 
-    if ((ok = SMTP_ehlo(sock, fetchmailhost, 
+    (void)id;
+    if ((ok = SMTP_ehlo(sock, SMTP_MODE, fetchmailhost,
 			ctl->server.esmtp_name, ctl->server.esmtp_password,
 			&opts)))
     {
@@ -116,19 +118,15 @@ static int etrn_getrange(int sock, struct query *ctl, const char *id,
 static int etrn_logout(int sock, struct query *ctl)
 /* send logout command */
 {
+    (void)ctl;
     return(gen_transact(sock, "QUIT"));
 }
 
-const static struct method etrn =
+static const struct method etrn =
 {
     "ETRN",		/* ESMTP ETRN extension */
-#if INET6_ENABLE
     "smtp",		/* standard SMTP port */
     "smtps",		/* ssl SMTP port */
-#else /* INET6_ENABLE */
-    25,			/* standard SMTP port */
-    465,			/* ssl SMTP port */
-#endif /* INET6_ENABLE */
     FALSE,		/* this is not a tagged protocol */
     FALSE,		/* this does not use a message delimiter */
     etrn_ok,		/* parse command response */
@@ -142,6 +140,7 @@ const static struct method etrn =
     NULL,		/* no message trailer */
     NULL,		/* how to delete a message */
     NULL,		/* how to mark a message as seen */
+    NULL,		/* no mailbox support */
     etrn_logout,	/* log out, we're done */
     FALSE,		/* no, we can't re-poll */
 };
@@ -160,7 +159,7 @@ int doETRN (struct query *ctl)
 	return(PS_SYNTAX);
     }
     if (ctl->mailboxes->id) {
-	fprintf(stderr, GT_("Option --remote is not supported with ETRN\n"));
+	fprintf(stderr, GT_("Option --folder is not supported with ETRN\n"));
 	return(PS_SYNTAX);
     }
     if (check_only) {

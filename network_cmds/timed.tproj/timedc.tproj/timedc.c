@@ -65,7 +65,7 @@ static char sccsid[] = "@(#)timedc.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 #ifdef sgi
-#ident "$Revision: 1.1.1.1 $"
+#ident "$Revision: 1.1 $"
 #endif
 
 #include "timedc.h"

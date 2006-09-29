@@ -51,6 +51,9 @@ static char *argv0;
 
 extern char *__progname;
 
+#define LOG_SYSLOG_VIS	(VIS_CSTYLE|VIS_NL|VIS_TAB|VIS_OCTAL)
+#define LOG_STDERR_VIS	(VIS_SAFE|VIS_OCTAL)
+
 /* textual representation of log-facilities/levels */
 
 static struct {
@@ -190,6 +193,10 @@ debug3(const char *fmt,...)
 void
 log_init(char *av0, LogLevel level, SyslogFacility facility, int on_stderr)
 {
+#if defined(HAVE_OPENLOG_R) && defined(SYSLOG_DATA_INIT)
+	struct syslog_data sdata = SYSLOG_DATA_INIT;
+#endif
+
 	argv0 = av0;
 
 	switch (level) {
@@ -258,6 +265,19 @@ log_init(char *av0, LogLevel level, SyslogFacility facility, int on_stderr)
 		    (int) facility);
 		exit(1);
 	}
+
+	/*
+	 * If an external library (eg libwrap) attempts to use syslog
+	 * immediately after reexec, syslog may be pointing to the wrong
+	 * facility, so we force an open/close of syslog here.
+	 */
+#if defined(HAVE_OPENLOG_R) && defined(SYSLOG_DATA_INIT)
+	openlog_r(argv0 ? argv0 : __progname, LOG_PID, log_facility, &sdata);
+	closelog_r(&sdata);
+#else
+	openlog(argv0 ? argv0 : __progname, LOG_PID, log_facility);
+	closelog();
+#endif
 }
 
 #define MSGBUFSIZ 1024
@@ -316,7 +336,8 @@ do_log(LogLevel level, const char *fmt, va_list args)
 	} else {
 		vsnprintf(msgbuf, sizeof(msgbuf), fmt, args);
 	}
-	strnvis(fmtbuf, msgbuf, sizeof(fmtbuf), VIS_SAFE|VIS_OCTAL);
+	strnvis(fmtbuf, msgbuf, sizeof(fmtbuf),
+	    log_on_stderr ? LOG_STDERR_VIS : LOG_SYSLOG_VIS);
 	if (log_on_stderr) {
 		snprintf(msgbuf, sizeof msgbuf, "%s\r\n", fmtbuf);
 		write(STDERR_FILENO, msgbuf, strlen(msgbuf));

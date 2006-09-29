@@ -14,6 +14,9 @@ SYNOPSIS
      ssh-keygen -l [-f input_keyfile]
      ssh-keygen -B [-f input_keyfile]
      ssh-keygen -D reader
+     ssh-keygen -F hostname [-f known_hosts_file]
+     ssh-keygen -H [-f known_hosts_file]
+     ssh-keygen -R hostname [-f known_hosts_file]
      ssh-keygen -U reader [-f input_keyfile]
      ssh-keygen -r hostname [-f input_keyfile] [-g]
      ssh-keygen -G output_file [-v] [-b bits] [-M memory] [-S start_point]
@@ -30,9 +33,9 @@ DESCRIPTION
      group exchange (DH-GEX).  See the MODULI GENERATION section for details.
 
      Normally each user wishing to use SSH with RSA or DSA authentication runs
-     this once to create the authentication key in $HOME/.ssh/identity,
-     $HOME/.ssh/id_dsa or $HOME/.ssh/id_rsa.  Additionally, the system admin-
-     istrator may use this to generate host keys, as seen in /etc/rc.
+     this once to create the authentication key in ~/.ssh/identity,
+     ~/.ssh/id_dsa or ~/.ssh/id_rsa.  Additionally, the system administrator
+     may use this to generate host keys, as seen in /etc/rc.
 
      Normally this program generates the key and asks for a file in which to
      store the private key.  The public key is stored in a file with the same
@@ -67,25 +70,54 @@ DESCRIPTION
              Specifies the number of primality tests to perform when screening
              DH-GEX candidates using the -T command.
 
+     -B      Show the bubblebabble digest of specified private or public key
+             file.
+
      -b bits
              Specifies the number of bits in the key to create.  Minimum is
-             512 bits.  Generally, 1024 bits is considered sufficient.  The
-             default is 1024 bits.
+             512 bits.  Generally, 2048 bits is considered sufficient.  The
+             default is 2048 bits.
+
+     -C comment
+             Provides a new comment.
 
      -c      Requests changing the comment in the private and public key
              files.  This operation is only supported for RSA1 keys.  The pro-
              gram will prompt for the file containing the private keys, for
              the passphrase if the key has one, and for the new comment.
 
+     -D reader
+             Download the RSA public key stored in the smartcard in reader.
+
      -e      This option will read a private or public OpenSSH key file and
              print the key in a `SECSH Public Key File Format' to stdout.
              This option allows exporting keys for use by several commercial
              SSH implementations.
 
-     -g      Use generic DNS resource record format.
+     -F hostname
+             Search for the specified hostname in a known_hosts file, listing
+             any occurrences found.  This option is useful to find hashed host
+             names or addresses and may also be used in conjunction with the
+             -H option to print found keys in a hashed format.
 
      -f filename
              Specifies the filename of the key file.
+
+     -G output_file
+             Generate candidate primes for DH-GEX.  These primes must be
+             screened for safety (using the -T option) before use.
+
+     -g      Use generic DNS format when printing fingerprint resource records
+             using the -r command.
+
+     -H      Hash a known_hosts file.  This replaces all hostnames and ad-
+             dresses with hashed representations within the specified file;
+             the original content is moved to a file with a .old suffix.
+             These hashes may be used normally by ssh and sshd, but they do
+             not reveal identifying information should the file's contents be
+             disclosed.  This option will not modify existing hashed hostnames
+             and is therefore safe to use on files that mix hashed and non-
+             hashed names.
 
      -i      This option will read an unencrypted private (or public) key file
              in SSH2-compatible format and print an OpenSSH compatible private
@@ -97,34 +129,6 @@ DESCRIPTION
              are also supported.  For RSA and DSA keys ssh-keygen tries to
              find the matching public key file and prints its fingerprint.
 
-     -p      Requests changing the passphrase of a private key file instead of
-             creating a new private key.  The program will prompt for the file
-             containing the private key, for the old passphrase, and twice for
-             the new passphrase.
-
-     -q      Silence ssh-keygen.  Used by /etc/rc when creating a new key.
-
-     -y      This option will read a private OpenSSH format file and print an
-             OpenSSH public key to stdout.
-
-     -t type
-             Specifies the type of the key to create.  The possible values are
-             ``rsa1'' for protocol version 1 and ``rsa'' or ``dsa'' for proto-
-             col version 2.
-
-     -B      Show the bubblebabble digest of specified private or public key
-             file.
-
-     -C comment
-             Provides the new comment.
-
-     -D reader
-             Download the RSA public key stored in the smartcard in reader.
-
-     -G output_file
-             Generate candidate primes for DH-GEX.  These primes must be
-             screened for safety (using the -T option) before use.
-
      -M memory
              Specify the amount of memory to use (in megabytes) when generat-
              ing candidate moduli for DH-GEX.
@@ -135,6 +139,22 @@ DESCRIPTION
      -P passphrase
              Provides the (old) passphrase.
 
+     -p      Requests changing the passphrase of a private key file instead of
+             creating a new private key.  The program will prompt for the file
+             containing the private key, for the old passphrase, and twice for
+             the new passphrase.
+
+     -q      Silence ssh-keygen.  Used by /etc/rc when creating a new key.
+
+     -R hostname
+             Removes all keys belonging to hostname from a known_hosts file.
+             This option is useful to delete hashed hosts (see the -H option
+             above).
+
+     -r hostname
+             Print the SSHFP fingerprint resource record named hostname for
+             the specified public key file.
+
      -S start
              Specify start point (in hex) when generating candidate moduli for
              DH-GEX.
@@ -143,9 +163,10 @@ DESCRIPTION
              Test DH group exchange candidate primes (generated using the -G
              option) for safety.
 
-     -W generator
-             Specify desired generator when testing candidate moduli for DH-
-             GEX.
+     -t type
+             Specifies the type of key to create.  The possible values are
+             ``rsa1'' for protocol version 1 and ``rsa'' or ``dsa'' for proto-
+             col version 2.
 
      -U reader
              Upload an existing RSA private key into the smartcard in reader.
@@ -155,8 +176,12 @@ DESCRIPTION
              tion.  Multiple -v options increase the verbosity.  The maximum
              is 3.
 
-     -r hostname
-             Print DNS resource record with the specified hostname.
+     -W generator
+             Specify desired generator when testing candidate moduli for DH-
+             GEX.
+
+     -y      This option will read a private OpenSSH format file and print an
+             OpenSSH public key to stdout.
 
 MODULI GENERATION
      ssh-keygen may be used to generate groups for the Diffie-Hellman Group
@@ -168,7 +193,7 @@ MODULI GENERATION
      Generation of primes is performed using the -G option.  The desired
      length of the primes may be specified by the -b option.  For example:
 
-           ssh-keygen -G moduli-2048.candidates -b 2048
+           # ssh-keygen -G moduli-2048.candidates -b 2048
 
      By default, the search for primes begins at a random point in the desired
      length range.  This may be overridden using the -S option, which speci-
@@ -179,20 +204,20 @@ MODULI GENERATION
      ssh-keygen will read candidates from standard input (or a file specified
      using the -f option).  For example:
 
-           ssh-keygen -T moduli-2048 -f moduli-2048.candidates
+           # ssh-keygen -T moduli-2048 -f moduli-2048.candidates
 
      By default, each candidate will be subjected to 100 primality tests.
      This may be overridden using the -a option.  The DH generator value will
      be chosen automatically for the prime under consideration.  If a specific
      generator is desired, it may be requested using the -W option.  Valid
-     generator values are 2, 3 and 5.
+     generator values are 2, 3, and 5.
 
      Screened DH groups may be installed in /etc/moduli.  It is important that
      this file contains moduli of a range of bit lengths and that both ends of
      a connection share common moduli.
 
 FILES
-     $HOME/.ssh/identity
+     ~/.ssh/identity
              Contains the protocol version 1 RSA authentication identity of
              the user.  This file should not be readable by anyone but the us-
              er.  It is possible to specify a passphrase when generating the
@@ -201,14 +226,14 @@ FILES
              ssh-keygen but it is offered as the default file for the private
              key.  ssh(1) will read this file when a login attempt is made.
 
-     $HOME/.ssh/identity.pub
+     ~/.ssh/identity.pub
              Contains the protocol version 1 RSA public key for authentica-
              tion.  The contents of this file should be added to
-             $HOME/.ssh/authorized_keys on all machines where the user wishes
-             to log in using RSA authentication.  There is no need to keep the
+             ~/.ssh/authorized_keys on all machines where the user wishes to
+             log in using RSA authentication.  There is no need to keep the
              contents of this file secret.
 
-     $HOME/.ssh/id_dsa
+     ~/.ssh/id_dsa
              Contains the protocol version 2 DSA authentication identity of
              the user.  This file should not be readable by anyone but the us-
              er.  It is possible to specify a passphrase when generating the
@@ -217,14 +242,14 @@ FILES
              ssh-keygen but it is offered as the default file for the private
              key.  ssh(1) will read this file when a login attempt is made.
 
-     $HOME/.ssh/id_dsa.pub
+     ~/.ssh/id_dsa.pub
              Contains the protocol version 2 DSA public key for authentica-
              tion.  The contents of this file should be added to
-             $HOME/.ssh/authorized_keys on all machines where the user wishes
-             to log in using public key authentication.  There is no need to
-             keep the contents of this file secret.
+             ~/.ssh/authorized_keys on all machines where the user wishes to
+             log in using public key authentication.  There is no need to keep
+             the contents of this file secret.
 
-     $HOME/.ssh/id_rsa
+     ~/.ssh/id_rsa
              Contains the protocol version 2 RSA authentication identity of
              the user.  This file should not be readable by anyone but the us-
              er.  It is possible to specify a passphrase when generating the
@@ -233,12 +258,12 @@ FILES
              ssh-keygen but it is offered as the default file for the private
              key.  ssh(1) will read this file when a login attempt is made.
 
-     $HOME/.ssh/id_rsa.pub
+     ~/.ssh/id_rsa.pub
              Contains the protocol version 2 RSA public key for authentica-
              tion.  The contents of this file should be added to
-             $HOME/.ssh/authorized_keys on all machines where the user wishes
-             to log in using public key authentication.  There is no need to
-             keep the contents of this file secret.
+             ~/.ssh/authorized_keys on all machines where the user wishes to
+             log in using public key authentication.  There is no need to keep
+             the contents of this file secret.
 
      /etc/moduli
              Contains Diffie-Hellman groups used for DH-GEX.  The file format
@@ -257,4 +282,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 3.5                   September 25, 1999                             4
+OpenBSD 3.8                   September 25, 1999                             5

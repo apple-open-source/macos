@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -119,8 +119,10 @@ struct cmd_flags {
     enum bool		/* set with -L (the default) off with -T, for -static */
 	use_long_names; /* use 4.4bsd extended format 1 for long names */
     enum bool L_or_T_specified;
-    enum bool		/* set if the environ var RC_TRACE_ARCHIVES is set */
-	rc_trace_archives;
+    enum bool		/* set if the environ var LD_TRACE_ARCHIVES is set */
+	ld_trace_archives;
+	const char *	/* LD_TRACE_FILE if set and LD_TRACE_ARCHIVES is set, or NULL */
+	trace_file_path;
     enum bool		/* set if -search_paths_first is specified */
 	search_paths_first;
 };
@@ -253,6 +255,8 @@ static void warn_member(
     struct arch *arch,
     struct member *member,
     const char *format, ...) __attribute__ ((format (printf, 3, 4)));
+static void ld_trace(
+    const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
 /* apple_version is in vers.c which is created by the Makefile */
 extern char apple_version[];
@@ -409,7 +413,7 @@ char **envp)
 			nfiles++;
 		    p = allocate((strlen(dirname) + 1) * nfiles +
 				 stat_buf.st_size);
-		    cmd_flags.files = reallocate(cmd_flags.files, 
+		    cmd_flags.files = reallocate(cmd_flags.files,
 					sizeof(char *) * (maxfiles + nfiles));
         	    cmd_flags.filelist = reallocate(cmd_flags.filelist,
 					sizeof(char *) * (maxfiles + nfiles));
@@ -608,7 +612,7 @@ char **envp)
 			error("missing argument to: %s option", argv[i]);
 			usage();
 		    }
-		    if(next_root != NULL){
+		    if(next_root != NULL && strcmp(next_root, argv[i+1]) != 0){
 			error("more than one: %s option specified", argv[i]);
 			usage();
 		    }
@@ -700,10 +704,12 @@ char **envp)
 			strcmp(argv[i], "-prebind_allow_overlap") == 0 ||
 			strcmp(argv[i], "-ObjC") == 0 ||
 			strcmp(argv[i], "-M") == 0 ||
+			strcmp(argv[i], "-t") == 0 ||
 			strcmp(argv[i], "-single_module") == 0 ||
 			strcmp(argv[i], "-multi_module") == 0 ||
 			strcmp(argv[i], "-m") == 0 ||
 			strcmp(argv[i], "-dead_strip") == 0 ||
+			strcmp(argv[i], "-no_uuid") == 0 ||
 			strcmp(argv[i], "-no_dead_strip_inits_and_terms") == 0){
 		    if(cmd_flags.ranlib == TRUE){
 			error("unknown option: %s", argv[i]);
@@ -957,10 +963,13 @@ char **envp)
 		cmd_flags.files[cmd_flags.nfiles++] = argv[i];
 	}
 	/*
-         * Test to see if the environment variable RC_TRACE_ARCHIVES is set.
+         * Test to see if the environment variable LD_TRACE_ARCHIVES is set.
          */
-        if(getenv("RC_TRACE_ARCHIVES") != NULL)
-	    cmd_flags.rc_trace_archives = TRUE;
+        if((getenv("RC_TRACE_ARCHIVES") != NULL) ||
+	   (getenv("LD_TRACE_ARCHIVES") != NULL)) {
+	     cmd_flags.ld_trace_archives = TRUE;
+	     cmd_flags.trace_file_path = getenv("LD_TRACE_FILE");
+	   }
 
 	/*
 	 * If either -syslibroot or the environment variable NEXT_ROOT is set
@@ -1170,7 +1179,7 @@ void)
     unsigned long i, j, k, previous_errors;
     struct ofile *ofiles;
     char *file_name;
-    enum bool flag, rc_trace_archive_printed;
+    enum bool flag, ld_trace_archive_printed;
 
 	/*
 	 * For libtool processing put all input files in the specified output
@@ -1203,25 +1212,24 @@ void)
 
 	    previous_errors = errors;
 	    errors = 0;
-	    rc_trace_archive_printed = FALSE;
+	    ld_trace_archive_printed = FALSE;
 
 	    if(ofiles[i].file_type == OFILE_FAT){
 		(void)ofile_first_arch(ofiles + i);
 		do{
 		    if(ofiles[i].arch_type == OFILE_ARCHIVE){
-			if(cmd_flags.rc_trace_archives == TRUE &&
+			if(cmd_flags.ld_trace_archives == TRUE &&
 			   cmd_flags.dynamic == FALSE &&
-			   rc_trace_archive_printed == FALSE){
+			   ld_trace_archive_printed == FALSE){
 			    char resolvedname[MAXPATHLEN];
                 	    if(realpath(ofiles[i].file_name, resolvedname) !=
 			       NULL)
-				printf("[Logging for Build & Integration] Used "
-				       "static archive: %s\n", resolvedname);
+				ld_trace("[Logging for XBS] Used static archive: "
+					 "%s\n", resolvedname);
 			    else
-				printf("[Logging for Build & Integration] Used "
-				       "static archive: %s\n",
-				       ofiles[i].file_name);
-			    rc_trace_archive_printed = TRUE;
+				ld_trace("[Logging for XBS] Used static archive: "
+					 "%s\n", ofiles[i].file_name);
+			    ld_trace_archive_printed = TRUE;
 			}
 			/* loop through archive */
 			if((flag = ofile_first_member(ofiles + i)) == TRUE){
@@ -1274,17 +1282,17 @@ void)
 		}while(ofile_next_arch(ofiles + i) == TRUE);
 	    }
 	    else if(ofiles[i].file_type == OFILE_ARCHIVE){
-		if(cmd_flags.rc_trace_archives == TRUE &&
+		if(cmd_flags.ld_trace_archives == TRUE &&
 		   cmd_flags.dynamic == FALSE &&
-		   rc_trace_archive_printed == FALSE){
+		   ld_trace_archive_printed == FALSE){
 		    char resolvedname[MAXPATHLEN];
 		    if(realpath(ofiles[i].file_name, resolvedname) != NULL)
-			printf("[Logging for Build & Integration] Used static "
-			       "archive: %s\n", resolvedname);
+			ld_trace("[Logging for XBS] Used static archive: "
+				 "%s\n", resolvedname);
 		    else
-			printf("[Logging for Build & Integration] Used static "
-			       "archive: %s\n", ofiles[i].file_name);
-		    rc_trace_archive_printed = TRUE;
+			ld_trace("[Logging for XBS] Used static archive: "
+				 "%s\n", ofiles[i].file_name);
+		    ld_trace_archive_printed = TRUE;
 		}
 		/* loop through archive */
 		if((flag = ofile_first_member(ofiles + i)) == TRUE){
@@ -1616,7 +1624,7 @@ struct ofile *ofile)
 		if(cmd_flags.dynamic != TRUE){
 		    if(ofile->member_ar_hdr != NULL){
 			warning("file: %s(%.*s) is a dynamic library, not "
-				"added to the static library", 
+				"added to the static library",
 			        ofile->file_name, (int)ofile->member_name_size,
 			        ofile->member_name);
 		    }
@@ -1672,7 +1680,7 @@ struct ofile *ofile)
                 arch->arch_flag.name =
                     savestr("cputype 1234567890 cpusubtype 1234567890");
                 if(arch->arch_flag.name != NULL)
-                    sprintf(arch->arch_flag.name, "cputype %u cpusubtype %u",  
+                    sprintf(arch->arch_flag.name, "cputype %u cpusubtype %u",
                             ofile->mh_cputype, ofile->mh_cpusubtype);
                     arch->arch_flag.cputype = ofile->mh_cputype;
                     arch->arch_flag.cpusubtype = ofile->mh_cpusubtype;
@@ -1710,7 +1718,7 @@ struct ofile *ofile)
 	     * done if the name does not fit in the archive header or contains
 	     * a space character then we use the extened format #1.  The size
 	     * of the name is rounded up so the object file after the name will
-	     * be on an 8 byte boundary (including rounding the size of the 
+	     * be on an 8 byte boundary (including rounding the size of the
 	     * struct ar_hdr).  The name will be padded with '\0's when it is
 	     * written out.
 	     */
@@ -1720,7 +1728,7 @@ struct ofile *ofile)
 		ar_name_size = round(member->input_base_name_size, 8) +
 			       (round(sizeof(struct ar_hdr), 8) -
 				sizeof(struct ar_hdr));
-		sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
+		sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1,
 			(int)(sizeof(member->ar_hdr.ar_name) -
 			      (sizeof(AR_EFMT1) - 1)), ar_name_size);
 		memcpy(member->ar_hdr.ar_name, ar_name_buf,
@@ -1800,7 +1808,7 @@ struct ofile *ofile)
 		    ar_name_size = round(ar_name_size, 8) +
 				   (round(sizeof(struct ar_hdr), 8) -
 				    sizeof(struct ar_hdr));
-		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
+		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1,
 			    (int)(sizeof(member->ar_hdr.ar_name) -
 				  (sizeof(AR_EFMT1) - 1)), ar_name_size);
 		    memcpy(member->ar_hdr.ar_name, ar_name_buf,
@@ -1817,7 +1825,7 @@ struct ofile *ofile)
 				   (round(sizeof(struct ar_hdr), 8) -
 				    sizeof(struct ar_hdr));
 		    member->output_long_name = TRUE;
-		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1, 
+		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1,
 			    (int)(sizeof(member->ar_hdr.ar_name) -
 				  (sizeof(AR_EFMT1) - 1)), ar_name_size);
 		    memcpy(member->ar_hdr.ar_name, ar_name_buf,
@@ -1884,7 +1892,7 @@ void)
     unsigned long i;
 
 	for(i = 0 ; i < narchs; i++){
-	    /* 
+	    /*
 	     * Just leak memory on the arch_flag.name in some cases
 	     * (unknown archiectures only where the space is malloced and
 	     * a sprintf() is done into the memory)
@@ -2170,7 +2178,7 @@ char *output)
 		       arch->members[j].load_commands) == FALSE)
 			fatal("internal error: swap_object_headers() failed");
 		}
-		memcpy(p, arch->members[j].object_addr, 
+		memcpy(p, arch->members[j].object_addr,
 		       arch->members[j].object_size);
 		p += arch->members[j].object_size;
 		pad = round(arch->members[j].object_size, 8) -
@@ -2220,7 +2228,7 @@ char *output)
 	 * all the ar_date's in the file.
 	 */
 	sprintf((char *)(&toc_ar_hdr), "%-*s%-*ld",
-	   (int)sizeof(toc_ar_hdr.ar_name), 
+	   (int)sizeof(toc_ar_hdr.ar_name),
 	       SYMDEF,
 	   (int)sizeof(toc_ar_hdr.ar_date),
 	       (long int)stat_buf.st_mtime + 5);
@@ -2281,7 +2289,7 @@ char *fileName)
     char *portName;
 #if defined(__OPENSTEP__) || defined(__GONZO_BUNSEN_BEAKER__)
     char *hostName;
-    
+
 	hostName = getenv("MAKEHOST");
 	if(hostName == NULL)
 	    hostName = "";
@@ -2300,7 +2308,7 @@ char *fileName)
 #endif
 	if(ProjectBuilder_port == MACH_PORT_NULL)
 	    return;
-    
+
 	strcpy(message_buf, message);
 	strcat(message_buf, arch_name);
 
@@ -2482,7 +2490,7 @@ char *output)
 	/*
 	 * If we are doing prebinding then run /usr/bin/objcunique on the
 	 * output.
-	 */ 
+	 */
 	if(cmd_flags.prebinding == TRUE){
 	    if(stat("/usr/bin/objcunique", &stat_buf) != -1){
 		reset_execute_list();
@@ -2690,7 +2698,7 @@ char *output)
 			    is_toc_symbol = toc_symbol_64(symbols64 + j,
 						          member->sections64);
 			if(is_toc_symbol == TRUE){
-			    strcpy(arch->toc_strings + s, 
+			    strcpy(arch->toc_strings + s,
 				   strings + n_strx);
 			    arch->toc_ranlibs[r].ran_un.ran_name =
 							arch->toc_strings + s;
@@ -2732,7 +2740,7 @@ char *output)
 		/*
 		 * Since the SYMDEF_SORTED is "__.SYMDEF SORTED" which contains
 		 * a space, it should use extended format #1 if we can use long
-		 * names. 
+		 * names.
 		 */
 		arch->toc_name = SYMDEF_SORTED;
 		arch->toc_name_size = sizeof(SYMDEF_SORTED) - 1;
@@ -2783,9 +2791,9 @@ char *output)
 	for(i = 0; i < arch->nmembers; i++)
 	    arch->members[i].offset += SARMAG + arch->toc_size;
 	for(i = 0; i < arch->toc_nranlibs; i++){
-	    arch->toc_ranlibs[i].ran_un.ran_strx = 
+	    arch->toc_ranlibs[i].ran_un.ran_strx =
 		arch->toc_ranlibs[i].ran_un.ran_name - arch->toc_strings;
-	    arch->toc_ranlibs[i].ran_off = 
+	    arch->toc_ranlibs[i].ran_off =
 		arch->members[arch->toc_ranlibs[i].ran_off - 1].offset;
 	}
 
@@ -3094,4 +3102,45 @@ const char *format, ...)
 	vfprintf(stderr, format, ap);
         fprintf(stderr, "\n");
 	va_end(ap);
+}
+
+/*
+ * Prints the message to cmd_flags.trace_file_path, or stderr if that
+ * isn't set.
+ */
+static
+void
+ld_trace(
+const char *format, ...)
+{
+	static int trace_file = -1;
+	char trace_buffer[MAXPATHLEN * 2];
+	char *buffer_ptr;
+	int length;
+	ssize_t amount_written;
+
+	if(trace_file == -1){
+		if(cmd_flags.trace_file_path != NULL){
+			trace_file = open(cmd_flags.trace_file_path, O_WRONLY | O_APPEND | O_CREAT, 0666);
+			if(trace_file == -1)
+				error("Could not open or create trace file: %s\n", cmd_flags.trace_file_path);
+		}
+		else{
+			trace_file = fileno(stderr);
+		}
+	}
+    va_list ap;
+
+	va_start(ap, format);
+	length = vsnprintf(trace_buffer, sizeof(trace_buffer), format, ap);
+	va_end(ap);
+	buffer_ptr = trace_buffer;
+	while(length > 0){
+		amount_written = write(trace_file, buffer_ptr, length);
+		if(amount_written == -1)
+			/* Failure to write shouldn't fail the build. */
+			return;
+		buffer_ptr += amount_written;
+		length -= amount_written;
+	}
 }

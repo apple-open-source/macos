@@ -64,12 +64,12 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/timeflow.h>
 
-/* time-to-live in cache, in seconds */
+/* default time-to-live in cache, in seconds */
 #define QUICK_CACHE_TEST	0
 #if		QUICK_CACHE_TEST
-#define SESSION_CACHE_TTL	((int)5)
+#define SESSION_CACHE_TTL	((CFTimeInterval)5)
 #else
-#define SESSION_CACHE_TTL	((int)(10 * 60))
+#define SESSION_CACHE_TTL	((CFTimeInterval)(10 * 60))
 #endif	/* QUICK_CACHE_TEST */
 
 #define CACHE_PRINT			0
@@ -117,7 +117,7 @@ public:
 	SessionCacheEntry(
 		const SSLBuffer &key, 
 		const SSLBuffer &sessionData,
-		const Time::Absolute &expirationTime);
+		CFAbsoluteTime expirationTime);
 	~SessionCacheEntry();
 		
 	/* basic lookup/match function */
@@ -125,7 +125,7 @@ public:
 	
 	/* has this expired? */
 	bool			isStale();							// calculates "now" 
-	bool			isStale(const Time::Absolute &now);	// when you know it
+	bool			isStale(CFAbsoluteTime now);		// when you know it
 	
 	/* key/data accessors */
 	SSLBuffer		&key()			{ return mKey; }
@@ -139,7 +139,7 @@ private:
 	SSLBuffer		mSessionData;
 
 	/* this entry to be removed from session map at this time */
-	Time::Absolute	mExpiration;
+	CFAbsoluteTime	mExpiration;
 };
 
 /*
@@ -150,7 +150,7 @@ private:
 SessionCacheEntry::SessionCacheEntry(
 	const SSLBuffer &key, 
 	const SSLBuffer &sessionData,
-	const Time::Absolute &expirationTime)
+	CFAbsoluteTime expirationTime)
 		: mExpiration(expirationTime)
 {
 	OSStatus serr;
@@ -164,7 +164,6 @@ SessionCacheEntry::SessionCacheEntry(
 		throw runtime_error("memory error");
 	}
 	sslLogSessCacheDebug("SessionCacheEntry(buf,buf) this %p", this);
-	mExpiration += Time::Interval(SESSION_CACHE_TTL);
 }
 
 SessionCacheEntry::~SessionCacheEntry()
@@ -189,10 +188,10 @@ bool SessionCacheEntry::matchKey(const SSLBuffer &key) const
 /* has this expired? */
 bool SessionCacheEntry::isStale()
 {
-	return isStale(Time::now());
+	return isStale(CFAbsoluteTimeGetCurrent());
 }
 
-bool SessionCacheEntry::isStale(const Time::Absolute &now)
+bool SessionCacheEntry::isStale(CFAbsoluteTime now)
 {
 	if(now > mExpiration) {
 		return true;
@@ -227,7 +226,8 @@ public:
 	/* these correspond to the C functions exported by this file */
 	OSStatus addEntry(
 		const SSLBuffer sessionKey, 
-		const SSLBuffer sessionData);
+		const SSLBuffer sessionData,
+		uint32 timeToLive);
 	OSStatus lookupEntry(
 		const SSLBuffer sessionKey, 
 		SSLBuffer *sessionData); 
@@ -247,7 +247,7 @@ private:
 		SessionCacheIter iter);
 	SessionCacheType		mSessionCache;
 	Mutex					mSessionLock;
-	const Time::Interval	mTimeToLive;
+	CFTimeInterval			mTimeToLive;
 };
 
 SessionCache::~SessionCache()
@@ -262,9 +262,11 @@ SessionCache::~SessionCache()
 /* these three correspond to the C functions exported by this file */
 OSStatus SessionCache::addEntry(
 	const SSLBuffer sessionKey, 
-	const SSLBuffer sessionData)
+	const SSLBuffer sessionData,
+	uint32 timeToLive)			/* optional time-to-live in seconds; 0 ==> default */
 {
 	StLock<Mutex> _(mSessionLock);
+	CFTimeInterval expireTime;
 	
 	SessionCacheIter existIter = lookupPriv(&sessionKey);
 	if(existIter != mSessionCache.end()) {
@@ -289,10 +291,20 @@ OSStatus SessionCache::addEntry(
 		}
 	}
 	
+	expireTime = CFAbsoluteTimeGetCurrent();
+	if(timeToLive) {
+		/* caller-specified */
+		expireTime += (CFTimeInterval)timeToLive;
+	}
+	else {
+		/* default */
+		expireTime += mTimeToLive;
+	}
+
 	/* this allocs new copy of incoming sessionKey and sessionData */
 	SessionCacheEntry *entry = new SessionCacheEntry(sessionKey, 
 		sessionData,
-		Time::now() + mTimeToLive);
+		expireTime);
 
 	sslLogSessCacheDebug("SessionCache::addEntry %p", entry);
 	cachePrint(&sessionKey, &sessionData);
@@ -339,7 +351,7 @@ bool SessionCache::cleanup()
 {
 	StLock<Mutex> _(mSessionLock);
 	bool brtn = false;
-	Time::Absolute rightNow = Time::now();
+	CFAbsoluteTime rightNow = CFAbsoluteTimeGetCurrent();
 	SessionCacheIter iter;
 	
 	for(iter = mSessionCache.begin(); iter != mSessionCache.end(); ) {
@@ -431,11 +443,12 @@ static void dumpAllCache()
  */
 OSStatus sslAddSession (
 	const SSLBuffer sessionKey, 
-	const SSLBuffer sessionData)
+	const SSLBuffer sessionData,
+	uint32 timeToLive)			/* optional time-to-live in seconds; 0 ==> default */
 {
 	OSStatus serr;
 	try {
-		serr = gSessionCache().addEntry(sessionKey, sessionData);
+		serr = gSessionCache().addEntry(sessionKey, sessionData, timeToLive);
 	}
 	catch(...) {
 		serr = unimpErr;

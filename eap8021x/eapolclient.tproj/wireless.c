@@ -112,12 +112,13 @@ wireless_ap_mac(const wireless_t wref, struct ether_addr * AP_mac)
 
 boolean_t
 wireless_set_key(const wireless_t wref, wirelessKeyType type, 
-		 int index, char * key, int key_length)
+		 int index, const uint8_t * key, int key_length)
 {
     WirelessError	error;
     boolean_t		ret = TRUE;
 
-    error = WirelessSetKey((WirelessRef)wref, type, index, key_length, key);
+    error = WirelessSetKey((WirelessRef)wref, type, index, key_length, 
+			   (uint8_t *)key);
     if (error != errWirelessNoError) {
 	fprintf(stderr, "wireless_set_key: WirelessSetKey failed, %x\n",
 		error);
@@ -127,13 +128,14 @@ wireless_set_key(const wireless_t wref, wirelessKeyType type,
 }
 
 boolean_t
-wireless_set_wpa_session_key(const wireless_t wref, char * key, int key_length)
+wireless_set_wpa_session_key(const wireless_t wref, 
+			     const uint8_t * key, int key_length)
 {
     WirelessError	error;
     boolean_t		ret = TRUE;
 
     error = WirelessSetWPAKey((WirelessRef)wref, kWPAKeyTypeSession, 
-			      key_length, key);
+			      key_length, (uint8_t *)key);
     if (error != errWirelessNoError) {
 	fprintf(stderr, 
 		"wireless_set_key: WirelessSetWPAKey session key failed, %x\n",
@@ -144,13 +146,14 @@ wireless_set_wpa_session_key(const wireless_t wref, char * key, int key_length)
 }
 
 boolean_t
-wireless_set_wpa_server_key(const wireless_t wref, char * key, int key_length)
+wireless_set_wpa_server_key(const wireless_t wref, 
+			    const uint8_t * key, int key_length)
 {
     WirelessError	error;
     boolean_t		ret = TRUE;
 
     error = WirelessSetWPAKey((WirelessRef)wref, kWPAKeyTypeServer, 
-			      key_length, key);
+			      key_length, (uint8_t *)key);
     if (error != errWirelessNoError) {
 	fprintf(stderr, 
 		"wireless_set_key: WirelessSetWPAKey server key failed, %x\n",
@@ -210,14 +213,14 @@ wireless_first(wireless_t * wref_p, struct ether_addr * client_mac)
 }
 
 static boolean_t
-wireless_join_8021x(wireless_t wref, CFStringRef ssid)
+wireless_join(wireless_t wref, CFDataRef ssid, WirelessJoinType join_type)
 {
     WirelessError	error;
     boolean_t		ret = TRUE;
 
-    error = WirelessJoin8021x((WirelessRef)wref, ssid);
+    error = WirelessAssociate((WirelessRef)wref, join_type, ssid, NULL);
     if (error != errWirelessNoError) {
-	fprintf(stderr, "wireless_join: WirelessJoin8021x failed, %x\n",
+	fprintf(stderr, "wireless_join: WirelessAssociate failed, %x\n",
 		error);
 	ret = FALSE;
     }
@@ -226,17 +229,17 @@ wireless_join_8021x(wireless_t wref, CFStringRef ssid)
 }
 
 static void
-hexstrtobin(const char * hexstr, int hexlen, char * bin, int bin_len)
+hexstrtobin(const char * hexstr, int hexlen, uint8_t * bin, int bin_len)
 {
     int		i;
     int		j;
-    u_char	tmp[3];
+    char	tmp[3];
 
     tmp[2] = '\0';
     for (i = 0, j = 0; i < hexlen && j < bin_len; i += 2, j++) {
 	tmp[0] = hexstr[i];
 	tmp[1] = hexstr[i + 1];
-	bin[j] = (u_char)strtoul(tmp, NULL, 16);
+	bin[j] = (uint8_t)strtoul(tmp, NULL, 16);
     }
     return;
 }
@@ -285,7 +288,7 @@ main(int argc, char * argv[])
 	}
     }
     if (key_str) {
-	char	key[13];
+	uint8_t	key[13];
 	int	key_len;
 	int	hex_len = strlen(key_str);
 	
@@ -313,12 +316,12 @@ main(int argc, char * argv[])
 	}
     }
     else if (network != NULL) {
-	CFStringRef	ssid;
-
+	CFDataRef	ssid;
+	ssid = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)network,
+					   strlen(network), kCFAllocatorNull);
 	fprintf(stderr, "attempting to join 802.1x network '%s'\n", network);
-	ssid = CFStringCreateWithCString(NULL, network, kCFStringEncodingASCII);
-	if (wireless_join_8021x(wref, ssid) == FALSE) {
-	    fprintf(stderr, "wireless_join_8021x failed\n");
+	if (wireless_join(wref, ssid, eJoinWPA_Unspecified/* eJoin8021X */) == FALSE) {
+	    fprintf(stderr, "wireless_join failed\n");
 	}
     }
  done:

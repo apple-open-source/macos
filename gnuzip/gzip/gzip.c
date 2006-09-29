@@ -388,6 +388,7 @@ local void license()
     char **p = license_msg;
 
     printf ("%s %s\n(%s)\n", progname, VERSION, REVDATE);
+    printf ("%s %s %s\n", "CAN-2005-0758", "CAN-2005-0988", "CAN-2005-1228");
     while (*p) printf ("%s\n", *p++);
 }
 
@@ -901,16 +902,15 @@ local void treat_file(iname)
     }
 
     close(ifd);
-    if (!to_stdout && close(ofd)) {
-	write_error();
-    }
-
-#if __APPLE__
     if (!to_stdout) {
+#if __APPLE__
 	copyfile(ifname, ofname, 0, COPYFILE_ACL | COPYFILE_XATTR);
-    }
 #endif
-
+	/* Copy modes, times, ownership, and remove the input file */
+	copy_stat(&istat);
+	if (close(ofd))
+	    write_error();
+    }
     if (method == -1) {
 	if (!to_stdout) xunlink (ofname);
 	return;
@@ -928,10 +928,6 @@ local void treat_file(iname)
 	    fprintf(stderr, " -- replaced with %s", ofname);
 	}
 	fprintf(stderr, "\n");
-    }
-    /* Copy modes, times, ownership, and remove the input file */
-    if (!to_stdout) {
-	copy_stat(&istat);
     }
 }
 
@@ -1350,6 +1346,7 @@ local int get_method(in)
 		/* Copy the base name. Keep a directory prefix intact. */
                 char *p = base_name (ofname);
                 char *base = p;
+		char *base2;
 		for (;;) {
 		    *p = (char)get_char();
 		    if (*p++ == '\0') break;
@@ -1357,6 +1354,8 @@ local int get_method(in)
 			error("corrupted input -- file name too large");
 		    }
 		}
+		base2 = basename (base);
+		strcpy(base, base2);
                 /* If necessary, adapt the name to local OS conventions: */
                 if (!list) {
                    MAKE_LEGAL_NAME(base);
@@ -1758,7 +1757,7 @@ local void copy_stat(ifstat)
     reset_times(ofname, ifstat);
 #endif
     /* Copy the protection modes */
-    if (chmod(ofname, ifstat->st_mode & 07777)) {
+    if (fchmod(ofd, ifstat->st_mode & 07777)) {
 	int e = errno;
 	WARN((stderr, "%s: ", progname));
 	if (!quiet) {
@@ -1767,7 +1766,7 @@ local void copy_stat(ifstat)
 	}
     }
 #ifndef NO_CHOWN
-    chown(ofname, ifstat->st_uid, ifstat->st_gid);  /* Copy ownership */
+    (void) fchown(ofd, ifstat->st_uid, ifstat->st_gid);  /* Copy ownership */
 #endif
     remove_ofname = 0;
     /* It's now safe to remove the input file: */

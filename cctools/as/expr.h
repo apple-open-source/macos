@@ -19,45 +19,26 @@ You should have received a copy of the GNU General Public License
 along with GAS; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
+#include "as.h"
 #import "struc-symbol.h"
 #import "bignum.h"
 #import "flonum.h"
 
-/*
- * This table describes the use of segments as EXPRESSION types.
- *
- *	X_seg	X_add_symbol  X_subtract_symbol	X_add_number
- * SEG_NONE						no (legal) expression
- * SEG_BIG					*	> 32 bits const.
- * SEG_ABSOLUTE				     	0
- * SEG_SECT		*		     	0
- * SEG_UNKNOWN		*			0
- * SEG_DIFFSECT		0		*	0
- *
- * The blank fields MUST be 0, and are nugatory.
- * The '0' fields MAY be 0. The '*' fields MAY NOT be 0.
- *
- * SEG_BIG: A floating point number or an integer larger than 32 bits.
- *   For a floating point number:
- *	X_add_number is < 0
- * 	    The result is in the global variable generic_floating_point_number.
- *	    The value in X_add_number is -'c' where c is the character that
- *	    introduced the constant.  e.g. "0f6.9" will have  -'f' as a
- *	    X_add_number value.
- *   For an integer larger than 32 bits:
- *	X_add_number > 0
- *	    The result is in the global variable generic_bignum.
- *	    The value in X_add_number is a count of how many littlenums it
- *	    took to represent the bignum.
- */
-typedef enum {
-    SEG_ABSOLUTE,	/* absolute */
-    SEG_SECT,		/* normal defined section */
-    SEG_DIFFSECT,	/* difference between symbols in sections */
-    SEG_UNKNOWN,	/* expression involving an undefined symbol */
-    SEG_NONE,		/* no expression */
-    SEG_BIG		/* bigger than 32 bits constant */
-} segT;
+enum {
+  /* FROM expr.h line 46 */
+  /* A nonexistent expression.  */
+  O_absent = SEG_NONE, /* HACK, this isn't going to work, absent ones come up
+			  illegal currently.  */
+  /* X_add_symbol + X_add_number.  */
+  O_symbol = SEG_SECT,
+  /* X_add_number (a constant expression).  */
+  O_constant = SEG_ABSOLUTE,
+  /* A big value.  If X_add_number is negative or 0, the value is in
+     generic_floating_point_number.  Otherwise the value is in
+     generic_bignum, and X_add_number is the number of LITTLENUMs in
+     the value.  */
+  O_big = SEG_BIG,
+};
 
 extern char *seg_name[];
 extern segT N_TYPE_seg[];
@@ -97,12 +78,32 @@ extern LITTLENUM_TYPE generic_bignum[];
  * In other words the "type" of an expression is its segment.
  */
 
+// This isn't really up to date with GNU as, but it helps for source
+// compatibility.
+#define X_op X_seg
+#define X_op_symbol X_add_symbol
+
+/*
+ * To allow 32-bit architectures to use things like .quad we need to make
+ * all expressions be 64-bit regardless of the target architecture's address
+ * size.
+ */
+#include <stdint.h>
+typedef int64_t signed_expr_t;
+
 typedef struct {
     symbolS *X_add_symbol;	/* foo */
     symbolS *X_subtract_symbol;	/* bar */
-    signed_target_addr_t
+    signed_expr_t
     X_add_number;	/* 42 (must be signed) */
     segT     X_seg;		/* What segment (expr type) */
+
+	/* Non-zero if X_add_number should be regarded as unsigned.  This is
+     only valid for O_constant expressions.  It is only used when an
+     O_constant must be extended into a bignum (i.e., it is not used
+     when performing arithmetic on these values).
+     FIXME: This field is not set very reliably.  */
+	unsigned int X_unsigned : 1;
 } expressionS;
 
 extern segT expression(
@@ -111,4 +112,8 @@ extern char get_symbol_end(
     void);
 extern segT try_to_make_absolute(
     expressionS *expressionP);
+/* FROM line 165 */
+extern symbolS *make_expr_symbol (expressionS * expressionP);
+
+extern symbolS *expr_build_uconstant (offsetT);
 #endif /* _EXPR_H_ */

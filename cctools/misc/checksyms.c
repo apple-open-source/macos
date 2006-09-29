@@ -39,6 +39,7 @@
 #include "stuff/dylib_table.h"
 #include "stuff/seg_addr_table.h"
 #include "stuff/guess_short_name.h"
+#include "stuff/macosx_deployment_target.h"
 
 /* used by error routines as the name of the program */
 char *progname = NULL;
@@ -464,6 +465,8 @@ enum bool verification)
     struct load_command *lc;
     struct segment_command *sg;
     struct section *s;
+    enum macosx_deployment_target_value macosx_deployment_target;
+    const char *macosx_deployment_target_name;
 
 	/*
 	 * First check for relocation entries in read only segments.
@@ -498,8 +501,15 @@ enum bool verification)
 
 	/*
 	 * If the file is an executable or a dynamic library and has no
-	 * undefined references it should be prebound.
+	 * undefined references it should be prebound unless
+	 * MACOSX_DEPLOYMENT_TARGET is 10.4 or greater.
 	 */
+	get_macosx_deployment_target(&macosx_deployment_target,
+				     &macosx_deployment_target_name,
+				     CPU_TYPE_ANY);
+	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4)
+	    return;
+
 	if((ofile->mh->filetype == MH_EXECUTE ||
 	    ofile->mh->filetype == MH_DYLIB ||
 	    ofile->mh->filetype == MH_DYLIB_STUB) &&

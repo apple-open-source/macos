@@ -79,7 +79,7 @@
  */
 
 /*
- *	$Id: beos_nameser.h,v 1.1.1.1 2001/01/20 00:30:25 zarzycki Exp $
+ *	$Id: beos_nameser.h,v 1.1 2004/06/08 03:59:00 rfunk Exp $
  */
 
 #ifndef _ARPA_NAMESER_H_

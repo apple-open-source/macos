@@ -277,10 +277,6 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
             SuspendUSBBus();
             UIMFinalizeForPowerDown();
 			
-			// save these for when we wake back up
-			_savedPeriodicListBase = _pEHCIRegisters->PeriodicListBase;
-			_savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
-		
             _ehciAvailable = false;					// tell the interrupt filter routine that we are off
         }
         else 
@@ -297,11 +293,7 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
 			USBLog(7, "AppleUSBEHCI[%p]::setPowerState - about to suspend bus - showing queue", this);
 			printAsyncQueue(7);
             SuspendUSBBus();
-			
-			// save these now, in case we end up hibernating
-			_savedPeriodicListBase = _pEHCIRegisters->PeriodicListBase;
-			_savedAsyncListAddr = _pEHCIRegisters->AsyncListAddr;
-		
+
             USBLog(7, "AppleUSBEHCI[%p]::setPowerState The bus is now suspended - showing queue", this);
 			printAsyncQueue(7);
         }
@@ -316,8 +308,8 @@ AppleUSBEHCI::setPowerState( unsigned long powerStateOrdinal, IOService* whatDev
     {
         USBLog(5, "AppleUSBEHCI[%p]::setPowerState - halting the bus due to inactivity",  this);
         _idleSuspend = true;
-        DisableAsyncSchedule();
-        DisablePeriodicSchedule();
+        DisableAsyncSchedule(true);
+        DisablePeriodicSchedule(true);
         StopUSBBus();
 		
         USBLog(5, "AppleUSBEHCI[%p]::setPowerState - The bus is now halted due to inactivity",  this);

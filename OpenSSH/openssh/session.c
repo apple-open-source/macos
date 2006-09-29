@@ -33,7 +33,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: session.c,v 1.172 2004/01/30 09:48:57 markus Exp $");
+RCSID("$OpenBSD: session.c,v 1.186 2005/07/25 11:59:40 markus Exp $");
 
 #include "ssh.h"
 #include "ssh1.h"
@@ -42,7 +42,7 @@ RCSID("$OpenBSD: session.c,v 1.172 2004/01/30 09:48:57 markus Exp $");
 #include "sshpty.h"
 #include "packet.h"
 #include "buffer.h"
-#include "mpaux.h"
+#include "match.h"
 #include "uidswap.h"
 #include "compat.h"
 #include "channels.h"
@@ -56,6 +56,7 @@ RCSID("$OpenBSD: session.c,v 1.172 2004/01/30 09:48:57 markus Exp $");
 #include "serverloop.h"
 #include "canohost.h"
 #include "session.h"
+#include "kex.h"
 #include "monitor_wrap.h"
 
 #if defined(KRB5) && defined(USE_AFS)
@@ -198,10 +199,9 @@ display_loginmsg(void)
 {
 	if (buffer_len(&loginmsg) > 0) {
 		buffer_append(&loginmsg, "\0", 1);
-		printf("%s\n", (char *)buffer_ptr(&loginmsg));
+		printf("%s", (char *)buffer_ptr(&loginmsg));
 		buffer_clear(&loginmsg);
 	}
-	fflush(stdout);
 }
 
 void
@@ -246,6 +246,10 @@ do_authenticated1(Authctxt *authctxt)
 	u_int proto_len, data_len, dlen, compression_level = 0;
 
 	s = session_new();
+	if (s == NULL) {
+		error("no more sessions");
+		return;
+	}
 	s->authctxt = authctxt;
 	s->pw = authctxt->pw;
 
@@ -265,11 +269,11 @@ do_authenticated1(Authctxt *authctxt)
 			compression_level = packet_get_int();
 			packet_check_eom();
 			if (compression_level < 1 || compression_level > 9) {
-				packet_send_debug("Received illegal compression level %d.",
+				packet_send_debug("Received invalid compression level %d.",
 				    compression_level);
 				break;
 			}
-			if (!options.compression) {
+			if (options.compression == COMP_NONE) {
 				debug2("compression disabled");
 				break;
 			}
@@ -398,12 +402,6 @@ do_exec_no_pty(Session *s, const char *command)
 
 	session_proctitle(s);
 
-#if defined(GSSAPI)
-	temporarily_use_uid(s->pw);
-	ssh_gssapi_storecreds();
-	restore_uid();
-#endif
-
 #if defined(USE_PAM)
 	if (options.use_pam && !use_privsep)
 		do_pam_setcred(1);
@@ -487,7 +485,11 @@ do_exec_no_pty(Session *s, const char *command)
 	close(perr[1]);
 
 	if (compat20) {
-		session_set_fds(s, pin[1], pout[0], s->is_subsystem ? -1 : perr[0]);
+		if (s->is_subsystem) {
+			close(perr[0]);
+			perr[0] = -1;
+		}
+		session_set_fds(s, pin[1], pout[0], perr[0]);
 	} else {
 		/* Enter the interactive session. */
 		server_loop(pid, pin[1], pout[0], perr[0]);
@@ -535,12 +537,6 @@ do_exec_pty(Session *s, const char *command)
 	ptyfd = s->ptyfd;
 	ttyfd = s->ttyfd;
 
-#if defined(GSSAPI)
-	temporarily_use_uid(s->pw);
-	ssh_gssapi_storecreds();
-	restore_uid();
-#endif
-
 #if defined(USE_PAM)
 	if (options.use_pam) {
 		do_pam_set_tty(s->tty);
@@ -579,10 +575,6 @@ do_exec_pty(Session *s, const char *command)
 			cray_init_job(s->pw); /* set up cray jid and tmpdir */
 #endif /* _UNICOS */
 			do_login(s, command);
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-			if (s->tty != NULL)
-				solaris_audit_save_ttyn(s->tty);
-#endif /* BSM */
 		}
 # ifdef LOGIN_NEEDS_UTMPX
 		else
@@ -674,11 +666,15 @@ do_exec(Session *s, const char *command)
 		debug("Forced command '%.900s'", command);
 	}
 
-#ifdef GSSAPI
-	if (options.gss_authentication) {
-		temporarily_use_uid(s->pw);
-		ssh_gssapi_storecreds();
-		restore_uid();
+#ifdef SSH_AUDIT_EVENTS
+	if (command != NULL)
+		PRIVSEP(audit_run_command(command));
+	else if (s->ttyfd == -1) {
+		char *shell = s->pw->pw_shell;
+
+		if (shell[0] == '\0')	/* empty shell means /bin/sh */
+			shell =_PATH_BSHELL;
+		PRIVSEP(audit_run_command(shell));
 	}
 #endif
 
@@ -688,14 +684,19 @@ do_exec(Session *s, const char *command)
 		do_exec_no_pty(s, command);
 
 	original_command = NULL;
-}
 
+	/*
+	 * Clear loginmsg: it's the child's responsibility to display
+	 * it to the user, otherwise multiple sessions may accumulate
+	 * multiple copies of the login messages.
+	 */
+	buffer_clear(&loginmsg);
+}
 
 /* administrative, login(1)-like work */
 void
 do_login(Session *s, const char *command)
 {
-	char *time_string;
 	socklen_t fromlen;
 	struct sockaddr_storage from;
 	struct passwd * pw = s->pw;
@@ -739,19 +740,6 @@ do_login(Session *s, const char *command)
 		return;
 
 	display_loginmsg();
-
-#ifndef NO_SSH_LASTLOG
-	if (options.print_lastlog && s->last_login_time != 0) {
-		time_string = ctime(&s->last_login_time);
-		if (strchr(time_string, '\n'))
-			*strchr(time_string, '\n') = 0;
-		if (strcmp(s->hostname, "") == 0)
-			printf("Last login: %s\r\n", time_string);
-		else
-			printf("Last login: %s from %s\r\n", time_string,
-			    s->hostname);
-	}
-#endif /* NO_SSH_LASTLOG */
 
 	do_motd();
 }
@@ -959,7 +947,8 @@ read_etc_default_login(char ***env, u_int *envsize, uid_t uid)
 }
 #endif /* HAVE_ETC_DEFAULT_LOGIN */
 
-void copy_environment(char **source, char ***env, u_int *envsize)
+void
+copy_environment(char **source, char ***env, u_int *envsize)
 {
 	char *var_name, *var_val;
 	int i;
@@ -1000,7 +989,13 @@ do_setup_env(Session *s, const char *shell)
 	 * The Windows environment contains some setting which are
 	 * important for a running system. They must not be dropped.
 	 */
-	copy_environment(environ, &env, &envsize);
+	{
+		char **p;
+
+		p = fetch_windows_environment();
+		copy_environment(p, &env, &envsize);
+		free_windows_environment(p);
+	}
 #endif
 
 #ifdef GSSAPI
@@ -1012,6 +1007,10 @@ do_setup_env(Session *s, const char *shell)
 
 	if (!options.use_login) {
 		/* Set basic environment. */
+		for (i = 0; i < s->num_env; i++)
+			child_set_env(&env, &envsize, s->env[i].name,
+			    s->env[i].val);
+
 		child_set_env(&env, &envsize, "USER", pw->pw_name);
 		child_set_env(&env, &envsize, "LOGNAME", pw->pw_name);
 #ifdef _AIX
@@ -1097,14 +1096,24 @@ do_setup_env(Session *s, const char *shell)
 		child_set_env(&env, &envsize, "TMPDIR", cray_tmpdir);
 #endif /* _UNICOS */
 
+	/*
+	 * Since we clear KRB5CCNAME at startup, if it's set now then it
+	 * must have been set by a native authentication method (eg AIX or
+	 * SIA), so copy it to the child.
+	 */
+	{
+		char *cp;
+
+		if ((cp = getenv("KRB5CCNAME")) != NULL)
+			child_set_env(&env, &envsize, "KRB5CCNAME", cp);
+	}
+
 #ifdef _AIX
 	{
 		char *cp;
 
 		if ((cp = getenv("AUTHSTATE")) != NULL)
 			child_set_env(&env, &envsize, "AUTHSTATE", cp);
-		if ((cp = getenv("KRB5CCNAME")) != NULL)
-			child_set_env(&env, &envsize, "KRB5CCNAME", cp);
 		read_environment_file(&env, &envsize, "/etc/environment");
 	}
 #endif
@@ -1242,9 +1251,6 @@ do_nologin(struct passwd *pw)
 		while (fgets(buf, sizeof(buf), f))
 			fputs(buf, stderr);
 		fclose(f);
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-		solaris_audit_nologin();
-#endif /* BSM */
 		fflush(NULL);
 		exit(254);
 	}
@@ -1267,6 +1273,13 @@ do_setusercontext(struct passwd *pw)
 # ifdef __bsdi__
 		setpgid(0, 0);
 # endif
+#ifdef GSSAPI
+		if (options.gss_authentication) {
+			temporarily_use_uid(pw);
+			ssh_gssapi_storecreds();
+			restore_uid();
+		}
+#endif
 # ifdef USE_PAM
 		if (options.use_pam) {
 			do_pam_session();
@@ -1297,6 +1310,13 @@ do_setusercontext(struct passwd *pw)
 			exit(1);
 		}
 		endgrent();
+#ifdef GSSAPI
+		if (options.gss_authentication) {
+			temporarily_use_uid(pw);
+			ssh_gssapi_storecreds();
+			restore_uid();
+		}
+#endif
 # ifdef USE_PAM
 		/*
 		 * PAM credentials may take the form of supplementary groups.
@@ -1314,6 +1334,11 @@ do_setusercontext(struct passwd *pw)
 # ifdef _AIX
 		aix_usrinfo(pw);
 # endif /* _AIX */
+#if defined(HAVE_LIBIAF)  &&  !defined(BROKEN_LIBIAF)
+		if (set_id(pw->pw_name) != 0) {
+			exit(1);
+		}
+#endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
 		/* Permanently switch to the desired uid. */
 		permanently_set_uid(pw);
 #endif
@@ -1329,11 +1354,17 @@ do_setusercontext(struct passwd *pw)
 static void
 do_pwchange(Session *s)
 {
+	fflush(NULL);
 	fprintf(stderr, "WARNING: Your password has expired.\n");
 	if (s->ttyfd != -1) {
-	    	fprintf(stderr,
+		fprintf(stderr,
 		    "You must change your password now and login again!\n");
+#ifdef PASSWD_NEEDS_USERNAME
+		execl(_PATH_PASSWD_PROG, "passwd", s->pw->pw_name,
+		    (char *)NULL);
+#else
 		execl(_PATH_PASSWD_PROG, "passwd", (char *)NULL);
+#endif
 		perror("passwd");
 	} else {
 		fprintf(stderr,
@@ -1441,13 +1472,24 @@ do_child(Session *s, const char *command)
 			do_motd();
 #else /* HAVE_OSF_SIA */
 		do_nologin(pw);
-# if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-		if (command != NULL)
-			solaris_audit_save_command(command);
-# endif /* BSM */
 		do_setusercontext(pw);
+		/*
+		 * PAM session modules in do_setusercontext may have
+		 * generated messages, so if this in an interactive
+		 * login then display them too.
+		 */
+		if (!check_quietlogin(s, command))
+			display_loginmsg();
 #endif /* HAVE_OSF_SIA */
 	}
+
+#ifdef USE_PAM
+	if (options.use_pam && !options.use_login && !is_pam_session_open()) {
+		debug3("PAM session not opened, exiting");
+		display_loginmsg();
+		exit(254);
+	}
+#endif
 
 	/*
 	 * Get the shell from the password data.  An empty shell field is
@@ -1494,7 +1536,7 @@ do_child(Session *s, const char *command)
 	 */
 
 	if (options.kerberos_get_afs_token && k_hasafs() &&
-	     (s->authctxt->krb5_ctx != NULL)) {
+	    (s->authctxt->krb5_ctx != NULL)) {
 		char cell[64];
 
 		debug("Getting AFS token");
@@ -1598,6 +1640,7 @@ session_new(void)
 			s->ttyfd = -1;
 			s->used = 1;
 			s->self = i;
+			s->x11_chanids = NULL;
 			debug("session_new: session %d", i);
 			return s;
 		}
@@ -1671,6 +1714,29 @@ session_by_channel(int id)
 }
 
 static Session *
+session_by_x11_channel(int id)
+{
+	int i, j;
+
+	for (i = 0; i < MAX_SESSIONS; i++) {
+		Session *s = &sessions[i];
+
+		if (s->x11_chanids == NULL || !s->used)
+			continue;
+		for (j = 0; s->x11_chanids[j] != -1; j++) {
+			if (s->x11_chanids[j] == id) {
+				debug("session_by_x11_channel: session %d "
+				    "channel %d", s->self, id);
+				return s;
+			}
+		}
+	}
+	debug("session_by_x11_channel: unknown channel %d", id);
+	session_dump();
+	return NULL;
+}
+
+static Session *
 session_by_pid(pid_t pid)
 {
 	int i;
@@ -1710,12 +1776,6 @@ session_pty_req(Session *s)
 	if (s->ttyfd != -1) {
 		packet_disconnect("Protocol error: you already have a pty.");
 		return 0;
-	}
-	/* Get the time and hostname when the user last logged in. */
-	if (options.print_lastlog) {
-		s->hostname[0] = '\0';
-		s->last_login_time = get_last_login_time(s->pw->pw_uid,
-		    s->pw->pw_name, s->hostname, sizeof(s->hostname));
 	}
 
 	s->term = packet_get_string(&len);
@@ -1771,7 +1831,7 @@ session_subsystem_req(Session *s)
 	u_int len;
 	int success = 0;
 	char *cmd, *subsys = packet_get_string(&len);
-	int i;
+	u_int i;
 
 	packet_check_eom();
 	logit("subsystem request for %.100s", subsys);
@@ -1805,6 +1865,11 @@ session_x11_req(Session *s)
 {
 	int success;
 
+	if (s->auth_proto != NULL || s->auth_data != NULL) {
+		error("session_x11_req: session %d: "
+		    "x11 fowarding already active", s->self);
+		return 0;
+	}
 	s->single_connection = packet_get_char();
 	s->auth_proto = packet_get_string(NULL);
 	s->auth_data = packet_get_string(NULL);
@@ -1843,15 +1908,49 @@ session_exec_req(Session *s)
 static int
 session_break_req(Session *s)
 {
-	u_int break_length;
 
-	break_length = packet_get_int();	/* ignored */
+	packet_get_int();	/* ignored */
 	packet_check_eom();
 
 	if (s->ttyfd == -1 ||
 	    tcsendbreak(s->ttyfd, 0) < 0)
 		return 0;
 	return 1;
+}
+
+static int
+session_env_req(Session *s)
+{
+	char *name, *val;
+	u_int name_len, val_len, i;
+
+	name = packet_get_string(&name_len);
+	val = packet_get_string(&val_len);
+	packet_check_eom();
+
+	/* Don't set too many environment variables */
+	if (s->num_env > 128) {
+		debug2("Ignoring env request %s: too many env vars", name);
+		goto fail;
+	}
+
+	for (i = 0; i < options.num_accept_env; i++) {
+		if (match_pattern(name, options.accept_env[i])) {
+			debug2("Setting env %d: %s=%s", s->num_env, name, val);
+			s->env = xrealloc(s->env, sizeof(*s->env) *
+			    (s->num_env + 1));
+			s->env[s->num_env].name = name;
+			s->env[s->num_env].val = val;
+			s->num_env++;
+			return (1);
+		}
+	}
+	debug2("Ignoring env request %s: disallowed name", name);
+
+ fail:
+	xfree(name);
+	xfree(val);
+	return (0);
 }
 
 static int
@@ -1901,13 +2000,16 @@ session_input_channel_req(Channel *c, const char *rtype)
 			success = session_auth_agent_req(s);
 		} else if (strcmp(rtype, "subsystem") == 0) {
 			success = session_subsystem_req(s);
-		} else if (strcmp(rtype, "break") == 0) {
-			success = session_break_req(s);
+		} else if (strcmp(rtype, "env") == 0) {
+			success = session_env_req(s);
 		}
 	}
 	if (strcmp(rtype, "window-change") == 0) {
 		success = session_window_change_req(s);
+	} else if (strcmp(rtype, "break") == 0) {
+		success = session_break_req(s);
 	}
+
 	return success;
 }
 
@@ -1993,9 +2095,66 @@ sig2name(int sig)
 }
 
 static void
+session_close_x11(int id)
+{
+	Channel *c;
+
+	if ((c = channel_lookup(id)) == NULL) {
+		debug("session_close_x11: x11 channel %d missing", id);
+	} else {
+		/* Detach X11 listener */
+		debug("session_close_x11: detach x11 channel %d", id);
+		channel_cancel_cleanup(id);
+		if (c->ostate != CHAN_OUTPUT_CLOSED)
+			chan_mark_dead(c);
+	}
+}
+
+static void
+session_close_single_x11(int id, void *arg)
+{
+	Session *s;
+	u_int i;
+
+	debug3("session_close_single_x11: channel %d", id);
+	channel_cancel_cleanup(id);
+	if ((s  = session_by_x11_channel(id)) == NULL)
+		fatal("session_close_single_x11: no x11 channel %d", id);
+	for (i = 0; s->x11_chanids[i] != -1; i++) {
+		debug("session_close_single_x11: session %d: "
+		    "closing channel %d", s->self, s->x11_chanids[i]);
+		/*
+		 * The channel "id" is already closing, but make sure we
+		 * close all of its siblings.
+		 */
+		if (s->x11_chanids[i] != id)
+			session_close_x11(s->x11_chanids[i]);
+	}
+	xfree(s->x11_chanids);
+	s->x11_chanids = NULL;
+	if (s->display) {
+		xfree(s->display);
+		s->display = NULL;
+	}
+	if (s->auth_proto) {
+		xfree(s->auth_proto);
+		s->auth_proto = NULL;
+	}
+	if (s->auth_data) {
+		xfree(s->auth_data);
+		s->auth_data = NULL;
+	}
+	if (s->auth_display) {
+		xfree(s->auth_display);
+		s->auth_display = NULL;
+	}
+}
+
+static void
 session_exit_message(Session *s, int status)
 {
 	Channel *c;
+	u_int i;
 
 	if ((c = channel_lookup(s->chanid)) == NULL)
 		fatal("session_exit_message: session %d: no channel %d",
@@ -2035,11 +2194,21 @@ session_exit_message(Session *s, int status)
 	if (c->ostate != CHAN_OUTPUT_CLOSED)
 		chan_write_failed(c);
 	s->chanid = -1;
+
+	/* Close any X11 listeners associated with this session */
+	if (s->x11_chanids != NULL) {
+		for (i = 0; s->x11_chanids[i] != -1; i++) {
+			session_close_x11(s->x11_chanids[i]);
+			s->x11_chanids[i] = -1;
+		}
+	}
 }
 
 void
 session_close(Session *s)
 {
+	u_int i;
+
 	debug("session_close: session %d pid %ld", s->self, (long)s->pid);
 	if (s->ttyfd != -1)
 		session_pty_cleanup(s);
@@ -2047,6 +2216,8 @@ session_close(Session *s)
 		xfree(s->term);
 	if (s->display)
 		xfree(s->display);
+	if (s->x11_chanids)
+		xfree(s->x11_chanids);
 	if (s->auth_display)
 		xfree(s->auth_display);
 	if (s->auth_data)
@@ -2054,6 +2225,12 @@ session_close(Session *s)
 	if (s->auth_proto)
 		xfree(s->auth_proto);
 	s->used = 0;
+	for (i = 0; i < s->num_env; i++) {
+		xfree(s->env[i].name);
+		xfree(s->env[i].val);
+	}
+	if (s->env != NULL)
+		xfree(s->env);
 	session_proctitle(s);
 }
 
@@ -2079,6 +2256,7 @@ void
 session_close_by_channel(int id, void *arg)
 {
 	Session *s = session_by_channel(id);
+
 	if (s == NULL) {
 		debug("session_close_by_channel: no session for id %d", id);
 		return;
@@ -2159,6 +2337,7 @@ session_setup_x11fwd(Session *s)
 	struct stat st;
 	char display[512], auth_display[512];
 	char hostname[MAXHOSTNAMELEN];
+	u_int i;
 
 	if (no_x11_forwarding_flag) {
 		packet_send_debug("X11 forwarding disabled in user configuration file.");
@@ -2184,9 +2363,13 @@ session_setup_x11fwd(Session *s)
 	}
 	if (x11_create_display_inet(options.x11_display_offset,
 	    options.x11_use_localhost, s->single_connection,
-	    &s->display_number) == -1) {
+	    &s->display_number, &s->x11_chanids) == -1) {
 		debug("x11_create_display_inet failed.");
 		return 0;
+	}
+	for (i = 0; s->x11_chanids[i] != -1; i++) {
+		channel_register_cleanup(s->x11_chanids[i],
+		    session_close_single_x11);
 	}
 
 	/* Set up a suitable value for the DISPLAY variable. */
@@ -2233,9 +2416,6 @@ static void
 do_authenticated2(Authctxt *authctxt)
 {
 	server_loop2(authctxt);
-#if defined(GSSAPI)
-	ssh_gssapi_cleanup_creds();
-#endif
 }
 
 void

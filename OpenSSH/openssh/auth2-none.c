@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth2-none.c,v 1.6 2003/08/26 09:58:43 markus Exp $");
+RCSID("$OpenBSD: auth2-none.c,v 1.7 2004/05/11 19:01:43 deraadt Exp $");
 
 #include "auth.h"
 #include "xmalloc.h"
@@ -46,7 +46,7 @@ auth2_read_banner(void)
 {
 	struct stat st;
 	char *banner = NULL;
-	off_t len, n;
+	size_t len, n;
 	int fd;
 
 	if ((fd = open(options.banner, O_RDONLY)) == -1)
@@ -55,7 +55,12 @@ auth2_read_banner(void)
 		close(fd);
 		return (NULL);
 	}
-	len = st.st_size;
+	if (st.st_size > 1*1024*1024) {
+		close(fd);
+		return (NULL);
+	}
+
+	len = (size_t)st.st_size;		/* truncate */
 	banner = xmalloc(len + 1);
 	n = atomicio(read, fd, banner, len);
 	close(fd);
@@ -69,6 +74,19 @@ auth2_read_banner(void)
 	return (banner);
 }
 
+void
+userauth_send_banner(const char *msg)
+{
+	if (datafellows & SSH_BUG_BANNER)
+		return;
+
+	packet_start(SSH2_MSG_USERAUTH_BANNER);
+	packet_put_cstring(msg);
+	packet_put_cstring("");		/* language, unused */
+	packet_send();
+	debug("%s: sent", __func__);
+}
+
 static void
 userauth_banner(void)
 {
@@ -79,12 +97,8 @@ userauth_banner(void)
 
 	if ((banner = PRIVSEP(auth2_read_banner())) == NULL)
 		goto done;
+	userauth_send_banner(banner);
 
-	packet_start(SSH2_MSG_USERAUTH_BANNER);
-	packet_put_cstring(banner);
-	packet_put_cstring("");		/* language, unused */
-	packet_send();
-	debug("userauth_banner: sent");
 done:
 	if (banner)
 		xfree(banner);
@@ -98,7 +112,7 @@ userauth_none(Authctxt *authctxt)
 	userauth_banner();
 #ifdef HAVE_CYGWIN
 	if (check_nt_auth(1, authctxt->pw) == 0)
-		return(0);
+		return (0);
 #endif
 	if (options.password_authentication)
 		return (PRIVSEP(auth_password(authctxt, "")));

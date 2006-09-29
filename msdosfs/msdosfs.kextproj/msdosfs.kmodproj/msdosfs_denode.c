@@ -82,6 +82,7 @@
 #include <sys/vnode.h>
 #include <sys/ubc.h>
 #include <sys/namei.h>
+#include <mach/boolean.h>
 
 #include "bpb.h"
 #include "msdosfsmount.h"
@@ -467,15 +468,19 @@ deupdat(dep, waitfor, context)
 	error = readde(dep, &bp, &dirp, context);
 	if (error)
 		return (error);
-        if (vnode_isvroot(DETOV(dep)))
-            DE_EXTERNALIZE_ROOT(dirp, dep);
-        else
-            DE_EXTERNALIZE(dirp, dep);
+		
+	if (vnode_isvroot(DETOV(dep)))
+		DE_EXTERNALIZE_ROOT(dirp, dep);
+	else
+		DE_EXTERNALIZE(dirp, dep);
 	return ((int)buf_bdwrite(bp));
 }
 
 /*
  * Truncate the file described by dep to the length specified by length.
+ *
+ * NOTE: This function takes care of updating dep->de_FileSize and calling
+ * ubc_setsize with new length.
  */
 __private_extern__ int
 detrunc(dep, length, flags, context)
@@ -488,10 +493,7 @@ detrunc(dep, length, flags, context)
     int allerror;
     u_long eofentry;
     u_long chaintofree;
-    daddr64_t bn;
-    int boff;
     int isadir = dep->de_Attributes & ATTR_DIRECTORY;
-    struct buf *bp;
     struct msdosfsmount *pmp = dep->de_pmp;
     vnode_t vp = DETOV(dep);
 

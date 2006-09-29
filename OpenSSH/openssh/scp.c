@@ -71,7 +71,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: scp.c,v 1.113 2003/11/23 23:21:21 djm Exp $");
+RCSID("$OpenBSD: scp.c,v 1.125 2005/07/27 10:39:03 dtucker Exp $");
 
 #include "xmalloc.h"
 #include "atomicio.h"
@@ -85,11 +85,7 @@ RCSID("$OpenBSD: scp.c,v 1.113 2003/11/23 23:21:21 djm Exp $");
 #include <copyfile.h>
 #endif
 
-#ifdef HAVE___PROGNAME
 extern char *__progname;
-#else
-char *__progname;
-#endif
 
 void bwlimit(int);
 
@@ -123,10 +119,14 @@ int md_flag = 0;
 static void
 killchild(int signo)
 {
-	if (do_cmd_pid > 1)
-		kill(do_cmd_pid, signo);
+	if (do_cmd_pid > 1) {
+		kill(do_cmd_pid, signo ? signo : SIGTERM);
+		waitpid(do_cmd_pid, NULL, 0);
+	}
 
-	_exit(1);
+	if (signo)
+		_exit(1);
+	exit(1);
 }
 
 /*
@@ -197,7 +197,7 @@ do_cmd(char *host, char *remuser, char *cmd, int *fdin, int *fdout, int argc)
 }
 
 typedef struct {
-	int cnt;
+	size_t cnt;
 	char *buf;
 } BUF;
 
@@ -388,20 +388,21 @@ void
 toremote(char *targ, int argc, char **argv)
 {
 	int i, len;
-	char *bp, *host, *src, *suser, *thost, *tuser;
+	char *bp, *host, *src, *suser, *thost, *tuser, *arg;
 
 	*targ++ = 0;
 	if (*targ == 0)
 		targ = ".";
 
-	if ((thost = strrchr(argv[argc - 1], '@'))) {
+	arg = xstrdup(argv[argc - 1]);
+	if ((thost = strrchr(arg, '@'))) {
 		/* user@host */
 		*thost++ = 0;
-		tuser = argv[argc - 1];
+		tuser = arg;
 		if (*tuser == '\0')
 			tuser = NULL;
 	} else {
-		thost = argv[argc - 1];
+		thost = arg;
 		tuser = NULL;
 	}
 
@@ -528,8 +529,9 @@ source(int argc, char **argv)
 	struct stat stb;
 	static BUF buffer;
 	BUF *bp;
-	off_t i, amt, result, statbytes;
-	int fd, haderr, indx;
+	off_t i, amt, statbytes;
+	size_t result;
+	int fd = -1, haderr, indx;
 	char *last, *name, buf[2048];
 	int len;
 #if HAVE_COPYFILE
@@ -620,14 +622,14 @@ next:			(void) close(fd);
 			if (!haderr) {
 				result = atomicio(read, fd, bp->buf, amt);
 				if (result != amt)
-					haderr = result >= 0 ? EIO : errno;
+					haderr = errno;
 			}
 			if (haderr)
 				(void) atomicio(vwrite, remout, bp->buf, amt);
 			else {
 				result = atomicio(vwrite, remout, bp->buf, amt);
 				if (result != amt)
-					haderr = result >= 0 ? EIO : errno;
+					haderr = errno;
 				statbytes += result;
 			}
 			if (limit_rate)
@@ -734,7 +736,7 @@ bwlimit(int amount)
 {
 	static struct timeval bwstart, bwend;
 	static int lamt, thresh = 16384;
-	u_int64_t wait;
+	u_int64_t waitlen;
 	struct timespec ts, rm;
 
 	if (!timerisset(&bwstart)) {
@@ -752,10 +754,10 @@ bwlimit(int amount)
 		return;
 
 	lamt *= 8;
-	wait = (double)1000000L * lamt / limit_rate;
+	waitlen = (double)1000000L * lamt / limit_rate;
 
-	bwstart.tv_sec = wait / 1000000L;
-	bwstart.tv_usec = wait % 1000000L;
+	bwstart.tv_sec = waitlen / 1000000L;
+	bwstart.tv_usec = waitlen % 1000000L;
 
 	if (timercmp(&bwstart, &bwend, >)) {
 		timersub(&bwstart, &bwend, &bwend);
@@ -792,8 +794,9 @@ sink(int argc, char **argv)
 		YES, NO, DISPLAYED
 	} wrerr;
 	BUF *bp;
-	off_t i, j;
-	int amt, count, exists, first, mask, mode, ofd, omode;
+	off_t i;
+	size_t j, count;
+	int amt, exists, first, mask, mode, ofd, omode;
 	off_t size, statbytes;
 	int setimes, targisdir, wrerrno = 0;
 	char ch, *cp, *np, *targ, *why, *vect[1], buf[2048];
@@ -801,7 +804,7 @@ sink(int argc, char **argv)
 
 #define	atime	tv[0]
 #define	mtime	tv[1]
-#define	SCREWUP(str)	do { why = str; goto screwup; } while (0)
+#define	SCREWUP(str)	{ why = str; goto screwup; }
 
 	setimes = targisdir = 0;
 	mask = umask(0);
@@ -824,7 +827,7 @@ sink(int argc, char **argv)
 		char md_dst[MAXPATHLEN];
 #endif
 		cp = buf;
-		if (atomicio(read, remin, cp, 1) <= 0)
+		if (atomicio(read, remin, cp, 1) != 1)
 			return;
 		if (*cp++ == '\n')
 			SCREWUP("unexpected <newline>");
@@ -834,6 +837,8 @@ sink(int argc, char **argv)
 			*cp++ = ch;
 		} while (cp < &buf[sizeof(buf) - 1] && ch != '\n');
 		*cp = 0;
+		if (verbose_mode)
+			fprintf(stderr, "Sink: %s", buf);
 
 		if (buf[0] == '\01' || buf[0] == '\02') {
 			if (iamremote == 0)
@@ -897,9 +902,13 @@ sink(int argc, char **argv)
 			size = size * 10 + (*cp++ - '0');
 		if (*cp++ != ' ')
 			SCREWUP("size not delimited");
+		if ((strchr(cp, '/') != NULL) || (strcmp(cp, "..") == 0)) {
+			run_err("error: unexpected filename: %s", cp);
+			exit(1);
+		}
 		if (targisdir) {
 			static char *namebuf;
-			static int cursize;
+			static size_t cursize;
 			size_t need;
 
 			need = strlen(targ) + strlen(cp) + 250;
@@ -918,6 +927,8 @@ sink(int argc, char **argv)
 		exists = stat(np, &stb) == 0;
 		if (buf[0] == 'D') {
 			int mod_flag = pflag;
+			if (!iamrecursive)
+				SCREWUP("received directory without -r");
 			if (exists) {
 				if (!S_ISDIR(stb.st_mode)) {
 					errno = ENOTDIR;
@@ -992,11 +1003,8 @@ bad:			run_err("%s: %s", np, strerror(errno));
 				amt = size - i;
 			count += amt;
 			do {
-				j = read(remin, cp, amt);
-				if (j == -1 && (errno == EINTR ||
-				    errno == EAGAIN)) {
-					continue;
-				} else if (j <= 0) {
+				j = atomicio(read, remin, cp, amt);
+				if (j == 0) {
 					run_err("%s", j ? strerror(errno) :
 					    "dropped connection");
 					exit(1);
@@ -1012,10 +1020,10 @@ bad:			run_err("%s: %s", np, strerror(errno));
 			if (count == bp->cnt) {
 				/* Keep reading so we stay sync'd up. */
 				if (wrerr == NO) {
-					j = atomicio(vwrite, ofd, bp->buf, count);
-					if (j != count) {
+					if (atomicio(vwrite, ofd, bp->buf,
+					    count) != count) {
 						wrerr = YES;
-						wrerrno = j >= 0 ? EIO : errno;
+						wrerrno = errno;
 					}
 				}
 				count = 0;
@@ -1025,9 +1033,9 @@ bad:			run_err("%s: %s", np, strerror(errno));
 		if (showprogress)
 			stop_progress_meter();
 		if (count != 0 && wrerr == NO &&
-		    (j = atomicio(vwrite, ofd, bp->buf, count)) != count) {
+		    atomicio(vwrite, ofd, bp->buf, count) != count) {
 			wrerr = YES;
-			wrerrno = j >= 0 ? EIO : errno;
+			wrerrno = errno;
 		}
 		if (wrerr == NO && ftruncate(ofd, size) != 0) {
 			run_err("%s: truncate: %s", np, strerror(errno));
@@ -1036,21 +1044,25 @@ bad:			run_err("%s: %s", np, strerror(errno));
 		if (pflag) {
 			if (exists || omode != mode)
 #ifdef HAVE_FCHMOD
-				if (fchmod(ofd, omode))
+				if (fchmod(ofd, omode)) {
 #else /* HAVE_FCHMOD */
-				if (chmod(np, omode))
+				if (chmod(np, omode)) {
 #endif /* HAVE_FCHMOD */
 					run_err("%s: set mode: %s",
 					    np, strerror(errno));
+					wrerr = DISPLAYED;
+				}
 		} else {
 			if (!exists && omode != mode)
 #ifdef HAVE_FCHMOD
-				if (fchmod(ofd, omode & ~mask))
+				if (fchmod(ofd, omode & ~mask)) {
 #else /* HAVE_FCHMOD */
-				if (chmod(np, omode & ~mask))
+				if (chmod(np, omode & ~mask)) {
 #endif /* HAVE_FCHMOD */
 					run_err("%s: set mode: %s",
 					    np, strerror(errno));
+					wrerr = DISPLAYED;
+				}
 		}
 		if (close(ofd) == -1) {
 			wrerr = YES;
@@ -1179,7 +1191,7 @@ verifydir(char *cp)
 		errno = ENOTDIR;
 	}
 	run_err("%s: %s", cp, strerror(errno));
-	exit(1);
+	killchild(0);
 }
 
 int

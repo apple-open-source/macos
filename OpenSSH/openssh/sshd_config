@@ -1,4 +1,4 @@
-#	$OpenBSD: sshd_config,v 1.68 2003/12/29 16:39:50 millert Exp $
+#	$OpenBSD: sshd_config,v 1.72 2005/07/25 11:59:40 markus Exp $
 
 # This is the sshd server system-wide configuration file.  See
 # sshd_config(5) for more information.
@@ -12,6 +12,7 @@
 
 #Port 22
 #Protocol 2,1
+#AddressFamily any
 #ListenAddress 0.0.0.0
 #ListenAddress ::
 
@@ -26,7 +27,7 @@
 #ServerKeyBits 768
 
 # Logging
-#obsoletes QuietMode and FascistLogging
+# obsoletes QuietMode and FascistLogging
 #SyslogFacility AUTH
 #LogLevel INFO
 
@@ -35,6 +36,7 @@
 #LoginGraceTime 2m
 #PermitRootLogin yes
 #StrictModes yes
+#MaxAuthTries 6
 
 #RSAAuthentication yes
 #PubkeyAuthentication yes
@@ -67,13 +69,18 @@
 #KerberosGetAFSToken no
 
 # GSSAPI options
-#GSSAPIAuthentication no
+#GSSAPIAuthentication yes
 #GSSAPICleanupCredentials yes
 
-# Set this to 'yes' to enable PAM authentication (via challenge-response)
-# and session processing. Depending on your PAM configuration, this may
-# bypass the setting of 'PasswordAuthentication' and 'PermitEmptyPasswords'
-#UsePAM no
+# Set this to 'yes' to enable PAM authentication, account processing, 
+# and session processing. If this is enabled, PAM authentication will 
+# be allowed through the ChallengeResponseAuthentication mechanism. 
+# Depending on your PAM configuration, this may bypass the setting of 
+# PasswordAuthentication, PermitEmptyPasswords, and 
+# "PermitRootLogin without-password". If you just want the PAM account and 
+# session checks to run without PAM authentication, then enable this but set 
+# ChallengeResponseAuthentication=no
+#UsePAM yes 
 
 #AllowTcpForwarding yes
 #GatewayPorts no
@@ -86,7 +93,7 @@
 #UseLogin no
 #UsePrivilegeSeparation yes
 #PermitUserEnvironment no
-#Compression yes
+#Compression delayed
 #ClientAliveInterval 0
 #ClientAliveCountMax 3
 #UseDNS yes

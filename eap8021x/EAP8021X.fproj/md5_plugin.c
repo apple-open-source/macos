@@ -136,7 +136,7 @@ md5_process(EAPClientPluginDataRef plugin,
     switch (in_pkt->code) {
     case kEAPCodeRequest:
 	if (plugin->password == NULL) {
-	    *client_status = kEAPClientStatusConfigurationIncomplete;
+	    *client_status = kEAPClientStatusUserInputRequired;
 	}
 	else {
 	    *out_pkt_p = md5_request(plugin, in_pkt);
@@ -158,13 +158,14 @@ md5_process(EAPClientPluginDataRef plugin,
 static CFArrayRef
 md5_require_props(EAPClientPluginDataRef plugin)
 {
-    CFMutableArrayRef 		array = NULL;
+    CFStringRef		prop;
 
-    if (plugin->password == NULL) {
-	array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFArrayAppendValue(array, kEAPClientPropUserPassword);
+    if (plugin->password != NULL) {
+	return (NULL);
     }
-    return (array);
+    prop = kEAPClientPropUserPassword;
+    return (CFArrayCreate(NULL, (const void **)&prop, 1,
+			  &kCFTypeArrayCallBacks));
 }
 
 static EAPType 

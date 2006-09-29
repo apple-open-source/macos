@@ -44,13 +44,13 @@
 #include "chap.h"
 
 void
-chap_md5(char identifier, const char * password, int password_len,
-	 const void * challenge, int challenge_len,
-	 char * hash)
+chap_md5(uint8_t identifier, const uint8_t * password, int password_len,
+	 const uint8_t * challenge, int challenge_len,
+	 uint8_t * hash)
 {
     int				len;
-    char *			offset;
-    char *			value = NULL;
+    uint8_t *			offset;
+    uint8_t *			value = NULL;
 
     /* MD5 hash over the identifier + password + challenge */
     len = 1 + password_len + challenge_len;

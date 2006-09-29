@@ -91,6 +91,13 @@ CONST_STRING_DECL(kCFStreamSSLPeerName, "kCFStreamSSLPeerName")
 CONST_STRING_DECL(kCFStreamSSLValidatesCertificateChain, "kCFStreamSSLValidatesCertificateChain")
 CONST_STRING_DECL(kCFStreamSocketSecurityLevelTLSv1SSLv3, "kCFStreamSocketSecurityLevelTLSv1SSLv3")
 
+/*!
+    @constant _kCFStreamPropertySSLAllowAnonymousCiphers
+    @discussion Stream property key both set and copy operations. CFBooleanRef to set whether
+        anonymous ciphers are allowed or not. The value is kCFBooleanFalse by default.
+*/
+CONST_STRING_DECL(_kCFStreamPropertySSLAllowAnonymousCiphers, "_kCFStreamPropertySSLAllowAnonymousCiphers")
+
 /* Properties made available as SPI */
 CONST_STRING_DECL(kCFStreamPropertyUseAddressCache, "kCFStreamPropertyUseAddressCache")
 CONST_STRING_DECL(_kCFStreamSocketIChatWantsSubNet, "_kCFStreamSocketIChatWantsSubNet")
@@ -1540,7 +1547,8 @@ _SocketStreamSetProperty(CFTypeRef stream, CFStringRef propertyName, CFTypeRef p
 	else if (CFEqual(propertyName, _kCFStreamPropertyHostForOpen) ||
 			 CFEqual(propertyName, _kCFStreamPropertyReadTimeout) ||
 			 CFEqual(propertyName, _kCFStreamPropertyWriteTimeout) ||
-			 CFEqual(propertyName, _kCFStreamPropertyAutoConnectPriority))
+			 CFEqual(propertyName, _kCFStreamPropertyAutoConnectPriority) ||
+			 CFEqual(propertyName, _kCFStreamPropertySSLAllowAnonymousCiphers))
 	{
 		
 		if (propertyValue)
@@ -6044,6 +6052,30 @@ _PerformSecurityHandshake_NoLock(_CFSocketStreamContext* ctxt) {
 		if (result) {
 			ctxt->_error.error = result;
 			ctxt->_error.domain = kCFStreamErrorDomainSSL;
+		}
+		else {
+			CFBooleanRef check;
+			
+			check = (CFBooleanRef)CFDictionaryGetValue(ctxt->_properties, _kCFStreamPropertySSLAllowAnonymousCiphers);
+			if ( !check || (CFBooleanGetValue(check) == FALSE) ) {
+				SSLCipherSuite cipherSuite;
+				
+				if ( SSLGetNegotiatedCipher(ssl, &cipherSuite) == noErr ) {
+					if ( cipherSuite == SSL_DH_anon_EXPORT_WITH_RC4_40_MD5 ||
+						 cipherSuite == SSL_DH_anon_WITH_RC4_128_MD5 ||
+						 cipherSuite == SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA ||
+						 cipherSuite == SSL_DH_anon_WITH_DES_CBC_SHA ||
+						 cipherSuite == SSL_DH_anon_WITH_3DES_EDE_CBC_SHA ||
+						 cipherSuite == SSL_RSA_WITH_NULL_MD5 ||
+						 cipherSuite == TLS_DH_anon_WITH_AES_128_CBC_SHA ||
+						 cipherSuite == TLS_DH_anon_WITH_AES_256_CBC_SHA) {
+						/* close the connnection and return errSSLBadCipherSuite */
+						(void) SSLClose(ssl);
+						ctxt->_error.error = errSSLBadCipherSuite;
+						ctxt->_error.domain = kCFStreamErrorDomainSSL;
+					}
+				}
+			}
 		}
 		
 		/* Either way, it's done.  Mark the SSL bit for performance checks. */

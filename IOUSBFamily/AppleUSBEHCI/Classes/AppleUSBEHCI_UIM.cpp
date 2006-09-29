@@ -419,7 +419,7 @@ AppleUSBEHCI::UIMCreateControlTransfer(short					functionAddress,
     {
 		USBLog(7, "AppleUSBEHCI[%p]::UIMCreateControlTransfer allocateTDS done - CMD = 0x%x, STS = 0x%x", this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS));
 		printAsyncQueue(7);
-		EnableAsyncSchedule();
+		EnableAsyncSchedule(false);
     }
     else
     {
@@ -1012,8 +1012,8 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 							USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - _controlBulkTransactionsOut(%p) pHCDoneTD(%p)", this, (void*)_controlBulkTransactionsOut, pHCDoneTD);
 							if (!_controlBulkTransactionsOut)
 							{
-								USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - no more _controlBulkTransactionsOut - halting AsyncQueue", this);
-								DisableAsyncSchedule();
+								USBLog(6, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - no more _controlBulkTransactionsOut - halting AsyncQueue", this);
+								DisableAsyncSchedule(false);
 							}
 						}
 					}
@@ -1473,7 +1473,7 @@ AppleUSBEHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
     if(status == kIOReturnSuccess)
 	{
 		USBLog(7, "AppleUSBEHCI[%p]::UIMCreateBulkTransfer allocateTDS done - CMD = 0x%x, STS = 0x%x", this, USBToHostLong(_pEHCIRegisters->USBCMD), USBToHostLong(_pEHCIRegisters->USBSTS));
-		EnableAsyncSchedule();
+		EnableAsyncSchedule(false);
 	}
     else
     {
@@ -2334,8 +2334,6 @@ AppleUSBEHCI::HandleEndpointAbort(short			functionAddress,
     {
 		HaltAsyncEndpoint(pED, pEDQueueBack);
 		returnTransactions(pED, NULL, kIOUSBTransactionReturned);				// this will unhalt the EP
-		if (clearToggle)
-			pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(~kEHCITDFlags_DT);	// clear the data toggle
     }
     else
     {
@@ -2350,8 +2348,12 @@ AppleUSBEHCI::HandleEndpointAbort(short			functionAddress,
 		returnTransactions(pED, NULL, kIOUSBTransactionReturned);
     }
 	
+	// this will only be for control, bulk, and interrupt endpoints on the bus, since root hub endpoints
+	// and Isoch endpoints will have returned before now
+	if (clearToggle)
+		pED->GetSharedLogical()->qTDFlags &= HostToUSBLong(~kEHCITDFlags_DT);	// clear the data toggle
+
     return kIOReturnSuccess;
-	
 }
 
 
@@ -2444,7 +2446,7 @@ AppleUSBEHCI::UIMCreateInterruptTransfer(IOUSBCommand* command)
     }
     else
 	{
-		EnablePeriodicSchedule();
+		EnablePeriodicSchedule(false);
 	}
     return status;
 }
@@ -2535,7 +2537,7 @@ AppleUSBEHCI::unlinkAsyncEndpoint(AppleEHCIQueueHead * pED, AppleEHCIQueueHead *
     {
         USBLog(7, "AppleUSBEHCI[%p]::unlinkAsyncEndpoint: removing sole endpoint %lx", this, (long)pED);
 		// this is the only endpoint in the queue. we will leave list processing disabled
-		DisableAsyncSchedule();
+		DisableAsyncSchedule(true);
 		printAsyncQueue(7);
 		_AsyncHead = NULL;
 		_pEHCIRegisters->AsyncListAddr = 0;
@@ -3027,7 +3029,7 @@ AppleUSBEHCI::CreateHSIsochTransfer(	AppleEHCIIsochEndpoint		*pEP,
 	pNewITD->_completion = completion;
 
 	AddIsocFramesToSchedule(pEP);
-	EnablePeriodicSchedule();
+	EnablePeriodicSchedule(false);
 
 	return kIOReturnSuccess;
 }
@@ -3302,7 +3304,7 @@ AppleUSBEHCI::CreateSplitIsochTransfer(	AppleEHCIIsochEndpoint		*pEP,
 		PutTDonToDoList(pEP, pDummySITD);
 	}
 	AddIsocFramesToSchedule(pEP);
-	EnablePeriodicSchedule();
+	EnablePeriodicSchedule(false);
 
 	return kIOReturnSuccess;
 }
@@ -3836,6 +3838,8 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
     UInt64			elapsedTime = 0;
     bool			allPortsDisconnected = false;
 	IOReturn		err;
+	UInt32			usbcmd;
+	UInt32			usbsts;
 	
 	// Check to see if we need to recreate our root hub device
 	if (_needToCreateRootHub)
@@ -3879,6 +3883,68 @@ AppleUSBEHCI::UIMCheckForTimeouts(void)
         return;
 	}
 
+	usbcmd = USBToHostLong(_pEHCIRegisters->USBCMD);
+	usbsts = USBToHostLong(_pEHCIRegisters->USBSTS);
+	
+	// check the state of the AsyncEnable bits in the CMD/STS registers
+	if (usbcmd & kEHCICMDAsyncEnable)
+	{
+		if (!(usbsts & kEHCISTSAsyncScheduleStatus))
+		{
+			_asynchScheduleUnsynchCount++;
+			USBLog(2, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched ON (#%d)", this, _asynchScheduleUnsynchCount);
+			if (_asynchScheduleUnsynchCount >= 10)
+			{
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched ON (#%d)", this, _asynchScheduleUnsynchCount);
+			}
+		}
+		else
+			_asynchScheduleUnsynchCount = 0;
+	}
+	else
+	{
+		if (usbsts & kEHCISTSAsyncScheduleStatus)
+		{
+			_asynchScheduleUnsynchCount++;
+			USBLog(2, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched OFF (#%d)", this, _asynchScheduleUnsynchCount);
+			if (_asynchScheduleUnsynchCount >= 10)
+			{
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Async USBCMD and USBSTS not synched OFF (#%d)", this, _asynchScheduleUnsynchCount);
+			}
+		}
+		else
+			_asynchScheduleUnsynchCount = 0;
+	}
+	
+	if (usbcmd & kEHCICMDPeriodicEnable)
+	{
+		if (!(usbsts & kEHCISTSPeriodicScheduleStatus))
+		{
+			_periodicScheduleUnsynchCount++;
+			USBLog(2, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
+			if (_periodicScheduleUnsynchCount >= 10)
+			{
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
+			}
+		}
+		else
+			_periodicScheduleUnsynchCount = 0;
+	}
+	else
+	{
+		if (usbsts & kEHCISTSPeriodicScheduleStatus)
+		{
+			_periodicScheduleUnsynchCount++;
+			USBLog(2, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
+			if (_periodicScheduleUnsynchCount >= 10)
+			{
+				USBError(1, "AppleUSBEHCI[%p]::UIMCheckForTimeouts - Periodic USBCMD and USBSTS not synched ON (#%d)", this, _periodicScheduleUnsynchCount);
+			}
+		}
+		else
+			_periodicScheduleUnsynchCount = 0;
+	}
+	
     // Check to see if our control or bulk lists have a TD that has timed out
     //
     CheckEDListForTimeouts(_AsyncHead);

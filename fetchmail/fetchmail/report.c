@@ -22,7 +22,7 @@
 #include "i18n.h"
 #include "fetchmail.h"
 
-#if HAVE_VPRINTF || HAVE_DOPRNT || _LIBC || HAVE_STDARG_H
+#if defined(HAVE_VPRINTF) || defined(HAVE_DOPRNT) || defined(_LIBC) || defined(HAVE_STDARG_H)
 # if HAVE_STDARG_H
 #  include <stdarg.h>
 #  define VA_START(args, lastarg) va_start(args, lastarg)
@@ -41,7 +41,7 @@
 /* If NULL, report will flush stderr, then print on stderr the program
    name, a colon and a space.  Otherwise, report will call this
    function without parameters instead.  */
-void (*report_print_progname) (
+static void (*report_print_progname) (
 #if __STDC__ - 0
 			      void
 #endif
@@ -65,10 +65,6 @@ static unsigned int report_message_count;
 # include <errno.h>
 
 #else
-
-/* The calling program should define program_name and set it to the
-   name of the executing program.  */
-extern char *program_name;
 
 # if !HAVE_STRERROR && !defined(strerror)
 char *strerror (int errnum)
@@ -156,7 +152,7 @@ report (FILE *errfp, message, va_alist)
 
 #ifdef VA_START
 	VA_START (args, message);
-# if HAVE_VPRINTF || _LIBC
+# if defined(HAVE_VPRINTF) || defined(_LIBC)
 	vfprintf (errfp, message, args);
 # else
 	_doprnt (message, args, errfp);
@@ -209,6 +205,22 @@ void report_init(int mode)
    newline) before report() prints its message. */
 /* VARARGS */
 
+static void rep_ensuresize(void) {
+    /* Make an initial guess for the size of any single message fragment.  */
+    if (partial_message_size == 0)
+    {
+	partial_message_size_used = 0;
+	partial_message_size = 2048;
+	partial_message = MALLOC (partial_message_size);
+    }
+    else
+	if (partial_message_size - partial_message_size_used < 1024)
+	{
+	    partial_message_size += 2048;
+	    partial_message = REALLOC (partial_message, partial_message_size);
+	}
+}
+
 void
 #ifdef HAVE_STDARG_H
 report_build (FILE *errfp, const char *message, ...)
@@ -223,30 +235,17 @@ report_build (FILE *errfp, message, va_alist)
     int n;
 #endif
 
-    /* Make an initial guess for the size of any single message fragment.  */
-    if (partial_message_size == 0)
-    {
-	partial_message_size_used = 0;
-	partial_message_size = 2048;
-	partial_message = MALLOC (partial_message_size);
-    }
-    else
-	if (partial_message_size - partial_message_size_used < 1024)
-	{
-	    partial_message_size += 2048;
-	    partial_message = REALLOC (partial_message, partial_message_size);
-	}
+    rep_ensuresize();
 
 #if defined(VA_START)
     VA_START (args, message);
-#if HAVE_VSNPRINTF || _LIBC
     for ( ; ; )
     {
-	n = vsnprintf (partial_message + partial_message_size_used,
-		       partial_message_size - partial_message_size_used,
+	n = vsnprintf (partial_message + partial_message_size_used, partial_message_size - partial_message_size_used,
 		       message, args);
 
-	if (n < partial_message_size - partial_message_size_used)
+	if (n >= 0
+	    && (unsigned)n < partial_message_size - partial_message_size_used)
         {
 	    partial_message_size_used += n;
 	    break;
@@ -255,27 +254,16 @@ report_build (FILE *errfp, message, va_alist)
 	partial_message_size += 2048;
 	partial_message = REALLOC (partial_message, partial_message_size);
     }
-#else
-    vsprintf (partial_message + partial_message_size_used, message, args);
-    partial_message_size_used += strlen(partial_message+partial_message_size_used);
-
-    /* Attempt to catch memory overwrites... */
-    if (partial_message_size_used >= partial_message_size)
-    {
-	partial_message_size_used = 0;
-	report (stderr, GT_("partial error message buffer overflow"));
-    }
-#endif
     va_end (args);
 #else
-#if HAVE_SNPRINTF
     for ( ; ; )
     {
 	n = snprintf (partial_message + partial_message_size_used,
 		      partial_message_size - partial_message_size_used,
 		      message, a1, a2, a3, a4, a5, a6, a7, a8);
 
-	if (n < partial_message_size - partial_message_size_used)
+	if (n >= 0
+	    && (unsigned)n < partial_message_size - partial_message_size_used)
         {
 	    partial_message_size_used += n;
 	    break;
@@ -284,16 +272,6 @@ report_build (FILE *errfp, message, va_alist)
 	partial_message_size += 2048;
 	partial_message = REALLOC (partial_message, partial_message_size);
     }
-#else
-    sprintf (partial_message + partial_message_size_used, message, a1, a2, a3, a4, a5, a6, a7, a8);
-
-    /* Attempt to catch memory overwrites... */
-    if ((partial_message_size_used = strlen (partial_message)) >= partial_message_size)
-    {
-	partial_message_size_used = 0;
-	report (stderr, GT_("partial error message buffer overflow"));
-    }
-#endif
 #endif
 
     if (use_stderr && partial_message_size_used != 0)
@@ -323,30 +301,19 @@ report_complete (FILE *errfp, message, va_alist)
     int n;
 #endif
 
-    /* Make an initial guess for the size of any single message fragment.  */
-    if (partial_message_size == 0)
-    {
-	partial_message_size_used = 0;
-	partial_message_size = 2048;
-	partial_message = MALLOC (partial_message_size);
-    }
-    else
-	if (partial_message_size - partial_message_size_used < 1024)
-	{
-	    partial_message_size += 2048;
-	    partial_message = REALLOC (partial_message, partial_message_size);
-	}
+    rep_ensuresize();
 
 #if defined(VA_START)
     VA_START (args, message);
-#if HAVE_VSNPRINTF || _LIBC
     for ( ; ; )
     {
 	n = vsnprintf (partial_message + partial_message_size_used,
 		       partial_message_size - partial_message_size_used,
 		       message, args);
 
-	if (n < partial_message_size - partial_message_size_used)
+	/* old glibc versions return -1 for truncation */
+	if (n >= 0
+	    && (unsigned)n < partial_message_size - partial_message_size_used)
         {
 	    partial_message_size_used += n;
 	    break;
@@ -355,27 +322,16 @@ report_complete (FILE *errfp, message, va_alist)
 	partial_message_size += 2048;
 	partial_message = REALLOC (partial_message, partial_message_size);
     }
-#else
-    vsprintf (partial_message + partial_message_size_used, message, args);
-    partial_message_size_used += strlen(partial_message+partial_message_size_used);
-
-    /* Attempt to catch memory overwrites... */
-    if (partial_message_size_used >= partial_message_size)
-    {
-	partial_message_size_used = 0;
-	report (stderr, GT_("partial error message buffer overflow"));
-    }
-#endif
     va_end (args);
 #else
-#if HAVE_SNPRINTF
     for ( ; ; )
     {
 	n = snprintf (partial_message + partial_message_size_used,
 		      partial_message_size - partial_message_size_used,
 		      message, a1, a2, a3, a4, a5, a6, a7, a8);
 
-	if (n < partial_message_size - partial_message_size_used)
+	if (n >= 0
+	    && (unsigned)n < partial_message_size - partial_message_size_used)
         {
 	    partial_message_size_used += n;
 	    break;
@@ -384,16 +340,6 @@ report_complete (FILE *errfp, message, va_alist)
 	partial_message_size += 2048;
 	partial_message = REALLOC (partial_message, partial_message_size);
     }
-#else
-    sprintf (partial_message + partial_message_size_used, message, a1, a2, a3, a4, a5, a6, a7, a8);
-
-    /* Attempt to catch memory overwrites... */
-    if ((partial_message_size_used = strlen (partial_message)) >= partial_message_size)
-    {
-	partial_message_size_used = 0;
-	report (stderr, GT_("partial error message buffer overflow"));
-    }
-#endif
 #endif
 
     /* Finally... print it.  */
@@ -412,7 +358,7 @@ report_complete (FILE *errfp, message, va_alist)
 
 /* Sometimes we want to have at most one error per line.  This
    variable controls whether this mode is selected or not.  */
-int error_one_per_line;
+static int error_one_per_line;
 
 void
 #ifdef HAVE_STDARG_H
@@ -459,11 +405,11 @@ report_at_line (FILE *errfp, errnum, file_name, line_number, message, va_alist)
     }
 
     if (file_name != NULL)
-	fprintf (errfp, "%s:%d: ", file_name, line_number);
+	fprintf (errfp, "%s:%u: ", file_name, line_number);
 
 #ifdef VA_START
     VA_START (args, message);
-# if HAVE_VPRINTF || _LIBC
+# if defined(HAVE_VPRINTF) || defined(_LIBC)
     vfprintf (errfp, message, args);
 # else
     _doprnt (message, args, errfp);

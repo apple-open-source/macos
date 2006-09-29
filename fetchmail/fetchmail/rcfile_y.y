@@ -22,9 +22,9 @@
 #endif
 #include <string.h>
 
-#if NET_SECURITY
-#include <net/security.h>
-#endif /* NET_SECURITY */
+#if defined(__CYGWIN__)
+#include <sys/cygwin.h>
+#endif /* __CYGWIN__ */
 
 #include "fetchmail.h"
 #include "i18n.h"
@@ -65,15 +65,15 @@ extern char * yytext;
 %token AUTHENTICATE TIMEOUT KPOP SDPS ENVELOPE QVIRTUAL
 %token USERNAME PASSWORD FOLDER SMTPHOST FETCHDOMAINS MDA BSMTP LMTP
 %token SMTPADDRESS SMTPNAME SPAMRESPONSE PRECONNECT POSTCONNECT LIMIT WARNINGS
-%token NETSEC INTERFACE MONITOR PLUGIN PLUGOUT
+%token INTERFACE MONITOR PLUGIN PLUGOUT
 %token IS HERE THERE TO MAP WILDCARD
 %token BATCHLIMIT FETCHLIMIT FETCHSIZELIMIT FASTUIDL EXPUNGE PROPERTIES
-%token SET LOGFILE DAEMON SYSLOG IDFILE INVISIBLE POSTMASTER BOUNCEMAIL 
+%token SET LOGFILE DAEMON SYSLOG IDFILE PIDFILE INVISIBLE POSTMASTER BOUNCEMAIL
 %token SPAMBOUNCE SHOWDOTS
 %token <proto> PROTO AUTHTYPE
 %token <sval>  STRING
 %token <number> NUMBER
-%token NO KEEP FLUSH FETCHALL REWRITE FORCECR STRIPCR PASS8BITS 
+%token NO KEEP FLUSH LIMITFLUSH FETCHALL REWRITE FORCECR STRIPCR PASS8BITS 
 %token DROPSTATUS DROPDELIVERED
 %token DNS SERVICE PORT UIDL INTERVAL MIMEDECODE IDLE CHECKALIAS 
 %token SSL SSLKEY SSLCERT SSLPROTO SSLCERTCK SSLCERTPATH SSLFINGERPRINT
@@ -95,6 +95,7 @@ optmap		: MAP | /* EMPTY */;
 /* future global options should also have the form SET <name> optmap <value> */
 statement	: SET LOGFILE optmap STRING	{run.logfile = prependdir ($4, rcfiledir);}
 		| SET IDFILE optmap STRING	{run.idfile = prependdir ($4, rcfiledir);}
+		| SET PIDFILE optmap STRING	{run.pidfile = prependdir ($4, rcfiledir);}
 		| SET DAEMON optmap NUMBER	{run.poll_interval = $4;}
 		| SET POSTMASTER optmap STRING	{run.postmaster = xstrdup($4);}
 		| SET BOUNCEMAIL		{run.bouncemail = TRUE;}
@@ -151,13 +152,9 @@ serv_option	: AKA alias_list
 #ifdef KERBEROS_V5
 						current.server.authenticate = A_KERBEROS_V5;
 #else
-		    				current.server.authenticate = A_KERBEROS_V4;
+						current.server.authenticate = A_KERBEROS_V4;
 #endif /* KERBEROS_V5 */
-#if INET6_ENABLE
 					    current.server.service = KPOP_PORT;
-#else /* INET6_ENABLE */
-					    current.server.port = KPOP_PORT;
-#endif /* INET6_ENABLE */
 					}
 		| PRINCIPAL STRING	{current.server.principal = xstrdup($2);}
 		| ESMTPNAME STRING	{current.server.esmtp_name = xstrdup($2);}
@@ -175,19 +172,19 @@ serv_option	: AKA alias_list
 		| CHECKALIAS            {current.server.checkalias = FLAG_TRUE;}
 		| NO CHECKALIAS         {current.server.checkalias  = FLAG_FALSE;}
 		| SERVICE STRING	{
-#if INET6_ENABLE
 					current.server.service = $2;
-#endif /* INET6_ENABLE */
 					}
-		| PORT NUMBER		{
-#if INET6_ENABLE
+		| SERVICE NUMBER	{
 					int port = $2;
 					char buf[10];
-					sprintf(buf, "%d", port);
+					snprintf(buf, sizeof buf, "%d", port);
 					current.server.service = xstrdup(buf);
-#else
-					current.server.port = $2;
-#endif /* INET6_ENABLE */
+		}
+		| PORT NUMBER		{
+					int port = $2;
+					char buf[10];
+					snprintf(buf, sizeof buf, "%d", port);
+					current.server.service = xstrdup(buf);
 		}
 		| INTERVAL NUMBER
 			{current.server.interval = $2;}
@@ -209,42 +206,27 @@ serv_option	: AKA alias_list
 					}
 
 		| QVIRTUAL STRING	{current.server.qvirtual=xstrdup($2);}
-		| NETSEC STRING		{
-#ifdef NET_SECURITY
-					    void *request;
-					    int requestlen;
-
-		    			    if (net_security_strtorequest($2, &request, &requestlen))
-						yyerror(GT_("invalid security request"));
-					    else {
-						current.server.netsec = xstrdup($2);
-					        free(request);
-					    }
-#else
-					    yyerror(GT_("network-security support disabled"));
-#endif /* NET_SECURITY */
-					}
 		| INTERFACE STRING	{
-#if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
+#ifdef CAN_MONITOR
 					interface_parse($2, &current.server);
-#else /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
+#else
 					fprintf(stderr, GT_("fetchmail: interface option is only supported under Linux (without IPv6) and FreeBSD\n"));
-#endif /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
+#endif
 					}
 		| MONITOR STRING	{
-#if (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__)
+#ifdef CAN_MONITOR
 					current.server.monitor = xstrdup($2);
-#else /* (defined(linux) && !defined(INET6_ENABLE)) || defined(__FreeBSD__) */
+#else
 					fprintf(stderr, GT_("fetchmail: monitor option is only supported under Linux (without IPv6) and FreeBSD\n"));
-#endif /* (defined(linux) && !defined(INET6_ENABLE) || defined(__FreeBSD__)) */
+#endif
 					}
 		| PLUGIN STRING		{ current.server.plugin = xstrdup($2); }
 		| PLUGOUT STRING	{ current.server.plugout = xstrdup($2); }
 		| DNS			{current.server.dns = FLAG_TRUE;}
 		| NO DNS		{current.server.dns = FLAG_FALSE;}
 		| NO ENVELOPE		{current.server.envelope = STRING_DISABLED;}
-		| TRACEPOLLS		{current.tracepolls = FLAG_TRUE;}
-		| NO TRACEPOLLS		{current.tracepolls = FLAG_FALSE;}
+		| TRACEPOLLS		{current.server.tracepolls = FLAG_TRUE;}
+		| NO TRACEPOLLS		{current.server.tracepolls = FLAG_FALSE;}
 		;
 
 userspecs	: user1opts		{record_current(); user_reset();}
@@ -333,6 +315,7 @@ user_option	: TO localnames HERE
 
 		| KEEP			{current.keep        = FLAG_TRUE;}
 		| FLUSH			{current.flush       = FLAG_TRUE;}
+		| LIMITFLUSH		{current.limitflush  = FLAG_TRUE;}
 		| FETCHALL		{current.fetchall    = FLAG_TRUE;}
 		| REWRITE		{current.rewrite     = FLAG_TRUE;}
 		| FORCECR		{current.forcecr     = FLAG_TRUE;}
@@ -359,6 +342,7 @@ user_option	: TO localnames HERE
 
 		| NO KEEP		{current.keep        = FLAG_FALSE;}
 		| NO FLUSH		{current.flush       = FLAG_FALSE;}
+		| NO LIMITFLUSH		{current.limitflush  = FLAG_FALSE;}
 		| NO FETCHALL		{current.fetchall    = FLAG_FALSE;}
 		| NO REWRITE		{current.rewrite     = FLAG_FALSE;}
 		| NO FORCECR		{current.forcecr     = FLAG_FALSE;}
@@ -437,6 +421,9 @@ int prc_filecheck(const char *pathname, const flag securecheck)
     }
 
 #ifndef __BEOS__
+#ifdef __CYGWIN__
+    if (cygwin_internal(CW_CHECK_NTSEC, pathname))
+#endif /* __CYGWIN__ */
     if (statbuf.st_mode & (S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH | S_IXOTH))
     {
 	fprintf(stderr, GT_("File %s must have no more than -rwx--x--- (0710) permissions.\n"), 
@@ -532,9 +519,9 @@ static void user_reset(void)
     current.server = save;
 }
 
-struct query *hostalloc(init)
-/* append a host record to the host list */
-struct query *init;	/* pointer to block containing initial values */
+/** append a host record to the host list */
+struct query *hostalloc(struct query *init /** pointer to block containing
+					       initial values */)
 {
     struct query *node;
 
@@ -592,9 +579,4 @@ char *prependdir (const char *file, const char *dir)
     return newfile;
 }
 
-/* easier to do this than cope with variations in where the library lives */
-int yywrap(void) {return 1;}
-
 /* rcfile_y.y ends here */
-
-

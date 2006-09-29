@@ -669,9 +669,12 @@ InlineBox* RenderBox::inlineBoxWrapper() const
 
 void RenderBox::deleteLineBoxWrapper()
 {
-    if (m_inlineBoxWrapper)
+    if (m_inlineBoxWrapper) {
+        if (!documentBeingDestroyed())
+            m_inlineBoxWrapper->remove();
         m_inlineBoxWrapper->detach(renderArena());
-    m_inlineBoxWrapper = 0;
+        m_inlineBoxWrapper = 0;
+    }
 }
 
 void RenderBox::setInlineBoxWrapper(InlineBox* b)

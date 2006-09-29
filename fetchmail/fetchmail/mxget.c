@@ -6,8 +6,8 @@
  */
 
 #include "config.h"
-#ifdef HAVE_RES_SEARCH
 #include <stdio.h>
+#ifdef HAVE_RES_SEARCH
 #include <string.h>
 #ifdef HAVE_NET_SOCKET_H
 #include <net/socket.h>
@@ -68,7 +68,7 @@ struct mxentry *getmxrecords(const char *name)
     n = res_search(name, C_IN,T_MX, (unsigned char *)&answer, sizeof(answer));
     if (n == -1)
 	return((struct mxentry *)NULL);
-    if (n > sizeof(answer))
+    if ((size_t)n > sizeof(answer))
 	n = sizeof(answer);    	
 
     hp = (HEADER *)&answer;
@@ -76,7 +76,7 @@ struct mxentry *getmxrecords(const char *name)
     eom = answer + n;
     h_errno = 0;
     for (qdcount = ntohs(hp->qdcount); qdcount--; cp += n + QFIXEDSZ)
-	if ((n = dn_skipname(cp, eom)) < 0)
+      if ((n = dn_skipname((unsigned char *)cp, (unsigned char *)eom)) < 0)
 	    return((struct mxentry *)NULL);
     buflen = sizeof(MXHostBuf) - 1;
     bp = MXHostBuf;
@@ -84,7 +84,8 @@ struct mxentry *getmxrecords(const char *name)
     ancount = ntohs(hp->ancount);
     while (--ancount >= 0 && cp < eom)
     {
-	if ((n = dn_expand(answer, eom, cp, bp, buflen)) < 0)
+	if ((n = dn_expand((unsigned char *)answer, (unsigned char *)eom,
+			   (unsigned char *)cp, bp, buflen)) < 0)
 	    break;
 	cp += n;
 	GETSHORT(type, cp);
@@ -96,7 +97,8 @@ struct mxentry *getmxrecords(const char *name)
 	    continue;
 	}
 	GETSHORT(pref, cp);
-	if ((n = dn_expand(answer, eom, cp, bp, buflen)) < 0)
+	if ((n = dn_expand((unsigned char *)answer, (unsigned char *)eom,
+			   (unsigned char *)cp, bp, buflen)) < 0)
 	    break;
 	cp += n;
 
@@ -117,20 +119,32 @@ struct mxentry *getmxrecords(const char *name)
 }
 #endif /* HAVE_RES_SEARCH */
 
-#ifdef TESTMAIN
-main(int argc, char *argv[])
+#ifdef STANDALONE
+#include <stdlib.h>
+
+int main(int argc, char *argv[])
 {
-    int	count, i;
     struct mxentry *responses;
 
+    if (argc != 2 || 0 == strcmp(argv[1], "-h")) {
+	fprintf(stderr, "Usage: %s domain\n", argv[0]);
+	exit(1);
+    }
+
+#ifdef HAVE_RES_SEARCH
     responses = getmxrecords(argv[1]);
-    if (responses == (struct mxentry *)NULL)
+    if (responses == (struct mxentry *)NULL) {
 	puts("No MX records found");
-    else
+    } else {
 	do {
 	    printf("%s %d\n", responses->name, responses->pref);
-	} while
-	    ((++responses)->name);
+	} while ((++responses)->name);
+    }
+#else
+    puts("This program was compiled without HAS_RES_SEARCH and does nothing.");
+#endif
+
+    return 0;
 }
 #endif /* TESTMAIN */
 

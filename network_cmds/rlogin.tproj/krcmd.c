@@ -56,7 +56,7 @@
 
 
 /*
- *	$Source: /cvs/root/network_cmds/rlogin.tproj/krcmd.c,v $
+ *	$Source: /Volumes/george/fs-svn/network_cmds/rlogin.tproj/krcmd.c,v $
  *	$Header: /mit/kerberos/ucb/mit/kcmd/RCS/krcmd.c,v 5.1
  *		89/07/25 15:38:44 kfall Exp Locker: kfall $
  * static char *rcsid_kcmd_c =

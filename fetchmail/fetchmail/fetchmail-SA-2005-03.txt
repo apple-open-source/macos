@@ -1,0 +1,113 @@
+fetchmail-SA-2005-03: security announcement
+
+Topics:		#1 crash retrieving headerless message in multidrop mode
+		#2 fetchmail 6.2.5.X end of life
+
+Author:		Matthias Andree
+Version:	1.00
+Announced:	2005-12-19
+Type:		null pointer dereference
+Impact:		fetchmail crashes
+Danger:		low
+Credits:	Daniel Drake, Gentoo (bug report)
+		Sunil Shetye (bug fix)
+CVE Name:	CVE-2005-4348
+URL:		http://fetchmail.berlios.de/fetchmail-SA-2005-03.txt
+		http://article.gmane.org/gmane.mail.fetchmail.user/7573
+		http://bugs.debian.org/343836
+Project URL:	http://fetchmail.berlios.de/
+
+Affects:	fetchmail version 6.2.5.4
+		fetchmail version 6.3.0
+
+Not affected:	fetchmail 6.3.1
+		fetchmail 6.2.5.5
+		other versions not mentioned here or in the previous
+		sections have not been checked
+
+Corrected:	2005-12-19 - released fetchmail 6.3.1
+		2005-12-18 - released fetchmail 6.3.1-rc1
+		2005-12-19 - released fetchmail 6.2.5.5
+
+
+0. Release history
+==================
+
+2005-12-19	1.00 - initial version
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+
+2. Problem description and Impact
+=================================
+
+Fetchmail contains a bug that causes an application crash when fetchmail
+is configured for multidrop mode and the upstream mail server sends a
+message without headers.  As fetchmail does not record this message as
+"previously fetched", it will crash with the same message if it is
+re-executed, so it cannot make progress. A malicious or broken-into
+upstream server could thus cause a denial of service in fetchmail
+clients.
+
+Note that such messages are not RFC-822 conformant, so if the server has
+not been tampered with, the server software is faulty.
+
+
+3. Workaround
+=============
+
+Where possible, singledrop mode may be an alternative.
+
+For sites, where multidrop mode is required, no workaround is known.
+
+
+4. Solution
+===========
+
+Download and install fetchmail 6.3.1 or a newer stable release from
+fetchmail's project site at
+<http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+The fix has also been backported to the 6.2.5.5 legacy release which is
+available from the same site.
+
+Note however that 6.3.X has very few incompatible changes since 6.2.5.X
+so 6.3.X should be viable for most sites.  It is therefore recommended
+that every user and distributor upgrade to 6.3.1 or newer.
+
+
+5. End of life announcement
+===========================
+
+The fetchmail 6.2.5.X branch will be discontinued early in 2006.
+
+The new 6.3.X stable branch has been available since 2005-11-30
+and will not change except for bugfixes, documentation and translations.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2005 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+END OF fetchmail-SA-2005-03.txt

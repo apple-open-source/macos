@@ -25,6 +25,9 @@
 #ifdef SPARC
 #include <mach-o/sparc/reloc.h>
 #endif
+#if defined(I386) && defined(ARCH64)
+#include <mach-o/x86_64/reloc.h>
+#endif
 #include "stuff/round.h"
 #include "stuff/bytesex.h"
 #include "stuff/errors.h"
@@ -452,6 +455,19 @@ char *out_file_name)
 		    expressionS *exp;
 
 		    exp = (expressionS *)symbolP->expression;
+		    if((exp->X_add_symbol->sy_type & N_TYPE) == N_UNDF)
+	    		as_fatal("undefined symbol `%s' in operation setting "
+				 "`%s'", exp->X_add_symbol->sy_name,
+				 symbol_name);
+		    if((exp->X_subtract_symbol->sy_type & N_TYPE) == N_UNDF)
+	    		as_fatal("undefined symbol `%s' in operation setting "
+				 "`%s'", exp->X_subtract_symbol->sy_name,
+				 symbol_name);
+		    if(exp->X_add_symbol->sy_other !=
+		       exp->X_subtract_symbol->sy_other)
+	    		as_fatal("invalid sections for operation on `%s' and "
+				 "`%s' setting `%s'",exp->X_add_symbol->sy_name,
+				 exp->X_subtract_symbol->sy_name, symbol_name);
 		    symbolP->sy_nlist.n_value +=
 			exp->X_add_symbol->sy_value -
 			exp->X_subtract_symbol->sy_value;
@@ -689,7 +705,7 @@ symbolP = symbol_find_or_make(isymbolP->isy_name);
 		else
 		    stride = sizeof(signed_target_addr_t);
 		if(frchainP->frch_section.size / stride != count)
-		    as_warn("missing indirect symbols for section (%s,%s)",
+		    as_bad("missing indirect symbols for section (%s,%s)",
 			    frchainP->frch_section.segname,
 			    frchainP->frch_section.sectname);
 		/*
@@ -1076,6 +1092,10 @@ struct relocation_info *riP)
 	if(fixP->fx_addsy == NULL)
 	    return(0);
 
+#ifdef TC_VALIDATE_FIX
+	TC_VALIDATE_FIX(fixP, sect_addr, 0);
+#endif
+
 	memset(riP, '\0', sizeof(struct relocation_info));
 	symbolP = fixP->fx_addsy;
 
@@ -1113,11 +1133,15 @@ struct relocation_info *riP)
 	 * For undefined symbols this will be an external relocation entry.
 	 * Or if this is an external coalesced symbol.
 	 */
+#if defined(I386) && defined(ARCH64)
+	if (fixP->fx_subsy == NULL && !is_local_symbol(symbolP)) {
+#else
 	if((symbolP->sy_type & N_TYPE) == N_UNDF ||
 	   ((symbolP->sy_type & N_EXT) == N_EXT &&
 	    (symbolP->sy_type & N_TYPE) == N_SECT &&
 	    is_section_coalesced(symbolP->sy_other) &&
 	    fixP->fx_subsy == NULL)){
+#endif
 	    riP->r_extern = 1;
 	    riP->r_symbolnum = symbolP->sy_number;
 	}
@@ -1139,6 +1163,36 @@ struct relocation_info *riP)
 	     * and the second has the subtract symbol value.
 	     */
 	    if(fixP->fx_subsy != NULL){
+#if defined(I386) && defined(ARCH64)
+		/* Encode fixP->fx_subsy (B) first, then symbolP (fixP->fx_addsy) (A). */
+		if (is_local_symbol(fixP->fx_subsy))
+		{
+			riP->r_extern = 0;
+			riP->r_symbolnum = fixP->fx_subsy->sy_other;
+		}
+		else
+		{
+			riP->r_extern = 1;
+			riP->r_symbolnum = fixP->fx_subsy->sy_number;
+		}
+		riP->r_type = X86_64_RELOC_SUBTRACTOR;
+		
+		/* Now write out the unsigned relocation entry. */
+		riP++;
+		*riP = *(riP - 1);
+		if (is_local_symbol(fixP->fx_addsy))
+		{
+			riP->r_extern = 0;
+			riP->r_symbolnum = fixP->fx_addsy->sy_other;
+		}
+		else
+		{
+			riP->r_extern = 1;
+			riP->r_symbolnum = fixP->fx_addsy->sy_number;
+		}
+		riP->r_type = X86_64_RELOC_UNSIGNED;
+		return(2 * sizeof(struct relocation_info));
+#endif
 #ifdef PPC
 		if(fixP->fx_r_type == PPC_RELOC_HI16)
 		    sectdiff = PPC_RELOC_HI16_SECTDIFF;
@@ -1234,7 +1288,7 @@ struct relocation_info *riP)
 		return(2 * sizeof(struct relocation_info));
 	    }
 	    /*
-	     * Determine if this is left as a local relocation entry must be
+	     * Determine if this is left as a local relocation entry or must be
 	     * changed to a scattered relocation entry.  These entries allow
 	     * the link editor to scatter the contents of a section and a local
 	     * relocation can't be used when an offset is added to the symbol's
@@ -1248,7 +1302,7 @@ struct relocation_info *riP)
 	     * out of the block or the linker will not be doing scattered
 	     * loading on this symbol in this object file.
 	     */
-#if !defined(I860)
+#if !defined(I860) && !(defined(I386) && defined(ARCH64))
 	    /*
 	     * For processors that don't have all references as unique 32 bits
 	     * wide references scattered relocation entries are not generated.
@@ -1271,7 +1325,6 @@ struct relocation_info *riP)
 	             (fixP->fx_size == 4 && fixP->fx_offset == 4)) )
 #endif /* M68K */
 	       ){
-
 		memset(&sri, '\0',sizeof(struct scattered_relocation_info));
 		sri.r_scattered = 1;
 		sri.r_length    = riP->r_length;
@@ -1281,7 +1334,7 @@ struct relocation_info *riP)
 		sri.r_value     = symbolP->sy_value;
 		*riP = *((struct relocation_info *)&sri);
 	    }
-#endif /* !defined(I860) */
+#endif /* !defined(I860) && !(defined(I386) && defined(ARCH64)) */
 	}
 	count = 1;
 	riP++;
@@ -1482,3 +1535,28 @@ I860_tweeks(void)
 	clear_section_flags();
 }
 #endif
+
+/* FROM write.c line 2764 */
+void
+number_to_chars_bigendian (char *buf, signed_expr_t val, int n)
+{
+  if (n <= 0)
+    abort ();
+  while (n--)
+    {
+      buf[n] = val & 0xff;
+      val >>= 8;
+    }
+}
+
+void
+number_to_chars_littleendian (char *buf, signed_expr_t val, int n)
+{
+  if (n <= 0)
+    abort ();
+  while (n--)
+    {
+      *buf++ = val & 0xff;
+      val >>= 8;
+    }
+}

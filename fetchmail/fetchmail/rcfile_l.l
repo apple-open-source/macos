@@ -24,27 +24,25 @@ int prc_lineno = 1;
 %o 7000
 %a 4000
 %p 3000
-%option nounput
+%option nounput noyywrap
 
 %s NAME AUTH
 
 %%
 
 \"[^\"]*\"	{
-			char buf[MSGBUFSIZE];
-
-			yytext[strlen(yytext)-1] = '\0';
-			escapes(yytext+1, buf);
-			yylval.sval = (char *) xstrdup(buf);
+			yytext[yyleng-1] = '\0';
+			escapes(yytext+1, yytext);
+			yyleng = strlen(yytext);
+			yylval.sval = yytext;
                         SETSTATE(0);
 			return STRING;
 		}
 \'[^\']*\'	{
-			char buf[MSGBUFSIZE];
-
-			yytext[strlen(yytext)-1] = '\0';
-			escapes(yytext+1, buf);
-			yylval.sval = (char *) xstrdup(buf);
+			yytext[yyleng-1] = '\0';
+			escapes(yytext+1, yytext);
+			yyleng = strlen(yytext);
+			yylval.sval = yytext;
                         SETSTATE(0);
 			return STRING;
 		}
@@ -52,10 +50,18 @@ int prc_lineno = 1;
 "*"		{ BEGIN(0); return WILDCARD; }
 
 <NAME>[^=;:, \t\r\n]+	{
-			char buf[MSGBUFSIZE];
+			static char *in;
+			static size_t ins;
 
-			escapes(yytext, buf);
-			yylval.sval = (char *) xstrdup(buf);
+			if ((size_t)yyleng + 1 > ins) {
+			    ins = yyleng + 1;
+			    in = xrealloc(in, ins);
+			}
+			memcpy(in, yytext, yyleng);
+			in[yyleng] = '\0';
+			escapes(in, in);
+			yyleng = strlen(in);
+			yylval.sval = in;
                         SETSTATE(0);
 			return STRING;
 		}
@@ -63,6 +69,7 @@ int prc_lineno = 1;
 set		{ return SET; }
 logfile		{ return LOGFILE; }
 idfile		{ return IDFILE; }
+pidfile		{ return PIDFILE; }
 daemon		{ return DAEMON; }
 syslog		{ return SYSLOG; }
 invisible	{ return INVISIBLE; }
@@ -94,6 +101,7 @@ kerberos	{ SETSTATE(0); yylval.proto = A_KERBEROS_V4; return AUTHTYPE;}
 ssh		{ SETSTATE(0); yylval.proto = A_SSH; return AUTHTYPE;}
 (otp|opie)	{ SETSTATE(0); yylval.proto = A_OTP; return AUTHTYPE;}
 cram(-md5)?	{ SETSTATE(0); yylval.proto = A_CRAM_MD5; return AUTHTYPE;}
+msn		{ SETSTATE(0); yylval.proto = A_MSN; return AUTHTYPE;}
 ntlm		{ SETSTATE(0); yylval.proto = A_NTLM; return AUTHTYPE;}
 <AUTH>password	{ SETSTATE(0); yylval.proto = A_PASSWORD; return AUTHTYPE;}
 timeout		{ return TIMEOUT;}
@@ -117,7 +125,6 @@ bsmtp		{ return BSMTP; }
 lmtp		{ return LMTP; }
 pre(connect)?	{ return PRECONNECT; }
 post(connect)?	{ return POSTCONNECT; }
-netsec		{ return NETSEC; }
 interface	{ return INTERFACE; }
 monitor		{ return MONITOR; }
 plugin		{ return PLUGIN; }
@@ -142,6 +149,7 @@ nodns		|
 noenvelope	|
 nokeep		|
 noflush		|
+nolimitflush	|
 nofetchall	|
 norewrite	|
 noforcecr	|
@@ -160,6 +168,7 @@ no		{return NO;}
 
 keep		{ return KEEP; }
 flush		{ return FLUSH; }
+limitflush	{ return LIMITFLUSH; }
 fetchall	{ return FETCHALL; }
 rewrite		{ return REWRITE; }
 forcecr		{ return FORCECR; }
@@ -195,6 +204,7 @@ options		{/* EMPTY */}
 (pop3)|(POP3)	{ yylval.proto = P_POP3;  return PROTO; }
 (imap)|(IMAP)	{ yylval.proto = P_IMAP;  return PROTO; }
 (apop)|(APOP)   { yylval.proto = P_APOP;  return PROTO; }
+(rpop)|(RPOP)   { yylval.proto = P_RPOP;  return PROTO; }
 (etrn)|(ETRN)   { yylval.proto = P_ETRN;  return PROTO; }
 (odmr)|(ODMR)   { yylval.proto = P_ODMR;  return PROTO; }
 (kpop)|(KPOP)	{ return KPOP; }
@@ -204,10 +214,9 @@ options		{/* EMPTY */}
 -?[0-9]+	{ yylval.number = atoi(yytext); return NUMBER; }
 
 [^=;:, \t\r\n]+	{
-			char buf[MSGBUFSIZE];
-
-			escapes(yytext, buf);
-			yylval.sval = (char *) xstrdup(buf);
+			escapes(yytext, yytext);
+			yyleng = strlen(yytext);
+			yylval.sval = yytext;
 			return STRING;
 		}
 
@@ -215,35 +224,40 @@ options		{/* EMPTY */}
 
 %%
 
-void escapes(cp, tp)
-/* process standard C-style escape sequences in a string */
-const char	*cp;	/* source string with escapes */
-char		*tp;	/* target buffer for digested string */
+/** process standard C-style escape sequences in a string,
+ * this can never lengthen the output, so cp and tp may overlap as long
+ * as cp >= tp. */
+void escapes(const char *cp /** source string with escapes */,
+	     char       *tp /** target buffer for digested string */)
 {
     while (*cp)
     {
 	int	cval = 0;
 
-	if (*cp == '\\' && strchr("0123456789xX", cp[1]))
+	/* we MUST check for NUL explicitly, as strchr(string, 0) will
+	 * always succeed! */
+	if (*cp == '\\' && cp[1] && strchr("0123456789xX", cp[1]))
 	{
 	    char *dp;
 	    const char *hex = "00112233445566778899aAbBcCdDeEfF";
 	    int dcount = 0;
 
 	    if (*++cp == 'x' || *cp == 'X')
-		for (++cp; (dp = strchr(hex, *cp)) && (dcount++ < 2); cp++)
+		for (++cp; *cp && (dp = strchr(hex, *cp)) && (dcount++ < 2); cp++)
 		    cval = (cval * 16) + (dp - hex) / 2;
 	    else if (*cp == '0')
-		while (strchr("01234567",*cp) != (char*)NULL && (dcount++ < 3))
+		while (*cp && strchr("01234567",*cp) != (char*)NULL && (dcount++ < 3))
 		    cval = (cval * 8) + (*cp++ - '0');
 	    else
-		while ((strchr("0123456789",*cp)!=(char*)NULL)&&(dcount++ < 3))
+		while (*cp && (strchr("0123456789",*cp)!=(char*)NULL)&&(dcount++ < 3))
 		    cval = (cval * 10) + (*cp++ - '0');
 	}
 	else if (*cp == '\\')		/* C-style character escapes */
 	{
 	    switch (*++cp)
 	    {
+	    case '\n': cp++; continue;	/* backslash before LF to join lines */
+	    case '\0': goto done;	   /* ignore backslash at file end */
 	    case '\\': cval = '\\'; break;
 	    case 'n': cval = '\n'; break;
 	    case 't': cval = '\t'; break;
@@ -257,6 +271,6 @@ char		*tp;	/* target buffer for digested string */
 	    cval = *cp++;
 	*tp++ = cval;
     }
+done:
     *tp = '\0';
 }
-

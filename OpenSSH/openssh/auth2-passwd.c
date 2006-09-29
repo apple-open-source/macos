@@ -55,19 +55,14 @@ userauth_passwd(Authctxt *authctxt)
 
 	if (change)
 		logit("password change not supported");
-	else if (PRIVSEP(auth_password(authctxt, password)) == 1
-#ifdef HAVE_CYGWIN
-	    && check_nt_auth(1, authctxt->pw)
-#endif
-	    )
+	else if (PRIVSEP(auth_password(authctxt, password)) == 1)
 		authenticated = 1;
+#ifdef HAVE_CYGWIN
+	if (check_nt_auth(1, authctxt->pw) == 0)
+		authenticated = 0;
+#endif
 	memset(password, 0, len);
 	xfree(password);
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-	if (!authenticated) {
-		PRIVSEP(solaris_audit_bad_pw("password"));
-	}
-#endif /* BSM */
 	return authenticated;
 }
 

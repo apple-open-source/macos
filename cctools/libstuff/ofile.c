@@ -20,6 +20,10 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#define __darwin_i386_exception_state i386_exception_state
+#define __darwin_i386_float_state i386_float_state
+#define __darwin_i386_thread_state i386_thread_state
+
 #ifndef RLD
 #ifdef SHLIB
 #include "shlib.h"
@@ -2936,6 +2940,7 @@ struct ofile *ofile)
     struct routines_command_64 *rc64;
     struct twolevel_hints_command *hints;
     struct prebind_cksum_command *cs;
+    struct uuid_command *uuid;
     unsigned long flavor, count, nflavor;
     char *p, *state;
 
@@ -2998,6 +3003,7 @@ struct ofile *ofile)
 	rc64 = NULL;
 	hints = NULL;
 	cs = NULL;
+	uuid = NULL;
 	for(i = 0, lc = load_commands; i < ncmds; i++){
 	    l = *lc;
 	    if(swapped)
@@ -3029,7 +3035,7 @@ struct ofile *ofile)
 		    swap_segment_command(sg, host_byte_sex);
 		if(sg->cmdsize != sizeof(struct segment_command) +
 				     sg->nsects * sizeof(struct section)){
-		    Mach_O_error(ofile, "malformed object (inconsistant "
+		    Mach_O_error(ofile, "malformed object (inconsistent "
 				 "cmdsize in LC_SEGMENT command %lu for the "
 				 "number of sections)", i);
 		    return(CHECK_BAD);
@@ -3092,7 +3098,7 @@ struct ofile *ofile)
 		    swap_segment_command_64(sg64, host_byte_sex);
 		if(sg64->cmdsize != sizeof(struct segment_command_64) +
 				     sg64->nsects * sizeof(struct section_64)){
-		    Mach_O_error(ofile, "malformed object (inconsistant "
+		    Mach_O_error(ofile, "malformed object (inconsistent "
 				 "cmdsize in LC_SEGMENT_64 command %lu for "
 				 "the number of sections)", i);
 		    return(CHECK_BAD);
@@ -3365,6 +3371,21 @@ struct ofile *ofile)
 		if(cs->cmdsize != sizeof(struct prebind_cksum_command)){
 		    Mach_O_error(ofile, "malformed object (LC_PREBIND_CKSUM "
 			"command %lu has incorrect cmdsize)", i);
+		    return(CHECK_BAD);
+		}
+		break;
+
+	    case LC_UUID:
+		if(uuid != NULL){
+		    Mach_O_error(ofile, "malformed object (more than one "
+			"LC_UUID command)");
+		    return(CHECK_BAD);
+		}
+		uuid = (struct uuid_command *)lc;
+		if(swapped)
+		    swap_uuid_command(uuid, host_byte_sex);
+		if(uuid->cmdsize != sizeof(struct uuid_command)){
+		    Mach_O_error(ofile, "malformed object (LC_UUID command %lu "			"has incorrect cmdsize)", i);
 		    return(CHECK_BAD);
 		}
 		break;
@@ -4055,6 +4076,58 @@ struct ofile *ofile)
 		    }
 		    break;
 		}
+#ifdef x86_THREAD_STATE64_COUNT
+	    	if(cputype == CPU_TYPE_X86_64){
+		    x86_thread_state64_t *cpu;
+
+		    nflavor = 0;
+		    p = (char *)ut + ut->cmdsize;
+		    while(state < p){
+			flavor = *((unsigned long *)state);
+			if(swapped){
+			    flavor = SWAP_LONG(flavor);
+			    *((unsigned long *)state) = flavor;
+			}
+			state += sizeof(unsigned long);
+			count = *((unsigned long *)state);
+			if(swapped){
+			    count = SWAP_LONG(count);
+			    *((unsigned long *)state) = count;
+			}
+			state += sizeof(unsigned long);
+			switch(flavor){
+			case x86_THREAD_STATE64:
+			    if(count != x86_THREAD_STATE64_COUNT){
+				Mach_O_error(ofile, "malformed object (count "
+				    "not x86_THREAD_STATE64_COUNT for "
+				    "flavor number %lu which is a x86_THREAD_"
+				    "STATE64 flavor in %s command %lu)",
+				    nflavor, ut->cmd == LC_UNIXTHREAD ? 
+				    "LC_UNIXTHREAD" : "LC_THREAD", i);
+				return(CHECK_BAD);
+			    }
+			    cpu = (x86_thread_state64_t *)state;
+			    if(swapped)
+				swap_x86_thread_state64(cpu, host_byte_sex);
+			    state += sizeof(x86_thread_state64_t);
+			    break;
+			default:
+			    if(swapped){
+				Mach_O_error(ofile, "malformed object (unknown "
+				    "flavor for flavor number %lu in %s command"
+				    " %lu can't byte swap it)", nflavor,
+				    ut->cmd == LC_UNIXTHREAD ? "LC_UNIXTHREAD" :
+				    "LC_THREAD", i);
+				return(CHECK_BAD);
+			    }
+			    state += count * sizeof(long);
+			    break;
+			}
+			nflavor++;
+		    }
+		    break;
+		}
+#endif /* x86_THREAD_STATE64_COUNT */
 	    	if(cputype == CPU_TYPE_HPPA){
 		    struct hp_pa_integer_thread_state *cpu;
 		    struct hp_pa_frame_thread_state *frame;
@@ -4316,9 +4389,9 @@ struct ofile *ofile)
 		}
 	    }
 	}
-	/* check for an inconsistant size of the load commands */
+	/* check for an inconsistent size of the load commands */
 	if((char *)load_commands + sizeofcmds != (char *)lc){
-	    Mach_O_error(ofile, "malformed object (inconsistant sizeofcmds "
+	    Mach_O_error(ofile, "malformed object (inconsistent sizeofcmds "
 			 "field in mach header)");
 	    return(CHECK_BAD);
 	}

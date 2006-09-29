@@ -50,6 +50,7 @@ enum {
     kEAPClientStatusCertificateExpired = 12,
     kEAPClientStatusCertificateNotYetValid = 13,
     kEAPClientStatusCertificateRequiresConfirmation = 14,
+    kEAPClientStatusUserInputNotPossible = 15,
 
     /* this is here for backwards compatibility: */
     kEAPClientStatusConfigurationIncomplete = kEAPClientStatusUserInputRequired,

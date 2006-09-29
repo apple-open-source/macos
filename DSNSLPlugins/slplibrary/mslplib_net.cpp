@@ -315,7 +315,7 @@ SLPInternalError get_unicast_result(
     * the max timeout is achieved.
     */
     struct sockaddr_in insin;
-    int iInSinSz = sizeof insin;
+    socklen_t iInSinSz = sizeof insin;
     time_t tStart = time(0);
     time_t tElapsed;
     int iErr;
@@ -610,7 +610,7 @@ SLPInternalError get_converge_result(
         }
         else/* select indicates the UDP socket is ready to read */
         {
-			int iInLen = sizeof(struct sockaddr_in);
+			socklen_t iInLen = sizeof(struct sockaddr_in);
             iErr = recvfrom(sd,pcRecvBuf,iRecvSz,0,(struct sockaddr*)&insin,&iInLen);
 
             if (iErr >= 0 && iErr < HDRLEN+4)

@@ -1,23 +1,31 @@
 /*
  * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * This file contains Original Code and/or Modifications of Original Code 
+ * as defined in and that are subject to the Apple Public Source License 
+ * Version 2.0 (the 'License'). You may not use this file except in 
+ * compliance with the License.  The rights granted to you under the 
+ * License may not be used to create, or enable the creation or 
+ * redistribution of, unlawful or unlicensed copies of an Apple operating 
+ * system, or to circumvent, violate, or enable the circumvention or 
+ * violation of, any terms of an Apple operating system software license 
+ * agreement.
+ *
+ * Please obtain a copy of the License at 
+ * http://www.opensource.apple.com/apsl/ and read it before using this 
+ * file.
+ *
+ * The Original Code and all software distributed under the License are 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
+ * Please see the License for the specific language governing rights and 
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
  */
  
 #include <IOKit/system.h>
@@ -1278,18 +1286,18 @@ IOReturn IOService::messageClient( UInt32 type, OSObject * client,
     return( ret );
 }
 
-void IOService::applyToInterested( const OSSymbol * typeOfInterest,
-                                   OSObjectApplierFunction applier,
-                                   void * context )
+static void
+applyToInterestNotifiers(const IORegistryEntry *target,
+			 const OSSymbol * typeOfInterest,
+			 OSObjectApplierFunction applier,
+			 void * context )
 {
     OSArray *		copyArray = 0;
-
-    applyToClients( (IOServiceApplierFunction) applier, context );
 
     LOCKREADNOTIFY();
 
     IOCommand *notifyList =
-	OSDynamicCast( IOCommand, getProperty( typeOfInterest ));
+	OSDynamicCast( IOCommand, target->getProperty( typeOfInterest ));
 
     if( notifyList) {
         copyArray = OSArray::withCapacity(1);
@@ -1312,6 +1320,14 @@ void IOService::applyToInterested( const OSSymbol * typeOfInterest,
 	    (*applier)(next, context);
 	copyArray->release();
     }
+}
+
+void IOService::applyToInterested( const OSSymbol * typeOfInterest,
+                                   OSObjectApplierFunction applier,
+                                   void * context )
+{
+    applyToClients( (IOServiceApplierFunction) applier, context );
+    applyToInterestNotifiers(this, typeOfInterest, applier, context);
 }
 
 struct MessageClientsContext {
@@ -2881,21 +2897,15 @@ UInt32 IOService::_adjustBusy( SInt32 delta )
             next->unlockForArbitration();
 
         if( (wasQuiet || nowQuiet) ) {
-            OSArray *		array;
-            unsigned int	index;
-            OSObject *		interested;
+	    MessageClientsContext context;
 
-            array = OSDynamicCast( OSArray, next->getProperty( gIOBusyInterest ));
-            if( array) {
-                LOCKREADNOTIFY();
-                for( index = 0;
-                     (interested = array->getObject( index ));
-                     index++) {
-                    next->messageClient(kIOMessageServiceBusyStateChange,
-                                     interested, (void *) wasQuiet /* busy now */);
-                }
-                UNLOCKNOTIFY();
-            }
+	    context.service  = next;
+	    context.type     = kIOMessageServiceBusyStateChange;
+	    context.argument = (void *) wasQuiet;	// busy now
+	    context.argSize  = 0;
+
+	    applyToInterestNotifiers( next, gIOBusyInterest, 
+				     &messageClientsApplier, &context );
 
             if( nowQuiet && (next == gIOServiceRoot))
                 OSMetaClass::considerUnloads();

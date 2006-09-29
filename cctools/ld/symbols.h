@@ -434,6 +434,7 @@ void output_rld_symfile_merged_symbols(
 __private_extern__ enum bool is_output_local_symbol(
     unsigned char n_type,
     unsigned char n_sect,
+    unsigned char n_desc,
     struct object_file *obj,
     char *symbol_name,
     unsigned long *output_strlen);

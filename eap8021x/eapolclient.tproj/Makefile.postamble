@@ -100,7 +100,7 @@
 #
 
 wireless: wireless.c
-	cc -DTEST_WIRELESS -g -o wireless wireless.c -F/System/Library/PrivateFrameworks -framework Apple80211 -framework CoreFoundation
+	cc -arch i386 -arch ppc -DTEST_WIRELESS -g -o wireless wireless.c -F/System/Library/PrivateFrameworks -framework Apple80211 -framework CoreFoundation
 
 Dialogue: Dialogue.c
 	cc -Wall -DTEST_DIALOGUE -g -o Dialogue Dialogue.c mylog.c -I../EAP8021X.fproj ../EAP8021X.fproj/myCFUtil.c -framework CoreFoundation

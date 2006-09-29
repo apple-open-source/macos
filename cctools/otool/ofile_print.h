@@ -232,6 +232,9 @@ extern void print_twolevel_hints_command(
 extern void print_prebind_cksum_command(
     struct prebind_cksum_command *cksum);
 
+extern void print_uuid_command(
+    struct uuid_command *uuid);
+
 extern void print_thread_states(
     char *begin, 
     char *end,
@@ -252,6 +255,13 @@ extern void print_literal4_section(
     enum bool print_addresses);
 
 extern void print_literal8_section(
+    char *sect,
+    unsigned long sect_size,
+    unsigned long sect_addr,
+    enum byte_sex literal_byte_sex,
+    enum bool print_addresses);
+
+extern void print_literal16_section(
     char *sect,
     unsigned long sect_size,
     unsigned long sect_addr,

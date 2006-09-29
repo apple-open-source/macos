@@ -200,6 +200,7 @@ OBJS_NO_WERROR =		\
 	tcp_subr.o		\
 	tcp_timer.o		\
 	tcp_usrreq.o		\
+	tcp_sack.o		\
 	udp_usrreq.o		\
 	ah_core.o		\
 	ah_input.o		\

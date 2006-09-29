@@ -1,4 +1,4 @@
-#	$OpenBSD: Makefile,v 1.27 2004/02/17 08:23:20 dtucker Exp $
+#	$OpenBSD: Makefile,v 1.36 2005/03/04 08:48:46 djm Exp $
 
 REGRESS_TARGETS=	t1 t2 t3 t4 t5 t6 t7 t-exec
 tests:		$(REGRESS_TARGETS)
@@ -13,6 +13,7 @@ LTESTS= 	connect \
 		proto-version \
 		proto-mismatch \
 		exit-status \
+		envpass \
 		transfer \
 		banner \
 		rekey \
@@ -28,21 +29,28 @@ LTESTS= 	connect \
 		agent-ptrace \
 		keyscan \
 		keygen-change \
+		scp \
 		sftp \
 		sftp-cmds \
 		sftp-badcmds \
 		sftp-batch \
+		sftp-glob \
 		reconfigure \
 		dynamic-forward \
-		forwarding
+		forwarding \
+		multiplex \
+		reexec \
+		brokenkeys
 
 USER!=		id -un
 CLEANFILES=	t2.out t6.out1 t6.out2 t7.out t7.out.pub copy.1 copy.2 \
 		authorized_keys_${USER} known_hosts pidfile \
-		ssh_config ssh_proxy sshd_config sshd_proxy \
+		ssh_config sshd_config.orig ssh_proxy sshd_config sshd_proxy \
 		rsa.pub rsa rsa1.pub rsa1 host.rsa host.rsa1 \
 		rsa-agent rsa-agent.pub rsa1-agent rsa1-agent.pub \
-		ls.copy banner.in banner.out empty.in remote_pid
+		ls.copy banner.in banner.out empty.in \
+		scp-ssh-wrapper.scp ssh_proxy_envpass \
+		remote_pid
 
 #LTESTS +=	ssh-com ssh-com-client ssh-com-keygen ssh-com-sftp
 
@@ -84,5 +92,5 @@ t-exec:	${LTESTS:=.sh}
 	@if [ "x$?" = "x" ]; then exit 0; fi; \
 	for TEST in ""$?; do \
 		echo "run test $${TEST}" ... 1>&2; \
-		(sh ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
+		(env SUDO=${SUDO} sh ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
 	done

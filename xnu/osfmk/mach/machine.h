@@ -1,23 +1,31 @@
 /*
  * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * This file contains Original Code and/or Modifications of Original Code 
+ * as defined in and that are subject to the Apple Public Source License 
+ * Version 2.0 (the 'License'). You may not use this file except in 
+ * compliance with the License.  The rights granted to you under the 
+ * License may not be used to create, or enable the creation or 
+ * redistribution of, unlawful or unlicensed copies of an Apple operating 
+ * system, or to circumvent, violate, or enable the circumvention or 
+ * violation of, any terms of an Apple operating system software license 
+ * agreement.
+ *
+ * Please obtain a copy of the License at 
+ * http://www.opensource.apple.com/apsl/ and read it before using this 
+ * file.
+ *
+ * The Original Code and all software distributed under the License are 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
+ * Please see the License for the specific language governing rights and 
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
  */
 /* 
  * Mach Operating System
@@ -134,7 +142,10 @@ __END_DECLS
 /* skip				((cpu_type_t) 4)	*/
 /* skip				((cpu_type_t) 5)	*/
 #define	CPU_TYPE_MC680x0	((cpu_type_t) 6)
-#define CPU_TYPE_I386		((cpu_type_t) 7)
+#define CPU_TYPE_X86		((cpu_type_t) 7)
+#define CPU_TYPE_I386		CPU_TYPE_X86		/* compatibility */
+#define	CPU_TYPE_X86_64		(CPU_TYPE_X86 | CPU_ARCH_ABI64)
+
 /* skip CPU_TYPE_MIPS		((cpu_type_t) 8)	*/
 /* skip 			((cpu_type_t) 9)	*/
 #define CPU_TYPE_MC98000	((cpu_type_t) 10)
@@ -220,22 +231,43 @@ __END_DECLS
  *	I386 subtypes.
  */
 
-#define	CPU_SUBTYPE_I386_ALL	((cpu_subtype_t) 3)
-#define CPU_SUBTYPE_386		((cpu_subtype_t) 3)
-#define CPU_SUBTYPE_486		((cpu_subtype_t) 4)
-#define CPU_SUBTYPE_486SX	((cpu_subtype_t) 4 + 128)
-#define CPU_SUBTYPE_586		((cpu_subtype_t) 5)
 #define CPU_SUBTYPE_INTEL(f, m)	((cpu_subtype_t) (f) + ((m) << 4))
+
+#define	CPU_SUBTYPE_I386_ALL			CPU_SUBTYPE_INTEL(3, 0)
+#define CPU_SUBTYPE_386					CPU_SUBTYPE_INTEL(3, 0)
+#define CPU_SUBTYPE_486					CPU_SUBTYPE_INTEL(4, 0)
+#define CPU_SUBTYPE_486SX				CPU_SUBTYPE_INTEL(4, 8)	// 8 << 4 = 128
+#define CPU_SUBTYPE_586					CPU_SUBTYPE_INTEL(5, 0)
 #define CPU_SUBTYPE_PENT	CPU_SUBTYPE_INTEL(5, 0)
 #define CPU_SUBTYPE_PENTPRO	CPU_SUBTYPE_INTEL(6, 1)
 #define CPU_SUBTYPE_PENTII_M3	CPU_SUBTYPE_INTEL(6, 3)
 #define CPU_SUBTYPE_PENTII_M5	CPU_SUBTYPE_INTEL(6, 5)
+#define CPU_SUBTYPE_CELERON				CPU_SUBTYPE_INTEL(7, 6)
+#define CPU_SUBTYPE_CELERON_MOBILE		CPU_SUBTYPE_INTEL(7, 7)
+#define CPU_SUBTYPE_PENTIUM_3			CPU_SUBTYPE_INTEL(8, 0)
+#define CPU_SUBTYPE_PENTIUM_3_M			CPU_SUBTYPE_INTEL(8, 1)
+#define CPU_SUBTYPE_PENTIUM_3_XEON		CPU_SUBTYPE_INTEL(8, 2)
+#define CPU_SUBTYPE_PENTIUM_M			CPU_SUBTYPE_INTEL(9, 0)
+#define CPU_SUBTYPE_PENTIUM_4			CPU_SUBTYPE_INTEL(10, 0)
+#define CPU_SUBTYPE_PENTIUM_4_M			CPU_SUBTYPE_INTEL(10, 1)
+#define CPU_SUBTYPE_ITANIUM				CPU_SUBTYPE_INTEL(11, 0)
+#define CPU_SUBTYPE_ITANIUM_2			CPU_SUBTYPE_INTEL(11, 1)
+#define CPU_SUBTYPE_XEON				CPU_SUBTYPE_INTEL(12, 0)
+#define CPU_SUBTYPE_XEON_MP				CPU_SUBTYPE_INTEL(12, 1)
 
 #define CPU_SUBTYPE_INTEL_FAMILY(x)	((x) & 15)
 #define CPU_SUBTYPE_INTEL_FAMILY_MAX	15
 
 #define CPU_SUBTYPE_INTEL_MODEL(x)	((x) >> 4)
 #define CPU_SUBTYPE_INTEL_MODEL_ALL	0
+
+/*
+ *	X86 subtypes.
+ */
+
+#define CPU_SUBTYPE_X86_ALL		((cpu_subtype_t)3)
+#define CPU_SUBTYPE_X86_64_ALL		((cpu_subtype_t)3)
+#define CPU_SUBTYPE_X86_ARCH1		((cpu_subtype_t)4)
 
 
 #define CPU_THREADTYPE_INTEL_HTT	((cpu_threadtype_t) 1)

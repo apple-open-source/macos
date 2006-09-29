@@ -81,7 +81,7 @@ struct stagemsg {
     char *partend; /* end of buffer */
 };
 
-static	int	buf_len = 0;
+static	int		buf_len = 0;
 static	char   *tmp_buf = NULL;
 
 static int append_addseen(struct mailbox *mailbox, const char *userid,

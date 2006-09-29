@@ -1,4 +1,4 @@
-/*	$OpenBSD: session.h,v 1.21 2003/09/23 20:17:11 markus Exp $	*/
+/*	$OpenBSD: session.h,v 1.25 2005/07/17 06:49:04 djm Exp $	*/
 
 /*
  * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
@@ -39,9 +39,6 @@ struct Session {
 	int	ptyfd, ttyfd, ptymaster;
 	u_int	row, col, xpixel, ypixel;
 	char	tty[TTYSZ];
-	/* last login */
-	char	hostname[MAXHOSTNAMELEN];
-	time_t	last_login_time;
 	/* X11 */
 	u_int	display_number;
 	char	*display;
@@ -52,7 +49,13 @@ struct Session {
 	int	single_connection;
 	/* proto 2 */
 	int	chanid;
+	int	*x11_chanids;
 	int	is_subsystem;
+	u_int	num_env;
+	struct {
+		char	*name;
+		char	*val;
+	}	*env;
 };
 
 void	 do_authenticated(Authctxt *);

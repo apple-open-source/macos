@@ -1,0 +1,193 @@
+--- ../openssh-4.2p1/configure	2005-09-01 02:15:24.000000000 -0700
++++ ./configure	2005-09-27 11:38:52.000000000 -0700
+@@ -5338,6 +5338,123 @@
+ #define BIND_8_COMPAT 1
+ _ACEOF
+ 
++	echo "$as_me:$LINENO: checking if we have the Security Authorization Session API" >&5
++echo $ECHO_N "checking if we have the Security Authorization Session API... $ECHO_C" >&6
++	cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++#include <Security/AuthSession.h>
++int
++main ()
++{
++SessionCreate(0, 0);
++  ;
++  return 0;
++}
++_ACEOF
++rm -f conftest.$ac_objext
++if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
++  (eval $ac_compile) 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } &&
++	 { ac_try='test -z "$ac_c_werror_flag"
++			 || test ! -s conftest.err'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; } &&
++	 { ac_try='test -s conftest.$ac_objext'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  ac_cv_use_security_session_api="yes"
++		 cat >>confdefs.h <<\_ACEOF
++#define USE_SECURITY_SESSION_API 1
++_ACEOF
++
++		 LIBS="$LIBS -framework Security"
++		 echo "$as_me:$LINENO: result: yes" >&5
++echo "${ECHO_T}yes" >&6
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++ac_cv_use_security_session_api="no"
++		 echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6
++fi
++rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
++	echo "$as_me:$LINENO: checking if we have an in-memory credentials cache" >&5
++echo $ECHO_N "checking if we have an in-memory credentials cache... $ECHO_C" >&6
++	cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++#include <Kerberos/Kerberos.h>
++int
++main ()
++{
++cc_context_t c;
++		 (void) cc_initialize (&c, 0, NULL, NULL);
++  ;
++  return 0;
++}
++_ACEOF
++rm -f conftest.$ac_objext
++if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
++  (eval $ac_compile) 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } &&
++	 { ac_try='test -z "$ac_c_werror_flag"
++			 || test ! -s conftest.err'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; } &&
++	 { ac_try='test -s conftest.$ac_objext'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  cat >>confdefs.h <<\_ACEOF
++#define USE_CCAPI 1
++_ACEOF
++
++		 LIBS="$LIBS -framework Security"
++		 echo "$as_me:$LINENO: result: yes" >&5
++echo "${ECHO_T}yes" >&6
++		 if test "x$ac_cv_use_security_session_api" = "xno"; then
++			{ { echo "$as_me:$LINENO: error: *** Need a security framework to use the credentials cache API ***" >&5
++echo "$as_me: error: *** Need a security framework to use the credentials cache API ***" >&2;}
++   { (exit 1); exit 1; }; }
++		fi
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6
++
++fi
++rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+ 	;;
+ *-*-hpux*)
+ 	# first we define all of the options common to all HP-UX releases
+@@ -25821,9 +25938,9 @@
+ exec 5>>config.log
+ {
+   echo
+-  sed 'h;s/./-/g;s/^.../## /;s/...$/ ##/;p;x;p;x' <<BOXI_EOF
++  sed 'h;s/./-/g;s/^.../## /;s/...$/ ##/;p;x;p;x' <<_ASBOX
+ ## Running $as_me. ##
+-BOXI_EOF
++_ASBOX
+ } >&5
+ cat >&5 <<_CSEOF
+ 
+diff -Naurdp ../openssh.bk/config.h.in ./config.h.in
+--- ../openssh.bk/config.h.in	2005-09-28 17:11:01.000000000 -0700
++++ ./config.h.in	2005-09-28 17:12:20.000000000 -0700
+@@ -347,6 +347,12 @@
+ /* getaddrinfo is broken (if present) */
+ #undef BROKEN_GETADDRINFO
+ 
++/* platform uses an in-memory credentials cache */
++#undef USE_CCAPI
++
++/* platform has a Security Authorization Session API */
++#undef USE_SECURITY_SESSION_API
++
+ /* updwtmpx is broken (if present) */
+ #undef BROKEN_UPDWTMPX
+ 
+diff -Naur /var/tmp/openssh4.2-testing/OpenSSH.roots/OpenSSH/openssh/readconf.c ./readconf.c
+--- /var/tmp/openssh4.2-testing/OpenSSH.roots/OpenSSH/openssh/readconf.c	2005-09-27 12:33:06.000000000 -0700
++++ ./readconf.c	2005-09-27 14:02:02.000000000 -0700
+@@ -1005,9 +1005,9 @@
+ 	if (options->challenge_response_authentication == -1)
+ 		options->challenge_response_authentication = 1;
+ 	if (options->gss_authentication == -1)
+-		options->gss_authentication = 0;
++		options->gss_authentication = 1;
+ 	if (options->gss_deleg_creds == -1)
+-		options->gss_deleg_creds = 0;
++		options->gss_deleg_creds = 1;
+ 	if (options->gss_trust_dns == -1)
+ 		options->gss_trust_dns = 0;
+ 	if (options->password_authentication == -1)
+diff -Naur /var/tmp/openssh4.2-testing/OpenSSH.roots/OpenSSH/openssh/servconf.c ./servconf.c
+--- /var/tmp/openssh4.2-testing/OpenSSH.roots/OpenSSH/openssh/servconf.c	2005-09-27 12:33:06.000000000 -0700
++++ ./servconf.c	2005-09-27 14:06:44.000000000 -0700
+@@ -186,7 +186,7 @@
+ 	if (options->kerberos_get_afs_token == -1)
+ 		options->kerberos_get_afs_token = 0;
+ 	if (options->gss_authentication == -1)
+-		options->gss_authentication = 0;
++		options->gss_authentication = 1;
+ 	if (options->gss_keyex == -1)
+ 		options->gss_keyex = 0;
+ 	if (options->gss_cleanup_creds == -1)
+diff -Naurdp ../openssh/sshd_config ./sshd_config
+--- ../openssh/sshd_config	2005-09-28 16:11:01.000000000 -0700
++++ ./sshd_config	2005-09-28 17:24:40.000000000 -0700
+@@ -66,7 +66,7 @@
+ #KerberosGetAFSToken no
+ 
+ # GSSAPI options
+-#GSSAPIAuthentication no
++#GSSAPIAuthentication yes
+ #GSSAPICleanupCredentials yes
+ 
+ # Set this to 'yes' to enable PAM authentication, account processing, 

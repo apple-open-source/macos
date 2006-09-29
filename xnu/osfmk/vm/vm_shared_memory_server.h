@@ -1,23 +1,31 @@
 /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * This file contains Original Code and/or Modifications of Original Code 
+ * as defined in and that are subject to the Apple Public Source License 
+ * Version 2.0 (the 'License'). You may not use this file except in 
+ * compliance with the License.  The rights granted to you under the 
+ * License may not be used to create, or enable the creation or 
+ * redistribution of, unlawful or unlicensed copies of an Apple operating 
+ * system, or to circumvent, violate, or enable the circumvention or 
+ * violation of, any terms of an Apple operating system software license 
+ * agreement.
+ *
+ * Please obtain a copy of the License at 
+ * http://www.opensource.apple.com/apsl/ and read it before using this 
+ * file.
+ *
+ * The Original Code and all software distributed under the License are 
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
+ * Please see the License for the specific language governing rights and 
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
  */
 /*
  *
@@ -173,16 +181,6 @@ struct shared_region_mapping ;
 #define load_file_hash(file_object, size) \
 		((((natural_t)file_object) & 0xffffff) % size)
 
-extern kern_return_t copyin_shared_file(
-				vm_offset_t     	mapped_file,
-				vm_size_t       	mapped_file_size,
-				vm_offset_t     	*base_address,
-				int             	map_cnt,
-				sf_mapping_t    	*mappings,
-				memory_object_control_t		file_control,
-				shared_region_task_mappings_t	shared_region,
-				int             	*flags);
-
 extern kern_return_t map_shared_file(
 	int 				map_cnt,
 	struct shared_file_mapping_np 	*mappings,
@@ -278,10 +276,6 @@ extern void shared_file_boot_time_init(
 extern struct load_struct *lsf_remove_regions_mappings(
 	shared_region_mapping_t	region,
 	shared_region_task_mappings_t	sm_info);
-
-extern kern_return_t shared_region_mapping_set_alt_next(
-		shared_region_mapping_t	shared_region,
-		vm_offset_t		alt_next);
 
 extern void mach_memory_entry_port_release(ipc_port_t port);
 extern void mach_destroy_memory_entry(ipc_port_t port);

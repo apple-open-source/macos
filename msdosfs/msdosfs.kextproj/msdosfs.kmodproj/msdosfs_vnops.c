@@ -948,7 +948,7 @@ msdosfs_rename(ap)
 	vnode_t tvp = ap->a_tvp;
 	struct componentname *tcnp = ap->a_tcnp;
 	vfs_context_t context = ap->a_context;
-	u_char toname[11], oldname[11];
+	u_char toname[SHORT_NAME_LEN], oldname[SHORT_NAME_LEN];
 	u_long to_diroffset;
 	u_long to_long_count;
 	u_int32_t from_offset;
@@ -1117,12 +1117,12 @@ msdosfs_rename(ap)
         	
         	/* Copy the name from the entry in fddep */
         	direntp = bptoep(pmp, bp, from_offset);
-        	bcopy(direntp->deName, toname, 11);
+        	bcopy(direntp->deName, toname, SHORT_NAME_LEN);
         	buf_brelse(bp);
         }
         else
         {
-			bcopy(fdep->de_Name, toname, 11);
+			bcopy(fdep->de_Name, toname, SHORT_NAME_LEN);
 		}
 	}
 
@@ -1141,8 +1141,8 @@ msdosfs_rename(ap)
 	 * may be overwritten.
 	 */
 	cache_purge(fvp);
-	bcopy(fdep->de_Name, oldname, 11);
-	bcopy(toname, fdep->de_Name, 11);	/* update denode */
+	bcopy(fdep->de_Name, oldname, SHORT_NAME_LEN);
+	bcopy(toname, fdep->de_Name, SHORT_NAME_LEN);	/* update denode */
 	fdep->de_LowerCase = new_deLowerCase;
 	
 	/*
@@ -1157,7 +1157,7 @@ msdosfs_rename(ap)
 	error = createde(fdep, tddep, NULL, tcnp, to_diroffset, to_long_count, context);
 	if (error)
 	{
-		bcopy(oldname, fdep->de_Name, 11);
+		bcopy(oldname, fdep->de_Name, SHORT_NAME_LEN);
 		/*¥ What if we already deleted the target? */
 		goto exit;
 	}
@@ -1168,7 +1168,7 @@ msdosfs_rename(ap)
 	
 	/* For directories, restore the name to "." */
 	if (doingdirectory)
-		bcopy(oldname, fdep->de_Name, 11);	/* Change it back to "." */
+		bcopy(oldname, fdep->de_Name, SHORT_NAME_LEN);	/* Change it back to "." */
 	error = removede(fddep, from_offset, context);
 	if (error) {
 		/* XXX should really panic here, fs is corrupt */

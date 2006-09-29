@@ -1,11 +1,14 @@
-/* netrc.c -- parse the .netrc file to get hosts, accounts, and passwords
-
+/*
+ * netrc.c -- parse the .netrc file to get hosts, accounts, and passwords
+ *
    Gordon Matzigkeit <gord@gnu.ai.mit.edu>, 1996
    Copyright assigned to Eric S. Raymond, October 2001.
 
    For license terms, see the file COPYING in this directory.
 
-   Compile with -DSTANDALONE to test this module. */
+   Compile with -DSTANDALONE to test this module.
+   (Makefile.am should have a rule so you can just type "make netrc")
+*/
 
 #include <stdio.h>
 #include <ctype.h>
@@ -73,8 +76,7 @@ maybe_add_to_list (netrc_entry **newentry, netrc_entry **list)
    list of entries.  NULL is returned if the file could not be
    parsed. */
 netrc_entry *
-parse_netrc (file)
-     char *file;
+parse_netrc (char *file)
 {
     FILE *fp;
     char buf[POPBUFSIZE+1], *p, *tok;
@@ -102,12 +104,12 @@ parse_netrc (file)
     premature_token = NULL;
 
     /* While there are lines in the file... */
-    while (fgets(buf, POPBUFSIZE, fp))
+    while (fgets(buf, sizeof(buf) - 1, fp))
     {
 	ln++;
 
 	/* Strip trailing CRLF */
-	for (p = buf + strlen(buf) - 1; (p >= buf) && isspace(*p); p--)
+	for (p = buf + strlen(buf) - 1; (p >= buf) && isspace((unsigned char)*p); p--)
 	    *p = '\0';
 
 	/* Parse the line. */
@@ -129,7 +131,7 @@ parse_netrc (file)
 	    char *pp;
 
 	    /* Skip any whitespace. */
-	    while (*p && isspace (*p))
+	    while (*p && isspace ((unsigned char)*p))
 		p++;
 
 	    /* Discard end-of-line comments. */
@@ -139,7 +141,7 @@ parse_netrc (file)
 	    tok = pp = p;
 
 	    /* Find the end of the token. */
-	    while (*p && (quote_char || !isspace (*p)))
+	    while (*p && (quote_char || !isspace ((unsigned char)*p)))
 	    {
 		if (quote_char)
 		{
@@ -213,15 +215,9 @@ parse_netrc (file)
 
 	    if (premature_token)
 	    {
-#ifdef HAVE_ERROR
-		error_at_line (0, file, ln,
-			       GT_("warning: found \"%s\" before any host names"),
-			       premature_token);
-#else
 		fprintf (stderr,
 			 GT_("%s:%d: warning: found \"%s\" before any host names\n"),
 			 file, ln, premature_token);
-#endif
 		premature_token = NULL;
 	    }
 
@@ -294,9 +290,7 @@ parse_netrc (file)
 /* Return the netrc entry from LIST corresponding to HOST.  NULL is
    returned if no such entry exists. */
 netrc_entry *
-search_netrc (list, host, login)
-     netrc_entry *list;
-     char *host, *login;
+search_netrc (netrc_entry *list, char *host, char *login)
 {
     /* Look for the HOST in LIST. */
     while (list)
@@ -313,17 +307,28 @@ search_netrc (list, host, login)
     return list;
 }
 
+void
+free_netrc(netrc_entry *a) {
+    while(a) {
+	netrc_entry *n = a->next;
+	if (a->password != NULL) {
+		memset(a->password, 0x55, strlen(a->password));
+		free(a->password);
+	}
+	xfree(a->login);
+	xfree(a->host);
+	xfree(a);
+	a = n;
+    }
+}
 
 #ifdef STANDALONE
 #include <sys/types.h>
 #include <sys/stat.h>
 
-extern int errno;
+#include <errno.h>
 
-int
-main (argc, argv)
-     int argc;
-     char **argv;
+int main (int argc, char **argv)
 {
     struct stat sb;
     char *program_name, *file, *host, *login;
@@ -333,6 +338,15 @@ main (argc, argv)
     file = argv[1];
     host = argv[2];
     login = argv[3];
+
+    switch (argc) {
+	case 2:
+	case 4:
+	    break;
+	default:
+	    fprintf (stderr, "Usage: %s <file> [<host> <login>]\n", argv[0]);
+	    exit(EXIT_FAILURE);
+    }
 
     if (stat (file, &sb))
     {
@@ -350,8 +364,8 @@ main (argc, argv)
 
     if (host && login)
     {
-	int i, status;
-	status = 0;
+	int status;
+	status = EXIT_SUCCESS;
 
 	printf("Host: %s, Login: %s\n", host, login);
 	    
@@ -361,10 +375,10 @@ main (argc, argv)
 	    /* Print out the password (if any). */
 	    if (a->password)
 	    {
-		fputc (' ', stdout);
-		fputs (a->password, stdout);
+		printf("Password: %s\n", a->password);
 	    }
-	}
+	} else
+	    status = EXIT_FAILURE;
 	fputc ('\n', stdout);
 
 	exit (status);
@@ -395,6 +409,8 @@ main (argc, argv)
 	fputc ('\n', stdout);
 	a = a->next;
     }
+
+    free_netrc(head);
 
     exit (0);
 }

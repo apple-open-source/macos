@@ -26,6 +26,162 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 /* byte_sex.c */
+
+#define __cr cr
+#define __ctr ctr
+#define __dar dar
+#define __dsisr dsisr
+#define __exception exception
+#define __fpregs fpregs
+#define __fpscr fpscr
+#define __fpscr_pad fpscr_pad
+#define __lr lr
+#define __mq mq
+#define __pad0 pad0
+#define __pad1 pad1
+#define __r0 r0
+#define __r1 r1
+#define __r10 r10
+#define __r11 r11
+#define __r12 r12
+#define __r13 r13
+#define __r14 r14
+#define __r15 r15
+#define __r16 r16
+#define __r17 r17
+#define __r18 r18
+#define __r19 r19
+#define __r2 r2
+#define __r20 r20
+#define __r21 r21
+#define __r22 r22
+#define __r23 r23
+#define __r24 r24
+#define __r25 r25
+#define __r26 r26
+#define __r27 r27
+#define __r28 r28
+#define __r29 r29
+#define __r3 r3
+#define __r30 r30
+#define __r31 r31
+#define __r4 r4
+#define __r5 r5
+#define __r6 r6
+#define __r7 r7
+#define __r8 r8
+#define __r9 r9
+#define __srr0 srr0
+#define __srr1 srr1
+#define __vrsave vrsave
+#define __xer xer
+
+#define __darwin_i386_exception_state i386_exception_state
+#define __darwin_i386_float_state i386_float_state
+#define __darwin_i386_thread_state i386_thread_state
+#define __busy busy
+#define __c0 c0
+#define __c1 c1
+#define __c2 c2
+#define __c3 c3
+#define __cs cs
+#define __darwin_fp_control fp_control
+#define __darwin_fp_status fp_status
+#define __darwin_mmst_reg mmst_reg
+#define __darwin_xmm_reg xmm_reg
+#define __denorm denorm
+#define __ds ds
+#define __eax eax
+#define __ebp ebp
+#define __ebx ebx
+#define __ecx ecx
+#define __edi edi
+#define __edx edx
+#define __eflags eflags
+#define __eip eip
+#define __err err
+#define __errsumm errsumm
+#define __es es
+#define __esi esi
+#define __esp esp
+#define __faultvaddr faultvaddr
+#define __fpu_cs fpu_cs
+#define __fpu_dp fpu_dp
+#define __fpu_ds fpu_ds
+#define __fpu_fcw fpu_fcw
+#define __fpu_fop fpu_fop
+#define __fpu_fsw fpu_fsw
+#define __fpu_ftw fpu_ftw
+#define __fpu_ip fpu_ip
+#define __fpu_mxcsr fpu_mxcsr
+#define __fpu_mxcsrmask fpu_mxcsrmask
+#define __fpu_reserved fpu_reserved
+#define __fpu_reserved1 fpu_reserved1
+#define __fpu_rsrv1 fpu_rsrv1
+#define __fpu_rsrv2 fpu_rsrv2
+#define __fpu_rsrv3 fpu_rsrv3
+#define __fpu_rsrv4 fpu_rsrv4
+#define __fpu_stmm0 fpu_stmm0
+#define __fpu_stmm1 fpu_stmm1
+#define __fpu_stmm2 fpu_stmm2
+#define __fpu_stmm3 fpu_stmm3
+#define __fpu_stmm4 fpu_stmm4
+#define __fpu_stmm5 fpu_stmm5
+#define __fpu_stmm6 fpu_stmm6
+#define __fpu_stmm7 fpu_stmm7
+#define __fpu_xmm0 fpu_xmm0
+#define __fpu_xmm1 fpu_xmm1
+#define __fpu_xmm2 fpu_xmm2
+#define __fpu_xmm3 fpu_xmm3
+#define __fpu_xmm4 fpu_xmm4
+#define __fpu_xmm5 fpu_xmm5
+#define __fpu_xmm6 fpu_xmm6
+#define __fpu_xmm7 fpu_xmm7
+#define __fs fs
+#define __gs gs
+#define __invalid invalid
+#define __mmst_reg mmst_reg
+#define __mmst_rsrv mmst_rsrv
+#define __ovrfl ovrfl
+#define __pc pc
+#define __precis precis
+#define __rc rc
+#define __ss ss
+#define __stkflt stkflt
+#define __tos tos
+#define __trapno trapno
+#define __undfl undfl
+#define __xmm_reg xmm_reg
+#define __zdiv zdiv
+
+#define __rax rax
+#define __rbx rbx
+#define __rcx rcx
+#define __rdx rdx
+#define __rdi rdi
+#define __rsi rsi
+#define __rbp rbp
+#define __rsp rsp
+#define __r8 r8
+#define __r9 r9
+#define __r10 r10
+#define __r11 r11
+#define __r12 r12
+#define __r13 r13
+#define __r14 r14
+#define __r15 r15
+#define __rip rip
+#define __rflags rflags
+
+#define __dr0 dr0
+#define __dr1 dr1
+#define __dr2 dr2
+#define __dr3 dr3
+#define __dr4 dr4
+#define __dr5 dr5
+#define __dr6 dr6
+#define __dr7 dr7
+
 #include <string.h>
 #include "stuff/target_arch.h"
 #include <mach-o/fat.h>
@@ -1220,8 +1376,40 @@ enum byte_sex target_byte_sex)
 	cpu->gs = SWAP_LONG(cpu->gs);
 }
 
+#ifdef x86_THREAD_STATE64
+__private_extern__
+void
+swap_x86_thread_state64(
+x86_thread_state64_t *cpu,
+enum byte_sex target_byte_sex)
+{
+	cpu->rax = SWAP_LONG_LONG(cpu->rax);
+	cpu->rbx = SWAP_LONG_LONG(cpu->rbx);
+	cpu->rcx = SWAP_LONG_LONG(cpu->rcx);
+	cpu->rdx = SWAP_LONG_LONG(cpu->rdx);
+	cpu->rdi = SWAP_LONG_LONG(cpu->rdi);
+	cpu->rsi = SWAP_LONG_LONG(cpu->rsi);
+	cpu->rbp = SWAP_LONG_LONG(cpu->rbp);
+	cpu->rsp = SWAP_LONG_LONG(cpu->rsp);
+	cpu->rflags = SWAP_LONG_LONG(cpu->rflags);
+	cpu->rip = SWAP_LONG_LONG(cpu->rip);
+	cpu->r8 = SWAP_LONG_LONG(cpu->r8);
+	cpu->r9 = SWAP_LONG_LONG(cpu->r9);
+	cpu->r10 = SWAP_LONG_LONG(cpu->r10);
+	cpu->r11 = SWAP_LONG_LONG(cpu->r11);
+	cpu->r12 = SWAP_LONG_LONG(cpu->r12);
+	cpu->r13 = SWAP_LONG_LONG(cpu->r13);
+	cpu->r14 = SWAP_LONG_LONG(cpu->r14);
+	cpu->r15 = SWAP_LONG_LONG(cpu->r15);
+	cpu->cs = SWAP_LONG_LONG(cpu->cs);
+	cpu->fs = SWAP_LONG_LONG(cpu->fs);
+	cpu->gs = SWAP_LONG_LONG(cpu->gs);
+}
+#endif /* x86_THREAD_STATE64 */
+
 /* current i386 thread states */
 #if i386_THREAD_STATE == 1
+__private_extern__
 void
 swap_i386_float_state(
 struct i386_float_state *fpu,
@@ -1356,6 +1544,7 @@ enum byte_sex target_byte_sex)
 #endif /* defined(i386_EXCEPTION_STATE_COUNT) */
 }
 
+__private_extern__
 void
 swap_i386_exception_state(
 i386_exception_state_t *exc,
@@ -1365,6 +1554,193 @@ enum byte_sex target_byte_sex)
 	exc->err = SWAP_LONG(exc->err);
     	exc->faultvaddr = SWAP_LONG(exc->faultvaddr);
 }
+
+#ifdef x86_THREAD_STATE64
+
+__private_extern__
+void
+swap_x86_float_state64(
+x86_float_state64_t *fpu,
+enum byte_sex target_byte_sex)
+{
+    struct swapped_fp_control {
+	union {
+	    struct {
+		unsigned short
+			    :3,
+		    /*inf*/ :1,
+		    rc	    :2,
+		    pc	    :2,
+			    :2,
+		    precis  :1,
+		    undfl   :1,
+		    ovrfl   :1,
+		    zdiv    :1,
+		    denorm  :1,
+		    invalid :1;
+	    } fields;
+	    unsigned short half;
+	} u;
+    } sfpc;
+
+    struct swapped_fp_status {
+	union {
+	    struct {
+		unsigned short
+		    busy    :1,
+		    c3	    :1,
+		    tos	    :3,
+		    c2	    :1,
+		    c1	    :1,
+		    c0	    :1,
+		    errsumm :1,
+		    stkflt  :1,
+		    precis  :1,
+		    undfl   :1,
+		    ovrfl   :1,
+		    zdiv    :1,
+		    denorm  :1,
+		    invalid :1;
+	    } fields;
+	    unsigned short half;
+	} u;
+    } sfps;
+
+    enum byte_sex host_byte_sex;
+
+	host_byte_sex = get_host_byte_sex();
+
+	fpu->fpu_reserved[0] = SWAP_LONG(fpu->fpu_reserved[0]);
+	fpu->fpu_reserved[1] = SWAP_LONG(fpu->fpu_reserved[1]);
+
+	if(target_byte_sex == host_byte_sex){
+	    memcpy(&sfpc, &(fpu->fpu_fcw),
+		   sizeof(struct swapped_fp_control));
+	    sfpc.u.half = SWAP_SHORT(sfpc.u.half);
+	    fpu->fpu_fcw.rc = sfpc.u.fields.rc;
+	    fpu->fpu_fcw.pc = sfpc.u.fields.pc;
+	    fpu->fpu_fcw.precis = sfpc.u.fields.precis;
+	    fpu->fpu_fcw.undfl = sfpc.u.fields.undfl;
+	    fpu->fpu_fcw.ovrfl = sfpc.u.fields.ovrfl;
+	    fpu->fpu_fcw.zdiv = sfpc.u.fields.zdiv;
+	    fpu->fpu_fcw.denorm = sfpc.u.fields.denorm;
+	    fpu->fpu_fcw.invalid = sfpc.u.fields.invalid;
+
+	    memcpy(&sfps, &(fpu->fpu_fsw),
+		   sizeof(struct swapped_fp_status));
+	    sfps.u.half = SWAP_SHORT(sfps.u.half);
+	    fpu->fpu_fsw.busy = sfps.u.fields.busy;
+	    fpu->fpu_fsw.c3 = sfps.u.fields.c3;
+	    fpu->fpu_fsw.tos = sfps.u.fields.tos;
+	    fpu->fpu_fsw.c2 = sfps.u.fields.c2;
+	    fpu->fpu_fsw.c1 = sfps.u.fields.c1;
+	    fpu->fpu_fsw.c0 = sfps.u.fields.c0;
+	    fpu->fpu_fsw.errsumm = sfps.u.fields.errsumm;
+	    fpu->fpu_fsw.stkflt = sfps.u.fields.stkflt;
+	    fpu->fpu_fsw.precis = sfps.u.fields.precis;
+	    fpu->fpu_fsw.undfl = sfps.u.fields.undfl;
+	    fpu->fpu_fsw.ovrfl = sfps.u.fields.ovrfl;
+	    fpu->fpu_fsw.zdiv = sfps.u.fields.zdiv;
+	    fpu->fpu_fsw.denorm = sfps.u.fields.denorm;
+	    fpu->fpu_fsw.invalid = sfps.u.fields.invalid;
+	}
+	else{
+	    sfpc.u.fields.rc = fpu->fpu_fcw.rc;
+	    sfpc.u.fields.pc = fpu->fpu_fcw.pc;
+	    sfpc.u.fields.precis = fpu->fpu_fcw.precis;
+	    sfpc.u.fields.undfl = fpu->fpu_fcw.undfl;
+	    sfpc.u.fields.ovrfl = fpu->fpu_fcw.ovrfl;
+	    sfpc.u.fields.zdiv = fpu->fpu_fcw.zdiv;
+	    sfpc.u.fields.denorm = fpu->fpu_fcw.denorm;
+	    sfpc.u.fields.invalid = fpu->fpu_fcw.invalid;
+	    sfpc.u.half = SWAP_SHORT(sfpc.u.half);
+	    memcpy(&(fpu->fpu_fcw), &sfpc,
+		   sizeof(struct swapped_fp_control));
+
+	    sfps.u.fields.busy = fpu->fpu_fsw.busy;
+	    sfps.u.fields.c3 = fpu->fpu_fsw.c3;
+	    sfps.u.fields.tos = fpu->fpu_fsw.tos;
+	    sfps.u.fields.c2 = fpu->fpu_fsw.c2;
+	    sfps.u.fields.c1 = fpu->fpu_fsw.c1;
+	    sfps.u.fields.c0 = fpu->fpu_fsw.c0;
+	    sfps.u.fields.errsumm = fpu->fpu_fsw.errsumm;
+	    sfps.u.fields.stkflt = fpu->fpu_fsw.stkflt;
+	    sfps.u.fields.precis = fpu->fpu_fsw.precis;
+	    sfps.u.fields.undfl = fpu->fpu_fsw.undfl;
+	    sfps.u.fields.ovrfl = fpu->fpu_fsw.ovrfl;
+	    sfps.u.fields.zdiv = fpu->fpu_fsw.zdiv;
+	    sfps.u.fields.denorm = fpu->fpu_fsw.denorm;
+	    sfps.u.fields.invalid = fpu->fpu_fsw.invalid;
+	    sfps.u.half = SWAP_SHORT(sfps.u.half);
+	    memcpy(&(fpu->fpu_fsw), &sfps,
+		   sizeof(struct swapped_fp_status));
+	}
+	fpu->fpu_fop = SWAP_SHORT(fpu->fpu_fop);
+	fpu->fpu_ip = SWAP_LONG(fpu->fpu_ip);
+	fpu->fpu_cs = SWAP_SHORT(fpu->fpu_cs);
+	fpu->fpu_rsrv2 = SWAP_SHORT(fpu->fpu_rsrv2);
+	fpu->fpu_dp = SWAP_LONG(fpu->fpu_dp);
+	fpu->fpu_ds = SWAP_SHORT(fpu->fpu_ds);
+	fpu->fpu_rsrv3 = SWAP_SHORT(fpu->fpu_rsrv3);
+	fpu->fpu_mxcsr = SWAP_LONG(fpu->fpu_mxcsr);
+	fpu->fpu_mxcsrmask = SWAP_LONG(fpu->fpu_mxcsrmask);
+	fpu->fpu_reserved1 = SWAP_LONG(fpu->fpu_reserved1);
+}
+
+__private_extern__
+void
+swap_x86_exception_state64(
+x86_exception_state64_t *exc,
+enum byte_sex target_byte_sex)
+{
+	exc->trapno = SWAP_LONG(exc->trapno);
+	exc->err = SWAP_LONG(exc->err);
+    	exc->faultvaddr = SWAP_LONG_LONG(exc->faultvaddr);
+}
+
+__private_extern__
+void
+swap_x86_debug_state32(
+x86_debug_state32_t *debug,
+enum byte_sex target_byte_sex)
+{
+	debug->dr0 = SWAP_LONG(debug->dr0);
+	debug->dr1 = SWAP_LONG(debug->dr1);
+	debug->dr2 = SWAP_LONG(debug->dr2);
+	debug->dr3 = SWAP_LONG(debug->dr3);
+	debug->dr4 = SWAP_LONG(debug->dr4);
+	debug->dr5 = SWAP_LONG(debug->dr5);
+	debug->dr6 = SWAP_LONG(debug->dr6);
+	debug->dr7 = SWAP_LONG(debug->dr7);
+}
+
+__private_extern__
+void
+swap_x86_debug_state64(
+x86_debug_state64_t *debug,
+enum byte_sex target_byte_sex)
+{
+	debug->dr0 = SWAP_LONG_LONG(debug->dr0);
+	debug->dr1 = SWAP_LONG_LONG(debug->dr1);
+	debug->dr2 = SWAP_LONG_LONG(debug->dr2);
+	debug->dr3 = SWAP_LONG_LONG(debug->dr3);
+	debug->dr4 = SWAP_LONG_LONG(debug->dr4);
+	debug->dr5 = SWAP_LONG_LONG(debug->dr5);
+	debug->dr6 = SWAP_LONG_LONG(debug->dr6);
+	debug->dr7 = SWAP_LONG_LONG(debug->dr7);
+}
+
+__private_extern__
+void
+swap_x86_state_hdr(
+struct x86_state_hdr *hdr,
+enum byte_sex target_byte_sex)
+{
+	hdr->flavor = SWAP_LONG(hdr->flavor);
+	hdr->count = SWAP_LONG(hdr->count);
+}
+#endif /* x86_THREAD_STATE64 */
+
 #endif /* i386_THREAD_STATE == 1 */
 
 /* i386 thread states on older releases */
@@ -2079,6 +2455,16 @@ enum byte_sex target_byte_sex)
 	cksum_cmd->cmd = SWAP_LONG(cksum_cmd->cmd);
 	cksum_cmd->cmdsize = SWAP_LONG(cksum_cmd->cmdsize);
 	cksum_cmd->cksum = SWAP_LONG(cksum_cmd->cksum);
+}
+
+__private_extern__
+void
+swap_uuid_command(
+struct uuid_command *uuid_cmd,
+enum byte_sex target_byte_sex)
+{
+	uuid_cmd->cmd = SWAP_LONG(uuid_cmd->cmd);
+	uuid_cmd->cmdsize = SWAP_LONG(uuid_cmd->cmdsize);
 }
 
 __private_extern__

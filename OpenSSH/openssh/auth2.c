@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth2.c,v 1.104 2003/11/04 08:54:09 djm Exp $");
+RCSID("$OpenBSD: auth2.c,v 1.107 2004/07/28 09:40:29 markus Exp $");
 
 #include "ssh2.h"
 #include "xmalloc.h"
@@ -35,6 +35,7 @@ RCSID("$OpenBSD: auth2.c,v 1.104 2003/11/04 08:54:09 djm Exp $");
 #include "dispatch.h"
 #include "pathnames.h"
 #include "monitor_wrap.h"
+#include "buffer.h"
 
 #ifdef GSSAPI
 #include "ssh-gss.h"
@@ -44,6 +45,7 @@ RCSID("$OpenBSD: auth2.c,v 1.104 2003/11/04 08:54:09 djm Exp $");
 extern ServerOptions options;
 extern u_char *session_id2;
 extern u_int session_id2_len;
+extern Buffer loginmsg;
 
 /* methods */
 
@@ -53,17 +55,17 @@ extern Authmethod method_passwd;
 extern Authmethod method_kbdint;
 extern Authmethod method_hostbased;
 #ifdef GSSAPI
+extern Authmethod method_gsskeyex;
 extern Authmethod method_gssapi;
-extern Authmethod method_gssapi_nomic;
 #endif
 
 Authmethod *authmethods[] = {
 	&method_none,
+	&method_pubkey,
 #ifdef GSSAPI
+	&method_gsskeyex,
 	&method_gssapi,
 #endif
-	&method_pubkey,
-	&method_gssapi_nomic,
 	&method_passwd,
 	&method_kbdint,
 	&method_hostbased,
@@ -161,17 +163,17 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
 				PRIVSEP(start_pam(authctxt));
 #endif
 		} else {
-			logit("input_userauth_request: illegal user %s", user);
+			logit("input_userauth_request: invalid user %s", user);
 			authctxt->pw = fakepw();
 #ifdef USE_PAM
 			if (options.use_pam)
 				PRIVSEP(start_pam(authctxt));
 #endif
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-			PRIVSEP(solaris_audit_bad_pw("name"));
-#endif /* BSM */
+#ifdef SSH_AUDIT_EVENTS
+			PRIVSEP(audit_event(SSH_INVALID_USER));
+#endif
 		}
-		setproctitle("%s%s", authctxt->pw ? user : "unknown",
+		setproctitle("%s%s", authctxt->valid ? user : "unknown",
 		    use_privsep ? " [net]" : "");
 		authctxt->service = xstrdup(service);
 		authctxt->style = style ? xstrdup(style) : NULL;
@@ -198,7 +200,6 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
 	m = authmethod_lookup(method);
 	if (m != NULL) {
 		debug2("input_userauth_request: try method %s", method);
-		authctxt->method = m;
 		authenticated =	m->userauth(authctxt);
 	}
 	userauth_finish(authctxt, authenticated, method);
@@ -221,14 +222,24 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 	if (authenticated && authctxt->pw->pw_uid == 0 &&
 	    !auth_root_allowed(method)) {
 		authenticated = 0;
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-		PRIVSEP(solaris_audit_not_console());
-#endif /* BSM */
+#ifdef SSH_AUDIT_EVENTS
+		PRIVSEP(audit_event(SSH_LOGIN_ROOT_DENIED));
+#endif
 	}
 
 #ifdef USE_PAM
-	if (options.use_pam && authenticated && !PRIVSEP(do_pam_account()))
-		authenticated = 0;
+	if (options.use_pam && authenticated) {
+		if (!PRIVSEP(do_pam_account())) {
+			/* if PAM returned a message, send it to the user */
+			if (buffer_len(&loginmsg) > 0) {
+				buffer_append(&loginmsg, "\0", 1);
+				userauth_send_banner(buffer_ptr(&loginmsg));
+				packet_write_wait();
+			}
+			fatal("Access denied for user %s by PAM account "
+			    "configuration", authctxt->user);
+		}
+	}
 #endif
 
 #ifdef _UNICOS
@@ -254,18 +265,14 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 		/* now we can break out */
 		authctxt->success = 1;
 	} else {
-		/* Do not count server configuration problems against the client */
-		if (!authctxt->server_caused_failure) {
-		if (authctxt->failures++ > AUTH_FAIL_MAX) {
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-			PRIVSEP(solaris_audit_maxtrys());
-#endif /* BSM */
+		/* Dont count server configuration issues against the client */
+		if (!authctxt->server_caused_failure && 
+		    authctxt->failures++ > options.max_authtries) {
+#ifdef SSH_AUDIT_EVENTS
+			PRIVSEP(audit_event(SSH_LOGIN_EXCEED_MAXTRIES));
+#endif
 			packet_disconnect(AUTH_FAIL_MSG, authctxt->user);
 		}
-		}
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-		PRIVSEP(solaris_audit_bad_pw("authorization"));
-#endif /* BSM */
 		methods = authmethods_get();
 		packet_start(SSH2_MSG_USERAUTH_FAILURE);
 		packet_put_cstring(methods);

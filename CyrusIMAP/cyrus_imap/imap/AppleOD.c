@@ -70,7 +70,7 @@ static void			sGet_POP3_login		( CFDictionaryRef inCFDictRef, struct od_user_opt
 static void			sGet_disk_quota		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
 static void			sGet_acct_loc		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
 static void			sGet_alt_loc		( CFDictionaryRef inCFDictRef, struct od_user_opts *inOutOpts );
-static int			sDoCryptAuth		( tDirReference inDirRef, tDirNodeReference inUserNodeRef, const char *inUserID, const char *inPasswd );
+static int			sDoCryptAuth		( tDirReference inDirRef, tDirNodeReference inUserNodeRef, struct od_user_opts *inUserOpts, const char *inPasswd );
 static int			sValidateResponse	( const char *inChallenge, const char *inResponse, const char *inAuthType, struct od_user_opts *inOutOpts );
 static int			sGetUserOptions		( const char *inUserID, struct od_user_opts *inOutOpts );
 static int			sEncodeBase64		( const char *inStr, const int inLen, char *outStr, int outLen );
@@ -84,6 +84,15 @@ static int			sDoPlainAuthS		( const char *inCont, const char *inResp, struct pro
 static int			sDoLoginAuth		( struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sDoLoginAuthS		( struct protstream *inStreamIn, struct protstream *inStreamOut, struct od_user_opts *inOutOpts );
 static int			sGetClientResponse	( char *inOutBuf, int inBufSize, struct protstream *inStreamIn );
+
+#define kCacheDelta	30
+
+static int		gSACL_NotEnabled	= 0;
+static time_t	gSACL_CacheTime		= 0;
+
+tDataBuffer  *gTDataBuff    = NULL;
+tDataList    *gUserAttrType	= NULL;
+tDataList    *gUserRecType  = NULL;
 
 /* -----------------------------------------------------------
 	- odGetUserOpts
@@ -216,6 +225,18 @@ void odFreeUserOpts ( struct od_user_opts *inUserOpts, int inFreeOD )
 			inUserOpts->fUserLocPtr = NULL;
 		}
 
+		if ( inUserOpts->fAuthAuthority != NULL )
+		{
+			int		i = 0;
+			char   *p = NULL;
+			while ( (p = inUserOpts->fAuthAuthority[ i++ ]) != NULL )
+			{
+				free( p );
+			}
+			free( inUserOpts->fAuthAuthority );
+			inUserOpts->fAuthAuthority = NULL;
+		}
+
 		if ( inFreeOD )
 		{
 			if ( inUserOpts->fSearchNodeRef )
@@ -264,7 +285,7 @@ int odCheckPass ( const char *inPasswd, struct od_user_opts *inUserOpts )
 		dsStatus = sOpen_user_node( dirRef, inUserOpts->fUserLocPtr, &userNodeRef );
 		if ( dsStatus == eDSNoErr )
 		{
-			dsStatus = sDoCryptAuth( dirRef, userNodeRef, inUserOpts->fRecNamePtr, inPasswd );
+			dsStatus = sDoCryptAuth( dirRef, userNodeRef, inUserOpts, inPasswd );
 			switch ( dsStatus )
 			{
 				case eDSNoErr:
@@ -425,43 +446,6 @@ int odDoAuthenticate (	const char *inMethod,
 
 } /* odDoAuthenticate */
 
-
-
-/* -----------------------------------------------------------------
-	odIsMember ()
-
-		-  Does user (short name) a member of this group (short name)
-   ----------------------------------------------------------------- */
-
-int odIsMember ( const char *inUser, const char *inGroup )
-{
-	int		isMember	= 0;
-	uuid_t	userID;
-	uuid_t	groupID;
-
-	if ( (inUser == NULL) || (inGroup == NULL) )
-	{
-		return( 0 );
-	}
-
-	if ( mbr_user_name_to_uuid( inUser, userID ) != 0 )
-	{
-		return( 0 );
-	}
-
-	if ( mbr_group_name_to_uuid( inGroup, groupID ) != 0 )
-	{
-		return( 0 );
-	}
-
-	if ( mbr_check_membership( userID, groupID, &isMember ) != 0 )
-	{
-		return( 0 );
-	}
-
-	return( isMember );
-
-} /* odIsMember */
 
 
 /* -----------------------------------------------------------------
@@ -1487,6 +1471,12 @@ int checkServiceACL ( struct od_user_opts *inUserOpts, const char *inGroup )
 	int			result		= 0;
 	uuid_t		userUUID;
 
+	if ( gSACL_NotEnabled && (gSACL_CacheTime > time(NULL)) )
+	{
+		syslog( LOG_DEBUG, "AOD: checkServiceACL: No SACL check, mail SACL is not enabled" );
+		return( result );
+	}
+
 	memset( userUUID, 0, sizeof( uuid_t ) );
 
 	/* we should already have this from previous user lookup */
@@ -1549,9 +1539,15 @@ int checkServiceACL ( struct od_user_opts *inUserOpts, const char *inGroup )
 			inUserOpts->fAccountState &= ~ePOPEnabled;
 		}
 	}
+	else if ( err == ENOENT )
+	{
+		syslog( LOG_DEBUG, "AOD: checkServiceACL: Mail SACL not enabled" );
+		gSACL_NotEnabled = 1;
+		gSACL_CacheTime = time(NULL) + kCacheDelta;
+	}
 	else
 	{
-		syslog( LOG_DEBUG, "AOD: mail service ACL NOT enabled" );
+		syslog( LOG_DEBUG, "AOD: mail service ACL NOT enabled (%d)", err );
 	}
 
 	return( result );
@@ -1622,35 +1618,37 @@ tDirStatus sGet_search_node ( tDirReference inDirRef,
 {
 	tDirStatus		dsStatus	= eMemoryAllocError;
 	unsigned long	uiCount		= 0;
-	tDataBuffer	   *pTDataBuff	= NULL;
 	tDataList	   *pDataList	= NULL;
 
-	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	if ( pTDataBuff != NULL )
+	if ( gTDataBuff == NULL )
 	{
-		dsStatus = dsFindDirNodes( inDirRef, pTDataBuff, NULL, eDSSearchNodeName, &uiCount, NULL );
-		if ( dsStatus == eDSNoErr )
+		gTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
+	}
+	if ( gTDataBuff == NULL )
+	{
+		return( eMemoryAllocError );
+	}
+
+	dsStatus = dsFindDirNodes( inDirRef, gTDataBuff, NULL, eDSSearchNodeName, &uiCount, NULL );
+	if ( dsStatus == eDSNoErr )
+	{
+		dsStatus = eDSNodeNotFound;
+		if ( uiCount == 1 )
 		{
-			dsStatus = eDSNodeNotFound;
-			if ( uiCount == 1 )
+			dsStatus = dsGetDirNodeName( inDirRef, gTDataBuff, 1, &pDataList );
+			if ( dsStatus == eDSNoErr )
 			{
-				dsStatus = dsGetDirNodeName( inDirRef, pTDataBuff, 1, &pDataList );
-				if ( dsStatus == eDSNoErr )
-				{
-					dsStatus = dsOpenDirNode( inDirRef, pDataList, outSearchNodeRef );
-				}
+				dsStatus = dsOpenDirNode( inDirRef, pDataList, outSearchNodeRef );
+			}
 
-				if ( pDataList != NULL )
-				{
-					(void)dsDataListDeAllocate( inDirRef, pDataList, true );
+			if ( pDataList != NULL )
+			{
+				(void)dsDataListDeAllocate( inDirRef, pDataList, true );
 
-					free( pDataList );
-					pDataList = NULL;
-				}
+				free( pDataList );
+				pDataList = NULL;
 			}
 		}
-		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
-		pTDataBuff = NULL;
 	}
 
 	return( dsStatus );
@@ -1671,9 +1669,6 @@ tDirStatus sGet_user_attributes ( tDirReference inDirRef,
 	int						done			= FALSE;
 	int						i				= 0;
 	unsigned long			uiRecCount		= 0;
-	tDataBuffer			   *pTDataBuff		= NULL;
-	tDataList			   *pUserRecType	= NULL;
-	tDataList			   *pUserAttrType	= NULL;
 	tRecordEntry		   *pRecEntry		= NULL;
 	tAttributeEntry		   *pAttrEntry		= NULL;
 	tAttributeValueEntry   *pValueEntry		= NULL;
@@ -1684,160 +1679,193 @@ tDirStatus sGet_user_attributes ( tDirReference inDirRef,
 
 	memset( &tdlRecName,  0, sizeof( tDataList ) );
 
-	pTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
-	if ( pTDataBuff != NULL )
+	/* Allocate global tDataBuffer */
+	if ( gTDataBuff == NULL )
 	{
-		dsStatus = dsBuildListFromStringsAlloc( inDirRef, &tdlRecName, inUserID, NULL );
+		gTDataBuff = dsDataBufferAllocate( inDirRef, 8192 );
+	}
+	if ( gTDataBuff == NULL )
+	{
+		return( eMemoryAllocError );
+	}
+
+	/* Allocate global user attribute list tDataList */
+	if ( gUserAttrType == NULL )
+	{
+		gUserAttrType = dsBuildListFromStrings( inDirRef,
+												kDS1AttrMailAttribute,
+												kDSNAttrRecordName,
+												kDS1AttrGeneratedUID,
+												kDSNAttrMetaNodeLocation,
+												kDSNAttrAuthenticationAuthority,
+												NULL );
+	}
+	if ( gUserAttrType == NULL )
+	{
+		return( eMemoryAllocError );
+	}
+
+	/* Allocate global record type tDataList */
+	if ( gUserRecType == NULL )
+	{
+		gUserRecType = dsBuildListFromStrings( inDirRef, kDSStdRecordTypeUsers, NULL );
+	}
+	if ( gUserRecType == NULL )
+	{
+		return( eMemoryAllocError );
+	}
+
+	dsStatus = dsBuildListFromStringsAlloc( inDirRef, &tdlRecName, inUserID, NULL );
+	if ( dsStatus != eDSNoErr )
+	{
+		return( dsStatus );
+	}
+
+	do {
+		/* Get the user record(s) that matches the user id */
+		dsStatus = dsGetRecordList( inSearchNodeRef, gTDataBuff, &tdlRecName, eDSiExact, gUserRecType,
+									gUserAttrType, FALSE, &uiRecCount, &pContext );
+
 		if ( dsStatus == eDSNoErr )
 		{
-			dsStatus = eMemoryAllocError;
-
-			pUserRecType = dsBuildListFromStrings( inDirRef, kDSStdRecordTypeUsers, NULL );
-			if ( pUserRecType != NULL )
+			dsStatus = eDSInvalidName;
+			/* do we have more than 1 match */
+			if ( uiRecCount == 1 ) 
 			{
-				pUserAttrType = dsBuildListFromStrings( inDirRef,
-														kDS1AttrMailAttribute,
-														kDSNAttrRecordName,
-														kDS1AttrGeneratedUID,
-														kDSNAttrMetaNodeLocation,
-														NULL );
-				if ( pUserAttrType != NULL )
+				dsStatus = dsGetRecordEntry( inSearchNodeRef, gTDataBuff, 1, &attrListRef, &pRecEntry );
+				if ( dsStatus == eDSNoErr )
 				{
-					do {
-						/* Get the user record(s) that matches the user id */
-						dsStatus = dsGetRecordList( inSearchNodeRef, pTDataBuff, &tdlRecName, eDSiExact, pUserRecType,
-													pUserAttrType, FALSE, &uiRecCount, &pContext );
-
-						if ( dsStatus == eDSNoErr )
+					/* Get the attributes we care about for the record */
+					for ( i = 1; i <= pRecEntry->fRecordAttributeCount; i++ )
+					{
+						dsStatus = dsGetAttributeEntry( inSearchNodeRef, gTDataBuff, attrListRef, i, &valueRef, &pAttrEntry );
+						if ( (dsStatus == eDSNoErr) && (pAttrEntry != NULL) )
 						{
-							dsStatus = eDSInvalidName;
-							/* do we have more than 1 match */
-							if ( uiRecCount == 1 ) 
+							if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrMailAttribute ) == 0 )
 							{
-								dsStatus = dsGetRecordEntry( inSearchNodeRef, pTDataBuff, 1, &attrListRef, &pRecEntry );
+								/* Only get the first attribute value */
+								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
 								if ( dsStatus == eDSNoErr )
 								{
-									/* Get the attributes we care about for the record */
-									for ( i = 1; i <= pRecEntry->fRecordAttributeCount; i++ )
-									{
-										dsStatus = dsGetAttributeEntry( inSearchNodeRef, pTDataBuff, attrListRef, i, &valueRef, &pAttrEntry );
-										if ( (dsStatus == eDSNoErr) && (pAttrEntry != NULL) )
-										{
-											if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrMailAttribute ) == 0 )
-											{
-												/* Only get the first attribute value */
-												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
-												if ( dsStatus == eDSNoErr )
-												{
-													syslog( LOG_DEBUG, "AOD: getting mail attribute for user: %s", inUserID );
+									syslog( LOG_DEBUG, "AOD: getting mail attribute for user: %s", inUserID );
 
-													/* Get the individual mail attribute values */
-													sGet_mail_values( (char *)pValueEntry->fAttributeValueData.fBufferData, inOutOpts );
+									/* Get the individual mail attribute values */
+									sGet_mail_values( (char *)pValueEntry->fAttributeValueData.fBufferData, inOutOpts );
 
-													/* If we don't find duplicate users in the same node, we take the first one with
-														a valid mail attribute */
-													done = true;
-												}
-											}
-											else if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
-											{
-												/* Only get the first attribute value */
-												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
-												if ( dsStatus == eDSNoErr )
-												{
-													/* Get the user record name */
-													inOutOpts->fRecNamePtr = malloc( pValueEntry->fAttributeValueData.fBufferLength + 1 );
-													if ( inOutOpts->fRecNamePtr != NULL )
-													{
-														strlcpy( inOutOpts->fRecNamePtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength + 1 );
-													}
-												}
-											}
-											else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
-											{
-												/* Only get the first attribute value */
-												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
-												if ( dsStatus == eDSNoErr )
-												{
-													/* Get the user location */
-													inOutOpts->fUserLocPtr = (char *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
-													memcpy( inOutOpts->fUserLocPtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
-												}
-											}
-											else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrGeneratedUID ) == 0 )
-											{
-												/* Only get the first attribute value */
-												dsStatus = dsGetAttributeValue( inSearchNodeRef, pTDataBuff, 1, valueRef, &pValueEntry );
-												if ( dsStatus == eDSNoErr )
-												{
-													/* Get the user location */
-													inOutOpts->fUserUUID = (uuid_t *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
-													memcpy( inOutOpts->fUserUUID, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
-												}
-											}
-											if ( pValueEntry != NULL )
-											{
-												(void)dsDeallocAttributeValueEntry( inSearchNodeRef, pValueEntry );
-												pValueEntry = NULL;
-											}
-										}
-										else
-										{
-											syslog( LOG_DEBUG, "AOD Warning: dsGetAttributeEntry failed with: %d for user: %s", dsStatus, inUserID );
-										}
-										if ( pAttrEntry != NULL )
-										{
-											(void)dsCloseAttributeValueList( valueRef );
-											(void)dsDeallocAttributeEntry( inSearchNodeRef, pAttrEntry );
-											pAttrEntry = NULL;
-										}
-									}
-
-									if ( pRecEntry != NULL )
-									{
-										(void)dsDeallocRecordEntry( inSearchNodeRef, pRecEntry );
-										pRecEntry = NULL;
-									}
-								}
-								else
-								{
-									syslog( LOG_DEBUG, "AOD Warning: dsGetRecordEntry failed with: %d for user: %s", dsStatus, inUserID );
+									/* If we don't find duplicate users in the same node, we take the first one with
+										a valid mail attribute */
+									done = true;
 								}
 							}
-							else
+							else if ( strcasecmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
 							{
-								done = true;
-								if ( uiRecCount > 1 )
+								/* Only get the first attribute value */
+								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
+								if ( dsStatus == eDSNoErr )
 								{
-									syslog( LOG_NOTICE, "AOD: user attributes: duplicate users found in directory: %s", inUserID );
+									/* Get the user record name */
+									inOutOpts->fRecNamePtr = malloc( pValueEntry->fAttributeValueData.fBufferLength + 1 );
+									if ( inOutOpts->fRecNamePtr != NULL )
+									{
+										strlcpy( inOutOpts->fRecNamePtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength + 1 );
+									}
 								}
-								dsStatus = eDSUserUnknown;
+							}
+							else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrMetaNodeLocation ) == 0 )
+							{
+								/* Only get the first attribute value */
+								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
+								if ( dsStatus == eDSNoErr )
+								{
+									/* Get the user location */
+									inOutOpts->fUserLocPtr = (char *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
+									memcpy( inOutOpts->fUserLocPtr, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+								}
+							}
+							else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrGeneratedUID ) == 0 )
+							{
+								/* Only get the first attribute value */
+								dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, 1, valueRef, &pValueEntry );
+								if ( dsStatus == eDSNoErr )
+								{
+									/* Get the user location */
+									inOutOpts->fUserUUID = (uuid_t *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 1, sizeof( char ) );
+									memcpy( inOutOpts->fUserUUID, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+								}
+							}
+							else if ( strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrAuthenticationAuthority ) == 0 )
+							{
+								int	attrValIndex	= 0;
+								int	attrValCount	= 0;
+
+								attrValCount = pAttrEntry->fAttributeValueCount;
+
+								inOutOpts->fAuthAuthority = (char **)malloc( (attrValCount + 2) * sizeof(char *) );
+
+								// run through the values create a tDataBuffer with the list of authentication authorities.
+								for ( attrValIndex = 0; attrValIndex < attrValCount && dsStatus == eDSNoErr; attrValIndex++ )
+								{
+									dsStatus = dsGetAttributeValue( inSearchNodeRef, gTDataBuff, attrValIndex +1, valueRef, &pValueEntry );
+									if ( dsStatus == eDSNoErr )
+									{
+										inOutOpts->fAuthAuthority[ attrValIndex ] = (char *)calloc( pValueEntry->fAttributeValueData.fBufferLength + 2, sizeof( char ) );
+										memcpy( inOutOpts->fAuthAuthority[ attrValIndex ], pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+									}
+								}
+								inOutOpts->fAuthAuthority[ attrValIndex ] = NULL;
+							}
+							if ( pValueEntry != NULL )
+							{
+								(void)dsDeallocAttributeValueEntry( inSearchNodeRef, pValueEntry );
+								pValueEntry = NULL;
 							}
 						}
 						else
 						{
-							syslog( LOG_DEBUG, "AOD Warning: dsGetRecordList failed with: %d for user: %s", dsStatus, inUserID );
+							syslog( LOG_DEBUG, "AOD Warning: dsGetAttributeEntry failed with: %d for user: %s", dsStatus, inUserID );
 						}
-					} while ( (pContext != NULL) && (dsStatus == eDSNoErr) && (!done) );
-
-					if ( pContext != NULL )
-					{
-						(void)dsReleaseContinueData( inSearchNodeRef, pContext );
-						pContext = NULL;
+						if ( pAttrEntry != NULL )
+						{
+							(void)dsCloseAttributeValueList( valueRef );
+							(void)dsDeallocAttributeEntry( inSearchNodeRef, pAttrEntry );
+							pAttrEntry = NULL;
+						}
 					}
-					(void)dsDataListDeallocate( inDirRef, pUserAttrType );
-					free( pUserAttrType );
-					pUserAttrType = NULL;
+
+					if ( pRecEntry != NULL )
+					{
+						(void)dsDeallocRecordEntry( inSearchNodeRef, pRecEntry );
+						pRecEntry = NULL;
+					}
 				}
-				(void)dsDataListDeallocate( inDirRef, pUserRecType );
-				free( pUserRecType );
-				pUserRecType = NULL;
+				else
+				{
+					syslog( LOG_DEBUG, "AOD Warning: dsGetRecordEntry failed with: %d for user: %s", dsStatus, inUserID );
+				}
 			}
-			(void)dsDataListDeAllocate( inDirRef, &tdlRecName, TRUE );
+			else
+			{
+				done = true;
+				if ( uiRecCount > 1 )
+				{
+					syslog( LOG_NOTICE, "AOD: user attributes: duplicate users found in directory: %s", inUserID );
+				}
+				dsStatus = eDSUserUnknown;
+			}
 		}
-		(void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
-		pTDataBuff = NULL;
+		else
+		{
+			syslog( LOG_DEBUG, "AOD Warning: dsGetRecordList failed with: %d for user: %s", dsStatus, inUserID );
+		}
+	} while ( (pContext != NULL) && (dsStatus == eDSNoErr) && (!done) );
+
+	if ( pContext != NULL )
+	{
+		(void)dsReleaseContinueData( inSearchNodeRef, pContext );
+		pContext = NULL;
 	}
+
+	(void)dsDataListDeAllocate( inDirRef, &tdlRecName, TRUE );
 	
 	return( dsStatus );
 
@@ -1874,7 +1902,8 @@ tDirStatus sOpen_user_node (  tDirReference inDirRef, const char *inUserLoc, tDi
 
 static int sDoCryptAuth ( tDirReference inDirRef,
 						  tDirNodeReference inUserNodeRef,
-						   const char *inUserID, const char *inPasswd )
+						   struct od_user_opts *inUserOpts,
+						   const char *inPasswd )
 {
 	tDirStatus				dsStatus		= eAODParamErr;
 	long					nameLen			= 0;
@@ -1886,53 +1915,95 @@ static int sDoCryptAuth ( tDirReference inDirRef,
 	tDataBuffer			   *pStepBuff		= NULL;
 	tDataNode			   *pAuthType		= NULL;
 
-	if ( (inUserID == NULL) || (inPasswd == NULL) )
+	if ( (inUserOpts->fRecNamePtr == NULL) || (inPasswd == NULL) )
 	{
 		return( eDSAuthParameterError );
 	}
 
-	nameLen = strlen( inUserID );
+	nameLen = strlen( inUserOpts->fRecNamePtr );
 	passwdLen = strlen( inPasswd );
 
-	uiBuffSzie = nameLen + passwdLen + 32;
+	if ( inUserOpts->fAuthAuthority == NULL )
+	{
+		uiBuffSzie = nameLen + passwdLen + 32;
+	}
+	else
+	{
+		int		i = 0;
+		char   *p = NULL;
+		while ( (p = inUserOpts->fAuthAuthority[ i++ ]) != NULL )
+		{
+			uiBuffSzie += strlen( p );
+		}
+		uiBuffSzie += nameLen + passwdLen + 256;
+	}
 
 	pAuthBuff = dsDataBufferAllocate( inDirRef, uiBuffSzie );
 	if ( pAuthBuff != NULL )
 	{
 		/* We don't use this buffer for clear text auth */
-		pStepBuff = dsDataBufferAllocate( inDirRef, 256 );
+		pStepBuff = dsDataBufferAllocate( inDirRef, 128 );
 		if ( pStepBuff != NULL )
 		{
 			pAuthType = dsDataNodeAllocateString( inDirRef, kDSStdAuthNodeNativeClearTextOK );
 			if ( pAuthType != NULL )
 			{
-				/* set user name */
-				len = nameLen;
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
-				curr += sizeof( unsigned long );
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), inUserID, len );
-				curr += len;
-
-				/* set user password */
-				len = passwdLen;
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
-				curr += sizeof( unsigned long );
-				memcpy( &(pAuthBuff->fBufferData[ curr ]), inPasswd, len );
-				curr += len;
-
-				pAuthBuff->fBufferLength = curr;
-
-				dsStatus = dsDoDirNodeAuth( inUserNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
-				if ( dsStatus != eDSNoErr )
+				if ( inUserOpts->fAuthAuthority == NULL )
 				{
-					syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserID, dsStatus );
+					/* set user name */
+					len = nameLen;
+					memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
+					curr += sizeof( unsigned long );
+					memcpy( &(pAuthBuff->fBufferData[ curr ]), inUserOpts->fRecNamePtr, len );
+					curr += len;
+
+					/* set user password */
+					len = passwdLen;
+					memcpy( &(pAuthBuff->fBufferData[ curr ]), &len, sizeof( unsigned long ) );
+					curr += sizeof( unsigned long );
+					memcpy( &(pAuthBuff->fBufferData[ curr ]), inPasswd, len );
+					curr += len;
+
+					pAuthBuff->fBufferLength = curr;
+
+					syslog( LOG_DEBUG, "AOD: standard crypt auth for: %s", inUserOpts->fRecNamePtr );
+					dsStatus = dsDoDirNodeAuth( inUserNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
+					if ( dsStatus != eDSNoErr )
+					{
+						syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, dsStatus );
+					}
+				}
+				else
+				{
+					dsStatus =  dsAppendAuthBufferWithAuthorityStrings( inUserOpts->fRecNamePtr, (const char **)inUserOpts->fAuthAuthority, pAuthBuff );
+					if ( dsStatus == eDSNoErr )
+					{
+						dsStatus = dsAppendAuthBuffer( pAuthBuff, 1, strlen(inPasswd), inPasswd );
+						if ( dsStatus == eDSNoErr )
+						{
+							syslog( LOG_DEBUG, "AOD: auth-authority crypt auth for: %s", inUserOpts->fRecNamePtr );
+							dsStatus = dsDoDirNodeAuth( inUserNodeRef, pAuthType, true, pAuthBuff, pStepBuff, NULL );
+							if ( dsStatus != eDSNoErr )
+							{
+								syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, dsStatus );
+							}
+						}
+						else
+						{
+							syslog( LOG_ERR, "AOD: dsAppendAuthBuffer failed with: %d", dsStatus );
+						}
+					}
+					else
+					{
+						syslog( LOG_ERR, "AOD: dsAppendAuthBufferWithAuthorityStrings failed with: %d", dsStatus );
+					}
 				}
 				(void)dsDataNodeDeAllocate( inDirRef, pAuthType );
 				pAuthType = NULL;
 			}
 			else
 			{
-				syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserID, eDSAllocationFailed );
+				syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, eDSAllocationFailed );
 				dsStatus = eDSAllocationFailed;
 			}
 			(void)dsDataNodeDeAllocate( inDirRef, pStepBuff );
@@ -1940,7 +2011,7 @@ static int sDoCryptAuth ( tDirReference inDirRef,
 		}
 		else
 		{
-			syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserID, eDSAllocationFailed );
+			syslog( LOG_ERR, "AOD: crypt authentication error: authentication failed for user: %s (%d)", inUserOpts->fRecNamePtr, eDSAllocationFailed );
 			dsStatus = eDSAllocationFailed;
 		}
 		(void)dsDataNodeDeAllocate( inDirRef, pAuthBuff );

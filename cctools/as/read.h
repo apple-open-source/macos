@@ -21,16 +21,17 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #import "expr.h"
 
-#define PERMIT_WHITESPACE	/* Define to make whitespace be allowed in */
-				/* many syntactically unnecessary places. */
-				/* Normally undefined. For compatibility */
-				/* with ancient GNU cc. */
-#undef PERMIT_WHITESPACE
+/* Define to make whitespace be allowed in many syntactically
+   unnecessary places.  Normally undefined.  For compatibility with
+   ancient GNU cc.  */
+/* #undef PERMIT_WHITESPACE */
+#define PERMIT_WHITESPACE
 
 #ifdef PERMIT_WHITESPACE
-#define SKIP_WHITESPACE() {if (* input_line_pointer == ' ') ++ input_line_pointer;}
+#define SKIP_WHITESPACE()			\
+  ((*input_line_pointer == ' ') ? ++input_line_pointer : 0)
 #else
-#define SKIP_WHITESPACE() ASSERT( * input_line_pointer != ' ' )
+#define SKIP_WHITESPACE() know(*input_line_pointer != ' ' )
 #endif
 
 
@@ -56,6 +57,8 @@ extern
 const
 #endif /* PPC */
 char lex_type[];
+extern char is_end_of_line(
+    int c);
 extern unsigned long text_nsect;
 
 extern void read_begin(
@@ -66,7 +69,7 @@ extern void ppcasm_read_begin(
 #endif /* PPC */
 void read_a_source_file(
     char *buffer);
-extern long get_absolute_expression(
+extern signed_target_addr_t get_absolute_expression(
     void);
 extern void demand_empty_rest_of_line(
     void);
@@ -79,7 +82,7 @@ extern segT get_known_segmented_expression(
 extern void totally_ignore_line(
     void);
 
-/* globally know pseudo-op functions (used by some assemblers in MACHINE.c) */
+/* globally known pseudo-op functions (used by some assemblers in MACHINE.c) */
 extern void stringer(
     int append_zero);
 extern void s_space(
@@ -92,6 +95,8 @@ extern void cons(
     int nbytes);
 extern void s_globl(
     int value);
+extern void s_ignore(
+    int arg);
 extern void s_line(
     int value);
 extern void s_macro(

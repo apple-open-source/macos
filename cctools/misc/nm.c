@@ -516,7 +516,7 @@ void *cookie)
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
 	if(st == NULL || st->nsyms == 0){
-	    error("no name list");
+	    warning("no name list");
 	    return;
 	}
 	if(process_flags.nsects > 0){

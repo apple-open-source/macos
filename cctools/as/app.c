@@ -236,6 +236,7 @@ FILE *fp)
 			add_newlines++;
 			return '\\';
 
+		case '\'':
 		case '"':
 		case '\\':
 		case 'b':

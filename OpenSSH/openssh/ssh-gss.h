@@ -1,4 +1,4 @@
-/*	$OpenBSD: ssh-gss.h,v 1.4 2003/11/17 11:06:07 markus Exp $	*/
+/*	$OpenBSD: ssh-gss.h,v 1.5 2004/06/21 17:36:31 avsm Exp $	*/
 /*
  * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
  *
@@ -28,7 +28,6 @@
 
 #ifdef GSSAPI
 
-#include "kex.h"
 #include "buffer.h"
 
 #ifdef HAVE_GSSAPI_H
@@ -54,11 +53,6 @@
 #endif /* KRB5 */
 
 /* draft-ietf-secsh-gsskeyex-06 */
-#define SSH2_MSG_KEXGSS_INIT				30
-#define SSH2_MSG_KEXGSS_CONTINUE 			31
-#define SSH2_MSG_KEXGSS_COMPLETE 			32
-#define SSH2_MSG_KEXGSS_HOSTKEY				33
-#define SSH2_MSG_KEXGSS_ERROR				34
 #define SSH2_MSG_USERAUTH_GSSAPI_RESPONSE		60
 #define SSH2_MSG_USERAUTH_GSSAPI_TOKEN			61
 #define SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE	63
@@ -66,8 +60,17 @@
 #define SSH2_MSG_USERAUTH_GSSAPI_ERRTOK			65
 #define SSH2_MSG_USERAUTH_GSSAPI_MIC			66
 
-#define KEX_GSS_SHA1					"gss-group1-sha1-"
 #define SSH_GSS_OIDTYPE 0x06
+
+#define SSH2_MSG_KEXGSS_INIT                           30
+#define SSH2_MSG_KEXGSS_CONTINUE                       31
+#define SSH2_MSG_KEXGSS_COMPLETE                       32
+#define SSH2_MSG_KEXGSS_HOSTKEY                                33
+#define SSH2_MSG_KEXGSS_ERROR                          34
+#define SSH2_MSG_KEXGSS_GROUPREQ			40
+#define SSH2_MSG_KEXGSS_GROUP				41
+#define KEX_GSS_GRP1_SHA1_ID				"gss-group1-sha1-"
+#define KEX_GSS_GEX_SHA1_ID				"gss-gex-sha1-"
 
 typedef struct {
 	char *filename;
@@ -106,44 +109,43 @@ typedef struct {
 } Gssctxt;
 
 extern ssh_gssapi_mech *supported_mechs[];
+extern Gssctxt *gss_kex_context;
 
-char *ssh_gssapi_mechanisms(char *host);
-char *ssh_gssapi_client_mechanisms(const char *host);
-gss_OID ssh_gssapi_client_id_kex(Gssctxt *ctx, char *name);
-int  ssh_gssapi_check_oid(Gssctxt *ctx, void *data, size_t len);
-void ssh_gssapi_set_oid_data(Gssctxt *ctx, void *data, size_t len);
-void ssh_gssapi_set_oid(Gssctxt *ctx, gss_OID oid);
-void ssh_gssapi_supported_oids(gss_OID_set *oidset);
-ssh_gssapi_mech *ssh_gssapi_get_ctype(Gssctxt *ctxt);
+int  ssh_gssapi_check_oid(Gssctxt *, void *, size_t);
+void ssh_gssapi_set_oid_data(Gssctxt *, void *, size_t);
+void ssh_gssapi_set_oid(Gssctxt *, gss_OID);
+void ssh_gssapi_supported_oids(gss_OID_set *);
+ssh_gssapi_mech *ssh_gssapi_get_ctype(Gssctxt *);
 
-OM_uint32 ssh_gssapi_import_name(Gssctxt *ctx, const char *host);
-OM_uint32 ssh_gssapi_acquire_cred(Gssctxt *ctx);
-OM_uint32 ssh_gssapi_init_ctx(Gssctxt *ctx, int deleg_creds,
-    gss_buffer_desc *recv_tok, gss_buffer_desc *send_tok, OM_uint32 *flags);
-OM_uint32 ssh_gssapi_accept_ctx(Gssctxt *ctx,
-    gss_buffer_desc *recv_tok, gss_buffer_desc *send_tok, OM_uint32 *flags);
-OM_uint32 ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *);
-void ssh_gssapi_error(Gssctxt *ctx);
-char *ssh_gssapi_last_error(Gssctxt *ctxt, OM_uint32 *maj, OM_uint32 *min);
-void ssh_gssapi_build_ctx(Gssctxt **ctx);
-void ssh_gssapi_delete_ctx(Gssctxt **ctx);
-int ssh_gssapi_check_mechanism(gss_OID oid, const char *host);
+OM_uint32 ssh_gssapi_import_name(Gssctxt *, const char *);
+OM_uint32 ssh_gssapi_acquire_cred(Gssctxt *);
+OM_uint32 ssh_gssapi_init_ctx(Gssctxt *, int,
+    gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
+OM_uint32 ssh_gssapi_accept_ctx(Gssctxt *,
+    gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
+OM_uint32 ssh_gssapi_getclient(Gssctxt *, ssh_gssapi_client *);
+void ssh_gssapi_error(Gssctxt *);
+char *ssh_gssapi_last_error(Gssctxt *, OM_uint32 *, OM_uint32 *);
+void ssh_gssapi_build_ctx(Gssctxt **);
+void ssh_gssapi_delete_ctx(Gssctxt **);
 OM_uint32 ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
-OM_uint32 ssh_gssapi_server_ctx(Gssctxt **ctx, gss_OID oid);
+OM_uint32 ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
 void ssh_gssapi_buildmic(Buffer *, const char *, const char *, const char *);
 
-/* In the server */
-gss_OID ssh_gssapi_server_id_kex(char *name);
-int ssh_gssapi_userok(char *name);
-void ssh_gssapi_server(Kex *kex, Buffer *client_kexinit, 
-		       Buffer *server_kexinit);
+typedef int ssh_gssapi_check_fn(gss_OID, void *);
+char *ssh_gssapi_client_mechanisms(const char *host);
+char *ssh_gssapi_kex_mechs(gss_OID_set, ssh_gssapi_check_fn *, void *);
+int ssh_gssapi_check_mechanism(gss_OID, void *);
+gss_OID ssh_gssapi_id_kex(Gssctxt *, char *, int *);
 
+int ssh_gssapi_server_check_mech(gss_OID, void *);
+int ssh_gssapi_userok(char *name);
 OM_uint32 ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
-void ssh_gssapi_do_child(char ***envp, u_int *envsizep);
+void ssh_gssapi_do_child(char ***, u_int *);
 void ssh_gssapi_cleanup_creds(void);
 void ssh_gssapi_storecreds(void);
-char *ssh_gssapi_server_mechanisms(void);
-
+char * ssh_gssapi_server_mechanisms(void);
+int ssh_gssapi_oid_table_ok();
 #endif /* GSSAPI */
 
 #endif /* _SSH_GSS_H */

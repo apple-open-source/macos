@@ -429,7 +429,7 @@ char *no_path_name)
       if (no_path_name[0] != '/' && input_dir != NULL)
 	{
 	  if (strlen (input_dir) + strlen (no_path_name) >= MAXPATHLEN)
-	    as_warn ("include file name too long: \"%s%s\"", input_dir, no_path_name);
+	    as_fatal ("include file name too long: \"%s%s\"", input_dir, no_path_name);
 	  else
 	    {
 	      strcpy (whole_file_name, input_dir);
@@ -442,7 +442,7 @@ char *no_path_name)
       while (the_path_pointer)
         {
 	  if (strlen (the_path_pointer->fname) + (strlen (no_path_name)) >= MAXPATHLEN)
-	    as_warn ("include file name too long: \"%s%s\"", the_path_pointer->fname, no_path_name);
+	    as_fatal ("include file name too long: \"%s%s\"", the_path_pointer->fname, no_path_name);
 	  else
 	    {
 	      *whole_file_name = '\0';
@@ -458,7 +458,7 @@ char *no_path_name)
       while (the_path_pointer->fname != NULL)
         {
 	  if (strlen (the_path_pointer->fname) + (strlen (no_path_name)) >= MAXPATHLEN)
-	    as_warn ("include file name too long: \"%s%s\"", the_path_pointer->fname, no_path_name);
+	    as_fatal ("include file name too long: \"%s%s\"", the_path_pointer->fname, no_path_name);
 	  else
 	    {
 	      *whole_file_name = '\0';

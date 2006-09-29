@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#include <stdint.h>
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
@@ -39,13 +40,15 @@ char *file_part_type_names[] = {
 };
 
 struct file_part {
-    unsigned long offset;
-    unsigned long size;
+    uint64_t offset;
+    uint64_t size;
     enum file_part_type type;
     struct mach_o_part *mp;
     struct mach_header *mh;
+    struct mach_header_64 *mh64;
     struct symtab_command *st;
     struct nlist *symbols;
+    struct nlist_64 *symbols64;
     char *strings; 
     struct file_part *prev;
     struct file_part *next;
@@ -55,7 +58,9 @@ struct file_part *file_parts = NULL;
 enum mach_o_part_type {
     MP_MACH_HEADERS,
     MP_SECTION,
+    MP_SECTION_64,
     MP_RELOCS,
+    MP_RELOCS_64,
     MP_LOCAL_SYMBOLS,
     MP_EXTDEF_SYMBOLS,
     MP_UNDEF_SYMBOLS,
@@ -75,7 +80,9 @@ enum mach_o_part_type {
 static char *mach_o_part_type_names[] = {
     "MP_MACH_HEADERS",
     "MP_SECTION",
+    "MP_SECTION_64",
     "MP_RELOCS",
+    "MP_RELOCS_64",
     "MP_LOCAL_SYMBOLS",
     "MP_EXTDEF_SYMBOLS",
     "MP_UNDEF_SYMBOLS",
@@ -94,10 +101,11 @@ static char *mach_o_part_type_names[] = {
 };
 
 struct mach_o_part {
-    unsigned long offset;
-    unsigned long size;
+    uint64_t offset;
+    uint64_t size;
     enum mach_o_part_type type;
     struct section *s;
+    struct section_64 *s64;
     struct mach_o_part *prev;
     struct mach_o_part *next;
 };
@@ -109,6 +117,7 @@ char *progname = NULL;
 static struct ofile ofile;
 
 static struct nlist *sorted_symbols = NULL;
+static struct nlist_64 *sorted_symbols64 = NULL;
 
 static void create_file_parts(
     char *file_name);
@@ -132,18 +141,25 @@ static void print_mach_o_parts(
 static void print_parts_for_page(
     unsigned long page_number);
 static void print_arch(
-    struct mach_header *mh);
+    struct file_part *fp);
 static void print_file_part(
     struct file_part *fp);
 static void print_mach_o_part(
     struct mach_o_part *mp);
 static void print_symbols(
     struct file_part *fp,
-    unsigned long low_addr,
-    unsigned long high_addr);
+    uint64_t low_addr,
+    uint64_t high_addr);
+static void print_symbols64(
+    struct file_part *fp,
+    uint64_t low_addr,
+    uint64_t high_addr);
 static int compare(
     struct nlist *p1,
     struct nlist *p2);
+static int compare64(
+    struct nlist_64 *p1,
+    struct nlist_64 *p2);
 
 /*
  * pagestuff is invoked as follows:
@@ -355,14 +371,14 @@ print_file_parts(
 void)
 {
     struct file_part *p, *prev;
-    unsigned long offset;
+    uint64_t offset;
 
 	prev = NULL;
 	offset = 0;
 	for(p = file_parts; p != NULL; p = p->next){
 	    printf("%s\n", file_part_type_names[p->type]);
-	    printf("    offset = %lu\n", p->offset);
-	    printf("    size = %lu\n", p->size);
+	    printf("    offset = %llu\n", p->offset);
+	    printf("    size = %llu\n", p->size);
 	    if(prev != NULL)
 		if(prev != p->prev)
 		    printf("bad prev pointer\n");
@@ -381,17 +397,22 @@ create_mach_o_parts(
 struct file_part *fp)
 {
     unsigned long i, j;
+    uint32_t ncmds, filetype;
     struct mach_o_part *mp;
     struct load_command *lc;
     struct symtab_command *st;
     struct dysymtab_command *dyst;
     struct twolevel_hints_command *hints;
     struct segment_command *sg;
+    struct segment_command_64 *sg64;
     struct section *s;
+    struct section_64 *s64;
     struct nlist *allocated_symbols, *symbols;
-    unsigned long ext_low, ext_high, local_low, local_high;
+    struct nlist_64 *allocated_symbols64, *symbols64;
+    unsigned long ext_low, ext_high, local_low, local_high, n_strx, n_type;
     char *strings;
     struct dylib_module *modtab;
+    struct dylib_module_64 *modtab64;
 
 	mp = new_mach_o_part();
 	mp->offset = fp->offset;
@@ -401,19 +422,30 @@ struct file_part *fp)
 
 	mp = new_mach_o_part();
 	mp->offset = fp->offset;
-	mp->size = sizeof(struct mach_header) + ofile.mh->sizeofcmds;
+	if(ofile.mh != NULL){
+	    fp->mh = ofile.mh;
+	    fp->mh64 = NULL;
+	    mp->size = sizeof(struct mach_header) + ofile.mh->sizeofcmds;
+	    ncmds = ofile.mh->ncmds;
+	}
+	else{
+	    fp->mh64 = ofile.mh64;
+	    fp->mh = NULL;
+	    mp->size = sizeof(struct mach_header_64) + ofile.mh64->sizeofcmds;
+	    ncmds = ofile.mh64->ncmds;
+	}
 	mp->type = MP_MACH_HEADERS;
 	insert_mach_o_part(fp, mp);
 
-	fp->mh = ofile.mh;
 
 	st = NULL;
 	dyst = NULL;
 	hints = NULL;
 	symbols = NULL;
+	symbols64 = NULL;
 	strings = NULL;
 	lc = ofile.load_commands;
-	for(i = 0; i < ofile.mh->ncmds; i++){
+	for(i = 0; i < ncmds; i++){
 	    if(st == NULL && lc->cmd == LC_SYMTAB){
 		st = (struct symtab_command *)lc;
 	    }
@@ -434,6 +466,7 @@ struct file_part *fp)
 			mp->size = s->nreloc * sizeof(struct relocation_info);
 			mp->type = MP_RELOCS;
 			mp->s = s;
+			mp->s64 = NULL;
 			insert_mach_o_part(fp, mp);
 		    }
 		    if((s->flags & SECTION_TYPE) != S_ZEROFILL && s->size != 0){
@@ -442,6 +475,7 @@ struct file_part *fp)
 			mp->size = s->size;
 			mp->type = MP_SECTION;
 			mp->s = s;
+			mp->s64 = NULL;
 			insert_mach_o_part(fp, mp);
 		    }
 		    if((s->flags & SECTION_TYPE) == S_ZEROFILL && s->size != 0){
@@ -455,54 +489,139 @@ struct file_part *fp)
 				mp->size = sg->filesize -(s->addr - sg->vmaddr);
 			    mp->type = MP_SECTION;
 			    mp->s = s;
+			    mp->s64 = NULL;
 			    insert_mach_o_part(fp, mp);
 			}
 		    }
 		    s++;
 		}
 	    }
+	    else if(lc->cmd == LC_SEGMENT_64){
+		sg64 = (struct segment_command_64 *)lc;
+		s64 = (struct section_64 *)
+		      ((char *)sg64 + sizeof(struct segment_command_64));
+		for(j = 0; j < sg64->nsects; j++){
+		    if(s64->nreloc != 0){
+			mp = new_mach_o_part();
+			mp->offset = fp->offset + s64->reloff;
+			mp->size = s64->nreloc * sizeof(struct relocation_info);
+			mp->type = MP_RELOCS_64;
+			mp->s64 = s64;
+			mp->s = NULL;
+			insert_mach_o_part(fp, mp);
+		    }
+		    if((s64->flags & SECTION_TYPE) != S_ZEROFILL &&
+		       s64->size != 0){
+			mp = new_mach_o_part();
+			mp->offset = fp->offset + s64->offset;
+			mp->size = s64->size;
+			mp->type = MP_SECTION_64;
+			mp->s64 = s64;
+			mp->s = NULL;
+			insert_mach_o_part(fp, mp);
+		    }
+		    if((s64->flags & SECTION_TYPE) == S_ZEROFILL && 
+		       s64->size != 0){
+			if(s64->addr - sg64->vmaddr < sg64->filesize){
+			    mp = new_mach_o_part();
+			    mp->offset = fp->offset + sg64->fileoff +
+					 s64->addr - sg64->vmaddr;
+			    if(s64->addr - sg64->vmaddr + s64->size <=
+			       sg64->filesize)
+				mp->size = s64->size;
+			    else
+				mp->size = sg64->filesize -
+					   (s64->addr - sg64->vmaddr);
+			    mp->type = MP_SECTION_64;
+			    mp->s64 = s64;
+			    mp->s = NULL;
+			    insert_mach_o_part(fp, mp);
+			}
+		    }
+		    s64++;
+		}
+	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
 	if(st != NULL){
-	    allocated_symbols = NULL;
-	    symbols = (struct nlist *)(ofile.object_addr + st->symoff);
-	    if(ofile.object_byte_sex != get_host_byte_sex()){
-		allocated_symbols = allocate(sizeof(struct nlist) *
-					     st->nsyms);
-		memcpy(allocated_symbols, symbols,
-		       sizeof(struct nlist) * st->nsyms);
-		swap_nlist(allocated_symbols, st->nsyms,
-			   get_host_byte_sex());
-		symbols = allocated_symbols;
+	    if(ofile.mh != NULL){
+		allocated_symbols = NULL;
+		symbols = (struct nlist *)(ofile.object_addr + st->symoff);
+		if(ofile.object_byte_sex != get_host_byte_sex()){
+		    allocated_symbols = allocate(sizeof(struct nlist) *
+						 st->nsyms);
+		    memcpy(allocated_symbols, symbols,
+			   sizeof(struct nlist) * st->nsyms);
+		    swap_nlist(allocated_symbols, st->nsyms,
+			       get_host_byte_sex());
+		    symbols = allocated_symbols;
+		}
+		fp->symbols = symbols;
+		fp->symbols64 = NULL;
+	    }
+	    else{
+		allocated_symbols64 = NULL;
+		symbols64 = (struct nlist_64 *)(ofile.object_addr + st->symoff);
+		if(ofile.object_byte_sex != get_host_byte_sex()){
+		    allocated_symbols64 = allocate(sizeof(struct nlist_64) *
+						   st->nsyms);
+		    memcpy(allocated_symbols64, symbols64,
+			   sizeof(struct nlist_64) * st->nsyms);
+		    swap_nlist_64(allocated_symbols64, st->nsyms,
+			       get_host_byte_sex());
+		    symbols64 = allocated_symbols64;
+		}
+		fp->symbols64 = symbols64;
+		fp->symbols = NULL;
 	    }
 	    strings = ofile.object_addr + st->stroff;
 	    fp->st = st;
-	    fp->symbols = symbols;
 	    fp->strings = strings;
 	}
 
 	if(dyst != NULL && st != NULL){
 	    if(dyst->nlocalsym != 0){
 		mp = new_mach_o_part();
-		mp->offset = fp->offset + st->symoff +
-			     dyst->ilocalsym * sizeof(struct nlist);
-		mp->size = dyst->nlocalsym * sizeof(struct nlist);
+		if(ofile.mh != NULL){
+		    mp->offset = fp->offset + st->symoff +
+				 dyst->ilocalsym * sizeof(struct nlist);
+		    mp->size = dyst->nlocalsym * sizeof(struct nlist);
+		}
+		else{
+		    mp->offset = fp->offset + st->symoff +
+				 dyst->ilocalsym * sizeof(struct nlist_64);
+		    mp->size = dyst->nlocalsym * sizeof(struct nlist_64);
+		}
 		mp->type = MP_LOCAL_SYMBOLS;
 		insert_mach_o_part(fp, mp);
 	    }
 	    if(dyst->nextdefsym != 0){
 		mp = new_mach_o_part();
-		mp->offset = fp->offset + st->symoff +
-			     dyst->iextdefsym * sizeof(struct nlist);
-		mp->size = dyst->nextdefsym * sizeof(struct nlist);
+		if(ofile.mh != NULL){
+		    mp->offset = fp->offset + st->symoff +
+				 dyst->iextdefsym * sizeof(struct nlist);
+		    mp->size = dyst->nextdefsym * sizeof(struct nlist);
+		}
+		else{
+		    mp->offset = fp->offset + st->symoff +
+				 dyst->iextdefsym * sizeof(struct nlist_64);
+		    mp->size = dyst->nextdefsym * sizeof(struct nlist_64);
+		}
 		mp->type = MP_EXTDEF_SYMBOLS;
 		insert_mach_o_part(fp, mp);
 	    }
 	    if(dyst->nundefsym != 0){
 		mp = new_mach_o_part();
-		mp->offset = fp->offset + st->symoff +
-			     dyst->iundefsym * sizeof(struct nlist);
-		mp->size = dyst->nundefsym * sizeof(struct nlist);
+		if(ofile.mh != NULL){
+		    mp->offset = fp->offset + st->symoff +
+				 dyst->iundefsym * sizeof(struct nlist);
+		    mp->size = dyst->nundefsym * sizeof(struct nlist);
+		}
+		else{
+		    mp->offset = fp->offset + st->symoff +
+				 dyst->iundefsym * sizeof(struct nlist_64);
+		    mp->size = dyst->nundefsym * sizeof(struct nlist_64);
+		}
 		mp->type = MP_UNDEF_SYMBOLS;
 		insert_mach_o_part(fp, mp);
 	    }
@@ -524,7 +643,10 @@ struct file_part *fp)
 	    if(dyst->nmodtab != 0){
 		mp = new_mach_o_part();
 		mp->offset = fp->offset + dyst->modtaboff;
-		mp->size = dyst->nmodtab * sizeof(struct dylib_module);
+		if(ofile.mh != NULL)
+		    mp->size = dyst->nmodtab * sizeof(struct dylib_module);
+		else
+		    mp->size = dyst->nmodtab * sizeof(struct dylib_module_64);
 		mp->type = MP_MODULE_TABLE;
 		insert_mach_o_part(fp, mp);
 	    }
@@ -568,34 +690,58 @@ struct file_part *fp)
 		ext_high = 0;
 		local_high = 0;
 		for(i = 0; i < st->nsyms; i++){
-		    if(symbols[i].n_un.n_strx == 0)
-			continue;
-		    if(symbols[i].n_type & N_EXT ||
-		       (fp->mh->filetype == MH_EXECUTE &&
-		        symbols[i].n_type & N_PEXT)){
-			if((unsigned long)symbols[i].n_un.n_strx > ext_high)
-			    ext_high = symbols[i].n_un.n_strx;
-			if((unsigned long)symbols[i].n_un.n_strx < ext_low)
-			    ext_low = symbols[i].n_un.n_strx;
+		    if(ofile.mh != NULL){
+			n_strx = symbols[i].n_un.n_strx;
+			n_type = symbols[i].n_type;
+		        filetype = fp->mh->filetype;
 		    }
 		    else{
-			if((unsigned long)symbols[i].n_un.n_strx > local_high)
-			    local_high = symbols[i].n_un.n_strx;
-			if((unsigned long)symbols[i].n_un.n_strx < local_low)
-			    local_low = symbols[i].n_un.n_strx;
+			n_strx = symbols64[i].n_un.n_strx;
+			n_type = symbols64[i].n_type;
+		        filetype = fp->mh64->filetype;
+		    }
+		    if(n_strx == 0)
+			continue;
+		    if(n_type & N_EXT ||
+		       (filetype == MH_EXECUTE && n_type & N_PEXT)){
+			if(n_strx > ext_high)
+			    ext_high = n_strx;
+			if(n_strx < ext_low)
+			    ext_low = n_strx;
+		    }
+		    else{
+			if(n_strx > local_high)
+			    local_high = n_strx;
+			if(n_strx < local_low)
+			    local_low = n_strx;
 		    }
 		}
 
-		modtab = (struct dylib_module *)(ofile.object_addr +
-						 dyst->modtaboff);
-		if(ofile.object_byte_sex != get_host_byte_sex())
-		    swap_dylib_module(modtab, dyst->nmodtab,
-			   get_host_byte_sex());
-		for(i = 0; i < dyst->nmodtab; i++){
-		    if(modtab[i].module_name > local_high)
-			local_high = modtab[i].module_name;
-		    if(modtab[i].module_name < local_low)
-			local_low = modtab[i].module_name;
+		if(ofile.mh != NULL){
+		    modtab = (struct dylib_module *)(ofile.object_addr +
+						     dyst->modtaboff);
+		    if(ofile.object_byte_sex != get_host_byte_sex())
+			swap_dylib_module(modtab, dyst->nmodtab,
+			       get_host_byte_sex());
+		    for(i = 0; i < dyst->nmodtab; i++){
+			if(modtab[i].module_name > local_high)
+			    local_high = modtab[i].module_name;
+			if(modtab[i].module_name < local_low)
+			    local_low = modtab[i].module_name;
+		    }
+		}
+		else{
+		    modtab64 = (struct dylib_module_64 *)(ofile.object_addr +
+						          dyst->modtaboff);
+		    if(ofile.object_byte_sex != get_host_byte_sex())
+			swap_dylib_module_64(modtab64, dyst->nmodtab,
+			       get_host_byte_sex());
+		    for(i = 0; i < dyst->nmodtab; i++){
+			if(modtab64[i].module_name > local_high)
+			    local_high = modtab64[i].module_name;
+			if(modtab64[i].module_name < local_low)
+			    local_low = modtab64[i].module_name;
+		    }
 		}
 
 		if(ext_high < local_low){
@@ -644,7 +790,10 @@ struct file_part *fp)
 	    if(st->nsyms != 0){
 		mp = new_mach_o_part();
 		mp->offset = fp->offset + st->symoff;
-		mp->size = st->nsyms * sizeof(struct nlist);
+		if(ofile.mh != NULL)
+		    mp->size = st->nsyms * sizeof(struct nlist);
+		else
+		    mp->size = st->nsyms * sizeof(struct nlist_64);
 		mp->type = MP_SYMBOL_TABLE;
 		insert_mach_o_part(fp, mp);
 	    }
@@ -757,10 +906,13 @@ struct mach_o_part *mp)
 	    if(p->type == MP_SECTION)
 		printf("    MP_SECTION (%.16s,%.16s)\n",
 		p->s->segname, p->s->sectname);
+	    else if(p->type == MP_SECTION_64)
+		printf("    MP_SECTION_64 (%.16s,%.16s)\n",
+		p->s64->segname, p->s64->sectname);
 	    else
 		printf("    %s\n", mach_o_part_type_names[p->type]);
-	    printf("\toffset = %lu\n", p->offset);
-	    printf("\tsize = %lu\n", p->size);
+	    printf("\toffset = %llu\n", p->offset);
+	    printf("\tsize = %llu\n", p->size);
 	    if(prev != NULL)
 		if(prev != p->prev)
 		    printf("bad prev pointer\n");
@@ -776,12 +928,11 @@ void
 print_parts_for_page(
 unsigned long page_number)
 {
-    unsigned long offset, size,
-		  low_addr, high_addr, new_low_addr, new_high_addr;
+    uint64_t offset, size, low_addr, high_addr, new_low_addr, new_high_addr;
     struct file_part *fp;
     struct mach_o_part *mp;
     enum bool printed;
-    enum bool sections;
+    enum bool sections, sections64;
 
 	offset = page_number * vm_page_size;
 	size = vm_page_size;
@@ -813,6 +964,7 @@ unsigned long page_number)
 		break;
 	    case FP_MACH_O:
 		sections = FALSE;
+		sections64 = FALSE;
 		for(mp = fp->mp; mp != NULL; mp = mp->next){
 		    if(offset + size <= mp->offset)
 			continue;
@@ -822,14 +974,14 @@ unsigned long page_number)
 		    case MP_MACH_HEADERS:
 			printf("File Page %lu contains Mach-O headers",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_SECTION:
 			printf("File Page %lu contains contents of "
 			       "section (%.16s,%.16s)", page_number,
 			       mp->s->segname, mp->s->sectname);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			if(offset < mp->offset)
 			    new_low_addr = mp->s->addr;
@@ -852,106 +1004,142 @@ unsigned long page_number)
 		        }
 			sections = TRUE;
 			break;
+		    case MP_SECTION_64:
+			printf("File Page %lu contains contents of "
+			       "section (%.16s,%.16s)", page_number,
+			       mp->s64->segname, mp->s64->sectname);
+			print_arch(fp);
+			printed = TRUE;
+			if(offset < mp->offset)
+			    new_low_addr = mp->s64->addr;
+			else
+			    new_low_addr = mp->s64->addr + offset - mp->offset;
+			if(offset + size > mp->offset + mp->size)
+			    new_high_addr = mp->s64->addr + mp->s64->size;
+			else
+			    new_high_addr = mp->s64->addr +
+				(offset + size - mp->offset);
+			if(sections64 == FALSE){
+			    low_addr = new_low_addr;
+			    high_addr = new_high_addr;
+			}
+			else{
+			    if(new_low_addr < low_addr)
+				low_addr = new_low_addr;
+			    if(new_high_addr > high_addr)
+				high_addr = new_high_addr;
+		        }
+			sections64 = TRUE;
+			break;
 		    case MP_RELOCS:
 			printf("File Page %lu contains relocation entries for "
 			       "section (%.16s,%.16s)", page_number,
 			       mp->s->segname, mp->s->sectname);
-			print_arch(fp->mh);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_RELOCS_64:
+			printf("File Page %lu contains relocation entries for "
+			       "section (%.16s,%.16s)", page_number,
+			       mp->s64->segname, mp->s64->sectname);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_LOCAL_SYMBOLS:
 			printf("File Page %lu contains symbol table for "	
 			       "non-global symbols", page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_EXTDEF_SYMBOLS:
 			printf("File Page %lu contains symbol table for "	
 			       "defined global symbols", page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_UNDEF_SYMBOLS:
 			printf("File Page %lu contains symbol table for "	
 			       "undefined symbols", page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_TOC:
 			printf("File Page %lu contains table of contents",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_MODULE_TABLE:
 			printf("File Page %lu contains module table",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_REFERENCE_TABLE:
 			printf("File Page %lu contains reference table",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_INDIRECT_SYMBOL_TABLE:
 			printf("File Page %lu contains indirect symbols table",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_EXT_RELOCS:
 			printf("File Page %lu contains external relocation "
 			       "entries", page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_LOC_RELOCS:
 			printf("File Page %lu contains local relocation "
 			       "entries", page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_SYMBOL_TABLE:
 			printf("File Page %lu contains symbol table",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_HINTS_TABLE:
 			printf("File Page %lu contains hints table",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_STRING_TABLE:
 			printf("File Page %lu contains string table",
 			       page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_EXT_STRING_TABLE:
 			printf("File Page %lu contains string table for "
 			       "external symbols", page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_LOC_STRING_TABLE:
 			printf("File Page %lu contains string table for "
 			       "local symbols", page_number);
-			print_arch(fp->mh);
+			print_arch(fp);
 			printed = TRUE;
 			break;
 		    case MP_EMPTY_SPACE:
 			break;
 		    }
 		}
-		if(sections == TRUE){
-		    printf("Symbols on file page %lu virtual address 0x%x to "
-			   "0x%x\n", page_number, (unsigned int)low_addr,
-			   (unsigned int)high_addr);
-		    print_symbols(fp, low_addr, high_addr);
+		if(sections == TRUE || sections64 == TRUE){
+		    printf("Symbols on file page %lu virtual address 0x%llx to "
+			   "0x%llx\n", page_number, low_addr, high_addr);
+		    if(sections == TRUE)
+			print_symbols(fp, low_addr, high_addr);
+		    else
+			print_symbols64(fp, low_addr, high_addr);
 		}
 		break;
 
@@ -1022,11 +1210,17 @@ unsigned long page_number)
 static
 void
 print_arch(
-struct mach_header *mh)
+struct file_part *fp)
 {
 	if(ofile.file_type == OFILE_FAT){
-	    printf(" (%s)\n",
-		   get_arch_name_from_types(mh->cputype, mh->cpusubtype));
+	    if(fp->mh != NULL)
+		printf(" (%s)\n",
+		   get_arch_name_from_types(fp->mh->cputype,
+					    fp->mh->cpusubtype));
+	    else
+		printf(" (%s)\n",
+		   get_arch_name_from_types(fp->mh64->cputype,
+					    fp->mh64->cpusubtype));
 	}
 	else
 	    printf("\n");
@@ -1065,9 +1259,17 @@ struct mach_o_part *mp)
 	    printf("contents of section (%.16s,%.16s)",
 		   mp->s->segname, mp->s->sectname);
 	    break;
+	case MP_SECTION_64:
+	    printf("contents of section (%.16s,%.16s)",
+		   mp->s64->segname, mp->s64->sectname);
+	    break;
 	case MP_RELOCS:
 	    printf("relocation entries for section (%.16s,%.16s)",
 		   mp->s->segname, mp->s->sectname);
+	    break;
+	case MP_RELOCS_64:
+	    printf("relocation entries for section (%.16s,%.16s)",
+		   mp->s64->segname, mp->s64->sectname);
 	    break;
 	case MP_LOCAL_SYMBOLS:
 	    printf("symbol table for non-global symbols");
@@ -1121,10 +1323,13 @@ static
 void
 print_symbols(
 struct file_part *fp,
-unsigned long low_addr,
-unsigned long high_addr)
+uint64_t low_addr,
+uint64_t high_addr)
 {
     unsigned long i, count;
+
+	if(fp->st == NULL)
+	    return;
 
 	if(sorted_symbols == NULL)
 	    sorted_symbols = allocate(sizeof(struct nlist) * fp->st->nsyms);
@@ -1150,10 +1355,60 @@ unsigned long high_addr)
 }
 
 static
+void
+print_symbols64(
+struct file_part *fp,
+uint64_t low_addr,
+uint64_t high_addr)
+{
+    unsigned long i, count;
+
+	if(fp->st == NULL)
+	    return;
+
+	if(sorted_symbols64 == NULL)
+	    sorted_symbols64 = allocate(sizeof(struct nlist_64) *
+					fp->st->nsyms);
+
+	count = 0;
+	for(i = 0; i < fp->st->nsyms; i++){
+	    if((fp->symbols64[i].n_type & N_STAB) != 0)
+		continue;
+	    if(fp->symbols64[i].n_value >= low_addr &&
+	       fp->symbols64[i].n_value <= high_addr){
+		sorted_symbols64[count] = fp->symbols64[i];
+		count++;
+	    }
+	}
+
+	qsort(sorted_symbols64, count, sizeof(struct nlist_64),
+	      (int (*)(const void *, const void *))compare64);
+
+	for(i = 0; i < count; i++){
+	    printf("  0x%016llx %s\n", sorted_symbols64[i].n_value,
+		fp->strings + sorted_symbols64[i].n_un.n_strx);
+	}
+}
+
+static
 int
 compare(
 struct nlist *p1,
 struct nlist *p2)
+{
+	if(p1->n_value > p2->n_value)
+	    return(1);
+	else if(p1->n_value < p2->n_value)
+	    return(-1);
+	else
+	    return(0);
+}
+
+static
+int
+compare64(
+struct nlist_64 *p1,
+struct nlist_64 *p2)
 {
 	if(p1->n_value > p2->n_value)
 	    return(1);

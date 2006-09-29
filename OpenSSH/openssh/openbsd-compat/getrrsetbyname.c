@@ -53,6 +53,10 @@
 
 #define ANSWER_BUFFER_SIZE 1024*64
 
+#if defined(HAVE_DECL_H_ERRNO) && !HAVE_DECL_H_ERRNO
+extern int h_errno;
+#endif
+
 struct dns_query {
 	char			*name;
 	u_int16_t		type;
@@ -140,6 +144,8 @@ _getshort(msgp)
 	GETSHORT(u, msgp);
 	return (u);
 }
+#elif defined(HAVE_DECL__GETSHORT) && (HAVE_DECL__GETSHORT == 0)
+u_int16_t _getshort(register const u_char *);
 #endif
 
 #ifndef HAVE__GETLONG
@@ -152,6 +158,8 @@ _getlong(msgp)
 	GETLONG(u, msgp);
 	return (u);
 }
+#elif defined(HAVE_DECL__GETLONG) && (HAVE_DECL__GETLONG == 0)
+u_int32_t _getlong(register const u_char *);
 #endif
 
 int
@@ -273,7 +281,7 @@ getrrsetbyname(const char *hostname, unsigned int rdclass,
 
 	/* allocate memory for signatures */
 	rrset->rri_sigs = calloc(rrset->rri_nsigs, sizeof(struct rdatainfo));
-	if (rrset->rri_sigs == NULL) {
+	if (rrset->rri_nsigs > 0 && rrset->rri_sigs == NULL) {
 		result = ERRSET_NOMEMORY;
 		goto fail;
 	}

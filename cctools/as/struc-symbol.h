@@ -43,6 +43,7 @@ struct symbol			/* our version of an nlist node */
   long int	sy_number;	/* 24 bit symbol number. */
 				/* Symbol numbers start at 0 and are */
 				/* unsigned. */
+  struct symbol *sy_prev_by_index;	/* backward chain, or NULL */
   struct symbol *sy_next;	/* forward chain, or NULL */
   struct frag   *sy_frag;	/* NULL or -> frag this symbol attaches to. */
   struct symbol *sy_forward;	/* value is really that of this other symbol */

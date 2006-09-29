@@ -62,7 +62,7 @@ ndrv_socket(char * ifname)
 	fprintf(stderr, "ndrv_socket: socket() failed: %s\n", strerror(errno));
 	goto failed;
     }
-    strncpy(ndrv.snd_name, ifname, sizeof(ndrv.snd_name));
+    strncpy((char *)ndrv.snd_name, ifname, sizeof(ndrv.snd_name));
     ndrv.snd_len = sizeof(ndrv);
     ndrv.snd_family = AF_NDRV;
     if (bind(s, (struct sockaddr *)&ndrv, sizeof(ndrv)) < 0) {

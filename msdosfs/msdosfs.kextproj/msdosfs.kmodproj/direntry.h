@@ -128,6 +128,13 @@ struct winentry {
 #define	WIN_MAXLEN	255
 
 /*
+ * Maximum filename length for short names:
+ * 8 bytes of filename plus 3 bytes of extension.
+ * The dot between the filename and extension is implied.
+ */
+#define SHORT_NAME_LEN	11
+
+/*
  * This is the format of the contents of the deTime field in the dosdirentry
  * structure.
  * We don't use bitfields because we don't know how compilers for
@@ -156,8 +163,8 @@ struct dirent;
 void unix2dostime __P((struct timespec *tsp, u_int16_t *ddp, 
 	     u_int16_t *dtp, u_int8_t *dhp));
 void dos2unixtime __P((u_int dd, u_int dt, u_int dh, struct timespec *tsp));
-int dos2unicodefn __P((u_char dn[11], u_int16_t *un, int lower));
-int unicode2dosfn __P((const u_int16_t *un, u_char dn[12], int unlen, u_int gen, u_int8_t *lower_case));
+int dos2unicodefn __P((u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower));
+int unicode2dosfn __P((const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case));
 int unicode2winfn __P((const u_int16_t *un, int unlen, struct winentry *wep, int cnt, int chksum));
 int winChkName __P((const u_int16_t *un, int unlen, struct winentry *wep, int chksum));
 int getunicodefn __P((struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum));

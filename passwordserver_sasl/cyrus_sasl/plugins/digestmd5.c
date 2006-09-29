@@ -2149,7 +2149,7 @@ static int digestmd5_server_mech_step2(server_context_t *stext,
     }
 
     /* Sanity check the parameters */
-    if (strcmp(realm, text->realm) != 0) {
+    if ((realm != NULL) && strcmp(realm, text->realm) != 0) {
 	SETERROR(sparams->utils,
 		 "realm changed: authentication aborted");
 	result = SASL_BADAUTH;

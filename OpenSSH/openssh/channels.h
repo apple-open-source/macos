@@ -1,4 +1,4 @@
-/*	$OpenBSD: channels.h,v 1.71 2003/09/23 20:41:11 markus Exp $	*/
+/*	$OpenBSD: channels.h,v 1.79 2005/07/17 06:49:04 djm Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -76,8 +76,10 @@ struct Channel {
 	int     wfd;		/* write fd */
 	int     efd;		/* extended fd */
 	int     sock;		/* sock fd */
+	int     ctl_fd;		/* control fd (client sharing) */
 	int     isatty;		/* rfd is a tty */
 	int     wfd_isatty;	/* wfd is a tty */
+	int	client_tty;	/* (client) TTY has been requested */
 	int     force_drain;	/* force close on iEOF */
 	int     delayed;		/* fdset hack */
 	Buffer  input;		/* data read from socket, to be sent over
@@ -105,6 +107,7 @@ struct Channel {
 	/* callback */
 	channel_callback_fn	*confirm;
 	channel_callback_fn	*detach_user;
+	void			*confirm_ctx;
 
 	/* filter */
 	channel_filter_fn	*input_filter;
@@ -146,7 +149,7 @@ struct Channel {
 	buffer_len(&c->extended) > 0))
 #define CHANNEL_EFD_OUTPUT_ACTIVE(c) \
 	(compat20 && c->extended_usage == CHAN_EXTENDED_WRITE && \
-	((c->efd != -1 && !(c->flags & (CHAN_EOF_RCVD|CHAN_CLOSE_RCVD))) || \
+	c->efd != -1 && (!(c->flags & (CHAN_EOF_RCVD|CHAN_CLOSE_RCVD)) || \
 	buffer_len(&c->extended) > 0))
 
 /* channel management */
@@ -161,10 +164,11 @@ void	 channel_stop_listening(void);
 void	 channel_send_open(int);
 void	 channel_request_start(int, char *, int);
 void	 channel_register_cleanup(int, channel_callback_fn *);
-void	 channel_register_confirm(int, channel_callback_fn *);
+void	 channel_register_confirm(int, channel_callback_fn *, void *);
 void	 channel_register_filter(int, channel_filter_fn *);
 void	 channel_cancel_cleanup(int);
 int	 channel_close_fd(int *);
+void	 channel_send_window_changes(void);
 
 /* protocol handler */
 
@@ -181,7 +185,7 @@ void	 channel_input_window_adjust(int, u_int32_t, void *);
 
 /* file descriptor handling (read/write) */
 
-void	 channel_prepare_select(fd_set **, fd_set **, int *, int*, int);
+void	 channel_prepare_select(fd_set **, fd_set **, int *, u_int*, int);
 void     channel_after_select(fd_set *, fd_set *);
 void     channel_output_poll(void);
 
@@ -199,16 +203,21 @@ void	 channel_clear_permitted_opens(void);
 void     channel_input_port_forward_request(int, int);
 int	 channel_connect_to(const char *, u_short);
 int	 channel_connect_by_listen_address(u_short);
-void	 channel_request_remote_forwarding(u_short, const char *, u_short);
-int	 channel_setup_local_fwd_listener(u_short, const char *, u_short, int);
+void	 channel_request_remote_forwarding(const char *, u_short,
+	     const char *, u_short);
+int	 channel_setup_local_fwd_listener(const char *, u_short,
+	     const char *, u_short, int);
+void	 channel_request_rforward_cancel(const char *host, u_short port);
 int	 channel_setup_remote_fwd_listener(const char *, u_short, int);
+int	 channel_cancel_rport_listener(const char *, u_short);
 
 /* x11 forwarding */
 
 int	 x11_connect_display(void);
-int	 x11_create_display_inet(int, int, int, u_int *);
+int	 x11_create_display_inet(int, int, int, u_int *, int **);
 void     x11_input_open(int, u_int32_t, void *);
-void	 x11_request_forwarding_with_spoofing(int, const char *, const char *);
+void	 x11_request_forwarding_with_spoofing(int, const char *, const char *,
+	    const char *);
 void	 deny_input_open(int, u_int32_t, void *);
 
 /* agent forwarding */

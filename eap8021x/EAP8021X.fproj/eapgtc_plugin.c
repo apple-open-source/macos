@@ -52,13 +52,28 @@ static EAPClientPluginFuncRequireProperties eapgtc_require_props;
 static EAPClientPluginFuncProcess eapgtc_process;
 static EAPClientPluginFuncFreePacket eapgtc_free_packet;
 
+#define EAPGTC_CHALLENGE_PREFIX 	"CHALLENGE="
+#define EAPGTC_CHALLENGE_PREFIX_LENGTH	(sizeof(EAPGTC_CHALLENGE_PREFIX) - 1)
+#define EAPGTC_RESPONSE_PREFIX 		"RESPONSE="
+#define EAPGTC_RESPONSE_PREFIX_LENGTH	(sizeof(EAPGTC_RESPONSE_PREFIX) - 1)
+
 static EAPPacketRef
-eapgtc_request(EAPClientPluginDataRef plugin, const EAPPacketRef in_pkt_p)
+eapgtc_request(EAPClientPluginDataRef plugin, 
+	       const EAPRequestPacketRef in_pkt_p)
 {
+    int				in_length;
     EAPResponsePacketRef	out_pkt_p = NULL;
+    bool			prefix = FALSE;
     int				size;
 
     size = sizeof(*out_pkt_p) + plugin->password_length;
+    in_length = EAPPacketGetLength((EAPPacketRef)in_pkt_p) - sizeof(*in_pkt_p);
+    if (in_length >= EAPGTC_CHALLENGE_PREFIX_LENGTH
+	&& strncmp((const char *)in_pkt_p->type_data, EAPGTC_CHALLENGE_PREFIX,
+		   EAPGTC_CHALLENGE_PREFIX_LENGTH) == 0) {
+	prefix = TRUE;
+	size += EAPGTC_RESPONSE_PREFIX_LENGTH + plugin->username_length + 1;
+    }
     out_pkt_p = malloc(size);
     if (out_pkt_p == NULL) {
 	goto failed;
@@ -67,7 +82,23 @@ eapgtc_request(EAPClientPluginDataRef plugin, const EAPPacketRef in_pkt_p)
     out_pkt_p->identifier = in_pkt_p->identifier;
     EAPPacketSetLength((EAPPacketRef)out_pkt_p, size);
     out_pkt_p->type = kEAPTypeGenericTokenCard;
-    memcpy(out_pkt_p->type_data, plugin->password, plugin->password_length);
+    if (prefix) {
+	int	offset = 0;
+
+	memcpy(out_pkt_p->type_data, EAPGTC_RESPONSE_PREFIX,
+	       EAPGTC_RESPONSE_PREFIX_LENGTH);
+	offset += EAPGTC_RESPONSE_PREFIX_LENGTH;
+	memcpy(out_pkt_p->type_data + offset,
+	       plugin->username, plugin->username_length);
+	offset += plugin->username_length;
+	out_pkt_p->type_data[offset++] = '\0';
+	memcpy(out_pkt_p->type_data + offset,
+	       plugin->password, plugin->password_length);
+	offset += plugin->password_length;
+    }
+    else {
+	memcpy(out_pkt_p->type_data, plugin->password, plugin->password_length);
+    }
     return ((EAPPacketRef)out_pkt_p);
  failed:
     if (out_pkt_p != NULL) {
@@ -120,10 +151,11 @@ eapgtc_process(EAPClientPluginDataRef plugin,
     switch (in_pkt->code) {
     case kEAPCodeRequest:
 	if (plugin->password == NULL) {
-	    *client_status = kEAPClientStatusConfigurationIncomplete;
+	    *client_status = kEAPClientStatusUserInputRequired;
 	}
 	else {
-	    *out_pkt_p = eapgtc_request(plugin, in_pkt);
+	    *out_pkt_p = eapgtc_request(plugin,
+					(const EAPRequestPacketRef)in_pkt);
 	}
 	break;
     case kEAPCodeSuccess:
@@ -142,13 +174,14 @@ eapgtc_process(EAPClientPluginDataRef plugin,
 static CFArrayRef
 eapgtc_require_props(EAPClientPluginDataRef plugin)
 {
-    CFMutableArrayRef 		array = NULL;
+    CFStringRef		prop;
 
-    if (plugin->password == NULL) {
-	array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFArrayAppendValue(array, kEAPClientPropUserPassword);
+    if (plugin->password != NULL) {
+	return (NULL);
     }
-    return (array);
+    prop = kEAPClientPropUserPassword;
+    return (CFArrayCreate(NULL, (const void **)&prop, 1,
+			  &kCFTypeArrayCallBacks));
 }
 
 static EAPType 

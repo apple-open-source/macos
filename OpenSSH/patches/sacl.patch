@@ -1,25 +1,21 @@
-diff -dbwpr ../openssh-3.8.1p1.orig/auth.c ./auth.c
-*** ../openssh-3.8.1p1.orig/auth.c	Sat Feb 21 17:43:15 2004
---- ./auth.c	Wed Jan 12 11:27:01 2005
-*************** RCSID("$OpenBSD: auth.c,v 1.51 2003/11/2
-*** 36,41 ****
---- 36,45 ----
-  #include <libgen.h>
-  #endif
-  
-+ #ifdef __APPLE_SACL__
-+ #include <membershipPriv.h>
-+ #endif
-+ 
-  #include "xmalloc.h"
-  #include "match.h"
-  #include "groupaccess.h"
-*************** allowed_user(struct passwd * pw)
-*** 204,209 ****
---- 208,251 ----
-  		ga_free();
-  	}
-  
+diff -Naurdp ../openssh/auth.c ./auth.c
+--- ../openssh/auth.c	2005-09-28 16:11:01.000000000 -0700
++++ ./auth.c	2005-09-28 16:21:03.000000000 -0700
+@@ -36,6 +37,10 @@ RCSID("$OpenBSD: auth.c,v 1.60 2005/06/1
+ #include <libgen.h>
+ #endif
+ 
++#ifdef __APPLE_SACL__
++#include <membershipPriv.h>
++#endif
++
+ #include "xmalloc.h"
+ #include "match.h"
+ #include "groupaccess.h"
+@@ -216,6 +221,46 @@ allowed_user(struct passwd * pw)
+ 		ga_free();
+ 	}
+ 
 + 	if( options.sacl_support )
 + 	{
 + #ifdef __APPLE_SACL__
@@ -57,81 +53,71 @@ diff -dbwpr ../openssh-3.8.1p1.orig/auth.c ./auth.c
 + 		return isMember;
 + #endif /* __APPLE_SACL__ */
 + 	}
-+ 
-  #ifdef WITH_AIXAUTHENTICATE
-  	/*
-  	 * Don't check loginrestrictions() for root account (use
-diff -dbwpr ../openssh-3.8.1p1.orig/servconf.c ./servconf.c
-*** ../openssh-3.8.1p1.orig/servconf.c	Fri Jan 23 06:03:10 2004
---- ./servconf.c	Wed Jan 12 11:31:01 2005
-*************** initialize_server_options(ServerOptions 
-*** 81,86 ****
---- 81,87 ----
-  	options->permit_empty_passwd = -1;
-  	options->permit_user_env = -1;
-  	options->use_login = -1;
-+ 	options->sacl_support = -1;
-  	options->compression = -1;
-  	options->allow_tcp_forwarding = -1;
-  	options->num_allow_users = 0;
-*************** typedef enum {
-*** 268,273 ****
---- 269,275 ----
-  	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
-  	sGssAuthentication, sGssCleanupCreds,
-  	sUsePrivilegeSeparation,
-+ 	sSACLSupport,
-  	sDeprecated, sUnsupported
-  } ServerOpCodes;
-  
-*************** static struct {
-*** 366,371 ****
---- 368,374 ----
-  	{ "authorizedkeysfile", sAuthorizedKeysFile },
-  	{ "authorizedkeysfile2", sAuthorizedKeysFile2 },
-  	{ "useprivilegeseparation", sUsePrivilegeSeparation},
-+ 	{ "saclsupport", sSACLSupport },
-  	{ NULL, sBadOption }
-  };
-  
-*************** parse_flag:
-*** 688,693 ****
---- 691,700 ----
-  		charptr = &options->xauth_location;
-  		goto parse_filename;
-  
-+ 	case sSACLSupport:
-+ 		intptr = &options->sacl_support;
-+ 		goto parse_flag;
-+ 
-  	case sStrictModes:
-  		intptr = &options->strict_modes;
-  		goto parse_flag;
-diff -dbwpr ../openssh-3.8.1p1.orig/servconf.h ./servconf.h
-*** ../openssh-3.8.1p1.orig/servconf.h	Tue Dec 30 19:37:34 2003
---- ./servconf.h	Tue Jan 11 16:49:20 2005
-*************** typedef struct {
-*** 125,130 ****
---- 125,131 ----
-  	char   *authorized_keys_file;	/* File containing public keys */
-  	char   *authorized_keys_file2;
-  	int	use_pam;		/* Enable auth via PAM */
-+ 	int	sacl_support;		/* Enable use of SACLs */
-  }       ServerOptions;
-  
-  void	 initialize_server_options(ServerOptions *);
-diff -dbwpr ../openssh-3.8.1p1.orig/sshd_config ./sshd_config
-*** ../openssh-3.8.1p1.orig/sshd_config	Tue Dec 30 19:38:32 2003
---- ./sshd_config	Tue Jan 11 17:01:58 2005
-***************
-*** 54,59 ****
---- 54,62 ----
-  #PasswordAuthentication yes
-  #PermitEmptyPasswords no
-  
-+ # SACL options
-+ #SACLSupport yes
-+ 
-  # Change to no to disable s/key passwords
-  #ChallengeResponseAuthentication yes
-  
++
++
++
+ #ifdef CUSTOM_SYS_AUTH_ALLOWED_USER
+ 	if (!sys_auth_allowed_user(pw, &loginmsg))
+ 		return 0;
+diff -Naurdp ../openssh/servconf.c ./servconf.c
+--- ../openssh/servconf.c	2005-09-28 16:11:01.000000000 -0700
++++ ./servconf.c	2005-09-28 16:21:10.000000000 -0700
+@@ -80,6 +80,7 @@ initialize_server_options(ServerOptions 
+ 	options->permit_empty_passwd = -1;
+ 	options->permit_user_env = -1;
+ 	options->use_login = -1;
++	options->sacl_support = -1;
+ 	options->compression = -1;
+ 	options->allow_tcp_forwarding = -1;
+ 	options->num_allow_users = 0;
+@@ -275,6 +276,7 @@ typedef enum {
+ 	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
+ 	sGssAuthentication, sGssKeyEx, sGssCleanupCreds, sAcceptEnv,
+ 	sUsePrivilegeSeparation,
++	sSACLSupport,
+ 	sDeprecated, sUnsupported
+ } ServerOpCodes;
+ 
+@@ -377,6 +379,7 @@ static struct {
+ 	{ "authorizedkeysfile", sAuthorizedKeysFile },
+ 	{ "authorizedkeysfile2", sAuthorizedKeysFile2 },
+ 	{ "useprivilegeseparation", sUsePrivilegeSeparation},
++	{ "saclsupport", sSACLSupport },
+ 	{ "acceptenv", sAcceptEnv },
+ 	{ NULL, sBadOption }
+ };
+@@ -718,6 +721,10 @@ parse_flag:
+ 		charptr = &options->xauth_location;
+ 		goto parse_filename;
+ 
++	case sSACLSupport:
++		intptr = &options->sacl_support;
++		goto parse_flag;
++
+ 	case sStrictModes:
+ 		intptr = &options->strict_modes;
+ 		goto parse_flag;
+diff -Naurdp ../openssh/servconf.h ./servconf.h
+--- ../openssh/servconf.h	2005-09-28 16:11:01.000000000 -0700
++++ ./servconf.h	2005-09-28 16:20:38.000000000 -0700
+@@ -135,6 +135,7 @@ typedef struct {
+ 	char   *authorized_keys_file;	/* File containing public keys */
+ 	char   *authorized_keys_file2;
+ 	int	use_pam;		/* Enable auth via PAM */
++	int	sacl_support;		/* Enable use of SACLs */
+ }       ServerOptions;
+ 
+ void	 initialize_server_options(ServerOptions *);
+diff -Naurdp ../openssh/sshd_config ./sshd_config
+--- ../openssh/sshd_config	2005-09-28 16:11:01.000000000 -0700
++++ ./sshd_config	2005-09-28 16:20:38.000000000 -0700
+@@ -56,6 +56,9 @@
+ #PasswordAuthentication yes
+ #PermitEmptyPasswords no
+ 
++# SACL options
++#SACLSupport yes
++
+ # Change to no to disable s/key passwords
+ #ChallengeResponseAuthentication yes
+ 

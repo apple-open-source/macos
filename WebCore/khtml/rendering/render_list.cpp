@@ -23,6 +23,7 @@
  */
 
 #include "render_list.h"
+#include "render_arena.h"
 #include "rendering/render_canvas.h"
 
 #include "xml/dom_docimpl.h"
@@ -242,8 +243,7 @@ void RenderListItem::updateMarkerLocation()
         }
         if (markerPar != lineBoxParent)
         {
-            if (markerPar)
-                markerPar->removeChild(m_marker);
+            m_marker->remove();
             if (!lineBoxParent)
                 lineBoxParent = this;
             lineBoxParent->addChild(m_marker, lineBoxParent->firstChild());

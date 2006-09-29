@@ -50,6 +50,7 @@ static void hack_seg(
  * The seg_hack(1) program changes all segments names to the one specified on
  * the command line:
  *	seg_hack NEWSEGNAME input -o output
+ * except for S_DEBUG sections.
  */
 int
 main(
@@ -283,8 +284,10 @@ struct segment_command *sg)
 	    }
 	    s = (struct section *)((char *)lc + sizeof(struct segment_command));
 	    for(i = 0; i < sg->nsects; i++){
-		memset(s->segname, '\0', sizeof(s->segname));
-		strncpy(s->segname, segname, sizeof(s->segname));
+	        if (! (s->flags & S_ATTR_DEBUG)){
+		  memset(s->segname, '\0', sizeof(s->segname));
+		  strncpy(s->segname, segname, sizeof(s->segname));
+		}
 		s++;
 	    }
 	}

@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth.c,v 1.51 2003/11/21 11:57:02 djm Exp $");
+RCSID("$OpenBSD: auth.c,v 1.60 2005/06/17 02:44:32 djm Exp $");
 
 #ifdef HAVE_LOGIN_H
 #include <login.h>
@@ -51,10 +51,11 @@ RCSID("$OpenBSD: auth.c,v 1.51 2003/11/21 11:57:02 djm Exp $");
 #include "buffer.h"
 #include "bufaux.h"
 #include "uidswap.h"
-#include "tildexpand.h"
 #include "misc.h"
 #include "bufaux.h"
 #include "packet.h"
+#include "loginrec.h"
+#include "monitor_wrap.h"
 
 /* import */
 extern ServerOptions options;
@@ -79,7 +80,7 @@ allowed_user(struct passwd * pw)
 	struct stat st;
 	const char *hostname = NULL, *ipaddr = NULL, *passwd = NULL;
 	char *shell;
-	int i;
+	u_int i;
 #ifdef USE_SHADOW
 	struct spwd *spw = NULL;
 #endif
@@ -100,7 +101,11 @@ allowed_user(struct passwd * pw)
 	/* grab passwd field for locked account check */
 #ifdef USE_SHADOW
 	if (spw != NULL)
+#if defined(HAVE_LIBIAF)  &&  !defined(BROKEN_LIBIAF)
+		passwd = get_iaf_password(pw);
+#else
 		passwd = spw->sp_pwdp;
+#endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
 #else
 	passwd = pw->pw_passwd;
 #endif
@@ -122,6 +127,9 @@ allowed_user(struct passwd * pw)
 		if (strstr(passwd, LOCKED_PASSWD_SUBSTR))
 			locked = 1;
 #endif
+#if defined(HAVE_LIBIAF)  &&  !defined(BROKEN_LIBIAF)
+		free(passwd);
+#endif /* HAVE_LIBIAF  && !BROKEN_LIBIAF */
 		if (locked) {
 			logit("User %.100s not allowed because account is locked",
 			    pw->pw_name);
@@ -148,7 +156,8 @@ allowed_user(struct passwd * pw)
 		return 0;
 	}
 
-	if (options.num_deny_users > 0 || options.num_allow_users > 0) {
+	if (options.num_deny_users > 0 || options.num_allow_users > 0 ||
+	    options.num_deny_groups > 0 || options.num_allow_groups > 0) {
 		hostname = get_canonical_hostname(options.use_dns);
 		ipaddr = get_remote_ipaddr();
 	}
@@ -158,8 +167,9 @@ allowed_user(struct passwd * pw)
 		for (i = 0; i < options.num_deny_users; i++)
 			if (match_user(pw->pw_name, hostname, ipaddr,
 			    options.deny_users[i])) {
-				logit("User %.100s not allowed because listed in DenyUsers",
-				    pw->pw_name);
+				logit("User %.100s from %.100s not allowed "
+				    "because listed in DenyUsers",
+				    pw->pw_name, hostname);
 				return 0;
 			}
 	}
@@ -171,16 +181,16 @@ allowed_user(struct passwd * pw)
 				break;
 		/* i < options.num_allow_users iff we break for loop */
 		if (i >= options.num_allow_users) {
-			logit("User %.100s not allowed because not listed in AllowUsers",
-			    pw->pw_name);
+			logit("User %.100s from %.100s not allowed because "
+			    "not listed in AllowUsers", pw->pw_name, hostname);
 			return 0;
 		}
 	}
 	if (options.num_deny_groups > 0 || options.num_allow_groups > 0) {
 		/* Get the user's group access list (primary and supplementary) */
 		if (ga_init(pw->pw_name, pw->pw_gid) == 0) {
-			logit("User %.100s not allowed because not in any group",
-			    pw->pw_name);
+			logit("User %.100s from %.100s not allowed because "
+			    "not in any group", pw->pw_name, hostname);
 			return 0;
 		}
 
@@ -189,8 +199,9 @@ allowed_user(struct passwd * pw)
 			if (ga_match(options.deny_groups,
 			    options.num_deny_groups)) {
 				ga_free();
-				logit("User %.100s not allowed because a group is listed in DenyGroups",
-				    pw->pw_name);
+				logit("User %.100s from %.100s not allowed "
+				    "because a group is listed in DenyGroups",
+				    pw->pw_name, hostname);
 				return 0;
 			}
 		/*
@@ -201,76 +212,58 @@ allowed_user(struct passwd * pw)
 			if (!ga_match(options.allow_groups,
 			    options.num_allow_groups)) {
 				ga_free();
-				logit("User %.100s not allowed because none of user's groups are listed in AllowGroups",
-				    pw->pw_name);
+				logit("User %.100s from %.100s not allowed "
+				    "because none of user's groups are listed "
+				    "in AllowGroups", pw->pw_name, hostname);
 				return 0;
 			}
 		ga_free();
 	}
 
-	if( options.sacl_support )
-	{
-#ifdef __APPLE_SACL__
-		/*
-	 	* Here we check with memberd if the Service ACLs allow this user to
-	 	* use the ssh service.
-	 	*/
+ 	if( options.sacl_support )
+ 	{
+ #ifdef __APPLE_SACL__
+ 		/*
+ 	 	* Here we check with memberd if the Service ACLs allow this user to
+ 	 	* use the ssh service.
+ 	 	*/
+ 
+ 		debug("Checking with Service ACLs for ssh login restrictions");
+ 
+ 		uuid_t user_uuid;
+ 		int isMember = 0;
+ 		int mbrErr = 0;
+ 	
+ 		// get the uuid
+ 		if ( mbr_user_name_to_uuid(pw->pw_name, user_uuid) )
+ 		{
+ 			debug("call to mbr_user_name_to_uuid with <%s> failed to retrieve user_uuid", pw->pw_name);
+ 			return 0;
+ 		}	
+ 		debug("call to mbr_user_name_to_uuid with <%s> suceeded to retrieve user_uuid", pw->pw_name);
+ 	
+ 		// check the sacl
+ 		if((mbrErr = mbr_check_service_membership(user_uuid, "ssh", &isMember)))
+ 		{
+ 			debug("Called mbr_check_service_membership with isMember <%d> with status <%d>", isMember, mbrErr);
+ 			if(mbrErr == ENOENT)	// no ACL exists
+ 			{
+ 				return 1;	
+ 			} else {
+ 				return 0;
+ 			}
+ 		}
+ 		debug("Call to mbr_check_service_membership failed with status <%d>", mbrErr);
+ 		return isMember;
+ #endif /* __APPLE_SACL__ */
+ 	}
 
-		debug("Checking with Service ACLs for ssh login restrictions");
 
-		uuid_t user_uuid;
-		int isMember = 0;
-		int mbrErr = 0;
-	
-		// get the uuid
-		if ( mbr_user_name_to_uuid(pw->pw_name, user_uuid) )
-		{
-			debug("call to mbr_user_name_to_uuid with <%s> failed to retrieve user_uuid", pw->pw_name);
-			return 0;
-		}	
-		debug("call to mbr_user_name_to_uuid with <%s> suceeded to retrieve user_uuid", pw->pw_name);
-	
-		// check the sacl
-		if((mbrErr = mbr_check_service_membership(user_uuid, "ssh", &isMember)))
-		{
-			debug("Called mbr_check_service_membership with isMember <%d> with status <%d>", isMember, mbrErr);
-			if(mbrErr == ENOENT)	// no ACL exists
-			{
-				return 1;	
-			} else {
-				return 0;
-			}
-		}
-		debug("Call to mbr_check_service_membership failed with status <%d>", mbrErr);
-		return isMember;
-#endif /* __APPLE_SACL__ */
-	}
 
-#ifdef WITH_AIXAUTHENTICATE
-	/*
-	 * Don't check loginrestrictions() for root account (use
-	 * PermitRootLogin to control logins via ssh), or if running as
-	 * non-root user (since loginrestrictions will always fail).
-	 */
-	if ((pw->pw_uid != 0) && (geteuid() == 0)) {
-		char *msg;
-
-		if (loginrestrictions(pw->pw_name, S_RLOGIN, NULL, &msg) != 0) {
-			int loginrestrict_errno = errno;
-
-			if (msg && *msg) {
-				buffer_append(&loginmsg, msg, strlen(msg));
-				aix_remove_embedded_newlines(msg);
-				logit("Login restricted for %s: %.100s",
-				    pw->pw_name, msg);
-			}
-			/* Don't fail if /etc/nologin  set */
-			if (!(loginrestrict_errno == EPERM &&
-			    stat(_PATH_NOLOGIN, &st) == 0))
-				return 0;
-		}
-	}
-#endif /* WITH_AIXAUTHENTICATE */
+#ifdef CUSTOM_SYS_AUTH_ALLOWED_USER
+	if (!sys_auth_allowed_user(pw, &loginmsg))
+		return 0;
+#endif
 
 	/* We found no reason not to let this user try to log on... */
 	return 1;
@@ -285,7 +278,7 @@ auth_log(Authctxt *authctxt, int authenticated, char *method, char *info)
 	/* Raise logging level */
 	if (authenticated == 1 ||
 	    !authctxt->valid ||
-	    authctxt->failures >= AUTH_FAIL_LOG ||
+	    authctxt->failures >= options.max_authtries / 2 ||
 	    strcmp(method, "password") == 0)
 		authlog = logit;
 
@@ -297,15 +290,57 @@ auth_log(Authctxt *authctxt, int authenticated, char *method, char *info)
 	authlog("%s %s for %s%.100s from %.200s port %d%s",
 	    authmsg,
 	    method,
-	    authctxt->valid ? "" : "illegal user ",
-	    (authctxt->user[0]) ? authctxt->user : "<implicit>",
+	    authctxt->valid ? "" : "invalid user ",
+	    authctxt->user,
 	    get_remote_ipaddr(),
 	    get_remote_port(),
 	    info);
 
 #ifdef CUSTOM_FAILED_LOGIN
-	if (authenticated == 0 && strcmp(method, "password") == 0)
-		record_failed_login(authctxt->user, "ssh");
+	if (authenticated == 0 && !authctxt->postponed &&
+	    (strcmp(method, "password") == 0 ||
+	    strncmp(method, "keyboard-interactive", 20) == 0 ||
+	    strcmp(method, "challenge-response") == 0))
+		record_failed_login(authctxt->user,
+		    get_canonical_hostname(options.use_dns), "ssh");
+#endif
+#ifdef SSH_AUDIT_EVENTS
+	if (authenticated == 0 && !authctxt->postponed) {
+		ssh_audit_event_t event;
+
+		debug3("audit failed auth attempt, method %s euid %d",
+		    method, (int)geteuid());
+		/*
+		 * Because the auth loop is used in both monitor and slave,
+		 * we must be careful to send each event only once and with
+		 * enough privs to write the event.
+		 */
+		event = audit_classify_auth(method);
+		switch(event) {
+		case SSH_AUTH_FAIL_NONE:
+		case SSH_AUTH_FAIL_PASSWD:
+		case SSH_AUTH_FAIL_KBDINT:
+			if (geteuid() == 0)
+				audit_event(event);
+			break;
+		case SSH_AUTH_FAIL_PUBKEY:
+		case SSH_AUTH_FAIL_HOSTBASED:
+		case SSH_AUTH_FAIL_GSSAPI:
+			/*
+			 * This is required to handle the case where privsep
+			 * is enabled but it's root logging in, since
+			 * use_privsep won't be cleared until after a
+			 * successful login.
+			 */
+			if (geteuid() == 0)
+				audit_event(event);
+			else
+				PRIVSEP(audit_event(event));
+			break;
+		default:
+			error("unknown authentication audit event %d", event);
+		}
+	}
 #endif
 }
 
@@ -342,64 +377,41 @@ auth_root_allowed(char *method)
  *
  * This returns a buffer allocated by xmalloc.
  */
-char *
-expand_filename(const char *filename, struct passwd *pw)
+static char *
+expand_authorized_keys(const char *filename, struct passwd *pw)
 {
-	Buffer buffer;
-	char *file;
-	const char *cp;
+	char *file, *ret;
 
-	/*
-	 * Build the filename string in the buffer by making the appropriate
-	 * substitutions to the given file name.
-	 */
-	buffer_init(&buffer);
-	for (cp = filename; *cp; cp++) {
-		if (cp[0] == '%' && cp[1] == '%') {
-			buffer_append(&buffer, "%", 1);
-			cp++;
-			continue;
-		}
-		if (cp[0] == '%' && cp[1] == 'h') {
-			buffer_append(&buffer, pw->pw_dir, strlen(pw->pw_dir));
-			cp++;
-			continue;
-		}
-		if (cp[0] == '%' && cp[1] == 'u') {
-			buffer_append(&buffer, pw->pw_name,
-			    strlen(pw->pw_name));
-			cp++;
-			continue;
-		}
-		buffer_append(&buffer, cp, 1);
-	}
-	buffer_append(&buffer, "\0", 1);
+	file = percent_expand(filename, "h", pw->pw_dir,
+	    "u", pw->pw_name, (char *)NULL);
 
 	/*
 	 * Ensure that filename starts anchored. If not, be backward
 	 * compatible and prepend the '%h/'
 	 */
-	file = xmalloc(MAXPATHLEN);
-	cp = buffer_ptr(&buffer);
-	if (*cp != '/')
-		snprintf(file, MAXPATHLEN, "%s/%s", pw->pw_dir, cp);
-	else
-		strlcpy(file, cp, MAXPATHLEN);
+	if (*file == '/')
+		return (file);
 
-	buffer_free(&buffer);
-	return file;
+	ret = xmalloc(MAXPATHLEN);
+	if (strlcpy(ret, pw->pw_dir, MAXPATHLEN) >= MAXPATHLEN ||
+	    strlcat(ret, "/", MAXPATHLEN) >= MAXPATHLEN ||
+	    strlcat(ret, file, MAXPATHLEN) >= MAXPATHLEN)
+		fatal("expand_authorized_keys: path too long");
+
+	xfree(file);
+	return (ret);
 }
 
 char *
 authorized_keys_file(struct passwd *pw)
 {
-	return expand_filename(options.authorized_keys_file, pw);
+	return expand_authorized_keys(options.authorized_keys_file, pw);
 }
 
 char *
 authorized_keys_file2(struct passwd *pw)
 {
-	return expand_filename(options.authorized_keys_file2, pw);
+	return expand_authorized_keys(options.authorized_keys_file2, pw);
 }
 
 /* return ok if key exists in sysfile or userfile */
@@ -524,29 +536,29 @@ getpwnamallow(const char *user)
 #endif
 	struct passwd *pw;
 
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-	solaris_audit_save_name(user);
-#endif /* BSM */
 	pw = getpwnam(user);
 	if (pw == NULL) {
-		logit("Illegal user %.100s from %.100s",
+		logit("Invalid user %.100s from %.100s",
 		    user, get_remote_ipaddr());
 #ifdef CUSTOM_FAILED_LOGIN
-		record_failed_login(user, "ssh");
+		record_failed_login(user,
+		    get_canonical_hostname(options.use_dns), "ssh");
 #endif
+#ifdef SSH_AUDIT_EVENTS
+		audit_event(SSH_INVALID_USER);
+#endif /* SSH_AUDIT_EVENTS */
+		return (NULL);
 	}
-	if (pw != NULL && !allowed_user(pw))
-		pw = NULL;
+	if (!allowed_user(pw))
+		return (NULL);
 #ifdef HAVE_LOGIN_CAP
-	if (pw != NULL && (lc = login_getclass(pw->pw_class)) == NULL) {
+	if ((lc = login_getclass(pw->pw_class)) == NULL) {
 		debug("unable to get login class: %s", user);
-		pw = NULL;
+		return (NULL);
 	}
 #ifdef BSD_AUTH
-	as = NULL;
-	if (pw != NULL
-	    && ((as = auth_open()) == NULL || auth_setpwd(as, pw) != 0 ||
-	         auth_approval(as, lc, pw->pw_name, "ssh") <= 0)) {
+	if ((as = auth_open()) == NULL || auth_setpwd(as, pw) != 0 ||
+	    auth_approval(as, lc, pw->pw_name, "ssh") <= 0) {
 		debug("Approval failure for %s", user);
 		pw = NULL;
 	}
@@ -554,13 +566,9 @@ getpwnamallow(const char *user)
 		auth_close(as);
 #endif
 #endif
-	if (pw != NULL) {
-		pw = pwcopy(pw);
-#if defined(HAVE_BSM_AUDIT_H) && defined(HAVE_LIBBSM)
-		solaris_audit_save_pw(pw);
-#endif /* BSM */
-	}
-	return (pw);
+	if (pw != NULL)
+		return (pwcopy(pw));
+	return (NULL);
 }
 
 void
@@ -613,8 +621,8 @@ fakepw(void)
 	fake.pw_passwd =
 	    "$2a$06$r3.juUaHZDlIbQaO2dS9FuYxL1W9M81R1Tc92PoSNmzvpEqLkLGrK";
 	fake.pw_gecos = "NOUSER";
-	fake.pw_uid = -1;
-	fake.pw_gid = -1;
+	fake.pw_uid = (uid_t)-1;
+	fake.pw_gid = (gid_t)-1;
 #ifdef HAVE_PW_CLASS_IN_PASSWD
 	fake.pw_class = "";
 #endif

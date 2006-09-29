@@ -44,6 +44,22 @@ typedef enum
     SSL_HdskNoCertAlert = 100
 } SSLHandshakeType;
 
+/* Hello Extensions per RFC 3546 */
+typedef enum 
+{
+	SSL_HE_ServerName = 0,
+	SSL_HE_MaxFragmentLength = 1,
+	SSL_HE_ClientCertificateURL = 2,
+	SSL_HE_TrustedCAKeys = 3,
+	SSL_HE_TruncatedHMAC = 4,
+	SSL_HE_StatusReguest = 5,
+	/* 
+	 * This one is suggested but not formally defined in 
+	 * I.D.salowey-tls-ticket-07
+	 */
+	SSL_HE_SessionTicket = 35
+} SSLHelloExtensionType;
+
 typedef enum
 {   SSL_read,
     SSL_write
@@ -118,6 +134,7 @@ OSStatus SSLProcessServerHello(SSLBuffer message, SSLContext *ctx);
 OSStatus SSLEncodeClientHello(SSLRecord &clientHello, SSLContext *ctx);
 OSStatus SSLProcessClientHello(SSLBuffer message, SSLContext *ctx);
 OSStatus SSLInitMessageHashes(SSLContext *ctx);
+OSStatus SSLEncodeRandom(unsigned char *p, SSLContext *ctx);
 
 /** sslKeyExchange.c **/
 OSStatus SSLEncodeServerKeyExchange(SSLRecord &keyExch, SSLContext *ctx);

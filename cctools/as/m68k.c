@@ -3146,7 +3146,7 @@ int *sizeP)
 void
 md_number_to_chars(
 char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int n)
 {
 	switch(n) {
@@ -3171,7 +3171,7 @@ int n)
 void
 md_number_to_imm(
 unsigned char *buf,
-signed_target_addr_t val,
+signed_expr_t val,
 int n,
 fixS *fixP,
 int nsect)
@@ -3726,7 +3726,7 @@ int ok)
 		adds(exp)=0;
 		subs(exp)=0;
 		offs(exp)= (ok==10) ? 1 : 0;
-		as_warn("Null expression defaults to " TA_DFMT ,offs(exp));
+		as_warn("Null expression defaults to %lld", offs(exp));
 		return 0;
 	}
 
@@ -3822,7 +3822,7 @@ int ok)
 			subs(exp)=0;
 			offs(exp)= (ok==10) ? 1 : 0;
 			as_warn("Can't deal with expression \"%s\": defaulting "
-				"to " TA_DFMT, exp->e_beg, offs(exp));
+				"to %lld", exp->e_beg, offs(exp));
 		}
 		break;
 	case SEG_BIG:
@@ -3844,7 +3844,7 @@ int ok)
 			subs(exp)=0;
 			offs(exp)= (ok==10) ? 1 : 0;
 			as_warn("Can't deal with expression \"%s\": defaulting "
-				"to " TA_DFMT, exp->e_beg, offs(exp));
+				"to %lld", exp->e_beg, offs(exp));
 		}
 		break;
 	default:

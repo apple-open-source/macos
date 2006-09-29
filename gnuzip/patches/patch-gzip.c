@@ -1,5 +1,5 @@
---- gzip.c.orig	Sat Sep 28 03:38:43 2002
-+++ gzip.c	Tue Feb 22 18:49:52 2005
+--- gzip.c.orig	2005-10-11 17:02:42.000000000 -0700
++++ gzip.c	2005-10-11 17:05:28.000000000 -0700
 @@ -47,6 +47,12 @@
  #include <signal.h>
  #include <sys/stat.h>
@@ -61,17 +61,66 @@
      /* Check if the input file is present, set ifname and istat: */
      if (get_istat(iname, &istat) != OK) return;
  
-@@ -878,6 +904,13 @@
-     if (!to_stdout && close(ofd)) {
- 	write_error();
+@@ -875,8 +901,14 @@
      }
-+
-+#if __APPLE__
+ 
+     close(ifd);
+-    if (!to_stdout && close(ofd)) {
+-	write_error();
 +    if (!to_stdout) {
++#if __APPLE__
 +	copyfile(ifname, ofname, 0, COPYFILE_ACL | COPYFILE_XATTR);
-+    }
 +#endif
-+
++	/* Copy modes, times, ownership, and remove the input file */
++	copy_stat(&istat);
++	if (close(ofd))
++	    write_error();
+     }
      if (method == -1) {
  	if (!to_stdout) xunlink (ofname);
- 	return;
+@@ -896,10 +928,6 @@
+ 	}
+ 	fprintf(stderr, "\n");
+     }
+-    /* Copy modes, times, ownership, and remove the input file */
+-    if (!to_stdout) {
+-	copy_stat(&istat);
+-    }
+ }
+ 
+ /* ========================================================================
+@@ -1317,6 +1345,7 @@
+ 		/* Copy the base name. Keep a directory prefix intact. */
+                 char *p = base_name (ofname);
+                 char *base = p;
++		char *base2;
+ 		for (;;) {
+ 		    *p = (char)get_char();
+ 		    if (*p++ == '\0') break;
+@@ -1324,6 +1353,8 @@
+ 			error("corrupted input -- file name too large");
+ 		    }
+ 		}
++		base2 = basename (base);
++		strcpy(base, base2);
+                 /* If necessary, adapt the name to local OS conventions: */
+                 if (!list) {
+                    MAKE_LEGAL_NAME(base);
+@@ -1725,7 +1756,7 @@
+     reset_times(ofname, ifstat);
+ #endif
+     /* Copy the protection modes */
+-    if (chmod(ofname, ifstat->st_mode & 07777)) {
++    if (fchmod(ofd, ifstat->st_mode & 07777)) {
+ 	int e = errno;
+ 	WARN((stderr, "%s: ", progname));
+ 	if (!quiet) {
+@@ -1734,7 +1765,7 @@
+ 	}
+     }
+ #ifndef NO_CHOWN
+-    chown(ofname, ifstat->st_uid, ifstat->st_gid);  /* Copy ownership */
++    (void) fchown(ofd, ifstat->st_uid, ifstat->st_gid);  /* Copy ownership */
+ #endif
+     remove_ofname = 0;
+     /* It's now safe to remove the input file: */

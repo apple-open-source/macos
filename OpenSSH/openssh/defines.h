@@ -25,7 +25,7 @@
 #ifndef _DEFINES_H
 #define _DEFINES_H
 
-/* $Id: defines.h,v 1.115 2004/04/14 07:24:30 dtucker Exp $ */
+/* $Id: defines.h,v 1.127 2005/08/31 16:59:49 tim Exp $ */
 
 
 /* Constants */
@@ -54,9 +54,23 @@ enum
 # ifdef PATH_MAX
 #  define MAXPATHLEN PATH_MAX
 # else /* PATH_MAX */
-#  define MAXPATHLEN 64 /* Should be safe */
+#  define MAXPATHLEN 64
+/* realpath uses a fixed buffer of size MAXPATHLEN, so force use of ours */
+#  ifndef BROKEN_REALPATH
+#   define BROKEN_REALPATH 1
+#  endif /* BROKEN_REALPATH */
 # endif /* PATH_MAX */
 #endif /* MAXPATHLEN */
+
+#ifndef PATH_MAX
+# ifdef _POSIX_PATH_MAX
+# define PATH_MAX _POSIX_PATH_MAX
+# endif
+#endif
+
+#ifndef MAXSYMLINKS
+# define MAXSYMLINKS 5
+#endif
 
 #ifndef STDIN_FILENO
 # define STDIN_FILENO    0
@@ -288,6 +302,10 @@ struct	sockaddr_un {
 };
 #endif /* HAVE_SYS_UN_H */
 
+#ifndef HAVE_IN_ADDR_T
+typedef u_int32_t	in_addr_t;
+#endif
+
 #if defined(BROKEN_SYS_TERMIO_H) && !defined(_STRUCT_WINSIZE)
 #define _STRUCT_WINSIZE
 struct winsize {
@@ -424,6 +442,14 @@ struct winsize {
 # define __attribute__(x)
 #endif /* !defined(__GNUC__) || (__GNUC__ < 2) */
 
+#ifndef __dead
+# define __dead	__attribute__((noreturn))
+#endif
+
+#if !defined(HAVE_ATTRIBUTE__SENTINEL__) && !defined(__sentinel__)
+# define __sentinel__
+#endif
+
 /* *-*-nto-qnx doesn't define this macro in the system headers */
 #ifdef MISSING_HOWMANY
 # define howmany(x,y)	(((x)+((y)-1))/(y))
@@ -462,6 +488,9 @@ struct winsize {
 	 (struct cmsghdr *)NULL)
 #endif /* CMSG_FIRSTHDR */
 
+#ifndef offsetof
+# define offsetof(type, member) ((size_t) &((type *)0)->member)
+#endif
 
 /* Function replacement / compatibility hacks */
 
@@ -523,6 +552,11 @@ struct winsize {
 # define getpgrp() getpgrp(0)
 #endif
 
+#ifdef USE_BSM_AUDIT
+# define SSH_AUDIT_EVENTS
+# define CUSTOM_SSH_AUDIT_EVENTS
+#endif
+
 /* OPENSSL_free() is Free() in versions before OpenSSL 0.9.6 */
 #if !defined(OPENSSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x0090600f)
 # define OPENSSL_free(x) Free(x)
@@ -551,6 +585,23 @@ struct winsize {
 # define SSH_SYSFDMAX 10000
 #endif
 
+#if defined(__Lynx__)
+ /*
+  * LynxOS defines these in param.h which we do not want to include since
+  * it will also pull in a bunch of kernel definitions.
+  */
+# define ALIGNBYTES (sizeof(int) - 1)
+# define ALIGN(p) (((unsigned)p + ALIGNBYTES) & ~ALIGNBYTES)
+  /* Missing prototypes on LynxOS */
+  int snprintf (char *, size_t, const char *, ...);
+  int mkstemp (char *);
+  char *crypt (const char *, const char *);
+  int seteuid (uid_t);
+  int setegid (gid_t);
+  char *mkdtemp (char *);
+  int rresvport_af (int *, sa_family_t);
+  int innetgr (const char *, const char *, const char *, const char *);
+#endif
 
 /*
  * Define this to use pipes instead of socketpairs for communicating with the
@@ -637,6 +688,27 @@ struct winsize {
 # define CUSTOM_SYS_AUTH_PASSWD 1
 #endif
 
+#if defined(HAVE_LIBIAF)  &&  !defined(BROKEN_LIBIAF)
+# define CUSTOM_SYS_AUTH_PASSWD 1
+#endif
+
+/* HP-UX 11.11 */
+#ifdef BTMP_FILE
+# define _PATH_BTMP BTMP_FILE
+#endif
+
+#if defined(USE_BTMP) && defined(_PATH_BTMP)
+# define CUSTOM_FAILED_LOGIN
+#endif
+
 /** end of login recorder definitions */
+
+#ifdef BROKEN_GETGROUPS
+# define getgroups(a,b) ((a)==0 && (b)==NULL ? NGROUPS_MAX : getgroups((a),(b)))
+#endif
+
+#if defined(HAVE_MMAP) && defined(BROKEN_MMAP)
+# undef HAVE_MMAP
+#endif
 
 #endif /* _DEFINES_H */

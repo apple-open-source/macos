@@ -17,20 +17,25 @@
 #include  "i18n.h"
 #include "md5.h"
 
-#if OPIE_ENABLE
+#ifdef OPIE_ENABLE
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <opie.h>
+#ifdef __cplusplus
+}
+#endif
 
 int do_otp(int sock, char *command, struct query *ctl)
 {
     int i, rval;
-    int result;
     char buffer[128];
     char challenge[OPIE_CHALLENGE_MAX+1+8];
     char response[OPIE_RESPONSE_MAX+1];
 
     gen_send(sock, "%s X-OTP", command);
 
-    if (rval = gen_recv(sock, buffer, sizeof(buffer)))
+    if ((rval = gen_recv(sock, buffer, sizeof(buffer))))
 	return rval;
 
 	if (strncmp(buffer, "+", 1)) {
@@ -43,7 +48,7 @@ int do_otp(int sock, char *command, struct query *ctl)
     gen_send(sock, buffer, sizeof(buffer));
 	suppress_tags = FALSE;
 
-    if (rval = gen_recv(sock, buffer, sizeof(buffer)))
+    if ((rval = gen_recv(sock, buffer, sizeof(buffer))))
 	return rval;
 
 	memset(challenge, '\0', sizeof(challenge));
@@ -70,14 +75,11 @@ int do_otp(int sock, char *command, struct query *ctl)
     gen_send(sock, buffer, strlen(buffer));
     suppress_tags = FALSE;
 
-    if (rval = gen_recv(sock, buffer, sizeof(buffer)))
+    if ((rval = gen_recv(sock, buffer, sizeof(buffer))))
 	return rval;
 
-    if (result)
-	return PS_SUCCESS;
-    else
-	return PS_AUTHFAIL;
-};
+    return PS_SUCCESS;
+}
 #endif /* OPIE_ENABLE */
 
 /* opie.c ends here */

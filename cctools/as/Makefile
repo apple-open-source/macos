@@ -19,21 +19,8 @@ USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 	     echo YES ; else echo NO ; \
 	     fi; )
 
-# This won't happen for a while 
-#ifeq "macos" "$(RC_OS)"
-# PRIVATEHEADERS := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] ||    \
-#			       [ "$(RC_RELEASE)" = "Bunsen" ] ||    \
-#			       [ "$(RC_RELEASE)" = "Gonzo" ]; then \
-#			 echo /System/Library; else echo /MacOSX/System; fi; \
-#		)/Frameworks/System.framework/PrivateHeaders
-#else
-#  PRIVATEHEADERS = /System/Library/Frameworks/System.framework/PrivateHeaders
-#endif
-PRIVATEHEADERS = /System/Library/Frameworks/System.framework/PrivateHeaders
-
 CFLAGS = $(OFLAG) -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) \
-	$(GCC_FLAGS) -DNeXT_MOD \
-	-I$(NEXT_ROOT)$(PRIVATEHEADERS)
+	$(GCC_FLAGS) -DNeXT_MOD 
 
 LIBSTUFF_DIR = -L$(SYMROOT)/../../libstuff
 LIBSTUFF = -lstuff
@@ -53,6 +40,7 @@ SYM_DIRS = $(SYMROOT)/driver_dir \
 	   $(SYMROOT)/a68_dir \
 	   $(SYMROOT)/a88_dir \
 	   $(SYMROOT)/a386_dir \
+ 	   $(SYMROOT)/ax86_64_dir \
 	   $(SYMROOT)/appc_dir \
 	   $(SYMROOT)/appc64_dir \
 	   $(SYMROOT)/a860_dir \
@@ -63,6 +51,7 @@ OFILE_DIRS = $(OBJROOT)/driver_dir \
 	     $(OBJROOT)/a68_dir \
 	     $(OBJROOT)/a88_dir \
 	     $(OBJROOT)/a386_dir \
+ 	     $(OBJROOT)/ax86_64_dir \
 	     $(OBJROOT)/appc_dir \
 	     $(OBJROOT)/appc64_dir \
 	     $(OBJROOT)/a860_dir \
@@ -128,7 +117,7 @@ OBJS_hppa = $(CFILES_hppa:.c=.o)
 OBJS_sparc = $(CFILES_sparc:.c=.o)
 
 all:	$(OFILE_DIRS) $(SYM_DIRS) driver_build a68_build a88_build a386_build \
-	a860_build appc_build appc64_build ahppa_build asparc_build
+	ax86_64_build a860_build appc_build appc64_build ahppa_build asparc_build
 
 all_test:	a68_test a88_test a860_test a386_test appc_test ahppa_test
 
@@ -206,6 +195,24 @@ a386_build:	$(OBJROOT)/a386_dir
 		RC_CFLAGS="$(RC_CFLAGS)"  DEP_DIR=a386_dir;		\
 	fi
 
+ax86_64_build:	$(OBJROOT)/ax86_64_dir
+	@if [ $(SRCROOT) = . ];						\
+ 	then								\
+ 	    cd ax86_64_dir; $(MAKE) -f ../Makefile as VPATH=.. OFILE_DIR=.	\
+ 		SRCROOT=.. TARGET_OBJS="$(OBJS_i386)" DEP_DIR=ax86_64_dir	\
+ 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" OFLAG=$(OFLAG)	\
+ 		COPTS="-DI386 -Di486 -Di586 -Di686 -DARCH64" \
+ 		RC_CFLAGS="$(RC_CFLAGS)" LIBSTUFF="-lstuff64"; \
+ 	else								\
+ 	    cd $(OBJROOT)/ax86_64_dir; $(MAKE) -f $(SRCROOT)/Makefile as	\
+ 		VPATH=$(SRCROOT) OFILE_DIR=$(OBJROOT)/ax86_64_dir		\
+ 		SYMROOT=$(SYMROOT)/ax86_64_dir SRCROOT=$(SRCROOT)		\
+ 		TARGET_OBJS="$(OBJS_i386)" LIBSTUFF="-lstuff64"\
+ 		COPTS="-DI386 -Di486 -Di586 -Di686 -DARCH64" \
+ 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
+ 		RC_CFLAGS="$(RC_CFLAGS)"  DEP_DIR=ax86_64_dir;		\
+ 	fi
+ 
 a386_test: a386_dir
 	cd a386_dir; $(MAKE) -f ../Makefile i386-check VPATH=.. OFILE_DIR=. \
 		SRCROOT=.. COPTS="-DI386 -Di486 -Di586 -Di686"
@@ -389,6 +396,9 @@ macos_install: common_install xcommon_install
 	$(MKDIRS) $(DSTROOT)$(LIBDIR)/i386
 	install -c -s -m 555 $(SYMROOT)/a386_dir/as \
 		$(DSTROOT)$(LIBDIR)/i386/as
+	$(MKDIRS) $(DSTROOT)$(LIBDIR)/x86_64
+	install -c -s -m 555 $(SYMROOT)/ax86_64_dir/as \
+		$(DSTROOT)$(LIBDIR)/x86_64/as
 
 teflon_install: common_install xcommon_install
 	$(MKDIRS) $(DSTROOT)$(LIBDIR)/i386

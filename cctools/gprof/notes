@@ -3,6 +3,9 @@ TODO:
   stuff).
 - Add multi-arch support for findcalls() and make work better (use disasm).
 
+Changes for the 5.21 release (the cctools-590.39 release):
+- Removed the -I flag for private headers as it would no longer compile with it.
+
 Changes for the 5.18 release (the cctools-583 release):
 - Changed the Makefile so that when RC_XBS is set to YES then the compiler
   options -MD and -dependency-file as well as the md(1) program are not used.

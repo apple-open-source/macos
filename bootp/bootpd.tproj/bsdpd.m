@@ -890,7 +890,7 @@ X_netboot(NBImageEntryRef image_entry, struct in_addr server_ip,
 
 static boolean_t
 S_add_bootfile(NBImageEntryRef entry, const char * arch, const char * hostname,
-	       char * pkt_bootfile)
+	       char * pkt_bootfile, int pkt_bootfile_size)
 {
     char	tftp_path[PATH_MAX];
 
@@ -906,7 +906,8 @@ S_add_bootfile(NBImageEntryRef entry, const char * arch, const char * hostname,
 		 entry->sharepoint.name, 
 		 entry->dir_name, arch, entry->bootfile);
     }
-    if (bootp_add_bootfile(NULL, hostname, tftp_path, pkt_bootfile) == FALSE) {
+    if (bootp_add_bootfile(NULL, hostname, tftp_path,
+			   pkt_bootfile, pkt_bootfile_size) == FALSE) {
 	my_log(LOG_INFO, "NetBoot: bootp_add_bootfile %s failed",
 	       tftp_path);
 	return (FALSE);
@@ -1004,7 +1005,8 @@ S_client_update(struct in_addr * client_ip_p, const char * arch,
 	return (FALSE);
 	break;
     }
-    if (S_add_bootfile(image_entry, arch, hostname, reply->dp_file) == FALSE) {
+    if (S_add_bootfile(image_entry, arch, hostname, 
+		       reply->dp_file, sizeof(reply->dp_file)) == FALSE) {
 	return (FALSE);
     }
     {
@@ -1114,7 +1116,8 @@ S_client_create(struct in_addr client_ip,
 	goto failed;
 	break;
     }
-    if (S_add_bootfile(image_entry, arch, hostname, reply->dp_file) == FALSE) {
+    if (S_add_bootfile(image_entry, arch, hostname, 
+		       reply->dp_file, sizeof(reply->dp_file)) == FALSE) {
 	goto failed;
     }
 

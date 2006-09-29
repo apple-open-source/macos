@@ -46,15 +46,9 @@
 #endif kSCEntNetEAPOL
 
 static boolean_t
-get_server_port(port_t * server, kern_return_t * status)
+get_server_port(mach_port_t * server, kern_return_t * status)
 {
-    boolean_t 	active = FALSE;
-
-    *status = eapolcontroller_server_port(server, &active);
-    if (active == FALSE) {
-	fprintf(stderr, "%s not active\n", EAPOLCONTROLLER_SERVER);
-	return (FALSE);
-    }
+    *status = eapolcontroller_server_port(server);
     if (*status != BOOTSTRAP_SUCCESS) {
 	fprintf(stderr, "eapolcontroller_server_port failed, %s\n", 
 		mach_error_string(*status));
@@ -68,7 +62,7 @@ EAPOLControlStart(const char * interface_name, CFDictionaryRef config_dict)
 {
     CFDataRef			data = NULL;
     if_name_t			if_name;
-    port_t			server;
+    mach_port_t			server;
     int				result = 0;
     kern_return_t		status;
     xmlDataOut_t		xml_data = NULL;
@@ -120,7 +114,7 @@ int
 EAPOLControlStop(const char * interface_name)
 {
     if_name_t			if_name;
-    port_t			server;
+    mach_port_t			server;
     int				result = 0;
     kern_return_t		status;
 
@@ -145,7 +139,7 @@ EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config_dict)
 {
     CFDataRef			data = NULL;
     if_name_t			if_name;
-    port_t			server;
+    mach_port_t			server;
     int				result = 0;
     kern_return_t		status;
     xmlDataOut_t		xml_data = NULL;
@@ -183,7 +177,7 @@ EAPOLControlRetry(const char * interface_name)
 {
     if_name_t			if_name;
     int				result = 0;
-    port_t			server;
+    mach_port_t			server;
     kern_return_t		status;
 
     if (get_server_port(&server, &status) == FALSE) {
@@ -208,10 +202,10 @@ EAPOLControlCopyStateAndStatus(const char * interface_name,
 {
     if_name_t			if_name;
     int				result = 0;
-    port_t			server;
+    mach_port_t			server;
     kern_return_t		status;
     xmlDataOut_t		status_data = NULL;
-    int				status_data_len = 0;
+    unsigned int		status_data_len = 0;
 
     *status_dict_p = NULL;
     if (get_server_port(&server, &status) == FALSE) {
@@ -248,7 +242,7 @@ int
 EAPOLControlSetLogLevel(const char * interface_name, int32_t level)
 {
     if_name_t			if_name;
-    port_t			server;
+    mach_port_t			server;
     int				result = 0;
     kern_return_t		status;
 

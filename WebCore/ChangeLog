@@ -1,3 +1,138 @@
+=== WebCore-418.21 ===
+
+2006-08-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        
+        This fixes <rdar://problem/4661982> (crash in KHTMLParser::popBlock).
+        
+        - This patch reworks a previous fix for <rdar://problem/3524912> repro 
+        crash in KHTMLParser::parseToken, due to parser's current element being 
+        destroyed (www.gnnetcom.dk), along with subsequent adjustments to fix
+        leaks.
+        
+        The previous solutions caused a ~2% performance regression on iBench HTML,
+        due to RefPtr churn. The optimizations here gain back that ~2% plus ~1% more,
+        for a total win of ~3% vs current TOT.
+        
+        The solution here is:
+        (1) Don't let the parser ref document nodes -- that causes leaks.
+        (2) Handle ref/deref manually, to avoid RefPtr churn. Specifically, when 
+        moving a node between stacks or to/from 'current', rather than deref'ing
+        and then ref'ing again, simply move the node, along with its refcount, to
+        its new location, and overwrite its old location.
+ 
+        * WebCore.xcodeproj/project.pbxproj:
+        * html/HTMLParser.cpp:
+        (WebCore::HTMLStackElem::HTMLStackElem):
+        (WebCore::HTMLStackElem::derefNode):
+        (WebCore::HTMLParser::HTMLParser):
+        (WebCore::HTMLParser::setCurrent):
+        (WebCore::HTMLParser::insertNode):
+        (WebCore::HTMLParser::popNestedHeaderTag):
+        (WebCore::HTMLParser::handleResidualStyleCloseTagAcrossBlocks):
+        (WebCore::HTMLParser::reopenResidualStyleTags):
+        (WebCore::HTMLParser::pushBlock):
+        (WebCore::HTMLParser::popBlock):
+        (WebCore::HTMLParser::popOneBlockCommon):
+        (WebCore::HTMLParser::popOneBlock):
+        (WebCore::HTMLParser::moveOneBlockToStack):
+        * html/HTMLParser.h:
+
+
+2006-08-04  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by me/Hyatt.
+
+        Mostly this is merging over Hyatt's fix with r15801. Some other 
+        things needed to be tweaked though. This is a better fix for 
+        <rdar://problem/4541255> Safari hangs at http://www.kutilek.de/
+        safari-test/ somewhere from 
+        WebCore::RenderBlock::layoutInlineChildren(bool)
+
+        * khtml/rendering/render_box.cpp:
+        (RenderBox::deleteLineBoxWrapper): Call remove.
+        * khtml/rendering/render_box.h:
+        * khtml/rendering/render_list.cpp: 
+        (RenderListItem::updateMarkerLocation): Call remove.
+        * khtml/rendering/render_list.h:
+        (khtml::ListMarkerBox:::InlineBox):
+        * khtml/rendering/render_object.cpp: Back out old fix.
+        (RenderObject::remove):
+        * khtml/rendering/render_object.h: Back out old fix. 
+
+2006-07-28  Beth Dakin  <bdakin@apple.com>
+
+        Rubber stamped by Maciej.
+
+        Fix for <rdar://problem/4541255> Safari hangs at http://
+        www.kutilek.de/safari-test/ somewhere from 
+        WebCore::RenderBlock::layoutInlineChildren(bool)
+
+        This is the same fix that Maciej and I did a week ago for 4529398. 
+        Rolling it onto the branch because it fixes this crash too!
+
+        * WebCore.xcodeproj/project.pbxproj: Project file wars.
+        * khtml/rendering/render_list.cpp:
+        (ListMarkerBox::detach): Remove from parent when detaching.
+        (ListMarkerBox::operator delete):
+        * khtml/rendering/render_list.h:
+
+=== WebCore-418.20.1 ===
+
+2006-07-06  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        - Speculative fix for <rdar://problem/4605532> unrepro crash at cnn.com after upgrading to 10.4.7 (but happening with 10.4.6 too)
+
+        * khtml/khtmlview.cpp: (KHTMLView::layout): Ref's the view during layout, since a recalcStyle could cause the view to be deleted.
+        If we get back from recalcStyle, and there's only one ref, return early since the the view will be deleted when we exit layout.
+        * khtml/khtmlview.h: (KHTMLView::hasOneRef): Added.
+
+=== WebCore-418.20 ===
+
+2006-07-05  Alice Liu  <alice.liu@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        This fixes <rdar://problem/4600166> REGRESSION: Safari crash while loading web pages ( http://www.yahoo.com/ )
+
+    2005-10-16  David Hyatt  <hyatt@apple.com>
+
+        Clean up the deletion of anonymous boxes in the render tree.
+        Renamed methods to make it more clear and also added comments.
+	
+        Reviewed by bdakin
+
+        * khtml/rendering/render_container.cpp:
+        (RenderContainer::detach): 
+        this was renamed on the branch, from RenderContainer::destroy
+        (RenderContainer::detachLeftoverChildren):
+        this was renamed on the branch, from RenderContainer::destroyLeftoverChildren
+        * khtml/rendering/render_container.h:
+        * khtml/rendering/render_flow.cpp:
+        (RenderFlow::detach):
+        this was renamed on the branch, from RenderContainer::destroy
+
+=== WebCore-418.19.1 ===
+
+2006-06-21  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+        This fixes <rdar://problem/4571273> WebCore crash in khtml::RenderObject::getAbsoluteRepaintRectWithOutline
+
+    2005-10-21  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Hyatt
+
+        Fix for <rdar://problem/3947202> certain sequence of DOM 
+        method calls involving CSS outline and display crashes Safari 
+        (in repaint code).
+
+        * khtml/rendering/render_flow.cpp:
+        (RenderFlow::destroy): Need to set m_continuation to 0 after it
+        is destroyed to prevent possible crashes.
+
 === WebCore-418.19 ===
 
 2006-06-14  Justin Garcia  <justin.garcia@apple.com>

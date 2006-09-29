@@ -66,6 +66,21 @@ enum NXByteOrder target_byte_sex)
 }
 
 void
+swap_mach_header_64(
+struct mach_header_64 *mh,
+enum NXByteOrder target_byte_sex)
+{
+	mh->magic = NXSwapLong(mh->magic);
+	mh->cputype = NXSwapLong(mh->cputype);
+	mh->cpusubtype = NXSwapLong(mh->cpusubtype);
+	mh->filetype = NXSwapLong(mh->filetype);
+	mh->ncmds = NXSwapLong(mh->ncmds);
+	mh->sizeofcmds = NXSwapLong(mh->sizeofcmds);
+	mh->flags = NXSwapLong(mh->flags);
+	mh->reserved = NXSwapLong(mh->reserved);
+}
+
+void
 swap_load_command(
 struct load_command *lc,
 enum NXByteOrder target_byte_sex)
@@ -92,6 +107,24 @@ enum NXByteOrder target_byte_sex)
 	sg->flags = NXSwapLong(sg->flags);
 }
 
+void 
+swap_segment_command_64(
+struct segment_command_64* sg,
+enum NXByteOrder target_byte_sex)
+{
+	/* char segname[16] */
+	sg->cmd = NXSwapLong(sg->cmd);
+	sg->cmdsize = NXSwapLong(sg->cmdsize);
+	sg->vmaddr = NXSwapLongLong(sg->vmaddr);
+	sg->vmsize = NXSwapLongLong(sg->vmsize);
+	sg->fileoff = NXSwapLongLong(sg->fileoff);
+	sg->filesize = NXSwapLongLong(sg->filesize);
+	sg->maxprot = NXSwapLong(sg->maxprot);
+	sg->initprot = NXSwapLong(sg->initprot);
+	sg->nsects = NXSwapLong(sg->nsects);
+	sg->flags = NXSwapLong(sg->flags);
+}
+
 void
 swap_section(
 struct section *s,
@@ -112,6 +145,30 @@ enum NXByteOrder target_byte_sex)
 	    s[i].flags = NXSwapLong(s[i].flags);
 	    s[i].reserved1 = NXSwapLong(s[i].reserved1);
 	    s[i].reserved2 = NXSwapLong(s[i].reserved2);
+	}
+}
+
+void
+swap_section_64(
+struct section_64 *s,
+uint32_t nsects,
+enum NXByteOrder target_byte_sex)
+{
+    uint32_t i;
+
+	for(i = 0; i < nsects; i++){
+	    /* sectname[16] */
+	    /* segname[16] */
+	    s[i].addr = NXSwapLongLong(s[i].addr);
+	    s[i].size = NXSwapLongLong(s[i].size);
+	    s[i].offset = NXSwapLong(s[i].offset);
+	    s[i].align = NXSwapLong(s[i].align);
+	    s[i].reloff = NXSwapLong(s[i].reloff);
+	    s[i].nreloc = NXSwapLong(s[i].nreloc);
+	    s[i].flags = NXSwapLong(s[i].flags);
+	    s[i].reserved1 = NXSwapLong(s[i].reserved1);
+	    s[i].reserved2 = NXSwapLong(s[i].reserved2);
+	    s[i].reserved3 = NXSwapLong(s[i].reserved3);
 	}
 }
 
@@ -304,6 +361,23 @@ enum NXByteOrder target_byte_sex)
 }
 
 void
+swap_routines_command_64(
+struct routines_command_64 *r_cmd,
+enum NXByteOrder target_byte_sex)
+{
+	r_cmd->cmd = NXSwapLong(r_cmd->cmd);
+	r_cmd->cmdsize = NXSwapLong(r_cmd->cmdsize);
+	r_cmd->init_address = NXSwapLongLong(r_cmd->init_address);
+	r_cmd->init_module = NXSwapLongLong(r_cmd->init_module);
+	r_cmd->reserved1 = NXSwapLongLong(r_cmd->reserved1);
+	r_cmd->reserved2 = NXSwapLongLong(r_cmd->reserved2);
+	r_cmd->reserved3 = NXSwapLongLong(r_cmd->reserved3);
+	r_cmd->reserved4 = NXSwapLongLong(r_cmd->reserved4);
+	r_cmd->reserved5 = NXSwapLongLong(r_cmd->reserved5);
+	r_cmd->reserved6 = NXSwapLongLong(r_cmd->reserved6);
+}
+
+void
 swap_prebind_cksum_command(
 struct prebind_cksum_command *cksum_cmd,
 enum NXByteOrder target_byte_sex)
@@ -311,6 +385,15 @@ enum NXByteOrder target_byte_sex)
 	cksum_cmd->cmd = NXSwapLong(cksum_cmd->cmd);
 	cksum_cmd->cmdsize = NXSwapLong(cksum_cmd->cmdsize);
 	cksum_cmd->cksum = NXSwapLong(cksum_cmd->cksum);
+}
+
+void
+swap_uuid_command(
+struct uuid_command *uuid_cmd,
+enum NXByteOrder target_byte_sex)
+{
+	uuid_cmd->cmd = NXSwapLong(uuid_cmd->cmd);
+	uuid_cmd->cmdsize = NXSwapLong(uuid_cmd->cmdsize);
 }
 
 void
@@ -327,6 +410,23 @@ enum NXByteOrder target_byte_sex)
 	    /* n_sect */
 	    symbols[i].n_desc = NXSwapShort(symbols[i].n_desc);
 	    symbols[i].n_value = NXSwapLong(symbols[i].n_value);
+	}
+}
+
+void
+swap_nlist_64(
+struct nlist_64 *symbols,
+uint32_t nsymbols,
+enum NXByteOrder target_byte_sex)
+{
+    uint32_t i;
+
+	for(i = 0; i < nsymbols; i++){
+	    symbols[i].n_un.n_strx = NXSwapLong(symbols[i].n_un.n_strx);
+	    /* n_type */
+	    /* n_sect */
+	    symbols[i].n_desc = NXSwapShort(symbols[i].n_desc);
+	    symbols[i].n_value = NXSwapLongLong(symbols[i].n_value);
 	}
 }
 
@@ -485,6 +585,33 @@ enum NXByteOrder target_byte_sex)
 	    mods[i].nextrel     = NXSwapLong(mods[i].nextrel);
 	    mods[i].iinit_iterm = NXSwapLong(mods[i].iinit_iterm);
 	    mods[i].ninit_nterm = NXSwapLong(mods[i].ninit_nterm);
+	    mods[i].objc_module_info_size = NXSwapLong(mods[i].objc_module_info_size);
+	    mods[i].objc_module_info_addr = NXSwapLong(mods[i].objc_module_info_addr);
+	}
+}
+
+void
+swap_dylib_module_64(
+struct dylib_module_64 *mods,
+uint32_t nmods,
+enum NXByteOrder target_byte_sex)
+{
+    uint32_t i;
+
+	for(i = 0; i < nmods; i++){
+	    mods[i].module_name = NXSwapLong(mods[i].module_name);
+	    mods[i].iextdefsym  = NXSwapLong(mods[i].iextdefsym);
+	    mods[i].nextdefsym  = NXSwapLong(mods[i].nextdefsym);
+	    mods[i].irefsym     = NXSwapLong(mods[i].irefsym);
+	    mods[i].nrefsym     = NXSwapLong(mods[i].nrefsym);
+	    mods[i].ilocalsym   = NXSwapLong(mods[i].ilocalsym);
+	    mods[i].nlocalsym   = NXSwapLong(mods[i].nlocalsym);
+	    mods[i].iextrel     = NXSwapLong(mods[i].iextrel);
+	    mods[i].nextrel     = NXSwapLong(mods[i].nextrel);
+	    mods[i].iinit_iterm = NXSwapLong(mods[i].iinit_iterm);
+	    mods[i].ninit_nterm = NXSwapLong(mods[i].ninit_nterm);
+	    mods[i].objc_module_info_size = NXSwapLong(mods[i].objc_module_info_size);
+	    mods[i].objc_module_info_addr = NXSwapLongLong(mods[i].objc_module_info_addr);
 	}
 }
 

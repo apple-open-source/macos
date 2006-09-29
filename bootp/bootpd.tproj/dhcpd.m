@@ -1240,7 +1240,8 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		char 	file[PATH_MAX];
 #endif 0
 		if (bootp_add_bootfile(rq->dp_file, hostname, bootfile,
-				       reply->dp_file) == FALSE)
+				       reply->dp_file, sizeof(reply->dp_file))
+		    == FALSE)
 		    goto no_reply;
 #if 0		
 		if (dhcpoa_add(&options, dhcptag_bootfile_name_e

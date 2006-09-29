@@ -70,7 +70,7 @@ unsigned long nfat_archs)
 
 	case CPU_TYPE_POWERPC64:
 	    /*
-	     * An exact match as not found.  So for all the PowerPC64 subtypes
+	     * An exact match was not found.  So for all the PowerPC64 subtypes
 	     * pick the subtype from the following order starting from a subtype
 	     * that will work (contains 64-bit instructions or altivec if
 	     * needed):
@@ -97,6 +97,21 @@ unsigned long nfat_archs)
 		    if(fat_archs[i].cputype != cputype)
 			continue;
 		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_POWERPC_ALL)
+			return(fat_archs + i);
+		}
+	    }
+	    break;
+
+	case CPU_TYPE_X86_64:
+	    /*
+	     * We have no subtypes for x86-64, so treat all cases the same here.
+	     */
+	    switch(cpusubtype){
+	    default:
+		for(i = 0; i < nfat_archs; i++){
+		    if(fat_archs[i].cputype != cputype)
+			continue;
+		    if(fat_archs[i].cpusubtype == CPU_SUBTYPE_I386_ALL)
 			return(fat_archs + i);
 		}
 	    }
@@ -388,9 +403,9 @@ cpu_subtype_t cpusubtype1,
 cpu_subtype_t cpusubtype2)
 {
 	/*
-	 * We now combine any i386 subtype to the ALL subtype.
+	 * We now combine any i386 or x86_64 subtype to the ALL subtype.
 	 */
-	if(cputype == CPU_TYPE_I386)
+	if(cputype == CPU_TYPE_I386 || cputype == CPU_TYPE_X86_64)
 	    return(CPU_SUBTYPE_I386_ALL);
 
 	if(cpusubtype1 == cpusubtype2)

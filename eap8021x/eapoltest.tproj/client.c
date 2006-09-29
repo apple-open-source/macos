@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/time.h>
 #include <mach/mach.h>
 #include <mach/message.h>
 #include <mach/boolean.h>
@@ -35,12 +36,34 @@
 #include <CoreFoundation/CFString.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SystemConfiguration.h>
 #include <EAP8021X/EAPOLControl.h>
 #include "myCFUtil.h"
 
 typedef int func_t(int argc, char * argv[]);
 typedef func_t * funcptr_t;
 char * progname = NULL;
+
+void
+timestamp_fprintf(FILE * f, const char * message, ...)
+{
+    struct timeval	tv;
+    struct tm       	tm;
+    time_t		t;
+    va_list		ap;
+
+    (void)gettimeofday(&tv, NULL);
+    t = tv.tv_sec;
+    (void)localtime_r(&t, &tm);
+
+    va_start(ap, message);
+    fprintf(f, "%04d/%02d/%02d %2d:%02d:%02d.%06d ",
+	    tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+	    tm.tm_hour, tm.tm_min, tm.tm_sec,
+	    tv.tv_usec);
+    vfprintf(f, message, ap);
+    va_end(ap);
+}
 
 static const char *
 S_state_names(EAPOLControlState state) 
@@ -55,27 +78,132 @@ S_state_names(EAPOLControlState state)
 }
 
 static int
-S_state(int argc, char * argv[])
+get_eapol_interface_status(const char * ifname)
 {
     CFDictionaryRef	dict = NULL;
     int 		result;
     EAPOLControlState 	state;
 
-    result = EAPOLControlCopyStateAndStatus(argv[0], &state, &dict);
+    result = EAPOLControlCopyStateAndStatus(ifname, &state, &dict);
     if (result == 0) {
-	fprintf(stderr, "EAPOLControlGetState %s\n",
+	fprintf(stdout, "EAPOLControlCopyStateAndStatus(%s) =  %s\n", ifname,
 		S_state_names(state));
 	if (dict != NULL) {
-	    printf("Status dict:\n");
-	    CFShow(dict);
-	    printf("\n");
+	    SCPrint(TRUE, stdout, CFSTR("Status dict:\n%@\n"), dict);
 	    CFRelease(dict);
 	}
     }
     else {
-	fprintf(stderr, "EAPOLControlGetState returned %d\n", result);
+	fprintf(stderr, "EAPOLControlCopyStateAndStatus(%s) returned %d\n", ifname, result);
     }
     return (result);
+
+}
+
+static SCDynamicStoreRef
+config_session_start(SCDynamicStoreCallBack func, void * arg, const char * ifname)
+{
+    SCDynamicStoreContext	context;
+    CFStringRef			key;
+    SCDynamicStoreRef		store;
+
+    bzero(&context, sizeof(context));
+    context.info = arg;
+    store = SCDynamicStoreCreate(NULL, CFSTR("/usr/local/bin/eapoltest"), 
+				 func, &context);
+    if (store == NULL) {
+	fprintf(stderr, "SCDynamicStoreCreate() failed, %s",
+		SCErrorString(SCError()));
+	return (NULL);
+    }
+    /* EAPClient status notifications */
+    if (ifname == NULL) {
+	/* watch all interfaces */
+	CFArrayRef			patterns;
+
+	key = EAPOLControlAnyInterfaceKeyCreate();
+	patterns = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
+	CFRelease(key);
+	SCDynamicStoreSetNotificationKeys(store, NULL, patterns);
+	CFRelease(patterns);
+    }
+    else {
+	/* watch just one interface */
+	CFArrayRef			keys = NULL;
+
+	key = EAPOLControlKeyCreate(ifname);
+	keys = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
+	CFRelease(key);
+	SCDynamicStoreSetNotificationKeys(store, keys, NULL);
+	CFRelease(keys);
+    }
+    return (store);
+}
+
+static int
+cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
+{
+    CFIndex		l;
+    CFIndex		n;
+    CFRange		range;
+
+    range = CFRangeMake(0, CFStringGetLength(cfstr));
+    n = CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
+			 0, FALSE, (uint8_t *)str, len, &l);
+    str[l] = '\0';
+    return (l);
+}
+
+static void
+monitor_eapol_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
+{
+    int 		count;
+    int 		i;
+
+    count = CFArrayGetCount(changes);
+    for (i = 0; i < count; i++) {
+	CFStringRef 	key = CFArrayGetValueAtIndex(changes, i);
+	CFStringRef	interface = NULL;
+	char 		ifname[16];
+
+	interface = EAPOLControlKeyCopyInterface(key);
+	if (interface == NULL) {
+	    continue;
+	}
+	cfstring_to_cstring(interface, ifname, sizeof(ifname));
+	CFRelease(interface);
+	timestamp_fprintf(stdout, "%s changed\n", ifname);
+	get_eapol_interface_status(ifname);
+	printf("\n");
+    }
+    return;
+}
+
+static int
+S_monitor(int argc, char * argv[])
+{
+    const char *	ifname = NULL;
+    SCDynamicStoreRef 	store = NULL;
+    CFRunLoopSourceRef	rls = NULL;
+
+    if (argc > 0) {
+	ifname = argv[0];
+	get_eapol_interface_status(ifname);
+    }
+
+    store = config_session_start(monitor_eapol_change, NULL, ifname);
+    rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRunLoopRun();
+
+    /* not reached */
+    return (0);
+}
+
+static int
+S_state(int argc, char * argv[])
+{
+    return (get_eapol_interface_status(argv[0]));
 }
 
 static int
@@ -166,6 +294,7 @@ static struct {
     { "retry", S_retry, 1, "<interface_name>" },
     { "update", S_update, 2, "<interface_name> <config_file>" },
     { "log", S_log, 2, "<interface_name> <level>" },
+    { "monitor", S_monitor, 0, "[ <interface_name> ]" },
     { NULL, NULL, 0, NULL },
 };
 

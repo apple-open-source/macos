@@ -1599,7 +1599,7 @@ env_cmd(int argc, char *argv[])
     				argv[1]);
 	return 0;
     }
-    if (c->narg + 2 != argc) {
+    if (c->narg + 2 != argc && strcasecmp(argv[1],"define")==0 && c->narg + 1 != argc) {
 	fprintf(stderr,
 	    "Need %s%d argument%s to 'environ %s' command.  'environ ?' for help.\n",
 		c->narg < argc + 2 ? "only " : "",
@@ -1636,19 +1636,20 @@ env_find(const unsigned char *var)
 void
 env_init(void)
 {
-	extern char **environ;
-	char **epp, *cp;
+        char *ev;
 	struct env_lst *ep;
+	int i;
 
-	for (epp = environ; *epp; epp++) {
-		if ((cp = strchr(*epp, '='))) {
-			*cp = '\0';
-			ep = env_define((unsigned char *)*epp,
-					(unsigned char *)cp+1);
-			ep->export = 0;
-			*cp = '=';
-		}
+	const char *safe_vars[]=
+	  {"USER", "PRINTER", "DISPLAY", "TERM", "COLUMNS", "LINES"};
+	
+	for(i=0;i<sizeof(safe_vars)/sizeof(const char *);i++) {
+	    if(ev=getenv(safe_vars[i])) {
+	      ep=env_define((unsigned char *)safe_vars[i],(unsigned char *)ev);
+	        ep->export=0;
+	    }
 	}
+
 	/*
 	 * Special case for DISPLAY variable.  If it is ":0.0" or
 	 * "unix:0.0", we have to get rid of "unix" and insert our
@@ -1658,7 +1659,7 @@ env_init(void)
 	    && ((*ep->value == ':')
 		|| (strncmp((char *)ep->value, "unix:", 5) == 0))) {
 		char hbuf[256+1];
-		char *cp2 = strchr((char *)ep->value, ':');
+		char *cp, *cp2 = strchr((char *)ep->value, ':');
 
 		gethostname(hbuf, 256);
 		hbuf[256] = '\0';
@@ -1683,6 +1684,7 @@ env_init(void)
 struct env_lst *
 env_define(const unsigned char *var, unsigned char *value)
 {
+        char *ev;
 	struct env_lst *ep;
 
 	if ((ep = env_find(var))) {
@@ -1698,10 +1700,16 @@ env_define(const unsigned char *var, unsigned char *value)
 		if (ep->next)
 			ep->next->prev = ep;
 	}
-	ep->welldefined = opt_welldefined(var);
+
+	ep->welldefined = opt_welldefined((const char *)var);
 	ep->export = 1;
-	ep->var = strdup(var);
-	ep->value = strdup(value);
+	ep->var = (unsigned char *)strdup((const char *)var);
+
+	if(value) 
+		  ep->value = (unsigned char *)strdup((const char *)value);
+	else if(ev=getenv((const char *)var))
+		  ep->value = (unsigned char *)strdup(ev);
+	else	  ep->value = (unsigned char *)strdup("");
 	return(ep);
 }
 
@@ -1747,7 +1755,7 @@ env_send(unsigned char *var)
 
 	if (my_state_is_wont(TELOPT_NEW_ENVIRON)
 #ifdef	OLD_ENVIRON
-	    && my_state_is_wont(TELOPT_OLD_ENVIRON)
+           && my_state_is_wont(TELOPT_OLD_ENVIRON)
 #endif
 		) {
 		fprintf(stderr,
@@ -1772,7 +1780,7 @@ env_list(void)
 	struct env_lst *ep;
 
 	for (ep = envlisthead.next; ep; ep = ep->next) {
-		printf("%c %-20s %s\n", ep->export ? '*' : ' ',
+	        printf("%c %-20s %s\n", ep->export ? '*' : ' ',
 					ep->var, ep->value);
 	}
 }

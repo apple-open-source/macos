@@ -58,17 +58,22 @@ RenderContainer::~RenderContainer()
 
 void RenderContainer::detach()
 {
-    if (continuation())
-        continuation()->detach();
-    
-    while (m_first) {
-        if (m_first->isListMarker())
-            m_first->remove();
-        else
-            m_first->detach();
-    }
-
+    detachLeftoverChildren();
     RenderBox::detach();
+}
+
+void RenderContainer::detachLeftoverChildren()
+{
+    while (m_first) {
+        if (m_first->isListMarker() || (m_first->style()->styleType() == RenderStyle::FIRST_LETTER && !m_first->isText()))
+            m_first->remove();  // List markers are owned by their enclosing list and so don't get destroyed by this container. Similarly, first letters are destroyed by their remaining text fragment.
+        else {
+        // Destroy any anonymous children remaining in the render tree, as well as implicit (shadow) DOM elements like those used in the engine-based text fields.
+            if (m_first->element())
+                m_first->element()->setRenderer(0);
+            m_first->detach();
+        }
+    }
 }
 
 bool RenderContainer::canHaveChildren() const

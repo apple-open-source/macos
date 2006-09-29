@@ -1,200 +1,210 @@
 # Catalan messages for fetchmail.
-# Copyright (C) 2003 Free Software Foundation, Inc.
-# Ernest Adrogué Calveras <eadrogue@gmx.net>, 2003.
+# Copyright (C) Eric S. Raymond.
+# Ernest Adrogué Calveras <eadrogue@gmx.net>, 2005.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: fetchmail 6.2.3\n"
-"POT-Creation-Date: 2003-10-15 15:23-0400\n"
-"PO-Revision-Date: 2003-07-27 17:54+0200\n"
+"Project-Id-Version: fetchmail 6.3.0\n"
+"Report-Msgid-Bugs-To: fetchmail-devel@lists.berlios.de\n"
+"POT-Creation-Date: 2006-04-06 11:48+0200\n"
+"PO-Revision-Date: 2005-12-06 17:53+0100\n"
 "Last-Translator: Ernest Adrogué Calveras <eadrogue@gmx.net>\n"
 "Language-Team: Catalan <ca@dodds.net>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=iso-8859-1\n"
 "Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: checkalias.c:171
+#: checkalias.c:174
 #, c-format
 msgid "Checking if %s is really the same node as %s\n"
 msgstr "Comprovant si realment %s és el mateix node que %s\n"
 
-#: checkalias.c:175
+#: checkalias.c:178
 msgid "Yes, their IP addresses match\n"
 msgstr "Afirmatiu, les adreces IP coincideixen\n"
 
-#: checkalias.c:179
+#: checkalias.c:182
 msgid "No, their IP addresses don't match\n"
 msgstr "Negatiu, les adreces IP no coincideixen\n"
 
 # poll of
-#: checkalias.c:199 checkalias.c:225
+#: checkalias.c:198
+#, c-format
+msgid "nameserver failure while looking for '%s' during poll of %s: %s\n"
+msgstr "no s'ha pogut resoldre el nom `%s' durant la consulta de %s: %s\n"
+
+# poll of
+#: checkalias.c:223
 #, c-format
 msgid "nameserver failure while looking for `%s' during poll of %s.\n"
 msgstr "no s'ha pogut resoldre el nom `%s' quan es consultava %s.\n"
 
 #: cram.c:95
 msgid "could not decode BASE64 challenge\n"
-msgstr "no s'ha pogut desxifrar la codificació BASE64\n"
+msgstr "no s'ha pogut desxifrar el repte codificat en BASE64\n"
 
 #: cram.c:103
 #, c-format
 msgid "decoded as %s\n"
 msgstr "desxifrat com a %s\n"
 
-#: driver.c:191
+#: driver.c:194
 #, c-format
 msgid "kerberos error %s\n"
 msgstr "error de kerberos %s\n"
 
-#: driver.c:250 driver.c:255
+#: driver.c:252 driver.c:257
 #, c-format
 msgid "krb5_sendauth: %s [server says '%*s'] \n"
 msgstr "krb5_sendauth: %s [el servidor diu: '%*s'] \n"
 
-# "avís de" o "avís per"?
-#: driver.c:336
+#: driver.c:338
+msgid "Subject: Fetchmail oversized-messages warning"
+msgstr "Subject: fetchmail: Missatges excessivament grans"
+
+#: driver.c:342
 #, c-format
-msgid ""
-"Subject: Fetchmail oversized-messages warning.\n"
-"\n"
-"The following oversized messages remain on the mail server %s:"
+msgid "The following oversized messages were deleted on server %s account %s:"
 msgstr ""
-"Subject: fetchmail: avís de missatges excessivament grans.\n"
-"\n"
-"Els següents missatges de mida excessiva s'han deixat al servidor %s:"
+"Els següents missatges de mida excessiva s'han eliminat del servidor %s, "
+"compte %s:"
 
-#: driver.c:354
+#: driver.c:346
 #, c-format
-msgid "\t%d msg %d octets long skipped by fetchmail.\n"
-msgstr "\tmissatge %d de %d octets: s'ha omès.\n"
+msgid "The following oversized messages remain on server %s account %s:"
+msgstr ""
+"Els següents missatges de mida excessiva romanen al servidor %s, compte %s:"
 
-#: driver.c:494
-#, fuzzy, c-format
+#: driver.c:365
+#, c-format
+msgid "  %d msg %d octets long deleted by fetchmail."
+msgstr "  msg %d de %d octets eliminat pel fetchmail."
+
+#: driver.c:369
+#, c-format
+msgid "  %d msg %d octets long skipped by fetchmail."
+msgstr "  msg %d de %d octets no descarregat."
+
+#: driver.c:504
+#, c-format
 msgid "skipping message %s@%s:%d"
-msgstr "ometent el missatge %s@%s:%d (%d octets)"
+msgstr "ometent el missatge %s@%s:%d"
 
-#: driver.c:546
+#: driver.c:558
 #, c-format
 msgid "skipping message %s@%s:%d (%d octets)"
 msgstr "ometent el missatge %s@%s:%d (%d octets)"
 
-#.
-#. * Invalid lengths are produced by Post Office/NT's
-#. * annoying habit of randomly prepending bogus
-#. * LIST items of length -1.  Patrick Audley
-#. * <paudley@pobox.com> tells us: LIST shows a
-#. * size of -1, RETR and TOP return "-ERR
-#. * System error - couldn't open message", and
-#. * DELE succeeds but doesn't actually delete
-#. * the message.
-#.
-#: driver.c:562
+#: driver.c:574
 msgid " (length -1)"
 msgstr " (mida -1)"
 
-#: driver.c:565
+#: driver.c:577
 msgid " (oversized)"
-msgstr " (massa gran)"
+msgstr " (excessiu)"
 
-#: driver.c:580
+#: driver.c:592
 #, c-format
 msgid "couldn't fetch headers, message %s@%s:%d (%d octets)\n"
-msgstr "falta l'encapçalament, missatge %s@%s:%d (%d octets)\n"
+msgstr "falta la capçalera, missatge %s@%s:%d (%d octets)\n"
 
-#: driver.c:597
+#: driver.c:609
 #, c-format
 msgid "reading message %s@%s:%d of %d"
 msgstr "llegint el missatge %s@%s:%d de %d"
 
-# %s pot ser nul, o bé "header "
-#: driver.c:602
+#: driver.c:614
 #, c-format
-msgid " (%d %soctets)"
-msgstr " (%d octets%s)"
+msgid " (%d octets)"
+msgstr " (%d octets)"
 
-# en o a?
-#: driver.c:603
-msgid "header "
-msgstr " en l'encapçalament"
+#: driver.c:615
+#, c-format
+msgid " (%d header octets)"
+msgstr " (capçalera de %d octets) "
 
-#: driver.c:675
+#: driver.c:687
 #, c-format
 msgid " (%d body octets) "
-msgstr " (%d octets en el cos) "
+msgstr " (cos de %d octets) "
 
-#: driver.c:733
+#: driver.c:745
 #, c-format
 msgid ""
 "message %s@%s:%d was not the expected length (%d actual != %d expected)\n"
 msgstr ""
 "el missatge %s@%s:%d no tenia la mida esperada (%d real != %d esperada)\n"
 
-#: driver.c:764
+#: driver.c:776
 msgid " retained\n"
 msgstr " retingut\n"
 
 # lliurat, expedit, despatxat, esborrat, eliminat...
-#: driver.c:773
+#: driver.c:786
 msgid " flushed\n"
 msgstr " eliminat\n"
 
 # ídem
-#: driver.c:790
+#: driver.c:803
 msgid " not flushed\n"
 msgstr " no eliminat\n"
 
 # traducció de "fetchlimit"
-#: driver.c:806
+#: driver.c:821
 #, c-format
-msgid "fetchlimit %d reached; %d messages left on server %s account %s\n"
-msgstr ""
-"límit de %d obtencions assolit; resten %d missatges al compte %s del "
-"servidor %s\n"
+msgid "fetchlimit %d reached; %d message left on server %s account %s\n"
+msgid_plural ""
+"fetchlimit %d reached; %d messages left on server %s account %s\n"
+msgstr[0] ""
+"assolit el límit de %d missatge(s); en queda %d al servidor %s compte %s\n"
+msgstr[1] ""
+"assolit el límit de %d missatge(s); en queden %d al servidor %s compte %s\n"
 
 # socket o sòcol?
-#: driver.c:866
+#: driver.c:885
 msgid "SIGPIPE thrown from an MDA or a stream socket error\n"
 msgstr "SIGPIPE rebut des d'un MDA, o error de flux de socket\n"
 
-#: driver.c:873
+#: driver.c:892
 #, c-format
 msgid "timeout after %d seconds waiting to connect to server %s.\n"
 msgstr "temps esgotat després de %d segons esperant connectar amb %s.\n"
 
-#: driver.c:877
+#: driver.c:896
 #, c-format
 msgid "timeout after %d seconds waiting for server %s.\n"
 msgstr "temps esgotat després de %d segons esperant el servidor %s.\n"
 
-#: driver.c:881
+#: driver.c:900
 #, c-format
 msgid "timeout after %d seconds waiting for %s.\n"
 msgstr "temps esgotat després de %d segons esperant per a %s.\n"
 
-#: driver.c:886
+#: driver.c:905
 #, c-format
 msgid "timeout after %d seconds waiting for listener to respond.\n"
 msgstr "temps esgotat després de %d segons esperant resposta del receptor.\n"
 
-#: driver.c:889
+#: driver.c:908
 #, c-format
 msgid "timeout after %d seconds.\n"
 msgstr "temps d'espera esgotat després de %d segons.\n"
 
-#: driver.c:901
-msgid "Subject: fetchmail sees repeated timeouts\n"
-msgstr "Subject: fetchmail: s'esgota el temps d'espera molt sovint\n"
+#: driver.c:920
+msgid "Subject: fetchmail sees repeated timeouts"
+msgstr "Subject: fetchmail: S'esgota el temps d'espera molt sovint"
 
-#: driver.c:903
+#: driver.c:923
 #, c-format
 msgid ""
 "Fetchmail saw more than %d timeouts while attempting to get mail from %s@%"
 "s.\n"
 msgstr ""
-"El fetchmail ha excedit el temps d'espera més de %d cops quan intentava "
+"El fetchmail ha esgotat el temps d'espera més de %d cops quan intentava "
 "obtenir el correu de %s@%s.\n"
 
-#: driver.c:908
+#: driver.c:927
 msgid ""
 "This could mean that your mailserver is stuck, or that your SMTP\n"
 "server is wedged, or that your mailbox file on the server has been\n"
@@ -211,106 +221,97 @@ msgstr ""
 "El fetchmail no tornarà a comprovar més aquesta bústia fins que el\n"
 "reinicieu.\n"
 
-#: driver.c:937
+#: driver.c:952
 #, c-format
 msgid "pre-connection command failed with status %d\n"
 msgstr "l'ordre de preconnexió ha fallat amb estat %d\n"
 
-#: driver.c:968
+#: driver.c:976
 #, c-format
 msgid "couldn't find HESIOD pobox for %s\n"
-msgstr "no s'ha pogut trobar cap casella HESIOD per %s\n"
+msgstr "no s'ha pogut trobar cap casella HESIOD per a %s\n"
 
-#: driver.c:990
+#: driver.c:997
 msgid "Lead server has no name.\n"
 msgstr "El servidor principal no té nom.\n"
 
-#: driver.c:1013
+#: driver.c:1021
 #, c-format
 msgid "couldn't find canonical DNS name of %s (%s)\n"
 msgstr "no s'ha pogut trobar el nom canònic DNS de %s (%s)\n"
 
-#: driver.c:1050
-msgid "internal inconsistency\n"
-msgstr "inconsistència interna\n"
-
-#: driver.c:1060
+#: driver.c:1067
 #, c-format
 msgid "%s connection to %s failed"
 msgstr "la connexió %s amb %s ha fallat"
 
-#: driver.c:1066
-msgid "host is unknown."
-msgstr "host desconegut."
+#: driver.c:1083
+msgid "Subject: Fetchmail unreachable-server warning."
+msgstr "Subject: fetchmail: Servidor inaccessible."
 
-#: driver.c:1069
-msgid "name is valid but has no IP address."
-msgstr "el nom és vàlid, però no té cap adreça IP."
-
-#: driver.c:1072
-msgid "unrecoverable name server error."
-msgstr "error no recuperable del servidor de noms."
-
-#: driver.c:1074
-msgid "temporary name server error."
-msgstr "error passatger del servidor de noms."
-
-#: driver.c:1081
+#: driver.c:1085
 #, c-format
-msgid "unknown DNS error %d."
-msgstr "error de DNS %d no identificat."
+msgid "Fetchmail could not reach the mail server %s:"
+msgstr "El fetchmail no ha pogut contactar amb el servidor %s:"
 
-#: driver.c:1099
-#, c-format
-msgid ""
-"Subject: Fetchmail unreachable-server warning.\n"
-"\n"
-"Fetchmail could not reach the mail server %s:"
-msgstr ""
-"Subject: fetchmail: servidor inaccessible.\n"
-"\n"
-"El fetchmail no pot contactar amb el servidor de correu %s:"
-
-#: driver.c:1128 imap.c:366 pop3.c:410
+#: driver.c:1111 imap.c:399 pop3.c:464
 msgid "SSL connection failed.\n"
 msgstr "La conexió SSL ha fallat.\n"
 
-#: driver.c:1181
+#: driver.c:1164
 #, c-format
 msgid "Lock-busy error on %s@%s\n"
-msgstr "Bloqueig temporal de la bústia a %s@%s\n"
+msgstr "Bloqueig temporal de la bústia per a %s@%s\n"
 
-#: driver.c:1185
+#: driver.c:1168
 #, c-format
 msgid "Server busy error on %s@%s\n"
-msgstr "Servidor ocupat a %s@%s\n"
+msgstr "Servidor ocupat per a %s@%s\n"
 
-#: driver.c:1190
+#: driver.c:1173
 #, c-format
 msgid "Authorization failure on %s@%s%s\n"
-msgstr "L'autorització per %s@%s%s ha fallat\n"
+msgstr "L'autorització per a %s@%s%s ha fallat\n"
 
-#: driver.c:1193
+#: driver.c:1176
 msgid " (previously authorized)"
 msgstr " (prèviament autoritzat)"
 
-#: driver.c:1214
+#: driver.c:1197
 #, c-format
-msgid "Subject: fetchmail authentication failed on %s@%s\n"
-msgstr "Subject: fetchmail: l'autenticació de %s@%s ha fallat\n"
+msgid "Subject: fetchmail authentication failed on %s@%s"
+msgstr "Subject: fetchmail: L'autenticació per a %s@%s ha fallat"
 
-#: driver.c:1217
+#: driver.c:1201
 #, c-format
 msgid "Fetchmail could not get mail from %s@%s.\n"
 msgstr "El fetchmail no ha pogut obtenir el correu de %s@%s.\n"
 
-#: driver.c:1221
+#: driver.c:1205
+#, fuzzy
 msgid ""
 "The attempt to get authorization failed.\n"
 "Since we have already succeeded in getting authorization for this\n"
 "connection, this is probably another failure mode (such as busy server)\n"
 "that fetchmail cannot distinguish because the server didn't send a useful\n"
-"error message.\n"
+"error message."
+msgstr ""
+"L'intent d'obtenir autorització ha fallat.\n"
+"Com que en ocasions anteriors ja s'havia obtingut autorització amb èxit\n"
+"per aquesta connexió, probablement es tracta d'una altra mena de problema\n"
+"(tal com que el servidor està ocupat) que el fetchmail no pot identificar\n"
+"perquè el servidor no envia missatges d'error que ho permetin.\n"
+"\n"
+"No obstant, si heu canviat els paràmetres d'aquest compte des de que s'ha\n"
+"iniciat el dimoni fetchmail, haureu d'aturar el dimoni, canviar la\n"
+"configuració, i aleshores reiniciar-lo.\n"
+"\n"
+"El fetchmail continarà intentant connectar-s'hi a cada cicle, però no us\n"
+"enviarà més notificacions fins que el servei es restableixi."
+
+#: driver.c:1211
+#, fuzzy
+msgid ""
 "\n"
 "However, if you HAVE changed your account details since starting the\n"
 "fetchmail daemon, you need to stop the daemon, change your configuration\n"
@@ -322,7 +323,7 @@ msgid ""
 msgstr ""
 "L'intent d'obtenir autorització ha fallat.\n"
 "Com que en ocasions anteriors ja s'havia obtingut autorització amb èxit\n"
-"per aquesta connexió, probablement es tracta d'un altra mena de problema\n"
+"per aquesta connexió, probablement es tracta d'una altra mena de problema\n"
 "(tal com que el servidor està ocupat) que el fetchmail no pot identificar\n"
 "perquè el servidor no envia missatges d'error que ho permetin.\n"
 "\n"
@@ -330,10 +331,10 @@ msgstr ""
 "iniciat el dimoni fetchmail, haureu d'aturar el dimoni, canviar la\n"
 "configuració, i aleshores reiniciar-lo.\n"
 "\n"
-"El fetchmail continarà intentant connectar-s'hi a cada cicle, però\n"
-"no us enviarà més notificacions fins que el servei es restableixi."
+"El fetchmail continarà intentant connectar-s'hi a cada cicle, però no us\n"
+"enviarà més notificacions fins que el servei es restableixi."
 
-#: driver.c:1236
+#: driver.c:1221
 msgid ""
 "The attempt to get authorization failed.\n"
 "This probably means your password is invalid, but some servers have\n"
@@ -346,179 +347,182 @@ msgid ""
 msgstr ""
 "L'intent d'obtenir autorització ha fallat.\n"
 "Probablement això significa que la vostra contrasenya no és vàlida, però\n"
-"també podria ser una altre mena d'error que el fetchmail no pot distingir\n"
+"també podria ser una altra mena d'error que el fetchmail no pot distingir\n"
 "d'aquest perquè el servidor no envia els missatges d'error apropiats.\n"
 "\n"
 "El dimoni fetchmail continuarà funcionant i intentant connectar-s'hi a cada\n"
 "cicle, però no us enviarà més notificacions fins que restabliu el servei."
 
-#: driver.c:1251
+#: driver.c:1237
 #, c-format
 msgid "Repoll immediately on %s@%s\n"
 msgstr "Es torna a recollir el correu immediatament de %s@%s\n"
 
-#: driver.c:1256
+#: driver.c:1242
 #, c-format
 msgid "Unknown login or authentication error on %s@%s\n"
-msgstr "Error no identificat de login o autenticació a %s@%s\n"
+msgstr "Error no identificat de login o autenticació per a %s@%s\n"
 
-#: driver.c:1280
+#: driver.c:1266
 #, c-format
 msgid "Authorization OK on %s@%s\n"
-msgstr "Autorització reeixida a %s@%s\n"
+msgstr "Autorització reeixida per a %s@%s\n"
 
-#: driver.c:1286
+#: driver.c:1272
 #, c-format
-msgid "Subject: fetchmail authentication OK on %s@%s\n"
-msgstr "Subject: fetchmail: autenticació reeixida a %s@%s\n"
+msgid "Subject: fetchmail authentication OK on %s@%s"
+msgstr "Subject: fetchmail: Autenticació reeixida per a %s@%s"
 
-#: driver.c:1289
+#: driver.c:1276
 #, c-format
 msgid "Fetchmail was able to log into %s@%s.\n"
 msgstr "El fetchmail ha estat capaç d'accedir a %s@%s.\n"
 
-#: driver.c:1293
+#: driver.c:1280
 msgid "Service has been restored.\n"
 msgstr "El servei s'ha restablert.\n"
 
-#: driver.c:1324
+#: driver.c:1312
 #, c-format
 msgid "selecting or re-polling folder %s\n"
-msgstr "seleccionant o re-comprovant la carpeta %s\n"
+msgstr "seleccionant o re-examinant la carpeta %s\n"
+
+#: driver.c:1314
+msgid "selecting or re-polling default folder\n"
+msgstr "seleccionant o re-examinant la carpeta per omissió\n"
 
 #: driver.c:1326
-msgid "selecting or re-polling default folder\n"
-msgstr "seleccionant o re-comprovant la carpeta per omissió\n"
-
-#: driver.c:1342
 #, c-format
 msgid "%s at %s (folder %s)"
 msgstr "%s a %s (carpeta %s)"
 
-#: driver.c:1350 rcfile_y.y:397
+#: driver.c:1329 rcfile_y.y:381
 #, c-format
 msgid "%s at %s"
 msgstr "%s a %s"
 
-#. only used for ETRN
-#: driver.c:1355
+#: driver.c:1334
 #, c-format
 msgid "Polling %s\n"
 msgstr "Consultant %s\n"
 
 # seen
-#: driver.c:1359
-#, fuzzy, c-format
-msgid "%d %s (%d %s) for %s"
-msgstr "%d %s (%d vistos) per %s"
-
-#: driver.c:1360 driver.c:1367
-msgid "messages"
-msgstr "missatges"
-
-#: driver.c:1361 driver.c:1368
-msgid "message"
-msgstr "missatge"
-
-#: driver.c:1363
-msgid "seen"
-msgstr ""
-
-#: driver.c:1366
+#: driver.c:1338
 #, c-format
-msgid "%d %s for %s"
-msgstr "%d %s per %s"
+msgid "%d message (%d %s) for %s"
+msgid_plural "%d messages (%d %s) for %s"
+msgstr[0] "%d missatge (%d %s) per a %s"
+msgstr[1] "%d missatges (%d %s) per a %s"
 
-#: driver.c:1372
+#: driver.c:1341
+msgid "seen"
+msgid_plural "seen"
+msgstr[0] "vist"
+msgstr[1] "vistos"
+
+#: driver.c:1344
+#, c-format
+msgid "%d message for %s"
+msgid_plural "%d messages for %s"
+msgstr[0] "%d missatge per a %s"
+msgstr[1] "%d missatges per a %s"
+
+#: driver.c:1351
 #, c-format
 msgid " (%d octets).\n"
 msgstr " (%d octets).\n"
 
-#: driver.c:1378
+#: driver.c:1357
 #, c-format
 msgid "No mail for %s\n"
-msgstr "No hi ha correu per %s\n"
+msgstr "No hi ha correu per a %s\n"
 
-#: driver.c:1411
+#: driver.c:1390 imap.c:89
 msgid "bogus message count!"
-msgstr "recompte de missatges fals!"
+msgstr "recompte de missatges erroni!"
 
-#: driver.c:1512
+#: driver.c:1532
 msgid "socket"
 msgstr "de socket"
 
-#: driver.c:1515
+#: driver.c:1535
 msgid "missing or bad RFC822 header"
 msgstr "de capçalera RFC822"
 
-#: driver.c:1518
+#: driver.c:1538
 msgid "MDA"
 msgstr "de MDA"
 
-#: driver.c:1521
+#: driver.c:1541
 msgid "client/server synchronization"
 msgstr "de sincronització client/servidor"
 
-#: driver.c:1524
+#: driver.c:1544
 msgid "client/server protocol"
 msgstr "de protocol client/servidor"
 
-#: driver.c:1527
+#: driver.c:1547
 msgid "lock busy on server"
-msgstr "de `lock busy' al servidor"
+msgstr "de bloqueig temporal al servidor"
 
-#: driver.c:1530
+#: driver.c:1550
 msgid "SMTP transaction"
 msgstr "de transacció SMTP"
 
-#: driver.c:1533
+#: driver.c:1553
 msgid "DNS lookup"
 msgstr "de consulta DNS"
 
 # aquest missatge va directe a stderr
-#: driver.c:1536
-msgid "undefined error\n"
+#: driver.c:1556
+#, fuzzy
+msgid "undefined"
 msgstr "error no definit\n"
 
-#: driver.c:1547
+#: driver.c:1562
 #, c-format
-msgid "%s error while delivering to SMTP host %s\n"
-msgstr "error %s mentre es lliurava via SMTP al host %s\n"
+msgid "%s error while fetching from %s@%s and delivering to SMTP host %s\n"
+msgstr ""
+"error %s en recollir el correu de %s@%s i lliurar-lo via SMTP al host %s\n"
 
-#: driver.c:1549
+#: driver.c:1564
+msgid "unknown"
+msgstr "desconegut"
+
+#: driver.c:1566
 #, c-format
-msgid "%s error while fetching from %s\n"
-msgstr "error %s mentre es recollia de %s\n"
+msgid "%s error while fetching from %s@%s\n"
+msgstr "error %s en recollir el correu de %s@%s\n"
 
-#: driver.c:1557
+#: driver.c:1577
 #, c-format
 msgid "post-connection command failed with status %d\n"
 msgstr "l'ordre de postconnexió ha fallat amb estat %d\n"
 
-#: driver.c:1578
+#: driver.c:1597
 msgid "Kerberos V4 support not linked.\n"
 msgstr "El suport per Kerberos V4 no està enllaçat.\n"
 
-#: driver.c:1586
+#: driver.c:1605
 msgid "Kerberos V5 support not linked.\n"
 msgstr "El suport per Kerberos V5 no està enllaçat.\n"
 
-#: driver.c:1597
+#: driver.c:1616
 #, c-format
 msgid "Option --flush is not supported with %s\n"
-msgstr "L'opció --flush no està suportada amb %s\n"
+msgstr "L'opció --flush no està suportada per %s\n"
 
-#: driver.c:1603
+#: driver.c:1622
 #, c-format
 msgid "Option --all is not supported with %s\n"
-msgstr "L'opció --all no està suportada amb %s\n"
+msgstr "L'opció --all no està suportada per %s\n"
 
-#: driver.c:1611
+#: driver.c:1631
 #, c-format
 msgid "Option --limit is not supported with %s\n"
-msgstr "L'opció --limit no està suportada amb %s\n"
+msgstr "L'opció --limit no està suportada per %s\n"
 
-#: env.c:60
+#: env.c:59
 #, c-format
 msgid ""
 "%s: The QMAILINJECT environment variable is set.\n"
@@ -533,7 +537,7 @@ msgstr ""
 "Proveu \"env QMAILINJECT= %s ELS VOSTRES ARGUMENTS AQUÍ\"\n"
 "%s: Avorta.\n"
 
-#: env.c:72
+#: env.c:71
 #, c-format
 msgid ""
 "%s: The NULLMAILER_FLAGS environment variable is set.\n"
@@ -550,145 +554,176 @@ msgstr ""
 "Proveu \"env NULLMAILER_FLAGS= %s ELS VOSTRES ARGUMENTS AQUÍ\"\n"
 "%s: Avorta.\n"
 
-#: env.c:84
+#: env.c:83
 #, c-format
 msgid "%s: You don't exist.  Go away.\n"
-msgstr "%s: No existeixes. Escampa la boira.\n"
+msgstr "%s: No existiu. Escampeu la boira.\n"
 
 #: env.c:145
 #, c-format
 msgid "%s: can't determine your host!"
 msgstr "%s: no s'ha pogut determinar el vostre host!"
 
-#: env.c:161
+#: env.c:166
 #, c-format
 msgid "gethostbyname failed for %s\n"
-msgstr "ha fallat la funció gethostbyname per %s\n"
+msgstr "ha fallat la funció gethostbyname per a %s\n"
 
-#: etrn.c:47 odmr.c:59
+#: env.c:168
+msgid "Cannot find my own host in hosts database to qualify it!\n"
+msgstr ""
+"No s'ha pogut trobar el host propi a la base de dades per qualificar-lo!\n"
+
+#: env.c:172
+msgid ""
+"Trying to continue with unqualified hostname.\n"
+"DO NOT report broken Received: headers, HELO/EHLO lines or similar "
+"problems!\n"
+"DO repair your /etc/hosts, DNS, NIS or LDAP instead.\n"
+msgstr ""
+"S'intenta continuar amb el nom de host sense qualificar.\n"
+"No reporteu capçaleres Received, línies HELO/EHLO incorrectes, o similars!\n"
+"Més aviat intenteu reparar el vostre /etc/hosts, DNS, NIS o LDAP.\n"
+
+#: etrn.c:49 odmr.c:60
 #, c-format
 msgid "%s's SMTP listener does not support ESMTP\n"
 msgstr "el receptor SMTP de %s no suporta ESMTP\n"
 
-#: etrn.c:53
+#: etrn.c:55
 #, c-format
 msgid "%s's SMTP listener does not support ETRN\n"
 msgstr "el receptor SMTP de %s no suporta ETRN\n"
 
-#: etrn.c:77
+#: etrn.c:79
 #, c-format
 msgid "Queuing for %s started\n"
-msgstr "S'ha iniciat la cua per %s\n"
+msgstr "S'ha iniciat la cua per a %s\n"
 
-#: etrn.c:82
+#: etrn.c:84
 #, c-format
 msgid "No messages waiting for %s\n"
-msgstr "No hi han missatges pendents per %s\n"
+msgstr "No hi han missatges pendents per a %s\n"
 
-#: etrn.c:88
+#: etrn.c:90
 #, c-format
 msgid "Pending messages for %s started\n"
-msgstr "S'ha iniciat la cua de missatges pendents per %s\n"
+msgstr "S'ha iniciat la cua de missatges pendents per a %s\n"
 
-#. Unable to queue messages for node <x>
-#: etrn.c:92
+#: etrn.c:94
 #, c-format
 msgid "Unable to queue messages for node %s\n"
-msgstr "Els missatges pel node %s no s'han pogut posar a la cua\n"
+msgstr "Els missatges per al node %s no s'han pogut posar a la cua\n"
 
-#. Node <x> not allowed: <reason>
-#: etrn.c:96
+#: etrn.c:98
 #, c-format
 msgid "Node %s not allowed: %s\n"
 msgstr "El node %s no està permès: %s\n"
 
-#. Syntax Error
-#: etrn.c:100
+#: etrn.c:102
 msgid "ETRN syntax error\n"
 msgstr "error de sintaxi d'ETRN\n"
 
-#. Syntax Error in Parameters
-#: etrn.c:104
+#: etrn.c:106
 msgid "ETRN syntax error in parameters\n"
 msgstr "error de sintaxi d'ETRN en els paràmetres\n"
 
-#: etrn.c:108
+#: etrn.c:110
 #, c-format
 msgid "Unknown ETRN error %d\n"
 msgstr "Error d'ETRN no identificat %d\n"
 
-#: etrn.c:155
+#: etrn.c:154
 msgid "Option --keep is not supported with ETRN\n"
-msgstr "L'opció --keep no està suportada amb ETRN\n"
+msgstr "L'opció --keep no està suportada per ETRN\n"
 
-#: etrn.c:159
+#: etrn.c:158
 msgid "Option --flush is not supported with ETRN\n"
-msgstr "L'opció --flush no està suportada amb ETRN\n"
+msgstr "L'opció --flush no està suportada per ETRN\n"
 
-#: etrn.c:163
-msgid "Option --remote is not supported with ETRN\n"
-msgstr "L'opció --remote no està suportada amb ETRN\n"
+#: etrn.c:162
+msgid "Option --folder is not supported with ETRN\n"
+msgstr "L'opció --folder no està suportada per ETRN\n"
 
-#: etrn.c:167
+#: etrn.c:166
 msgid "Option --check is not supported with ETRN\n"
-msgstr "L'opció --check no està suportada amb ETRN\n"
+msgstr "L'opció --check no està suportada per ETRN\n"
 
-#: fetchmail.c:156
+#: fetchmail.c:132
+msgid ""
+"Copyright (C) 2002, 2003 Eric S. Raymond\n"
+"Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Rob F. Funk, Graham "
+"Wilson\n"
+"Copyright (C) 2005-2006 Matthias Andree, Sunil Shetye\n"
+msgstr ""
+
+#: fetchmail.c:136
+msgid ""
+"Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
+"are welcome to redistribute it under certain conditions. For details,\n"
+"please see the file COPYING in the source or documentation directory.\n"
+msgstr ""
+
+#: fetchmail.c:170
+msgid "WARNING: Running as root is discouraged.\n"
+msgstr "ATENCIÓ: Executar fetchmail com a root no és recomanable.\n"
+
+#: fetchmail.c:182
 msgid "fetchmail: invoked with"
 msgstr "fetchmail: invocat amb"
 
-#: fetchmail.c:180
+#: fetchmail.c:206
 msgid "could not get current working directory\n"
 msgstr "no s'ha pogut determinar quin és el directori actual\n"
 
-#: fetchmail.c:190
+#: fetchmail.c:268
 #, c-format
 msgid "This is fetchmail release %s"
-msgstr "Aquesta és la versió del fetchmail %s"
+msgstr "Això és el fetchmail, versió %s"
 
-#: fetchmail.c:331
+#: fetchmail.c:383
 #, c-format
 msgid "Taking options from command line%s%s\n"
 msgstr "Obtenint les opcions de la línia d'ordres%s%s\n"
 
 # després d'això vé el nom d'un fitxer
-#: fetchmail.c:332
+#: fetchmail.c:384
 msgid " and "
 msgstr " i de "
 
-#: fetchmail.c:337
+#: fetchmail.c:389
 #, c-format
 msgid "No mailservers set up -- perhaps %s is missing?\n"
 msgstr "No hi ha cap servidor de correu configurat. Potser falta el %s?\n"
 
-#: fetchmail.c:358
+#: fetchmail.c:410
 msgid "fetchmail: no mailservers have been specified.\n"
 msgstr "fetchmail: no heu especificat cap servidor de correu.\n"
 
-#: fetchmail.c:367 fetchmail.c:376
+#: fetchmail.c:422
 msgid "fetchmail: no other fetchmail is running\n"
 msgstr "fetchmail: no hi ha cap altre fetchmail funcionant\n"
 
 # bailing out
-#: fetchmail.c:382
+#: fetchmail.c:428
 #, c-format
 msgid "fetchmail: error killing %s fetchmail at %d; bailing out.\n"
 msgstr "fetchmail: error finalitzant el fetchmail %s a %d; es deixa estar.\n"
 
-#: fetchmail.c:383 fetchmail.c:389
+#: fetchmail.c:429 fetchmail.c:438
 msgid "background"
 msgstr "en segon terme"
 
-#: fetchmail.c:383 fetchmail.c:389
+#: fetchmail.c:429 fetchmail.c:438
 msgid "foreground"
 msgstr "en primer terme"
 
-#: fetchmail.c:388
+#: fetchmail.c:437
 #, c-format
 msgid "fetchmail: %s fetchmail at %d killed.\n"
-msgstr "fetchmail: el fetchmail %s a %d ha finalitzat.\n"
+msgstr "fetchmail: el fetchmail %s a %d ha estat finalitzat.\n"
 
-#: fetchmail.c:404
+#: fetchmail.c:460
 msgid ""
 "fetchmail: can't check mail while another fetchmail to same host is "
 "running.\n"
@@ -696,7 +731,7 @@ msgstr ""
 "fetchmail: no es pot comprovar el correu mentre funcioni un altre procés del "
 "fetchmail.\n"
 
-#: fetchmail.c:410
+#: fetchmail.c:466
 #, c-format
 msgid ""
 "fetchmail: can't poll specified hosts with another fetchmail running at %d.\n"
@@ -704,814 +739,851 @@ msgstr ""
 "fetchmail: no es poden consultar els hosts especificats amb un altre "
 "fetchmail funcionant a %d.\n"
 
-#: fetchmail.c:417
+#: fetchmail.c:473
 #, c-format
 msgid "fetchmail: another foreground fetchmail is running at %d.\n"
 msgstr "fetchmail: hi ha un altre fetchmail funcionant en primer terme a %d.\n"
 
-#: fetchmail.c:427
+#: fetchmail.c:483
 msgid ""
 "fetchmail: can't accept options while a background fetchmail is running.\n"
 msgstr ""
 "fetchmail: no es poden acceptar opcions mentre funcioni un altre fetchmail "
 "en segon terme.\n"
 
-#: fetchmail.c:433
+#: fetchmail.c:489
 #, c-format
 msgid "fetchmail: background fetchmail at %d awakened.\n"
 msgstr ""
 "fetchmail: el fetchmail funcionant en segon terme a %d s'ha despertat.\n"
 
-#: fetchmail.c:445
+#: fetchmail.c:501
 #, c-format
 msgid "fetchmail: elder sibling at %d died mysteriously.\n"
 msgstr "fetchmail: un procés anterior ha finalitzat misteriosament a %d.\n"
 
-#: fetchmail.c:460
+#: fetchmail.c:516
 #, c-format
 msgid "fetchmail: can't find a password for %s@%s.\n"
-msgstr "fetchmail: no s'ha trobat cap contrasenya per %s@%s.\n"
+msgstr "fetchmail: no s'ha trobat cap contrasenya per a %s@%s.\n"
 
-#: fetchmail.c:466
+#: fetchmail.c:520
 #, c-format
 msgid "Enter password for %s@%s: "
-msgstr "Entreu la contrasenya per %s@%s: "
+msgstr "Entreu la contrasenya per a %s@%s: "
 
-#: fetchmail.c:497
+#: fetchmail.c:551
 #, c-format
 msgid "starting fetchmail %s daemon \n"
 msgstr "iniciant el dimoni fetchmail %s \n"
 
-#: fetchmail.c:512 fetchmail.c:514
+#: fetchmail.c:566 fetchmail.c:568
 #, c-format
 msgid "could not open %s to append logs to \n"
-msgstr "no s'ha pogut obrir %s per afegir-hi els registres \n"
+msgstr "no s'ha pogut obrir %s per afegir-hi el registre d'activitat \n"
 
-#: fetchmail.c:552
+#: fetchmail.c:604
 #, c-format
 msgid "couldn't time-check %s (error %d)\n"
-msgstr "no s'ha pogut verificar l'hora de %s (error %d)\n"
+msgstr "no s'ha pogut verificar la data de %s (error %d)\n"
 
-#: fetchmail.c:557
+#: fetchmail.c:609
 #, c-format
 msgid "restarting fetchmail (%s changed)\n"
 msgstr "reiniciant fetchmail (%s ha canviat)\n"
 
-#: fetchmail.c:562
+#: fetchmail.c:614
 msgid "attempt to re-exec may fail as directory has not been restored\n"
 msgstr ""
 "l'intent de reexecució pot fallar ja que el directori no ha estat restaurat\n"
 
-#: fetchmail.c:589
+#: fetchmail.c:641
 msgid "attempt to re-exec fetchmail failed\n"
 msgstr "l'intent de reexecutar el fetchmail ha fallat\n"
 
-#: fetchmail.c:617
+#: fetchmail.c:669
 #, c-format
 msgid "poll of %s skipped (failed authentication or too many timeouts)\n"
 msgstr ""
-"s'ha omès la consulta de %s (error d'autenticació o massa temps excedits)\n"
+"s'ha omès la consulta de %s (error d'autenticació o massa temps d'espera "
+"excedits)\n"
 
-#: fetchmail.c:629
+#: fetchmail.c:681
 #, c-format
 msgid "interval not reached, not querying %s\n"
 msgstr "no s'ha completat l'interval, no es consultarà %s\n"
 
-#: fetchmail.c:667
+#: fetchmail.c:719
 msgid "Query status=0 (SUCCESS)\n"
 msgstr "Estat de la consulta=0 (SUCCESS)\n"
 
-#: fetchmail.c:669
+#: fetchmail.c:721
 msgid "Query status=1 (NOMAIL)\n"
 msgstr "Estat de la consulta=1 (NOMAIL)\n"
 
-#: fetchmail.c:671
+#: fetchmail.c:723
 msgid "Query status=2 (SOCKET)\n"
 msgstr "Estat de la consulta=2 (SOCKET)\n"
 
-#: fetchmail.c:673
+#: fetchmail.c:725
 msgid "Query status=3 (AUTHFAIL)\n"
 msgstr "Estat de la consulta=3 (AUTHFAIL)\n"
 
-#: fetchmail.c:675
+#: fetchmail.c:727
 msgid "Query status=4 (PROTOCOL)\n"
 msgstr "Estat de la consulta=4 (PROTOCOL)\n"
 
-#: fetchmail.c:677
+#: fetchmail.c:729
 msgid "Query status=5 (SYNTAX)\n"
 msgstr "Estat de la consulta=5 (SYNTAX)\n"
 
-#: fetchmail.c:679
+#: fetchmail.c:731
 msgid "Query status=6 (IOERR)\n"
 msgstr "Estat de la consulta=6 (IOERR)\n"
 
-#: fetchmail.c:681
+#: fetchmail.c:733
 msgid "Query status=7 (ERROR)\n"
 msgstr "Estat de la consulta=7 (ERROR)\n"
 
-#: fetchmail.c:683
+#: fetchmail.c:735
 msgid "Query status=8 (EXCLUDE)\n"
 msgstr "Estat de la consulta=8 (EXCLUDE)\n"
 
-#: fetchmail.c:685
+#: fetchmail.c:737
 msgid "Query status=9 (LOCKBUSY)\n"
 msgstr "Estat de la consulta=9 (LOCKBUSY)\n"
 
-#: fetchmail.c:687
+#: fetchmail.c:739
 msgid "Query status=10 (SMTP)\n"
 msgstr "Estat de la consulta=10 (SMTP)\n"
 
-#: fetchmail.c:689
+#: fetchmail.c:741
 msgid "Query status=11 (DNS)\n"
 msgstr "Estat de la consulta=11 (DNS)\n"
 
-#: fetchmail.c:691
+#: fetchmail.c:743
 msgid "Query status=12 (BSMTP)\n"
 msgstr "Estat de la consulta=12 (BSMTP)\n"
 
-#: fetchmail.c:693
+#: fetchmail.c:745
 msgid "Query status=13 (MAXFETCH)\n"
 msgstr "Estat de la consulta=13 (MAXFETCH)\n"
 
-#: fetchmail.c:695
+#: fetchmail.c:747
 #, c-format
 msgid "Query status=%d\n"
 msgstr "Estat de la consulta=%d\n"
 
-#: fetchmail.c:741
+#: fetchmail.c:793
 msgid "All connections are wedged.  Exiting.\n"
 msgstr "Totes les connexions estan bloquejades. Sortint.\n"
 
 # %s és la sortida de timestamp()
-#: fetchmail.c:748
+#: fetchmail.c:800
 #, c-format
 msgid "sleeping at %s\n"
 msgstr "dormint el %s\n"
 
-#: fetchmail.c:772
+#: fetchmail.c:824
 #, c-format
 msgid "awakened by %s\n"
 msgstr "despertat per %s\n"
 
-#: fetchmail.c:775
+#: fetchmail.c:827
 #, c-format
 msgid "awakened by signal %d\n"
-msgstr "despertat pel senyal %d\n"
+msgstr "despertat per un senyal %d\n"
 
-#: fetchmail.c:782
+#: fetchmail.c:834
 #, c-format
 msgid "awakened at %s\n"
 msgstr "despertat el %s\n"
 
-#: fetchmail.c:788
+#: fetchmail.c:840
 #, c-format
 msgid "normal termination, status %d\n"
 msgstr "finalització normal, estat %d\n"
 
 # nota: run-control és fitxer de control (i.e. .fetchmailrc)
-#: fetchmail.c:941
+#: fetchmail.c:992
 msgid "couldn't time-check the run-control file\n"
-msgstr "no s'ha pogut verificar l'hora del fitxer de control\n"
+msgstr "no s'ha pogut verificar la data del fitxer de control\n"
 
-#: fetchmail.c:974
+#: fetchmail.c:1025
 #, c-format
 msgid "Warning: multiple mentions of host %s in config file\n"
 msgstr ""
 "Atenció: hi ha múltiples mencions del host %s en el fitxer de configuració\n"
 
-#: fetchmail.c:1116
+#: fetchmail.c:1058
+msgid "fetchmail: Error: multiple \"defaults\" records in config file.\n"
+msgstr ""
+"fetchmail: Error: hi ha més d'un compte \"default\" en el fitxer de "
+"configuració.\n"
+
+#: fetchmail.c:1180
 msgid "SSL support is not compiled in.\n"
 msgstr "El suport per SSL no està compilat.\n"
 
-#: fetchmail.c:1149
+#: fetchmail.c:1211
 #, c-format
 msgid ""
 "fetchmail: warning: no DNS available to check multidrop fetches from %s\n"
 msgstr ""
 "fetchmail: atenció: cap DNS disponible per verificar les obtencions "
-"`multidrop' de %s\n"
+"multidrop de %s\n"
 
-#: fetchmail.c:1166
+#: fetchmail.c:1222
 #, c-format
-msgid "%s configuration invalid, port number cannot be negative\n"
-msgstr ""
-"la configuració de %s no és vàlida, el nombre d'un port no pot ser negatiu\n"
+msgid "warning: multidrop for %s requires envelope option!\n"
+msgstr "atenció: el sistema multidrop per a %s requereix l'opció envelope!\n"
 
-#: fetchmail.c:1173
+#: fetchmail.c:1223
+msgid "warning: Do not ask for support if all mail goes to postmaster!\n"
+msgstr "atenció: No demaneu ajuda si tot el correu va al postmaster!\n"
+
+#: fetchmail.c:1240
 #, c-format
-msgid "%s configuration invalid, RPOP requires a privileged port\n"
+msgid ""
+"fetchmail: %s configuration invalid, specify positive port number for "
+"service or port\n"
 msgstr ""
-"la configuració de %s no és vàlida, RPOP requereix un port privilegiat\n"
+"fetchmail: la configuració de %s no és vàlida, el port no pot ser número "
+"negatiu\n"
 
-#: fetchmail.c:1189
+#: fetchmail.c:1247
+#, c-format
+msgid "fetchmail: %s configuration invalid, RPOP requires a privileged port\n"
+msgstr ""
+"fetchmail: la configuració de %s no és vàlida, RPOP requereix un port "
+"privilegiat\n"
+
+#: fetchmail.c:1265
 #, c-format
 msgid "%s configuration invalid, LMTP can't use default SMTP port\n"
 msgstr ""
 "la configuració de %s no és vàlida, LMTP no pot usar el port habitual "
 "d'SMTP\n"
 
-#: fetchmail.c:1204
+#: fetchmail.c:1279
 msgid "Both fetchall and keep on in daemon mode is a mistake!\n"
 msgstr "En mode dimoni les opcions `fetchall' i `keep on' són incompatibles!\n"
 
-#: fetchmail.c:1254
+#: fetchmail.c:1304
 #, c-format
 msgid "terminated with signal %d\n"
 msgstr "finalitzat amb senyal %d\n"
 
 # conflicte query-poll
-#: fetchmail.c:1339
+#: fetchmail.c:1377
 #, c-format
 msgid "%s querying %s (protocol %s) at %s: poll started\n"
-msgstr "%s interrogant %s (protocol %s) el %s: s'inicia la consulta\n"
+msgstr "%s interrogant %s (protocol %s) el %s: consulta iniciada\n"
 
-#: fetchmail.c:1364
+#: fetchmail.c:1402
 msgid "POP2 support is not configured.\n"
 msgstr "el suport per POP2 no està configurat.\n"
 
-#: fetchmail.c:1376
+#: fetchmail.c:1414
 msgid "POP3 support is not configured.\n"
 msgstr "el suport per POP3 no està configurat.\n"
 
-#: fetchmail.c:1386
+#: fetchmail.c:1424
 msgid "IMAP support is not configured.\n"
 msgstr "el suport per IMAP no està configurat.\n"
 
-#: fetchmail.c:1392
+#: fetchmail.c:1430
 msgid "ETRN support is not configured.\n"
 msgstr "el suport per ETRN no està configurat.\n"
 
-#: fetchmail.c:1398
-msgid "Cannot support ETRN without gethostbyname(2).\n"
-msgstr "El suport per ETRN necessita la funció gethostbyname(2).\n"
-
-#: fetchmail.c:1405
+#: fetchmail.c:1438
 msgid "ODMR support is not configured.\n"
 msgstr "El suport per ODMR no està configurat.\n"
 
-#: fetchmail.c:1411
-msgid "Cannot support ODMR without gethostbyname(2).\n"
-msgstr "El suport per ODMR necessita la funció gethostbyname(2).\n"
-
-#: fetchmail.c:1417
+#: fetchmail.c:1445
 msgid "unsupported protocol selected.\n"
 msgstr "heu seleccionat un protocol que no està suportat.\n"
 
-#: fetchmail.c:1427
+#: fetchmail.c:1455
 #, c-format
 msgid "%s querying %s (protocol %s) at %s: poll completed\n"
-msgstr "%s interrogant %s (protocol %s) el %s: la consulta ha finalitzat\n"
+msgstr "%s interrogant %s (protocol %s) el %s: consulta finalitzada\n"
 
-#: fetchmail.c:1444
+#: fetchmail.c:1472
 #, c-format
 msgid "Poll interval is %d seconds\n"
 msgstr "L'interval entre consultes és de %d segons\n"
 
-#: fetchmail.c:1446
+#: fetchmail.c:1474
 #, c-format
 msgid "Logfile is %s\n"
 msgstr "El fitxer de registre és %s\n"
 
-#: fetchmail.c:1448
+#: fetchmail.c:1476
 #, c-format
 msgid "Idfile is %s\n"
 msgstr "El fitxer d'identificacions és %s\n"
 
-#: fetchmail.c:1451
+#: fetchmail.c:1479
 msgid "Progress messages will be logged via syslog\n"
 msgstr "L'activitat es registrarà via syslog\n"
 
-#: fetchmail.c:1454
+#: fetchmail.c:1482
 msgid "Fetchmail will masquerade and will not generate Received\n"
-msgstr "El fetchmail enmascararà i no generarà capçaleres `Recieved'\n"
+msgstr "El fetchmail enmascararà i no generarà capçaleres Recieved\n"
 
-#: fetchmail.c:1456
+#: fetchmail.c:1484
 msgid "Fetchmail will show progress dots even in logfiles.\n"
 msgstr ""
 "El fetchmail mostrarà punts de progressió àdhuc als fitxers de registre.\n"
 
-#: fetchmail.c:1458
+#: fetchmail.c:1486
 #, c-format
 msgid "Fetchmail will forward misaddressed multidrop messages to %s.\n"
-msgstr "El fetchmail enviarà els missatges `multidrop' mal adreçats a %s.\n"
+msgstr "El fetchmail enviarà els missatges multidrop mal adreçats a %s.\n"
 
-#: fetchmail.c:1462
+#: fetchmail.c:1490
 msgid "Fetchmail will direct error mail to the postmaster.\n"
 msgstr "El fetchmail dirigirà els missatges d'error al postmaster.\n"
 
-#: fetchmail.c:1464
+#: fetchmail.c:1492
 msgid "Fetchmail will direct error mail to the sender.\n"
 msgstr "El fetchmail dirigirà els missatges d'error al remitent.\n"
 
-#: fetchmail.c:1471
+#: fetchmail.c:1499
 #, c-format
 msgid "Options for retrieving from %s@%s:\n"
-msgstr "Opcions per l'obtenció de %s@%s:\n"
+msgstr "Opcions per a l'obtenció de %s@%s:\n"
 
-#: fetchmail.c:1475
+#: fetchmail.c:1503
 #, c-format
 msgid "  Mail will be retrieved via %s\n"
 msgstr "  El correu d'obtindrà via %s\n"
 
-#: fetchmail.c:1478
+#: fetchmail.c:1506
 #, c-format
-msgid "  Poll of this server will occur every %d intervals.\n"
-msgstr "  Aquest servidor es consultarà cada %d intervals.\n"
+msgid "  Poll of this server will occur every %d interval.\n"
+msgid_plural "  Poll of this server will occur every %d intervals.\n"
+msgstr[0] "  Aquest servidor es consultarà a cada interval.\n"
+msgstr[1] "  Aquest servidor es consultarà cada %d intervals.\n"
 
-#: fetchmail.c:1481
+#: fetchmail.c:1510
 #, c-format
 msgid "  True name of server is %s.\n"
 msgstr "  El nom autèntic del servidor és %s.\n"
 
-#: fetchmail.c:1483
-#, c-format
-msgid "  This host %s be queried when no host is specified.\n"
+#: fetchmail.c:1513
+msgid "  This host will not be queried when no host is specified.\n"
 msgstr ""
-"  Aquest host%ses consultarà quan no se'n hagi especificat cap altre.\n"
+"  Aquest host no es consultarà quan no se'n hagi especificat cap altre.\n"
 
-# comprovar on s'apliquen aquestes substitucions
-#: fetchmail.c:1484 fetchmail.c:1599 fetchmail.c:1602
-msgid "will not"
-msgstr " no "
+#: fetchmail.c:1514
+msgid "  This host will be queried when no host is specified.\n"
+msgstr "  Aquest host es consultarà quan no se'n hagi especificat cap altre.\n"
 
-#: fetchmail.c:1484 fetchmail.c:1599 fetchmail.c:1602
-msgid "will"
-msgstr " "
-
-#: fetchmail.c:1488
+#: fetchmail.c:1518
 msgid "  Password will be prompted for.\n"
 msgstr "  Es demanarà la contrasenya.\n"
 
-#: fetchmail.c:1492
+#: fetchmail.c:1522
 #, c-format
 msgid "  APOP secret = \"%s\".\n"
 msgstr "  Secret APOP = \"%s\".\n"
 
-#: fetchmail.c:1495
+#: fetchmail.c:1525
 #, c-format
 msgid "  RPOP id = \"%s\".\n"
 msgstr "  Identificació RPOP = \"%s\".\n"
 
-#: fetchmail.c:1498
+#: fetchmail.c:1528
 #, c-format
 msgid "  Password = \"%s\".\n"
 msgstr "  Contrasenya = \"%s\".\n"
 
-#: fetchmail.c:1511
+#: fetchmail.c:1537
 #, c-format
 msgid "  Protocol is KPOP with Kerberos %s authentication"
 msgstr "  El protocol és KPOP amb autenticació per Kerberos %s"
 
-#: fetchmail.c:1514
+#: fetchmail.c:1540
 #, c-format
 msgid "  Protocol is %s"
 msgstr "  El protocol és %s"
 
-#: fetchmail.c:1517
+#: fetchmail.c:1542
 #, c-format
 msgid " (using service %s)"
 msgstr " (usant el servei %s)"
 
-#: fetchmail.c:1519
-#, c-format
-msgid " (using network security options %s)"
-msgstr " (usant les opcions de seguretat de xarxa %s)"
-
-#: fetchmail.c:1522
-#, c-format
-msgid " (using port %d)"
-msgstr " (usant el port %d)"
-
-#: fetchmail.c:1525
+#: fetchmail.c:1544
 msgid " (using default port)"
 msgstr " (usant el port per defecte)"
 
-#: fetchmail.c:1527
+#: fetchmail.c:1546
 msgid " (forcing UIDL use)"
 msgstr " (obligant l'ús d'UIDL)"
 
-#: fetchmail.c:1533
+#: fetchmail.c:1552
 msgid "  All available authentication methods will be tried.\n"
 msgstr "  S'intentaran tots els mètodes d'autenticació disponibles.\n"
 
-#: fetchmail.c:1536
+#: fetchmail.c:1555
 msgid "  Password authentication will be forced.\n"
 msgstr "  S'obligarà l'autenticació per contrasenya.\n"
 
-#: fetchmail.c:1539
+#: fetchmail.c:1558
+msgid "  MSN authentication will be forced.\n"
+msgstr "  S'obligarà l'autenticació per MSN.\n"
+
+#: fetchmail.c:1561
 msgid "  NTLM authentication will be forced.\n"
 msgstr "  S'obligarà l'autenticació per NTLM.\n"
 
-#: fetchmail.c:1542
+#: fetchmail.c:1564
 msgid "  OTP authentication will be forced.\n"
 msgstr "  S'obligarà l'autenticació per OTP.\n"
 
-#: fetchmail.c:1545
+#: fetchmail.c:1567
 msgid "  CRAM-Md5 authentication will be forced.\n"
 msgstr "  S'obligarà l'autenticació per CRAM-Md5.\n"
 
-#: fetchmail.c:1548
+#: fetchmail.c:1570
 msgid "  GSSAPI authentication will be forced.\n"
 msgstr "  S'obligarà l'autenticació per GSSAPI.\n"
 
-#: fetchmail.c:1551
+#: fetchmail.c:1573
 msgid "  Kerberos V4 authentication will be forced.\n"
 msgstr "  S'obligarà l'autenticació per Kerberos V4.\n"
 
-#: fetchmail.c:1554
+#: fetchmail.c:1576
 msgid "  Kerberos V5 authentication will be forced.\n"
 msgstr "  S'obligarà l'autenticació per Kerberos V5.\n"
 
-#: fetchmail.c:1557
+#: fetchmail.c:1579
 msgid "  End-to-end encryption assumed.\n"
 msgstr "  S'assumeix que el xifrat és d'extrem a extrem.\n"
 
-#: fetchmail.c:1561
+#: fetchmail.c:1583
 #, c-format
 msgid "  Mail service principal is: %s\n"
 msgstr "  El servei principal de correu és: %s\n"
 
-#: fetchmail.c:1564
+#: fetchmail.c:1586
 msgid "  SSL encrypted sessions enabled.\n"
 msgstr "  Sessions encriptades amb SSL habilitades.\n"
 
-#: fetchmail.c:1566
+#: fetchmail.c:1588
 #, c-format
 msgid "  SSL protocol: %s.\n"
 msgstr "  Protocol SSL: %s.\n"
 
-#: fetchmail.c:1568
+#: fetchmail.c:1590
 msgid "  SSL server certificate checking enabled.\n"
 msgstr "  Comprovació del certificat SSL del servidor habilitada.\n"
 
-#: fetchmail.c:1570
+#: fetchmail.c:1592
 #, c-format
 msgid "  SSL trusted certificate directory: %s\n"
 msgstr "  Directori de certificats SSL de confiança: %s\n"
 
-#: fetchmail.c:1573
+#: fetchmail.c:1595
 #, c-format
 msgid "  SSL key fingerprint (checked against the server key): %s\n"
 msgstr ""
 "  Empremta de la clau SSL (comprovada contra la clau del servidor): %s\n"
 
-#: fetchmail.c:1576
+#: fetchmail.c:1598
 #, c-format
 msgid "  Server nonresponse timeout is %d seconds"
 msgstr "  El temps d'espera de la resposta del servidor és de %d segons"
 
-#: fetchmail.c:1578
+#: fetchmail.c:1600
 msgid " (default).\n"
 msgstr " (per defecte).\n"
 
-#: fetchmail.c:1585
+#: fetchmail.c:1607
 msgid "  Default mailbox selected.\n"
 msgstr "  Seleccionada la bústia per defecte.\n"
 
-#: fetchmail.c:1590
+#: fetchmail.c:1612
 msgid "  Selected mailboxes are:"
 msgstr "  Les bústies seleccionades són:"
 
 # al tanto amb la substitució
-#: fetchmail.c:1595
-#, c-format
-msgid "  %s messages will be retrieved (--all %s).\n"
-msgstr "  S'obtindran els missatges %s (--all %s).\n"
+#: fetchmail.c:1618
+msgid "  All messages will be retrieved (--all on).\n"
+msgstr "  Es descarregaran tots els missatges (--all on).\n"
 
-#: fetchmail.c:1596
-msgid "All"
-msgstr "tant nous com vells"
-
-#: fetchmail.c:1596
-msgid "Only new"
-msgstr "nous"
+# al tanto amb la substitució
+#: fetchmail.c:1619
+msgid "  Only new messages will be retrieved (--all off).\n"
+msgstr "  Només es descarregaran els missatges nous (--all off).\n"
 
 # la substitució és: "<espai>/ no "
-#: fetchmail.c:1598
-#, c-format
-msgid "  Fetched messages %s be kept on the server (--keep %s).\n"
-msgstr "  Els missatges obtinguts%ses conservaran al servidor (--keep %s).\n"
+#: fetchmail.c:1621
+msgid "  Fetched messages will be kept on the server (--keep on).\n"
+msgstr "  Els missatges obtinguts no s'eliminaran del servidor (--keep on).\n"
 
-#: fetchmail.c:1601
-#, c-format
-msgid "  Old messages %s be flushed before message retrieval (--flush %s).\n"
-msgstr ""
-"  Els missatges vells%ss'eliminaran abans d'obtenir el correu (--flush %s).\n"
-
-#: fetchmail.c:1604
-#, c-format
-msgid "  Rewrite of server-local addresses is %s (--norewrite %s).\n"
-msgstr "  La reescriptura d'adreces locals està %sda (--norewrite %s).\n"
-
-# nota: s'ha d'escriure la terminació masculina o femenina segons
-# convingui, per exemple: %st o bé %sda.
-#: fetchmail.c:1605 fetchmail.c:1608 fetchmail.c:1611 fetchmail.c:1614
-#: fetchmail.c:1617 fetchmail.c:1620 fetchmail.c:1767
-msgid "enabled"
-msgstr "habilita"
-
-#: fetchmail.c:1605 fetchmail.c:1608 fetchmail.c:1611 fetchmail.c:1614
-#: fetchmail.c:1617 fetchmail.c:1620 fetchmail.c:1767
-msgid "disabled"
-msgstr "deshabilita"
-
-#: fetchmail.c:1607
-#, c-format
-msgid "  Carriage-return stripping is %s (stripcr %s).\n"
-msgstr "  L'eliminació de retorns de carro està %sda (stripcr %s).\n"
-
-#: fetchmail.c:1610
-#, c-format
-msgid "  Carriage-return forcing is %s (forcecr %s).\n"
-msgstr "  L'inserció de retorns de carro està %sa (forcecr %s).\n"
-
-#: fetchmail.c:1613
-#, c-format
-msgid "  Interpretation of Content-Transfer-Encoding is %s (pass8bits %s).\n"
-msgstr ""
-"  L'interpretació del Content-Transfer-Encoding està %sda (pass8bits %s).\n"
-
-#: fetchmail.c:1616
-#, c-format
-msgid "  MIME decoding is %s (mimedecode %s).\n"
-msgstr "  El desxifrat MIME està %st (mimedecode %s).\n"
-
-#: fetchmail.c:1619
-#, c-format
-msgid "  Idle after poll is %s (idle %s).\n"
-msgstr "  La pausa després de cada obtenció està %sda (idle %s).\n"
-
+# la substitució és: "<espai>/ no "
 #: fetchmail.c:1622
-#, c-format
-msgid "  Nonempty Status lines will be %s (dropstatus %s)\n"
-msgstr "  Les línies Status que no estiguin en blanc es %s (dropstatus %s)\n"
+msgid "  Fetched messages will not be kept on the server (--keep off).\n"
+msgstr ""
+"  Els missatges obtinguts no es conservaran al servidor (--keep off).\n"
 
-#: fetchmail.c:1623 fetchmail.c:1626
-msgid "discarded"
-msgstr "descartaran"
-
-#: fetchmail.c:1623 fetchmail.c:1626
-msgid "kept"
-msgstr "mantindran"
+#: fetchmail.c:1624
+msgid "  Old messages will be flushed before message retrieval (--flush on).\n"
+msgstr ""
+"  Els missatges vells s'eliminaran abans d'obtenir el correu (--flush on).\n"
 
 #: fetchmail.c:1625
-#, c-format
-msgid "  Delivered-To lines will be %s (dropdelivered %s)\n"
-msgstr "  Les línies Delivered-To es %s (dropdelivered %s)\n"
+msgid ""
+"  Old messages will not be flushed before message retrieval (--flush off).\n"
+msgstr ""
+"  Els missatges vells no s'eliminaran abans d'obtenir el correu (--flush "
+"off).\n"
+
+#: fetchmail.c:1627
+msgid ""
+"  Oversized messages will be flushed before message retrieval (--limitflush "
+"on).\n"
+msgstr ""
+"  Els missatges excessivament grans s'eliminaran abans d'obtenir el correu "
+"(--limitflush on).\n"
+
+#: fetchmail.c:1628
+msgid ""
+"  Oversized messages will not be flushed before message retrieval (--"
+"limitflush off).\n"
+msgstr ""
+"  Els missatges excessivament grans no s'eliminaran abans d'obtenir el "
+"correu (--limitflush off).\n"
+
+#: fetchmail.c:1630
+msgid "  Rewrite of server-local addresses is enabled (--norewrite off).\n"
+msgstr ""
+"  La reescriptura d'adreces locals està habilitada (--norewrite off).\n"
 
 #: fetchmail.c:1631
+msgid "  Rewrite of server-local addresses is disabled (--norewrite on).\n"
+msgstr ""
+"  La reescriptura d'adreces locals està deshabilitada (--norewrite on).\n"
+
+#: fetchmail.c:1633
+msgid "  Carriage-return stripping is enabled (stripcr on).\n"
+msgstr "  L'eliminació de retorns de carro està habilitada (stripcr on).\n"
+
+#: fetchmail.c:1634
+msgid "  Carriage-return stripping is disabled (stripcr off).\n"
+msgstr "  L'eliminació de retorns de carro està deshabilitada (stripcr off).\n"
+
+#: fetchmail.c:1636
+msgid "  Carriage-return forcing is enabled (forcecr on).\n"
+msgstr "  L'inserció de retorns de carro està habilitada (forcecr on).\n"
+
+#: fetchmail.c:1637
+msgid "  Carriage-return forcing is disabled (forcecr off).\n"
+msgstr "  L'inserció de retorns de carro està deshabilitada (forcecr off).\n"
+
+#: fetchmail.c:1639
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is disabled (pass8bits on).\n"
+msgstr ""
+"  L'interpretació del Content-Transfer-Encoding està deshabilitada "
+"(pass8bits on).\n"
+
+#: fetchmail.c:1640
+msgid ""
+"  Interpretation of Content-Transfer-Encoding is enabled (pass8bits off).\n"
+msgstr ""
+"  L'interpretació del Content-Transfer-Encoding està habilitada (pass8bits "
+"off).\n"
+
+#: fetchmail.c:1642
+msgid "  MIME decoding is enabled (mimedecode on).\n"
+msgstr "  El desxifrat MIME està habilitat (mimedecode on).\n"
+
+#: fetchmail.c:1643
+msgid "  MIME decoding is disabled (mimedecode off).\n"
+msgstr "  El desxifrat MIME està deshabilitat (mimedecode off).\n"
+
+#: fetchmail.c:1645
+msgid "  Idle after poll is enabled (idle on).\n"
+msgstr "  La pausa després de cada obtenció està habilitada (idle on).\n"
+
+#: fetchmail.c:1646
+msgid "  Idle after poll is disabled (idle off).\n"
+msgstr "  La pausa després de cada obtenció està deshabilitada (idle off).\n"
+
+#: fetchmail.c:1648
+msgid "  Nonempty Status lines will be discarded (dropstatus on)\n"
+msgstr ""
+"  Les línies Status que no estiguin en blanc es descartaran (dropstatus on)\n"
+
+#: fetchmail.c:1649
+msgid "  Nonempty Status lines will be kept (dropstatus off)\n"
+msgstr ""
+"  Les línies Status que no estiguin en blanc es mantindran (dropstatus off)\n"
+
+#: fetchmail.c:1651
+msgid "  Delivered-To lines will be discarded (dropdelivered on)\n"
+msgstr "  Les línies Delivered-To es descartaran (dropdelivered on)\n"
+
+#: fetchmail.c:1652
+msgid "  Delivered-To lines will be kept (dropdelivered off)\n"
+msgstr "  Les línies Delivered-To es mantindran (dropdelivered off)\n"
+
+#: fetchmail.c:1656
 #, c-format
 msgid "  Message size limit is %d octets (--limit %d).\n"
 msgstr "  El límit de mida dels missatges és de %d octets (--limit %d).\n"
 
-#: fetchmail.c:1634
+#: fetchmail.c:1659
 msgid "  No message size limit (--limit 0).\n"
 msgstr "  No hi ha límit de mida dels missatges (--limit 0).\n"
 
-#: fetchmail.c:1636
+#: fetchmail.c:1661
 #, c-format
 msgid "  Message size warning interval is %d seconds (--warnings %d).\n"
 msgstr ""
-"  L'interval d'avisos de grandària dels missatges és de %d segons (--"
-"warnings %d).\n"
+"  L'interval d'avisos de missatges grans és de %d segons (--warnings %d).\n"
 
-#: fetchmail.c:1639
+#: fetchmail.c:1664
 msgid "  Size warnings on every poll (--warnings 0).\n"
-msgstr ""
-"  Avisos de la grandària dels missatges a cada obtenció (--warnings 0).\n"
+msgstr "  Avisos de missatges grans a cada obtenció (--warnings 0).\n"
 
-#: fetchmail.c:1642
+#: fetchmail.c:1667
 #, c-format
 msgid "  Received-message limit is %d (--fetchlimit %d).\n"
 msgstr "  El límit de missatges obtinguts és de %d (--fetchlimit %d).\n"
 
-#: fetchmail.c:1645
+#: fetchmail.c:1670
 msgid "  No received-message limit (--fetchlimit 0).\n"
 msgstr "  No hi ha límit de missatges rebuts (--fetchlimit 0).\n"
 
-#: fetchmail.c:1647
-#, fuzzy, c-format
+#: fetchmail.c:1672
+#, c-format
 msgid "  Fetch message size limit is %d (--fetchsizelimit %d).\n"
-msgstr "  El límit de missatges obtinguts és de %d (--fetchlimit %d).\n"
+msgstr "  El límit de mida dels missatges és de %d (--fetchsizelimit %d).\n"
 
-#: fetchmail.c:1650
-#, fuzzy
+#: fetchmail.c:1675
 msgid "  No fetch message size limit (--fetchsizelimit 0).\n"
-msgstr "  No hi ha límit de mida dels missatges (--limit 0).\n"
+msgstr "  No hi ha límit de mida dels missatges (--fetchsizelimit 0).\n"
 
-#: fetchmail.c:1654
+#: fetchmail.c:1679
 msgid "  Do binary search of UIDs during each poll (--fastuidl 1).\n"
-msgstr ""
+msgstr "  Es farà una cerca binària de UIDs a cada consulta (--fastuidl 1).\n"
 
-#: fetchmail.c:1656
+#: fetchmail.c:1681
 #, c-format
 msgid "  Do binary search of UIDs during %d out of %d polls (--fastuidl %d).\n"
 msgstr ""
+"  Es farà una cerca binària de UIDs %d consultes de cada %d (--fastuidl %"
+"d).\n"
 
-#: fetchmail.c:1659
+#: fetchmail.c:1684
 msgid "   Do linear search of UIDs during each poll (--fastuidl 0).\n"
-msgstr ""
+msgstr "   Es farà una cerca lineal de UIDs a cada consulta (--fastuidl 0).\n"
 
-#: fetchmail.c:1661
+#: fetchmail.c:1686
 #, c-format
 msgid "  SMTP message batch limit is %d.\n"
 msgstr "  El límit de missatges enviats en sèrie és de %d.\n"
 
-#: fetchmail.c:1663
+#: fetchmail.c:1688
 msgid "  No SMTP message batch limit (--batchlimit 0).\n"
 msgstr "  No hi ha límit de missatges enviats en sèrie (--batchlimit 0).\n"
 
-#: fetchmail.c:1667
+#: fetchmail.c:1692
 #, c-format
 msgid "  Deletion interval between expunges forced to %d (--expunge %d).\n"
 msgstr ""
 "  L'interval entre supressions és de %d missatge(s) eliminat(s) (--expunge %"
 "d).\n"
 
-#: fetchmail.c:1669
+#: fetchmail.c:1694
 msgid "  No forced expunges (--expunge 0).\n"
-msgstr "  No es suprimiran els missatges fins al final (--expunge 0).\n"
+msgstr "  No es suprimiran els missatges fins el final (--expunge 0).\n"
 
-#: fetchmail.c:1676
+#: fetchmail.c:1701
 msgid "  Domains for which mail will be fetched are:"
 msgstr "  Els dominis pels quals es recollirà el correu són:"
 
-#: fetchmail.c:1681 fetchmail.c:1701
+#: fetchmail.c:1706 fetchmail.c:1726
 msgid " (default)"
 msgstr " (per omissió)"
 
-#: fetchmail.c:1686
+#: fetchmail.c:1711
 #, c-format
 msgid "  Messages will be appended to %s as BSMTP\n"
 msgstr "  Els missatges s'afegiran a %s com a BSMTP\n"
 
-#: fetchmail.c:1688
+#: fetchmail.c:1713
 #, c-format
 msgid "  Messages will be delivered with \"%s\".\n"
 msgstr "  Els missatges es lliuraran amb \"%s\".\n"
 
-#: fetchmail.c:1695
+#: fetchmail.c:1720
 #, c-format
 msgid "  Messages will be %cMTP-forwarded to:"
 msgstr "  Els missatges es reenviaran per %cMTP a:"
 
-#: fetchmail.c:1706
+#: fetchmail.c:1731
 #, c-format
 msgid "  Host part of MAIL FROM line will be %s\n"
 msgstr "  El nom del host a la línia MAIL FROM serà %s\n"
 
-#: fetchmail.c:1709
+#: fetchmail.c:1734
 #, c-format
 msgid "  Address to be put in RCPT TO lines shipped to SMTP will be %s\n"
 msgstr "  L'adreça de les línies RCPT TO enviades per SMTP serà %s\n"
 
-#: fetchmail.c:1718
+#: fetchmail.c:1743
 msgid "  Recognized listener spam block responses are:"
 msgstr "  Les respostes del servidor reconegudes com a bloqueig d'spam són:"
 
-#: fetchmail.c:1724
+#: fetchmail.c:1749
 msgid "  Spam-blocking disabled\n"
 msgstr "  El bloqueig d'spam està deshabilitat\n"
 
-#: fetchmail.c:1727
+#: fetchmail.c:1752
 #, c-format
 msgid "  Server connection will be brought up with \"%s\".\n"
 msgstr "  La connexió amb el servidor s'iniciarà amb \"%s\".\n"
 
-#: fetchmail.c:1730
+#: fetchmail.c:1755
 msgid "  No pre-connection command.\n"
 msgstr "  No hi ha cap ordre de preconnexió.\n"
 
-#: fetchmail.c:1732
+#: fetchmail.c:1757
 #, c-format
 msgid "  Server connection will be taken down with \"%s\".\n"
 msgstr "  La connexió amb el servidor es finalitzarà amb \"%s\".\n"
 
-#: fetchmail.c:1735
+#: fetchmail.c:1760
 msgid "  No post-connection command.\n"
 msgstr "  No hi ha cap ordre de postconnexió.\n"
 
-#: fetchmail.c:1738
+#: fetchmail.c:1763
 msgid "  No localnames declared for this host.\n"
 msgstr "  No s'ha declarat cap nom local per aquest host.\n"
 
-#: fetchmail.c:1748
+#: fetchmail.c:1773
 msgid "  Multi-drop mode: "
 msgstr "  Mode multi-drop: "
 
-#: fetchmail.c:1750
+#: fetchmail.c:1775
 msgid "  Single-drop mode: "
 msgstr "  Mode single-drop: "
 
-#: fetchmail.c:1752
-#, c-format
-msgid "%d local name(s) recognized.\n"
-msgstr "S'ha(n) reconegut %d nom(s) local(s).\n"
-
-#: fetchmail.c:1766
-#, c-format
-msgid "  DNS lookup for multidrop addresses is %s.\n"
-msgstr "  La consulta DNS d'adreces `multidrop' està %sda.\n"
-
-#: fetchmail.c:1770
-msgid "  Server aliases will be compared with multidrop addresses by "
-msgstr "  Els àlies del servidor es compararan amb les adreces `multidrop' "
-
-#: fetchmail.c:1772
-msgid "IP address.\n"
-msgstr "per l'adreça IP.\n"
-
-#: fetchmail.c:1774
-msgid "name.\n"
-msgstr "pel nom.\n"
-
 #: fetchmail.c:1777
+#, c-format
+msgid "%d local name recognized.\n"
+msgid_plural "%d local names recognized.\n"
+msgstr[0] "S'ha reconegut %d nom local.\n"
+msgstr[1] "S'han reconegut %d noms locals.\n"
+
+#: fetchmail.c:1792
+msgid "  DNS lookup for multidrop addresses is enabled.\n"
+msgstr "  La consulta DNS d'adreces multidrop està habilitada.\n"
+
+#: fetchmail.c:1793
+msgid "  DNS lookup for multidrop addresses is disabled.\n"
+msgstr "  La consulta DNS d'adreces multidrop està deshabilitada.\n"
+
+#: fetchmail.c:1797
+msgid ""
+"  Server aliases will be compared with multidrop addresses by IP address.\n"
+msgstr ""
+"  Els àlies del servidor es compararan amb les adreces multidrop per adreça "
+"IP.\n"
+
+#: fetchmail.c:1799
+msgid "  Server aliases will be compared with multidrop addresses by name.\n"
+msgstr ""
+"  Els àlies del servidor es compararan amb les adreces multidrop pel nom.\n"
+
+#: fetchmail.c:1802
 msgid "  Envelope-address routing is disabled\n"
 msgstr "  L'encaminament per l'adreça de l'embolcall està deshabilitat.\n"
 
-#: fetchmail.c:1780
+#: fetchmail.c:1805
 #, c-format
 msgid "  Envelope header is assumed to be: %s\n"
 msgstr "  S'assumeix que la capçalera de l'embolcall és: %s\n"
 
-# nom de la capçalera
-#: fetchmail.c:1781
-msgid "Received"
-msgstr "Recieved"
-
-#: fetchmail.c:1783
+#: fetchmail.c:1808
 #, c-format
-msgid "  Number of envelope header to be parsed: %d\n"
-msgstr "  El nombre de capçaleres de l'embolcall que s'analitzaran és: %d\n"
+msgid "  Number of envelope headers to be skipped over: %d\n"
+msgstr "  Nombre de capçaleres de l'embolcall que s'ignoraran: %d\n"
 
-#: fetchmail.c:1786
+#: fetchmail.c:1811
 #, c-format
 msgid "  Prefix %s will be removed from user id\n"
 msgstr "  Es suprimirà el prefix %s del nom d'usuari\n"
 
-#: fetchmail.c:1789
+#: fetchmail.c:1814
 msgid "  No prefix stripping\n"
 msgstr "  No es suprimirà cap prefix\n"
 
-#: fetchmail.c:1796
+#: fetchmail.c:1821
 msgid "  Predeclared mailserver aliases:"
 msgstr "  Àlies predeclarats del servidor de correu:"
 
-#: fetchmail.c:1805
+#: fetchmail.c:1830
 msgid "  Local domains:"
 msgstr "  Dominis locals:"
 
-#: fetchmail.c:1815
+#: fetchmail.c:1840
 #, c-format
 msgid "  Connection must be through interface %s.\n"
 msgstr "  La connexió s'establirà a través de l'interfície %s.\n"
 
-#: fetchmail.c:1817
+#: fetchmail.c:1842
 msgid "  No interface requirement specified.\n"
 msgstr "  No s'ha especificat cap interfície requerida.\n"
 
-#: fetchmail.c:1819
+#: fetchmail.c:1844
 #, c-format
 msgid "  Polling loop will monitor %s.\n"
 msgstr "  Es monitorarà l'interfície %s.\n"
 
-#: fetchmail.c:1821
+#: fetchmail.c:1846
 msgid "  No monitor interface specified.\n"
 msgstr "  No s'ha especificat cap interfície a monitorar.\n"
 
-#: fetchmail.c:1825
+#: fetchmail.c:1850
 #, c-format
 msgid "  Server connections will be made via plugin %s (--plugin %s).\n"
 msgstr "  Les connexions amb el servidor es faran via %s (--plugin %s).\n"
 
-#: fetchmail.c:1827
+#: fetchmail.c:1852
 msgid "  No plugin command specified.\n"
 msgstr "  No s'ha especificat cap ordre de connexió.\n"
 
-#: fetchmail.c:1829
+#: fetchmail.c:1854
 #, c-format
 msgid "  Listener connections will be made via plugout %s (--plugout %s).\n"
 msgstr ""
 "  Les connexions amb el receptor SMTP es faran via %s (--plugout %s).\n"
 
-#: fetchmail.c:1831
+#: fetchmail.c:1856
 msgid "  No plugout command specified.\n"
 msgstr "  No s'ha especificat cap ordre de connexió per SMTP.\n"
 
-#: fetchmail.c:1836
+#: fetchmail.c:1861
 msgid "  No UIDs saved from this host.\n"
 msgstr "  No s'ha desat cap UID d'aquest host.\n"
 
-#: fetchmail.c:1845
+#: fetchmail.c:1870
 #, c-format
 msgid "  %d UIDs saved.\n"
 msgstr "  S'han desat %d UIDs.\n"
 
-#: fetchmail.c:1853
+#: fetchmail.c:1878
 msgid "  Poll trace information will be added to the Received header.\n"
 msgstr "  S'afegirà el rastre de l'obtenció a la capçalera Received.\n"
 
-#: fetchmail.c:1855
+#: fetchmail.c:1880
 msgid ""
 "  No poll trace information will be added to the Received header.\n"
 ".\n"
@@ -1519,25 +1591,17 @@ msgstr ""
 "  No s'afegirà el rastre de l'obtenció a la capçalera Received.\n"
 ".\n"
 
-#: fetchmail.c:1858
+#: fetchmail.c:1883
 #, c-format
 msgid "  Pass-through properties \"%s\".\n"
 msgstr "  Propietats de pas \"%s\".\n"
 
-#.
-#. * This is a hack to help xgettext which cannot find strings in
-#. * macro definitions like the one for xalloca above.
-#.
-#: fetchmail.h:584 fetchmail.h:590
-msgid "alloca failed"
-msgstr "ha fallat la rutina alloca"
-
-#: getpass.c:72
+#: getpass.c:71
 msgid "ERROR: no support for getpassword() routine\n"
 msgstr "ERROR: la funció getpassword() no està suportada\n"
 
 # bailing out
-#: getpass.c:194
+#: getpass.c:193
 msgid ""
 "\n"
 "Caught SIGINT... bailing out.\n"
@@ -1545,218 +1609,234 @@ msgstr ""
 "\n"
 "S'ha rebut un SIGINT... es deixa estar.\n"
 
-#: gssapi.c:62
+#: gssapi.c:66
 #, c-format
 msgid "Couldn't get service name for [%s]\n"
 msgstr "No s'ha pogut obtenir el nom de servei de [%s]\n"
 
-#: gssapi.c:68
+#: gssapi.c:72
 #, c-format
 msgid "Using service name [%s]\n"
 msgstr "S'usa el nom de servei [%s]\n"
 
-#: gssapi.c:84
+#: gssapi.c:89
 msgid "Sending credentials\n"
 msgstr "Enviant les credencials\n"
 
-#: gssapi.c:102
+#: gssapi.c:107
 msgid "Error exchanging credentials\n"
 msgstr "Error en l'intercanvi de credencials\n"
 
-#: gssapi.c:144
+#: gssapi.c:152
 msgid "Couldn't unwrap security level data\n"
 msgstr "No s'ha pogut desajustar el nivell de seguretat de dades\n"
 
-#: gssapi.c:149
+#: gssapi.c:157
 msgid "Credential exchange complete\n"
 msgstr "S'ha completat l'intercanvi de credencials\n"
 
-#: gssapi.c:153
+#: gssapi.c:161
 msgid "Server requires integrity and/or privacy\n"
 msgstr "El servidor requereix integritat i/o privacitat\n"
 
-#: gssapi.c:162
+#: gssapi.c:170
 #, c-format
 msgid "Unwrapped security level flags: %s%s%s\n"
 msgstr "Indicadors del nivell de seguretat desajustat: %s%s%s\n"
 
-#: gssapi.c:166
+#: gssapi.c:174
 #, c-format
 msgid "Maximum GSS token size is %ld\n"
 msgstr "La mida màxima del component GSS és %ld\n"
 
-#: gssapi.c:179
+#: gssapi.c:187
 msgid "Error creating security level request\n"
 msgstr "Error quan es creava la petició del nivell de seguretat\n"
 
-#: gssapi.c:190
+#: gssapi.c:198
 msgid "Releasing GSS credentials\n"
 msgstr "Enviant les credencials GSS\n"
 
-#: gssapi.c:193
+#: gssapi.c:201
 msgid "Error releasing credentials\n"
 msgstr "Error quan s'enviaven les credencials GSS\n"
 
-#: idle.c:62
+#: idle.c:61
 #, c-format
 msgid "fetchmail: thread sleeping for %d sec.\n"
 msgstr "fetchmail: procés dormint durant %d segons.\n"
 
-#: imap.c:280
+#: imap.c:312
 msgid "Protocol identified as IMAP4 rev 1\n"
 msgstr "S'ha identificat el protocol com a IMAP4 rev 1\n"
 
-#: imap.c:286
+#: imap.c:318
 msgid "Protocol identified as IMAP4 rev 0\n"
 msgstr "S'ha identificat el protocol com a IMAP4 rev 0\n"
 
-#: imap.c:293
+#: imap.c:325
 msgid "Protocol identified as IMAP2 or IMAP2BIS\n"
 msgstr "S'ha identificat el protocol com a IMAP2 o IMAP2BIS\n"
 
-#: imap.c:308
+#: imap.c:340
 msgid "will idle after poll\n"
 msgstr "es farà una pausa després de l'obtenció\n"
 
-#: imap.c:460
+#: imap.c:497
 msgid "Required OTP capability not compiled into fetchmail\n"
 msgstr "Es requereix capacitat per OTP no compilada en el fetchmail\n"
 
-#: imap.c:482
+#: imap.c:519 pop3.c:372
 msgid "Required NTLM capability not compiled into fetchmail\n"
 msgstr "Es requereix capacitat per NTLM no compilada en el fetchmail\n"
 
-#: imap.c:491
+#: imap.c:528
 msgid "Required LOGIN capability not supported by server\n"
 msgstr "El servidor no suporta la capacitat per LOGIN requerida\n"
 
-#: imap.c:641 imap.c:707
-msgid "expunge failed\n"
-msgstr "la supressió de missatges ha fallat\n"
+#: imap.c:602
+#, fuzzy, c-format
+msgid "mail expunge mismatch (%d actual != %d expected)\n"
+msgstr ""
+"el missatge %s@%s:%d no tenia la mida esperada (%d real != %d esperada)\n"
 
-#: imap.c:663 imap.c:692
+#: imap.c:706 imap.c:765
 msgid "re-poll failed\n"
 msgstr "la re-obtenció ha fallat\n"
 
-#: imap.c:671
+#: imap.c:714 imap.c:770
 #, c-format
-msgid "%d messages waiting after re-poll\n"
-msgstr "hi ha %d missatge(s) esperant després de la re-obtenció\n"
+msgid "%d message waiting after re-poll\n"
+msgid_plural "%d messages waiting after re-poll\n"
+msgstr[0] "hi ha %d missatge esperant després de la re-obtenció\n"
+msgstr[1] "hi ha %d missatges esperant després de la re-obtenció\n"
 
-#: imap.c:681
+#: imap.c:731
 msgid "mailbox selection failed\n"
 msgstr "ha fallat la selecció de bústia\n"
 
-#: imap.c:685
+#: imap.c:735
 #, c-format
-msgid "%d messages waiting after first poll\n"
-msgstr "hi ha %d missatge(s) esperant després de la primera obtenció\n"
+msgid "%d message waiting after first poll\n"
+msgid_plural "%d messages waiting after first poll\n"
+msgstr[0] "hi ha %d missatge esperant després de la primera obtenció\n"
+msgstr[1] "hi ha %d missatges esperant després de la primera obtenció\n"
 
-#: imap.c:711
+#: imap.c:749
+msgid "expunge failed\n"
+msgstr "la supressió de missatges ha fallat\n"
+
+#: imap.c:753
 #, c-format
-msgid "%d messages waiting after expunge\n"
-msgstr "hi ha %d missatge(s) esperant després de la supressió\n"
+msgid "%d message waiting after expunge\n"
+msgid_plural "%d messages waiting after expunge\n"
+msgstr[0] "hi ha %d missatge esperant després de la supressió\n"
+msgstr[1] "hi ha %d missatges esperant després de la supressió\n"
 
-#: imap.c:734
+#: imap.c:795
 msgid "search for unseen messages failed\n"
-msgstr "la recerca de missatges nous ha fallat\n"
+msgstr "la recerca de missatges no llegits ha fallat\n"
 
-#: imap.c:764 pop3.c:658 pop3.c:670 pop3.c:887 pop3.c:894
-#, c-format
-msgid "%u is unseen\n"
-msgstr "%u és nou\n"
+#: imap.c:823
+#, fuzzy, c-format
+msgid "%lu is unseen\n"
+msgstr "%u és no llegit\n"
 
-#: imap.c:776 pop3.c:679
+#: imap.c:835 pop3.c:784
 #, c-format
 msgid "%u is first unseen\n"
-msgstr "%u és el primer missatge nou\n"
+msgstr "%u és el primer missatge no llegit\n"
 
-#: interface.c:253
+#: imap.c:926
+msgid ""
+"Warning: ignoring bogus data for message sizes returned by the server.\n"
+msgstr ""
+
+#: interface.c:256
 msgid "Unable to open kvm interface. Make sure fetchmail is SGID kmem."
 msgstr ""
 "No s'ha pogut obrir l'interfície kvm. Asseguereu-vos que el fetchmail és "
 "SGID kmem."
 
-#: interface.c:398
+#: interface.c:396
 #, c-format
 msgid "Unable to parse interface name from %s"
 msgstr "No s'ha pogut analitzar el nom de la interfície de %s"
 
-#: interface.c:420
+#: interface.c:418
 msgid "get_ifinfo: sysctl (iflist estimate) failed"
 msgstr "get_ifinfo: sysctl (iflist estimate) ha fallat"
 
-#: interface.c:426
+#: interface.c:424
 msgid "get_ifinfo: malloc failed"
 msgstr "get_ifinfo: malloc ha fallat"
 
-#: interface.c:432
+#: interface.c:430
 msgid "get_ifinfo: sysctl (iflist) failed"
 msgstr "get_ifinfo: sysctl (iflist) ha fallat"
 
-#: interface.c:450
+#: interface.c:448
 #, c-format
 msgid "Routing message version %d not understood."
 msgstr "El missatge d'encaminament versió %d és incomprensible."
 
-#. we did not find an interface with a matching name
-#: interface.c:482
+#: interface.c:480
 #, c-format
 msgid "No interface found with name %s"
 msgstr "No s'ha trobat cap interfície amb el nom de %s"
 
-#: interface.c:540
+#: interface.c:538
 #, c-format
 msgid "No IP address found for %s"
-msgstr "No s'ha trobat cap adreça IP per %s"
+msgstr "No s'ha trobat cap adreça IP per a %s"
 
-#: interface.c:592
+#: interface.c:589
 msgid "missing IP interface address\n"
 msgstr "falta l'adreça IP de l'interfície\n"
 
-#: interface.c:608
+#: interface.c:605
 msgid "invalid IP interface address\n"
 msgstr "l'adreça IP de l'interfície no és vàlida\n"
 
-#: interface.c:614
+#: interface.c:611
 msgid "invalid IP interface mask\n"
 msgstr "la màscara IP de l'interfície no és vàlida\n"
 
-#: interface.c:653
+#: interface.c:650
 #, c-format
 msgid "activity on %s -noted- as %d\n"
 msgstr "activitat a %s -vista- com %d\n"
 
-#: interface.c:668
+#: interface.c:665
 #, c-format
 msgid "skipping poll of %s, %s down\n"
 msgstr ""
 "ometent l'obtenció de %s, %s apagada\n"
 "\n"
 
-#: interface.c:687
+#: interface.c:684
 #, c-format
 msgid "skipping poll of %s, %s IP address excluded\n"
 msgstr "ometent l'obtenció de %s, l'adreça IP de %s està exclosa\n"
 
-#: interface.c:699
+#: interface.c:696
 #, c-format
 msgid "activity on %s checked as %d\n"
 msgstr "activitat a %s comprovada com %d\n"
 
-#: interface.c:725
+#: interface.c:722
 #, c-format
 msgid "skipping poll of %s, %s inactive\n"
 msgstr "ometent l'obtenció de %s, %s inactiva\n"
 
-#: interface.c:732
+#: interface.c:729
 #, c-format
 msgid "activity on %s was %d, is %d\n"
 msgstr "activitat a %s era %d, és %d\n"
 
 #: kerberos.c:74
 msgid "could not decode initial BASE64 challenge\n"
-msgstr "no s'ha pogut desxifrar la codificació BASE64 inicial\n"
+msgstr "no s'ha pogut desxifrar el repte inicial codificat en BASE64\n"
 
 #: kerberos.c:139
 #, c-format
@@ -1774,437 +1854,481 @@ msgstr "no s'ha pogut desxifrar la resposta de disponibilitat en BASE64\n"
 
 #: kerberos.c:220
 msgid "challenge mismatch\n"
-msgstr "la codificació no encaixa\n"
+msgstr "el repte no encaixa\n"
 
-#: lock.c:81
+#: lock.c:86
+#, c-format
+msgid "fetchmail: error reading lockfile \"%s\": %s\n"
+msgstr "fetchmail: error en llegir el fitxer de bloqueig \"%s\": %s\n"
+
+#: lock.c:98
 msgid "fetchmail: removing stale lockfile\n"
 msgstr "fetchmail: esborrant el fitxer de bloqueig antic\n"
 
-#: lock.c:122
+#: lock.c:105
+#, c-format
+msgid "fetchmail: error opening lockfile \"%s\": %s\n"
+msgstr "fetchmail: error en obrir el fitxer de bloqueig \"%s\": %s\n"
+
+#: lock.c:152
 msgid "fetchmail: lock creation failed.\n"
 msgstr "fetchmail: ha fallat la creació del bloqueig.\n"
 
-#: netrc.c:218
-#, c-format
-msgid "warning: found \"%s\" before any host names"
-msgstr "atenció: s'ha trobat \"%s\" abans que cap nom de host"
-
-#: netrc.c:222
+#: netrc.c:219
 #, c-format
 msgid "%s:%d: warning: found \"%s\" before any host names\n"
 msgstr "%s:%d: atenció: s'ha trobat \"%s\" abans que cap nom de host\n"
 
-#: netrc.c:261
+#: netrc.c:257
 #, c-format
 msgid "%s:%d: warning: unknown token \"%s\"\n"
 msgstr "%s:%d: atenció: component \"%s\" no identificat\n"
 
-#: odmr.c:65
+#: odmr.c:66
 #, c-format
 msgid "%s's SMTP listener does not support ATRN\n"
 msgstr "El receptor SMTP de %s no suporta ATRN\n"
 
-#: odmr.c:103
+#: odmr.c:104
 msgid "Turnaround now...\n"
-msgstr "S'inicia el període de descarrega ara...\n"
+msgstr "S'inicia el període de descàrrega ara...\n"
 
-#: odmr.c:108
+#: odmr.c:109
 msgid "ATRN request refused.\n"
 msgstr "La petició ATRN ha estat refusada.\n"
 
-#. Unable to process ATRN request now
-#: odmr.c:112
+#: odmr.c:113
 msgid "Unable to process ATRN request now\n"
 msgstr "No es pot processar la petició ATRN en aquests moments\n"
 
-#: odmr.c:117
+#: odmr.c:118
 msgid "You have no mail.\n"
 msgstr "No teniu correu.\n"
 
-#. Command not implemented
-#: odmr.c:121
+#: odmr.c:122
 msgid "Command not implemented\n"
 msgstr "Ordre no implementada\n"
 
-#. Authentication required
-#: odmr.c:125
+#: odmr.c:126
 msgid "Authentication required.\n"
 msgstr "Autenticació requerida.\n"
 
-#: odmr.c:129
+#: odmr.c:130
 #, c-format
 msgid "Unknown ODMR error %d\n"
 msgstr "Error d'ODMR no identificat %d\n"
 
-#: odmr.c:244
+#: odmr.c:189
+msgid "receiving message data\n"
+msgstr "rebent les dades del missatge\n"
+
+#: odmr.c:242
 msgid "Option --keep is not supported with ODMR\n"
-msgstr "L'opció --keep no està suportada amb ODMR\n"
+msgstr "L'opció --keep no està suportada per ODMR\n"
 
-#: odmr.c:248
+#: odmr.c:246
 msgid "Option --flush is not supported with ODMR\n"
-msgstr "L'opció --flush no està suportada amb ODMR\n"
+msgstr "L'opció --flush no està suportada per ODMR\n"
 
-#: odmr.c:252
-msgid "Option --remote is not supported with ODMR\n"
-msgstr "L'opció --remote no està suportada amb ODMR\n"
+#: odmr.c:250
+msgid "Option --folder is not supported with ODMR\n"
+msgstr "L'opció --folder no està suportada per ODMR\n"
 
-#: odmr.c:256
+#: odmr.c:254
 msgid "Option --check is not supported with ODMR\n"
-msgstr "L'opció --check no està suportada amb ODMR\n"
+msgstr "L'opció --check no està suportada per ODMR\n"
 
-#: opie.c:37
+#: opie.c:42
 msgid "server recv fatal\n"
 msgstr "recv fatal del servidor\n"
 
-#: opie.c:51
+#: opie.c:56
 msgid "Could not decode OTP challenge\n"
 msgstr "No s'ha pogut desxifrar la codificació OTP\n"
 
-#: opie.c:59 pop3.c:495
+#: opie.c:64 pop3.c:548
 msgid "Secret pass phrase: "
 msgstr "Contrasenya secreta: "
 
-#: options.c:201 options.c:245
+#: options.c:166 options.c:210
 #, c-format
 msgid "String '%s' is not a valid number string.\n"
 msgstr "La cadena '%s' no és un nombre vàlid.\n"
 
-#: options.c:210
+#: options.c:175
 #, c-format
 msgid "Value of string '%s' is %s than %d.\n"
 msgstr "El valor de la cadena '%s' és %s que %d.\n"
 
-#: options.c:211
+#: options.c:176
 msgid "smaller"
 msgstr "més petit"
 
-#: options.c:211
+#: options.c:176
 msgid "larger"
 msgstr "més gran"
 
-#: options.c:383
+#: options.c:337
 #, c-format
 msgid "Invalid protocol `%s' specified.\n"
 msgstr "El protocol `%s' especificat no és vàlid.\n"
 
-#: options.c:429
+#: options.c:382
 #, c-format
 msgid "Invalid authentication `%s' specified.\n"
 msgstr "L'autenticació `%s' especificada no és vàlida.\n"
 
-#: options.c:567
-msgid "fetchmail: network security support is disabled\n"
-msgstr "fetchmail: el suport per seguretat de xarxa està deshabilitat\n"
-
-#: options.c:660
+#: options.c:583
 msgid "usage:  fetchmail [options] [server ...]\n"
 msgstr "sintaxi: fetchmail [opcions] [servidor ...]\n"
 
-#: options.c:661
+#: options.c:584
 msgid "  Options are as follows:\n"
 msgstr "  Les opcions són les següents:\n"
 
-#: options.c:662
+#: options.c:585
 msgid "  -?, --help        display this option help\n"
 msgstr "  -?, --help        mostra aquesta ajuda\n"
 
-#: options.c:663
+#: options.c:586
 msgid "  -V, --version     display version info\n"
 msgstr "  -V, --version     mostra informació sobre la versió\n"
 
-#: options.c:665
+#: options.c:588
 msgid "  -c, --check       check for messages without fetching\n"
 msgstr "  -c, --check       comprova si hi ha correu sense recollir-lo\n"
 
-#: options.c:666
+#: options.c:589
 msgid "  -s, --silent      work silently\n"
 msgstr "  -s, --silent      funciona en silenci\n"
 
-#: options.c:667
+#: options.c:590
 msgid "  -v, --verbose     work noisily (diagnostic output)\n"
 msgstr "  -v, --verbose     genera missatges informatius i de diagnòstic\n"
 
-#: options.c:668
+#: options.c:591
 msgid "  -d, --daemon      run as a daemon once per n seconds\n"
 msgstr "  -d, --daemon      funciona com a dimoni, en intervals de n segons\n"
 
-#: options.c:669
+#: options.c:592
 msgid "  -N, --nodetach    don't detach daemon process\n"
 msgstr "  -N, --nodetach    funciona com a dimoni, però en primer terme\n"
 
-#: options.c:670
+#: options.c:593
 msgid "  -q, --quit        kill daemon process\n"
 msgstr "  -q, --quit        finalitza el procés d'un dimoni\n"
 
-#: options.c:671
+#: options.c:594
 msgid "  -L, --logfile     specify logfile name\n"
 msgstr "  -L, --logfile     especifica el fitxer on registrar l'activitat\n"
 
-#: options.c:672
+#: options.c:595
 msgid ""
 "      --syslog      use syslog(3) for most messages when running as a "
 "daemon\n"
 msgstr ""
 "      --syslog      en mode dimoni, registra l'activitat via syslog(3)\n"
 
-#: options.c:673
+#: options.c:596
 msgid "      --invisible   don't write Received & enable host spoofing\n"
 msgstr "      --invisible   no deixa traces a les capçaleres dels missatges\n"
 
-#: options.c:674
+#: options.c:597
 msgid "  -f, --fetchmailrc specify alternate run control file\n"
-msgstr "  -f, --fetchmailrc usa un fitxer de control d'execució alternatiu\n"
+msgstr "  -f, --fetchmailrc usa un fitxer de configuració alternatiu\n"
 
-#: options.c:675
+#: options.c:598
 msgid "  -i, --idfile      specify alternate UIDs file\n"
 msgstr "  -i, --idfile      usa un fixter d'UIDs alternatiu\n"
 
+#: options.c:599
+#, fuzzy
+msgid "      --pidfile     specify alternate PID (lock) file\n"
+msgstr "  -i, --idfile      usa un fixter d'UIDs alternatiu\n"
+
 # last resort
-#: options.c:676
+#: options.c:600
 msgid "      --postmaster  specify recipient of last resort\n"
 msgstr "      --postmaster  especifica el destinatari en última instància\n"
 
-#: options.c:677
+#: options.c:601
 msgid "      --nobounce    redirect bounces from user to postmaster.\n"
 msgstr ""
 "      --nobounce    redirigeix els missatges retornats cap al postmaster\n"
 
-#: options.c:679
+#: options.c:603
 msgid "  -I, --interface   interface required specification\n"
 msgstr "  -I, --interface   interfície de xarxa requerida pel funcionament\n"
 
-#: options.c:680
+#: options.c:604
 msgid "  -M, --monitor     monitor interface for activity\n"
 msgstr ""
 "  -M, --monitor     monitora l'activitat de l'interfície especificada\n"
 
-#: options.c:683
+#: options.c:607
 msgid "      --ssl         enable ssl encrypted session\n"
 msgstr "      --ssl         encripta les comunicacions amb ssl\n"
 
-#: options.c:684
+#: options.c:608
 msgid "      --sslkey      ssl private key file\n"
 msgstr "      --sslkey      fitxer que conté la clau ssl privada\n"
 
-#: options.c:685
+#: options.c:609
 msgid "      --sslcert     ssl client certificate\n"
 msgstr "      --sslcert     certificat ssl del client\n"
 
-#: options.c:686
+#: options.c:610
+#, fuzzy
+msgid "      --sslcertck   do strict server certificate check (recommended)\n"
+msgstr "      --sslcert     certificat ssl del client\n"
+
+#: options.c:611
+msgid "      --sslcertpath path to ssl certificates\n"
+msgstr "      --sslcertpath camí cap als certificats ssl\n"
+
+#: options.c:612
+msgid ""
+"      --sslfingerprint fingerprint that must match that of the server's "
+"cert.\n"
+msgstr ""
+"      --sslfingerprint empremta que ha de coincidir amb el cert. del "
+"servidor.\n"
+
+#: options.c:613
 msgid "      --sslproto    force ssl protocol (ssl2/ssl3/tls1)\n"
 msgstr "      --sslproto    obliga l'ús del protocol ssl (ssl2/ssl3/tls1)\n"
 
-#: options.c:688
+#: options.c:615
 msgid "      --plugin      specify external command to open connection\n"
 msgstr ""
 "      --plugin      especifica l'ordre externa per obrir una connexió\n"
 
-#: options.c:689
+#: options.c:616
 msgid "      --plugout     specify external command to open smtp connection\n"
 msgstr ""
 "      --plogout     especifica l'ordre externa per obrir una connexió smtp\n"
 
-#: options.c:691
+#: options.c:618
 msgid "  -p, --protocol    specify retrieval protocol (see man page)\n"
 msgstr ""
 "  -p, --protocol    especifica el protocol que s'usa per obtenir el correu\n"
 
-#: options.c:692
+#: options.c:619
 msgid "  -U, --uidl        force the use of UIDLs (pop3 only)\n"
 msgstr "  -U, --uidl        obliga l'ús d'UIDLs (només pop3)\n"
 
-#: options.c:693
-msgid "  -P, --port        TCP/IP service port to connect to\n"
-msgstr "  -P, --port        port TCP/IP al qual connectar-se\n"
+#: options.c:620
+msgid "      --port        TCP port to connect to (obsolete, use --service)\n"
+msgstr ""
+"      --port        port TCP/IP al qual connectar-se (obsolet, useu --"
+"service)\n"
 
-#: options.c:694
+#: options.c:621
+msgid ""
+"  -P, --service     TCP service to connect to (can be numeric TCP port)\n"
+msgstr ""
+"  -P, --service      servei TCP/IP al qual connectar-se (o un número de "
+"port)\n"
+
+#: options.c:622
 msgid "      --auth        authentication type (password/kerberos/ssh/otp)\n"
 msgstr "      --auth        tipus d'autenticació (password/kerberos/ssh/otp)\n"
 
-#: options.c:695
+#: options.c:623
 msgid "  -t, --timeout     server nonresponse timeout\n"
 msgstr "  -t, --timeout     temps d'espera per la resposta del servidor\n"
 
-#: options.c:696
+#: options.c:624
 msgid "  -E, --envelope    envelope address header\n"
 msgstr "  -E, --envelope    capçalera que conté l'adreça de l'embolcall\n"
 
-#: options.c:697
+#: options.c:625
 msgid "  -Q, --qvirtual    prefix to remove from local user id\n"
 msgstr "  -Q, --qvirtual    prefix que es suprimeix del nom d'usuari local\n"
 
-#: options.c:698
+#: options.c:626
 msgid "      --principal   mail service principal\n"
 msgstr "      --principal   servei de correu principal\n"
 
-#: options.c:699
+#: options.c:627
 msgid "      --tracepolls  add poll-tracing information to Received header\n"
 msgstr ""
 "      --tracepolls  afegeix el rastre de l'obtenció a la capçalera Received\n"
 
-#: options.c:701
+#: options.c:629
 msgid "  -u, --username    specify users's login on server\n"
 msgstr "  -u, --username    especifica el nom de login al servidor\n"
 
-#: options.c:702
-msgid "  -a, --all         retrieve old and new messages\n"
+#: options.c:630
+#, fuzzy
+msgid "  -a, --[fetch]all  retrieve old and new messages\n"
 msgstr "  -a, --all         recull els missatges tant nous com vells\n"
 
-#: options.c:703
+#: options.c:631
 msgid "  -K, --nokeep      delete new messages after retrieval\n"
 msgstr ""
 "  -K, --nokeep      esborra els missatges nous després de recollir-los\n"
 
-#: options.c:704
+#: options.c:632
 msgid "  -k, --keep        save new messages after retrieval\n"
 msgstr "  -k, --keep        deixa els missatges al servidor un cop recollits\n"
 
-#: options.c:705
+#: options.c:633
 msgid "  -F, --flush       delete old messages from server\n"
 msgstr "  -F, --flush       esborra els missatges vells del servidor\n"
 
-#: options.c:706
+#: options.c:634
+msgid "      --limitflush  delete oversized messages\n"
+msgstr "      --limitflush  esborra els missatges excessivament grans\n"
+
+#: options.c:635
 msgid "  -n, --norewrite   don't rewrite header addresses\n"
 msgstr "  -n, --norewrite   no reescriu les adreces de l'encapçalament\n"
 
-#: options.c:707
+#: options.c:636
 msgid "  -l, --limit       don't fetch messages over given size\n"
 msgstr ""
 "  -l, --limit       no recull els missatges que superin la mida "
 "especificada\n"
 
-#: options.c:708
+#: options.c:637
 msgid "  -w, --warnings    interval between warning mail notification\n"
 msgstr "  -w, --warnings    interval entre avisos de notificació de correu\n"
 
-#: options.c:711
-msgid "  -T, --netsec      set IP security request\n"
-msgstr "  -T, --netsec      efectua una petició de seguretat IP\n"
-
-#: options.c:713
+#: options.c:639
 msgid "  -S, --smtphost    set SMTP forwarding host\n"
 msgstr "  -S, --smtphost    estableix el host pel reenviament via SMTP\n"
 
-#: options.c:714
+#: options.c:640
 msgid "      --fetchdomains fetch mail for specified domains\n"
 msgstr "      --fetchdomains recull el correu pels dominis especificats\n"
 
-#: options.c:715
+#: options.c:641
 msgid "  -D, --smtpaddress set SMTP delivery domain to use\n"
 msgstr "  -D, --smtpaddress estableix el domini usat pel lliurament via SMTP\n"
 
-#: options.c:716
+#: options.c:642
 msgid "      --smtpname    set SMTP full name username@domain\n"
 msgstr "      --smtpname    estableix el nom complet SMTP nomusuari@domini\n"
 
-#: options.c:717
+#: options.c:643
 msgid "  -Z, --antispam,   set antispam response values\n"
 msgstr ""
 "  -Z, --antispam,   estableix els valors reconeguts com a resposta antispam\n"
 
-#: options.c:718
+#: options.c:644
 msgid "  -b, --batchlimit  set batch limit for SMTP connections\n"
 msgstr ""
 "  -b, --batchlimit  estableix el límit de missatges SMTP enviats en sèrie\n"
 
-#: options.c:719
+#: options.c:645
 msgid "  -B, --fetchlimit  set fetch limit for server connections\n"
 msgstr ""
 "  -B, --fetchlimit  estableix el límit de missatges obtinguts per connexió\n"
 
-#: options.c:720
-#, fuzzy
+#: options.c:646
 msgid "      --fetchsizelimit set fetch message size limit\n"
-msgstr "      --fetchdomains recull el correu pels dominis especificats\n"
+msgstr "      --fetchsizelimit estableix el límit de mida dels missatges\n"
 
-#: options.c:721
+#: options.c:647
 msgid "      --fastuidl    do a binary search for UIDLs\n"
-msgstr ""
+msgstr "      --fastuidl    fa una cerca binària de UIDLs\n"
 
-#: options.c:722
+#: options.c:648
 msgid "  -e, --expunge     set max deletions between expunges\n"
 msgstr ""
 "  -e, --expunge     estableix el màxim de missatges eliminats entre "
 "supressions\n"
 
-#: options.c:723
+#: options.c:649
 msgid "  -m, --mda         set MDA to use for forwarding\n"
 msgstr "  -m, --mda         estableix l'MDA que s'utilitza pel reenviament\n"
 
-#: options.c:724
+#: options.c:650
 msgid "      --bsmtp       set output BSMTP file\n"
 msgstr "      --bsmtp       estableix el fitxer de sortida BSMTP\n"
 
-#: options.c:725
+#: options.c:651
 msgid "      --lmtp        use LMTP (RFC2033) for delivery\n"
 msgstr "      --lmtp        usa LMTP (RFC2033) pel lliurament\n"
 
-#: options.c:726
+#: options.c:652
 msgid "  -r, --folder      specify remote folder name\n"
 msgstr "  -r, --folder      estableix el nom de la carpeta remota\n"
 
-#: options.c:727
+#: options.c:653
 msgid "      --showdots    show progress dots even in logfiles\n"
 msgstr ""
 "      --showdots    mostra punts de progressió àdhuc als fitxers de "
 "registre\n"
 
+#: pop3.c:342
+msgid ""
+"Warning: \"Maillennium POP3/PROXY server\" found, using RETR command instead "
+"of TOP.\n"
+msgstr ""
+
 # timestamp: marca horària
-#: pop3.c:533
+#: pop3.c:586
 msgid "Required APOP timestamp not found in greeting\n"
 msgstr "No s'ha trobat la marca horària APOP requerida a la salutació\n"
 
-#: pop3.c:542
+#: pop3.c:595
 msgid "Timestamp syntax error in greeting\n"
 msgstr "Error de sintaxi en la marca horària de la salutació\n"
 
-#: pop3.c:564
+#: pop3.c:617
 msgid "Undefined protocol request in POP3_auth\n"
 msgstr "Petició de protocol indefinida a POP3_auth\n"
 
-#: pop3.c:572
+#: pop3.c:625
 msgid "lock busy!  Is another session active?\n"
 msgstr "bloqueig temporal! Hi ha alguna altra sessió activa?\n"
 
-#: pop3.c:649 pop3.c:878
+#: pop3.c:704
+msgid "Cannot handle UIDL response from upstream server.\n"
+msgstr "No s'ha pogut administrar la resposta UIDL del servidor remot.\n"
+
+#: pop3.c:727
+msgid "Server responded with UID for wrong message.\n"
+msgstr "El servidor ha respost amb un UID pel missatge equivocat.\n"
+
+#: pop3.c:754 pop3.c:1000
 #, c-format
 msgid "id=%s (num=%d) was deleted, but is still present!\n"
-msgstr ""
+msgstr "id=%s (núm=%d) s'ha esborrat, però encara està present!\n"
 
-#: pop3.c:751
+#: pop3.c:763 pop3.c:775 pop3.c:1009 pop3.c:1016
+#, c-format
+msgid "%u is unseen\n"
+msgstr "%u és no llegit\n"
+
+#: pop3.c:860
 msgid "Messages inserted into list on server. Cannot handle this.\n"
 msgstr ""
 "Els missatges estan inserits a la llista del servidor. No es pot continuar.\n"
 
-#: pop3.c:837
+#: pop3.c:952
 msgid "protocol error\n"
 msgstr "error de protocol\n"
 
-#: pop3.c:852
+#: pop3.c:968
 msgid "protocol error while fetching UIDLs\n"
 msgstr "error de protocol quan es rebien els UIDLs\n"
 
-#: pop3.c:1210
-msgid "Option --remote is not supported with POP3\n"
-msgstr "L'opció --remote no està suportada amb POP3\n"
+#: pop3.c:1337
+msgid "Option --folder is not supported with POP3\n"
+msgstr "L'opció --folder no està suportada per POP3\n"
 
-#: rcfile_y.y:123
+#: rcfile_y.y:124
 msgid "server option after user options"
 msgstr "opcions del servidor després de les opcions de l'usuari"
 
-#: rcfile_y.y:170
+#: rcfile_y.y:167
 msgid "SDPS not enabled."
 msgstr "SDPS no habilitat."
 
-#: rcfile_y.y:218
-msgid "invalid security request"
-msgstr "petició de seguretat no vàlida"
-
-#: rcfile_y.y:224
-msgid "network-security support disabled"
-msgstr "suport per seguretat de xarxa deshabilitat"
-
-#: rcfile_y.y:231
+#: rcfile_y.y:213
 msgid ""
 "fetchmail: interface option is only supported under Linux (without IPv6) and "
 "FreeBSD\n"
@@ -2212,7 +2336,7 @@ msgstr ""
 "fetchmail: l'opció d'interfície només està suportada en Linux (sense IPv6) i "
 "FreeBSD\n"
 
-#: rcfile_y.y:238
+#: rcfile_y.y:220
 msgid ""
 "fetchmail: monitor option is only supported under Linux (without IPv6) and "
 "FreeBSD\n"
@@ -2220,540 +2344,544 @@ msgstr ""
 "fetchmail: l'opció de monitoració només està suportada en Linux (sense IPv6) "
 "i FreeBSD\n"
 
-#: rcfile_y.y:350
+#: rcfile_y.y:333
 msgid "SSL is not enabled"
 msgstr "SSL no habilitat"
 
-#: rcfile_y.y:398
+#: rcfile_y.y:382
 msgid "end of input"
 msgstr "final de l'entrada"
 
-#: rcfile_y.y:435
+#: rcfile_y.y:419
 #, c-format
 msgid "File %s must be a regular file.\n"
 msgstr "El fitxer %s ha de ser un fitxer ordinari.\n"
 
-#: rcfile_y.y:442
+#: rcfile_y.y:429
 #, c-format
 msgid "File %s must have no more than -rwx--x--- (0710) permissions.\n"
 msgstr "El fitxer %s no pot tenir permisos més que -rwx--x--- (0710).\n"
 
-#: rcfile_y.y:454
+#: rcfile_y.y:441
 #, c-format
 msgid "File %s must be owned by you.\n"
 msgstr "El fitxer %s ha de ser propietat vostra.\n"
 
-#: report.c:81
+#: report.c:77
 msgid "Unknown system error"
 msgstr "Error no identificat del sistema"
 
-#: report.c:108
+#: report.c:104
 #, c-format
 msgid "%s (log message incomplete)"
 msgstr "%s (missatge de registre incomplet)"
 
-#: report.c:266 report.c:294 report.c:366 report.c:394
-msgid "partial error message buffer overflow"
-msgstr "error parcial pel desbordament del buffer del missatge"
-
-#: rfc822.c:74
+#: rfc822.c:76
 #, c-format
 msgid "About to rewrite %s"
 msgstr "Es reescriurà la capçalera %s"
 
-#: rfc822.c:210
+#: rfc822.c:212
 #, c-format
 msgid "Rewritten version is %s\n"
 msgstr "La versió reescrita és %s\n"
 
-#: rpa.c:116
+#: rpa.c:117
 msgid "Success"
 msgstr "Reeixit"
 
-#: rpa.c:117
+#: rpa.c:118
 msgid "Restricted user (something wrong with account)"
 msgstr "Usuari restringit (hi ha algun problema amb el compte)"
 
-#: rpa.c:118
-msgid "Invalid userid or passphrase"
-msgstr "El nom d'usuari o la contrasenya no són vàlids"
-
 #: rpa.c:119
-msgid "Deity error"
-msgstr "Error fatal"
+msgid "Invalid userid or passphrase"
+msgstr "Nom d'usuari o contrassenya no vàlids"
 
-#: rpa.c:172
+#: rpa.c:120
+msgid "Deity error"
+msgstr "Error de la deïtat"
+
+#: rpa.c:173
 msgid "RPA token 2: Base64 decode error\n"
 msgstr "Component RPA 2: Error del desxifrat Base64\n"
 
-#: rpa.c:183
+#: rpa.c:184
 #, c-format
 msgid "Service chose RPA version %d.%d\n"
 msgstr "El servei ha elegit la versió RPA %d.%d\n"
 
-#: rpa.c:189
+#: rpa.c:190
 #, c-format
 msgid "Service challenge (l=%d):\n"
-msgstr "Clau del servei (l=%d):\n"
+msgstr "Repte del servei (l=%d):\n"
 
-#: rpa.c:198
+#: rpa.c:199
 #, c-format
 msgid "Service timestamp %s\n"
 msgstr "Marca horària del servei %s\n"
 
-#: rpa.c:203
+#: rpa.c:204
 msgid "RPA token 2 length error\n"
 msgstr "La mida del component RPA 2 és incorrecta\n"
 
-#: rpa.c:207
+#: rpa.c:208
 #, c-format
 msgid "Realm list: %s\n"
 msgstr "Llista de reialmes: %s\n"
 
-#: rpa.c:211
+#: rpa.c:212
 msgid "RPA error in service@realm string\n"
 msgstr "Error d'RPA a la cadena servei@reialme\n"
 
-#: rpa.c:248
+#: rpa.c:249
 msgid "RPA token 4: Base64 decode error\n"
 msgstr "Component RPA 4: Error de desxifrat Base64\n"
 
-#: rpa.c:259
+#: rpa.c:260
 #, c-format
 msgid "User authentication (l=%d):\n"
 msgstr "Autenticació de l'usuari (l=%d):\n"
 
-#: rpa.c:273
+#: rpa.c:274
 #, c-format
 msgid "RPA status: %02X\n"
 msgstr "Estat RPA: %02X\n"
 
-#: rpa.c:279
+#: rpa.c:280
 msgid "RPA token 4 length error\n"
 msgstr "La mida del component RPA 4 és incorrecta\n"
 
-#: rpa.c:286
+#: rpa.c:287
 #, c-format
 msgid "RPA rejects you: %s\n"
 msgstr "RPA us rebutja: %s\n"
 
-#: rpa.c:288
+#: rpa.c:289
 msgid "RPA rejects you, reason unknown\n"
 msgstr "RPA us rebutja, motiu desconegut\n"
 
-#: rpa.c:294
+#: rpa.c:297
 #, c-format
 msgid "RPA User Authentication length error: %d\n"
 msgstr "La mida del component RPA User Authentication és incorrecta: %d\n"
 
-#: rpa.c:299
+#: rpa.c:302
 #, c-format
 msgid "RPA Session key length error: %d\n"
 msgstr "La mida del component RPA Session key és incorrecta: %d\n"
 
-#: rpa.c:305
+#: rpa.c:308
 msgid "RPA _service_ auth fail. Spoof server?\n"
 msgstr "Fallada en l'autenticació del _servei_ RPA. Nom del servidor fals?\n"
 
-#: rpa.c:310
+#: rpa.c:313
 msgid "Session key established:\n"
 msgstr "Clau de sessió establerta:\n"
 
-#: rpa.c:341
+#: rpa.c:344
 msgid "RPA authorisation complete\n"
 msgstr "Autorització RPA completada\n"
 
 # és un nom?
-#: rpa.c:370
+#: rpa.c:371
 msgid "Get response\n"
 msgstr "Petició de resposta\n"
 
-#: rpa.c:400
+#: rpa.c:401
 #, c-format
 msgid "Get response return %d [%s]\n"
 msgstr "La petició de resposta ha retornat %d [%s]\n"
 
-#: rpa.c:463
+#: rpa.c:462
 msgid "Hdr not 60\n"
 msgstr "Capçalera diferent de 60\n"
 
-#: rpa.c:484
+#: rpa.c:483
 msgid "Token length error\n"
 msgstr "La mida del component és incorrecta\n"
 
-#: rpa.c:489
+#: rpa.c:488
 #, c-format
 msgid "Token Length %d disagrees with rxlen %d\n"
 msgstr "La mida del component %d no lliga amb rxlen %d\n"
 
-#: rpa.c:495
+#: rpa.c:494
 msgid "Mechanism field incorrect\n"
 msgstr "Mecanisme de camp incorrecte\n"
 
-#: rpa.c:532
+#: rpa.c:530
 #, c-format
 msgid "dec64 error at char %d: %x\n"
 msgstr "error de dec64 al caràcter %d: %x\n"
 
-#: rpa.c:547
+#: rpa.c:545
 msgid "Inbound binary data:\n"
 msgstr "Dades binàries entrants:\n"
 
-#: rpa.c:585
+#: rpa.c:581
 msgid "Outbound data:\n"
 msgstr "Dades sortints:\n"
 
-#: rpa.c:651
+#: rpa.c:644
 msgid "RPA String too long\n"
 msgstr "Cadena RPA massa llarga\n"
 
-#: rpa.c:656
+#: rpa.c:649
 msgid "Unicode:\n"
 msgstr "Unicode:\n"
 
-#: rpa.c:718
+#: rpa.c:708
 msgid "RPA Failed open of /dev/urandom. This shouldn't\n"
 msgstr "RPA no ha pogut obrir /dev/urandom. Això no impedeix\n"
 
-#: rpa.c:719
+#: rpa.c:709
 msgid "    prevent you logging in, but means you\n"
 msgstr "    que entreu al sistema, però vol dir que no\n"
 
-#: rpa.c:720
+#: rpa.c:710
 msgid "    cannot be sure you are talking to the\n"
 msgstr "    podeu estar segurs d'estar parlant amb el\n"
 
-#: rpa.c:721
+#: rpa.c:711
 msgid "    service that you think you are (replay\n"
 msgstr "    servei que creieu (són possibles atacs\n"
 
-#: rpa.c:722
+#: rpa.c:712
 msgid "    attacks by a dishonest service are possible.)\n"
 msgstr "    per repetició per part d'un servei deshonest).\n"
 
-#: rpa.c:733
+#: rpa.c:723
 msgid "User challenge:\n"
 msgstr "Clau de l'usuari:\n"
 
-#: rpa.c:891
+#: rpa.c:873
 msgid "MD5 being applied to data block:\n"
 msgstr "MD5 que s'aplica al bloc de dades:\n"
 
-#: rpa.c:904
+#: rpa.c:886
 msgid "MD5 result is: \n"
 msgstr "L'MD5 resultant és: \n"
 
-#: sink.c:249
+#: servport.c:52
+#, c-format
+msgid "getaddrinfo(NULL, \"%s\") error: %s\n"
+msgstr "getaddrinfo(NULL, \"%s\") error: %s\n"
+
+#: servport.c:78
+#, c-format
+msgid "Cannot resolve service %s to port number.\n"
+msgstr "No s'ha pogut resoldre el servei %s a un número de port.\n"
+
+#: servport.c:79
+msgid "Please specify the service as decimal port number.\n"
+msgstr "Si us plau, especifiqueu el servei com a un número decimal de port.\n"
+
+#: sink.c:220
 #, c-format
 msgid "forwarding to %s\n"
 msgstr "reenviant a %s\n"
 
-#: sink.c:351
+#: sink.c:306
 msgid "SMTP: (bounce-message body)\n"
 msgstr "SMTP: (cos del missatge retornat)\n"
 
-#. this will usually go to sylog...
-#: sink.c:354
+#: sink.c:309
 #, c-format
 msgid "mail from %s bounced to %s\n"
 msgstr "correu de %s retornat a %s\n"
 
-#: sink.c:464
+#: sink.c:442
 #, c-format
 msgid "Saved error is still %d\n"
 msgstr "L'error desat encara és %d\n"
 
-#: sink.c:527 sink.c:607
+#: sink.c:502 sink.c:587
 #, c-format
 msgid "%cMTP error: %s\n"
 msgstr "Error %cMTP: %s\n"
 
-#: sink.c:761
+#: sink.c:748
 msgid "BSMTP file open or preamble write failed\n"
 msgstr "Ha fallat l'obertura del fitxer BSMTP o l'escriptura del preàmbul\n"
 
-#: sink.c:982
+#: sink.c:963
 #, c-format
 msgid "%cMTP listener doesn't like recipient address `%s'\n"
 msgstr "El receptor %cMTP no admet l'adreça del destinatari `%s'\n"
 
-#: sink.c:989
+#: sink.c:970
 #, c-format
 msgid "%cMTP listener doesn't really like recipient address `%s'\n"
 msgstr "El receptor %cMTP no admet l'adreça de destinació `%s'\n"
 
-#: sink.c:1027
+#: sink.c:1016
 msgid "no address matches; no postmaster set.\n"
 msgstr "cap adreça coincideix; el postmaster no està definit.\n"
 
-#: sink.c:1039
+#: sink.c:1028
 #, c-format
 msgid "can't even send to %s!\n"
 msgstr "ni tan sols es pot enviar a %s!\n"
 
-#: sink.c:1045
+#: sink.c:1034
 #, c-format
 msgid "no address matches; forwarding to %s.\n"
 msgstr "cap adreça coincideix; reenviant a %s.\n"
 
-#: sink.c:1198
+#: sink.c:1190
 #, c-format
 msgid "about to deliver with: %s\n"
 msgstr "a punt de lliurar amb: %s\n"
 
-#: sink.c:1222
+#: sink.c:1214
 msgid "MDA open failed\n"
-msgstr "l'obertura de l'MDA ha fallat\n"
+msgstr "no s'ha pogut executar l'MDA\n"
 
-#: sink.c:1259
+#: sink.c:1251
 #, c-format
 msgid "%cMTP connect to %s failed\n"
 msgstr "La connexió %cMTP amb %s ha fallat\n"
 
 # raise
-#: sink.c:1283
+#: sink.c:1275
 #, c-format
 msgid "can't raise the listener; falling back to %s"
 msgstr "no s'ha pogut lliurar via SMTP; recorrent a %s"
 
-#: sink.c:1339
+#: sink.c:1331
 #, c-format
 msgid "MDA died of signal %d\n"
 msgstr "MDA finalitzat pel senyal %d\n"
 
-#: sink.c:1342
+#: sink.c:1334
 #, c-format
 msgid "MDA returned nonzero status %d\n"
 msgstr "L'MDA ha retornat un estat no nul: %d\n"
 
-#: sink.c:1345
+#: sink.c:1337
 #, c-format
 msgid "Strange: MDA pclose returned %d, cannot handle at %s:%d\n"
 msgstr ""
 "Estrany: La funció pclose de l'MDA a retornat %d, no es pot continuar a %s:%"
 "d\n"
 
-#: sink.c:1366
+#: sink.c:1358
 msgid "Message termination or close of BSMTP file failed\n"
 msgstr "Ha fallat la terminació del missatge o el tancament del fitxer BSMTP\n"
 
-#: sink.c:1387
+#: sink.c:1380
 msgid "SMTP listener refused delivery\n"
 msgstr "El receptor SMTP refusa el lliurament\n"
 
-#: sink.c:1417
+#: sink.c:1410
 msgid "LMTP delivery error on EOM\n"
 msgstr "Error de lliurament LMTP a EOM\n"
 
-#: sink.c:1420
+#: sink.c:1413
 #, c-format
 msgid "Unexpected non-503 response to LMTP EOM: %s\n"
 msgstr "Resposta no-503 inesperada al final del missatge LMTP: %s\n"
 
-#: sink.c:1570
+#: sink.c:1568
 msgid ""
-"--\n"
-"\t\t\t\tThe Fetchmail Daemon\n"
+"-- \n"
+"The Fetchmail Daemon"
 msgstr ""
-"--\n"
-"\t\t\t\tEl Dimoni Fetchmail\n"
+"-- \n"
+"El Dimoni Fetchmail"
 
-#: smtp.c:86
+#: smtp.c:79
 msgid "ESMTP CRAM-MD5 Authentication...\n"
 msgstr "Autenticació CRAM-MD5 per ESMTP...\n"
 
-#. Server rejects AUTH
-#: smtp.c:93 smtp.c:153
+#: smtp.c:86 smtp.c:137
 msgid "Server rejected the AUTH command.\n"
 msgstr "El servidor ha rebutjat l'ordre AUTH.\n"
 
-#: smtp.c:101 smtp.c:160 smtp.c:170 smtp.c:176
+#: smtp.c:94 smtp.c:144 smtp.c:154 smtp.c:160
 msgid "Bad base64 reply from server.\n"
 msgstr "La resposta en base64 del servidor és incorrecta.\n"
 
-#: smtp.c:105
+#: smtp.c:98
 #, c-format
 msgid "Challenge decoded: %s\n"
-msgstr "Codificació desxifrada com a %s\n"
+msgstr "Repte desxifrat com a %s\n"
 
-#: smtp.c:126
+#: smtp.c:115
 msgid "ESMTP PLAIN Authentication...\n"
 msgstr "Autenticació per ESMTP sense xifrat...\n"
 
-#: smtp.c:146
+#: smtp.c:130
 msgid "ESMTP LOGIN Authentication...\n"
 msgstr "Autenticació de LOGIN per ESMTP...\n"
 
-#: smtp.c:361 smtp.c:384
+#: smtp.c:331 smtp.c:354
 msgid "smtp listener protocol error\n"
 msgstr "error de protocol del receptor smtp\n"
 
-#: socket.c:108 socket.c:134
+#: socket.c:114 socket.c:140
 msgid "fetchmail: malloc failed\n"
 msgstr "fetchmail: la rutina malloc ha fallat\n"
 
-#: socket.c:166
+#: socket.c:172
 msgid "fetchmail: socketpair failed\n"
 msgstr "fetchmail: la rutina socketpair ha fallat\n"
 
-#. error
-#: socket.c:172
+#: socket.c:178
 msgid "fetchmail: fork failed\n"
 msgstr "fetchmail: la rutina fork ha fallat\n"
 
-#: socket.c:180
+#: socket.c:185
 msgid "dup2 failed\n"
 msgstr "la rutina dup2 ha fallat\n"
 
-#: socket.c:186
+#: socket.c:191
 #, c-format
 msgid "running %s (host %s service %s)\n"
 msgstr "executant %s (host %s servei %s)\n"
 
-#: socket.c:189
+#: socket.c:194
 #, c-format
 msgid "execvp(%s) failed\n"
 msgstr "la rutina execvp(%s) ha fallat\n"
 
 #: socket.c:281
 #, c-format
-msgid "fetchmail: getaddrinfo(%s.%s)\n"
-msgstr "fetchmail: getaddrinfo(%s.%s)\n"
+msgid "getaddrinfo(\"%s\",\"%s\") error: %s\n"
+msgstr "getaddrinfo(\"%s\",\"%s\") error: %s\n"
 
-#: socket.c:428
-#, c-format
-msgid "fetchmail: illegal address length received for host %s\n"
-msgstr "fetchmail: s'ha rebut una adreça de llargada incorrecta pel host %s\n"
+#: socket.c:284
+msgid "Try adding the --service option (see also FAQ item R12).\n"
+msgstr "Proveu d'afegir l'opció --service (vegeu el punt R12 de les FAQ).\n"
 
-#: socket.c:778
+#: socket.c:626
 #, c-format
 msgid "Issuer Organization: %s\n"
 msgstr "Organització emissora: %s\n"
 
-#: socket.c:780
+#: socket.c:628
 msgid "Warning: Issuer Organization Name too long (possibly truncated).\n"
 msgstr ""
 "Atenció: El nom de l'organització emissora és massa llarg (pot estar "
 "truncat).\n"
 
-#: socket.c:782
+#: socket.c:630
 msgid "Unknown Organization\n"
 msgstr "Organització desconeguda\n"
 
-#: socket.c:784
+#: socket.c:632
 #, c-format
 msgid "Issuer CommonName: %s\n"
 msgstr "Nom comú de l'emissor: %s\n"
 
-#: socket.c:786
+#: socket.c:634
 msgid "Warning: Issuer CommonName too long (possibly truncated).\n"
 msgstr ""
 "Atenció: El nom comú de l'emissor és massa llarg (pot estar truncat).\n"
 
-#: socket.c:788
+#: socket.c:636
 msgid "Unknown Issuer CommonName\n"
 msgstr "Nom comú de l'emissor desconegut\n"
 
-#: socket.c:792
+#: socket.c:640
 #, c-format
 msgid "Server CommonName: %s\n"
 msgstr "Nom comú del servidor: %s\n"
 
-#. Possible truncation. In this case, this is a DNS name, so this
-#. * is really bad. We do not tolerate this even in the non-strict case.
-#: socket.c:796
+#: socket.c:644
 msgid "Bad certificate: Subject CommonName too long!\n"
 msgstr "Certificat incorrecte: El component CommonName és massa llarg!\n"
 
-#: socket.c:812
+#: socket.c:690
 #, c-format
 msgid "Server CommonName mismatch: %s != %s\n"
 msgstr "El nom comú del servidor no encaixa: %s != %s\n"
 
-#: socket.c:818
+#: socket.c:696
 msgid "Server name not set, could not verify certificate!\n"
 msgstr ""
 "El nom del servidor no està definit, no es pot verificar el certificat!\n"
 
-#: socket.c:823
+#: socket.c:701
 msgid "Unknown Server CommonName\n"
 msgstr "Nom comú del servidor desconegut\n"
 
-#: socket.c:825
+#: socket.c:703
 msgid "Server name not specified in certificate!\n"
 msgstr "El certificat no especifica el nom del servidor!\n"
 
-#: socket.c:835
+#: socket.c:715
 msgid "EVP_md5() failed!\n"
 msgstr "EVP_md5() ha fallat!\n"
 
-#: socket.c:839
+#: socket.c:719
 msgid "Out of memory!\n"
 msgstr "Memòria exhaurida!\n"
 
 # digest text
-#: socket.c:851
+#: socket.c:727
 msgid "Digest text buffer too small!\n"
 msgstr "El buffer del sumari de text és massa petit!\n"
 
-#: socket.c:857
+#: socket.c:733
 #, c-format
 msgid "%s key fingerprint: %s\n"
 msgstr "Empremta de la clau de %s: %s\n"
 
-#: socket.c:861
+#: socket.c:737
 #, c-format
 msgid "%s fingerprints match.\n"
 msgstr "Les empremtes digitals de %s encaixen.\n"
 
-#: socket.c:864
+#: socket.c:739
 #, c-format
 msgid "%s fingerprints do not match!\n"
 msgstr "Les empremtes digitals de %s no encaixen!\n"
 
-#: socket.c:872
+#: socket.c:748
 #, c-format
-msgid "Warning: server certificate verification: %s\n"
-msgstr "Atenció: verificació del certificat del servidor: %s\n"
+msgid "Server certificate verification error: %s\n"
+msgstr "Error en verificar el certificat del servidor: %s\n"
 
-#: socket.c:878
+#: socket.c:754
 #, c-format
 msgid "unknown issuer (first %d characters): %s\n"
 msgstr "emissor desconegut (primers %d caràcters): %s\n"
 
-#: socket.c:931
+#: socket.c:810
 msgid "File descriptor out of range for SSL"
 msgstr "Descriptor del fitxer fora d'abast per SSL"
 
-#: socket.c:948
+#: socket.c:827
 #, c-format
 msgid "Invalid SSL protocol '%s' specified, using default (SSLv23).\n"
 msgstr "El protocol SSL especificat `%s' no és vàlid, s'usa SSLv23.\n"
 
-#: socket.c:1008
+#: socket.c:890
 msgid "Certificate/fingerprint verification was somehow skipped!\n"
 msgstr "La verificació del certificat o de l'empremta s'ha omès!\n"
 
-#: socket.c:1080
+#: socket.c:964
 msgid "Cygwin socket read retry\n"
 msgstr "Es torna a intentar llegir el socket Cygwin\n"
 
-#: socket.c:1083
+#: socket.c:967
 msgid "Cygwin socket read retry failed!\n"
 msgstr "El reintent de llegir el socket Cygwin ha fallat!\n"
 
-#: transact.c:70
+#: transact.c:74
 #, c-format
 msgid "mapped %s to local %s\n"
 msgstr "%s s'ha assignat al nom local %s\n"
 
 # què significa?
-#: transact.c:134
+#: transact.c:136
 #, c-format
 msgid "passed through %s matching %s\n"
-msgstr "el %s processat encaixa amb %s\n"
+msgstr "passat per %s encaixa amb %s\n"
 
-#: transact.c:203
+#: transact.c:205
 #, c-format
 msgid ""
 "analyzing Received line:\n"
@@ -2762,84 +2890,79 @@ msgstr ""
 "analitzant la línea Received:\n"
 "%s"
 
-#: transact.c:242
+#: transact.c:244
 #, c-format
 msgid "line accepted, %s is an alias of the mailserver\n"
 msgstr "línia acceptada, %s és un àlies del servidor de correu\n"
 
-#: transact.c:248
+#: transact.c:250
 #, c-format
 msgid "line rejected, %s is not an alias of the mailserver\n"
 msgstr "línia rebutjada, %s no és un àlies del servidor de correu\n"
 
-#: transact.c:322
+#: transact.c:324
 msgid "no Received address found\n"
 msgstr "no s'ha trobat cap adreça a la capçalera Received\n"
 
-#: transact.c:331
+#: transact.c:333
 #, c-format
 msgid "found Received address `%s'\n"
 msgstr "s'ha trobat l'adreça `%s' a la capçalera Received\n"
 
-#: transact.c:531
+#: transact.c:530
 msgid "message delimiter found while scanning headers\n"
 msgstr ""
 "s'ha trobat un delimitador de missatge quan s'analitzava l'encapçalament\n"
 
-#: transact.c:552
+#: transact.c:561
 msgid "incorrect header line found while scanning headers\n"
 msgstr "s'ha trobat una línia incorrecta quan s'analitzava l'encapçalament\n"
 
-#: transact.c:554
-#, fuzzy, c-format
+#: transact.c:563
+#, c-format
 msgid "line: %s"
-msgstr "Consultant %s\n"
+msgstr "línia: %s"
 
-#: transact.c:1074
+#: transact.c:1109
 #, c-format
 msgid "no local matches, forwarding to %s\n"
 msgstr "cap conincidència local, reenviant a %s\n"
 
-#: transact.c:1089
+#: transact.c:1124
 msgid "forwarding and deletion suppressed due to DNS errors\n"
 msgstr "reenviament i eliminació omesos a causa d'errors de DNS\n"
 
-#: transact.c:1225
+#: transact.c:1234
 msgid "writing RFC822 msgblk.headers\n"
-msgstr "escrivint l'encapçalament RFC822 msgblk\n"
+msgstr "escrivint capçaleres msgblk RFC822\n"
 
-#: transact.c:1246
+#: transact.c:1252
 msgid "no recipient addresses matched declared local names"
 msgstr "cap adreça de destinatari coincideix amb els noms locals declarats"
 
-#: transact.c:1257
+#: transact.c:1259
 #, c-format
 msgid "recipient address %s didn't match any local name"
 msgstr "l'adreça del destinatari %s no lliga amb cap nom local"
 
-#: transact.c:1271
+#: transact.c:1268
 msgid "message has embedded NULs"
 msgstr "el missatge conté caràcters NUL"
 
-#: transact.c:1284
+#: transact.c:1276
 msgid "SMTP listener rejected local recipient addresses: "
 msgstr "el receptor SMTP ha rebutjat les adreces locals de destinació: "
 
-#: transact.c:1409
+#: transact.c:1404
 msgid "writing message text\n"
 msgstr "escrivint el text del missatge\n"
-
-#: uid.c:137
-#, c-format
-msgid "lstat: %s: %s\n"
-msgstr "lstat: %s: %s\n"
 
 #: uid.c:248
 #, c-format
 msgid "Old UID list from %s:"
 msgstr "Antiga llista d'UIDs de %s:"
 
-#: uid.c:253 uid.c:264 uid.c:518 uid.c:567
+#: uid.c:253 uid.c:264 uid.c:521 uid.c:571
 msgid " <empty>"
 msgstr " <buit>"
 
@@ -2847,39 +2970,56 @@ msgstr " <buit>"
 msgid "Scratch list of UIDs:"
 msgstr "Esborrany de llista d'UIDs:"
 
-#. this is now a merged list! the mails which were seen in this
-#. * poll are marked here.
-#: uid.c:512 uid.c:563
-#, fuzzy, c-format
+#: uid.c:515 uid.c:567
+#, c-format
 msgid "Merged UID list from %s:"
-msgstr "Antiga llista d'UIDs de %s:"
+msgstr "Afegida la llista d'UIDs de %s:"
 
-#: uid.c:514
+#: uid.c:517
 #, c-format
 msgid "New UID list from %s:"
 msgstr "Nova llista d'UIDs de %s:"
 
-#: uid.c:542
+#: uid.c:546
 msgid "swapping UID lists\n"
 msgstr "intercanviant llistes d'UIDs\n"
 
-#: uid.c:550
+#: uid.c:554
 msgid "not swapping UID lists, no UIDs seen this query\n"
 msgstr ""
 "no s'intercanvien llistes d'UIDs, no s'han trobat UIDs en aquesta consulta\n"
 
-#: uid.c:575
-#, fuzzy
+#: uid.c:579
 msgid "discarding new UID list\n"
-msgstr "intercanviant llistes d'UIDs\n"
+msgstr "descartant la llista nova d'UIDs\n"
 
-#: uid.c:610
+#: uid.c:614
 msgid "Deleting fetchids file.\n"
 msgstr "Esborrant el fitxer d'identificadors.\n"
 
 #: uid.c:616
+#, c-format
+msgid "Error deleting %s: %s\n"
+msgstr "Error en eliminar %s: %s\n"
+
+#: uid.c:622
 msgid "Writing fetchids file.\n"
 msgstr "Escrivint el fitxer d'identificadors.\n"
+
+#: uid.c:641
+#, c-format
+msgid "Error writing to fetchids file %s, old file left in place.\n"
+msgstr "Error en escriure el fitxer d'ids %s, es manté l'antic.\n"
+
+#: uid.c:645
+#, c-format
+msgid "Cannot rename fetchids file %s to %s: %s\n"
+msgstr "No s'ha pogut reanomenar el fitxer d'ids %s a %s: %s\n"
+
+#: uid.c:649
+#, c-format
+msgid "Cannot open fetchids file %s for writing: %s\n"
+msgstr "No s'ha pogut obrir el fitxer d'ids %s per escriure-hi: %s\n"
 
 #: xmalloc.c:33
 msgid "malloc failed\n"

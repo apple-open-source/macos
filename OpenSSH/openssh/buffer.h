@@ -1,4 +1,4 @@
-/*	$OpenBSD: buffer.h,v 1.11 2002/03/04 17:27:39 stevesk Exp $	*/
+/*	$OpenBSD: buffer.h,v 1.13 2005/03/14 11:46:56 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -23,6 +23,9 @@ typedef struct {
 	u_int	 end;		/* Offset of last byte containing data. */
 }       Buffer;
 
+#define	BUFFER_MAX_CHUNK	0x100000
+#define	BUFFER_MAX_LEN		0xa00000
+
 void	 buffer_init(Buffer *);
 void	 buffer_clear(Buffer *);
 void	 buffer_free(Buffer *);
@@ -39,5 +42,9 @@ void	 buffer_consume(Buffer *, u_int);
 void	 buffer_consume_end(Buffer *, u_int);
 
 void     buffer_dump(Buffer *);
+
+int	 buffer_get_ret(Buffer *, void *, u_int);
+int	 buffer_consume_ret(Buffer *, u_int);
+int	 buffer_consume_end_ret(Buffer *, u_int);
 
 #endif				/* BUFFER_H */

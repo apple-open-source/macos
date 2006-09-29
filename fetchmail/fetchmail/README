@@ -29,6 +29,8 @@ See the distribution files FEATURES for a full list of features, NEWS
 for detailed information on recent changes, NOTES for design notes, and
 TODO for a list of things that still need doing.
 
+The INSTALL file describes how to configure and install fetchmail.
+
 The fetchmail code appears to be stable and free of bugs affecting
 normal operation (that is, retrieving from POP3 or IMAP in single-drop
 mode and forwarding via SMTP to sendmail).  It will probably undergo
@@ -40,9 +42,9 @@ can be found in the file todo.html.
 
 You can get the code from the fetchmail home page:
 
-	http://www.catb.org/~esr/fetchmail
+	http://fetchmail.berlios.de/
 
 Enjoy!
 
-							-- esr
+							-- esr, ma
 

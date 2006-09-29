@@ -31,6 +31,9 @@
  * /usr/bin/mnthome's output. 
  ******************************************************************/
 
+#include <Security/Authorization.h>
+#include <Security/AuthorizationTags.h>
+#include <Security/AuthSession.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -42,19 +45,17 @@
 #include <pwd.h>
 #include <util.h>
 #include <string.h>
+#include <stdarg.h>
 
 
 /* Turn off debugging for live systems. */
-/* #define DEBUG */
+#define D(...) //
 
 #define PAM_SM_AUTH
-#define PAM_SM_SESSION
 #define _PAM_EXTERN_FUNCTIONS
 #include <pam/pam_modules.h>
 #include <pam/pam_mod_misc.h>
-#include <pam/_pam_macros.h>
 
-#define AFP_DATA_TAG 		"pam_afpmount_authtok"
 #define PASSWORD_PROMPT     "Password:"
 #define AFP_END_OF_PASS 	"\x0A\x04"
 
@@ -62,94 +63,94 @@
 /* AFP_PASS_BUFFER = _PASSWORD_LEN + strlen(AFP_END_OF_PASS) +  1 */
 #define AFP_PASS_BUFFER 	(_PASSWORD_LEN+3)
 
-
-void cleanup(pam_handle_t *pamh, void *data, int pam_end_status)
-{
-	if (data != NULL) {
-		bzero(data, strlen(data));
-		free(data);
-	}
-}
-
 PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
-	int retval;
-	const char *authtok = NULL;
-	char *password = NULL;
-	
-	/* grab PAM password. */
-	if ((retval = pam_get_pass(pamh, &authtok, PASSWORD_PROMPT, PAM_OPT_TRY_FIRST_PASS)) != PAM_SUCCESS) {
-		D(("pam_get_pass [%s]", pam_strerror(pamh, retval)));
-		return retval;
-	}
-
-	if (authtok == NULL) {
-		return PAM_SERVICE_ERR;
-	}
-	password = strdup(authtok);
-
-	if (password == NULL) {
-		return PAM_BUF_ERR;		
-	}
-
-	/* Save password to pipe to mnthome */
-	if ((retval = pam_set_data(pamh, AFP_DATA_TAG, password, cleanup)) != PAM_SUCCESS) {
-		D(("pam_set_data [%s]", pam_strerror(pamh, retval)));
-		return retval;
-	}
-	return PAM_SUCCESS;
-}
-
-PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
-{
+	AuthorizationRef authorizationRef = NULL;
+	AuthorizationFlags authzflags;
+	AuthorizationEnvironment env;
+	OSStatus        err;
+	AuthorizationRights rights;
+	AuthorizationItem envItems[2];
+	int             options = 0;
+	int             status;
+	int             i;
+	struct passwd *pwd;
+	struct stat	statbuf;
 	int retval, master, slave, pid, plen;
 	uid_t	 uid;
-	const char *user = NULL;
-	const char *authtok = NULL;
-	struct stat	statbuf;
-	struct passwd *pwd;
-	char *password;
 	char tmp[strlen(PASSWORD_PROMPT)+1];
-	
-	if ((retval = pam_get_user(pamh, &user, NULL)) != PAM_SUCCESS) {
-			D(("pam_get_user [%s]", pam_strerror(pamh, retval)));
-		return retval;
-	}
-	
-	if (user == NULL) {
-		return PAM_SERVICE_ERR;
-	}
-	
-	if ((retval = pam_get_data(pamh, AFP_DATA_TAG, (const void **)&authtok)) != PAM_SUCCESS) {
-			D(("pam_get_data [%s]", pam_strerror(pamh, retval)));
-		return retval;
-	}
+	char *password = NULL;
 
-	pwd = getpwnam(user);
+	for(i = 0; (i < argc) && argv[i]; i++)
+		pam_std_option(&options, argv[i]);
+	options |= PAM_OPT_TRY_FIRST_PASS;
+
+	rights.count = 0;
+	rights.items = NULL;
+
+	envItems[0].name = kAuthorizationEnvironmentUsername;
+	status = pam_get_item(pamh, PAM_USER, (void *)&envItems[0].value);
+	if (status != PAM_SUCCESS) {
+		return PAM_IGNORE;
+	}
+	if( envItems[0].value == NULL ) {
+		status = pam_get_user(pamh, (void *)&(envItems[0].value), NULL);
+		if( status != PAM_SUCCESS )
+			return PAM_IGNORE;
+		if( envItems[0].value == NULL )
+			return PAM_IGNORE;
+	} 
+	envItems[0].valueLength = strlen(envItems[0].value);
+	envItems[0].flags = 0;
+
+	envItems[1].name = kAuthorizationEnvironmentPassword;
+	status = pam_get_pass(pamh, (void *)&envItems[1].value,PASSWORD_PROMPT,
+		options);
+	if (status != PAM_SUCCESS) {
+		return PAM_IGNORE;
+	}
+	if( envItems[1].value == NULL ) {
+		envItems[1].valueLength = 0;
+		/* no password can't mount, just return */
+		return PAM_IGNORE;
+	}
+	else
+		envItems[1].valueLength = strlen(envItems[1].value);
+	envItems[1].flags = 0;
+
+	env.count = 2;
+	env.items = envItems;
+
+	authzflags = kAuthorizationFlagDefaults;
+	err = AuthorizationCreate(&rights, &env, authzflags, &authorizationRef);
+	if (err != errAuthorizationSuccess) {
+		return PAM_IGNORE;
+	}
+	AuthorizationFree(authorizationRef, 0);
+
+	pwd = getpwnam(envItems[0].value);
 
 	if (pwd == NULL) {
-		return PAM_SERVICE_ERR;
+		return PAM_IGNORE;
 	}
 	uid = pwd->pw_uid;
 
 	/* stat mnthome */
-	if (stat(MNTHOME_PATH,&statbuf) < 0) {
-				D(("stat of mnthome failed [%s]", strerror(errno)));
-		return PAM_SERVICE_ERR;
+	if (stat(MNTHOME_PATH, &statbuf) < 0) {
+		D(("stat of mnthome failed [%s]", strerror(errno)));
+		return PAM_IGNORE;
 	}
 
 	if (openpty(&master, &slave, NULL, NULL, NULL) == -1) {
-				D(("openpty failed [%s]", strerror(errno)));
-		return PAM_SERVICE_ERR;
+		D(("openpty failed [%s]", strerror(errno)));
+		return PAM_IGNORE;
 	}
 
-
 	switch (pid = fork()) {
-		
 		case -1:
 				/* fork failure */
 				D(("fork failed [%s]", strerror(errno)));
-				return PAM_SERVICE_ERR;
+				return PAM_IGNORE;
 				break;
 		case  0:
 				/* child */
@@ -161,11 +162,11 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, cons
 
 				/* change to appropriate user...*/
 				if (setuid(uid) == -1) {
-					D(("setuid(%d) failed [%s]",uid, strerror(errno)));
+					D(("setuid(%d) failed [%s]", uid, strerror(errno)));
 					_exit(1);
 				}
 
-				execl(MNTHOME_PATH, "mnthome", NULL);
+				(void)execl(MNTHOME_PATH, "mnthome", NULL);
 				_exit(1);
 				break;
 		default: 
@@ -179,7 +180,7 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, cons
 					close(master);
 					/* Wait for zombie mnthomes */
 					waitpid(pid, NULL, WNOHANG);
-					return PAM_SERVICE_ERR;
+					return PAM_IGNORE;
 				}
 
 				if (strncmp(PASSWORD_PROMPT, tmp, strlen(PASSWORD_PROMPT))!=0) {
@@ -187,12 +188,12 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, cons
 					tcflush(master, TCIOFLUSH);
 					close(master);
 					waitpid(pid, NULL, 0);
-					return PAM_SERVICE_ERR;					
+					return PAM_IGNORE;
 				}
 				D(("Master read: '%s'",tmp));
 
 				password = calloc(AFP_PASS_BUFFER, sizeof(char));
-				strlcpy(password, authtok, _PASSWORD_LEN+1);
+				strlcpy(password, envItems[1].value, _PASSWORD_LEN+1);
 				/* add end of password marker */
 				strlcat(password, AFP_END_OF_PASS, AFP_PASS_BUFFER);
 				plen = strlen(password);
@@ -213,17 +214,17 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, cons
 				if (retval == PAM_SUCCESS && read(master, tmp, strlen(PASSWORD_PROMPT)) != -1) {
 					D(("read newline '%s'",tmp));
 					/* check newline was received, grab progress text */
-					if (tmp[0] == '\n' && read(master, tmp, strlen(PASSWORD_PROMPT)) != -1) {
+					//if (tmp[0] == '\n' && read(master, tmp, strlen(PASSWORD_PROMPT)) != -1) {
+					if (read(master, tmp, strlen(PASSWORD_PROMPT)) != -1) {
 						D(("read progress '%s'",tmp));
-						retval = PAM_SUCCESS;
+						retval = PAM_IGNORE;
 					}
 					else {
-						retval = PAM_SERVICE_ERR;
+						retval = PAM_IGNORE;
 						D(("progress read failed"));											
 					}
-				}
-				else {
-					retval = PAM_SERVICE_ERR;
+				} else {
+					retval = PAM_IGNORE;
 					D(("read newline failed"));					
 				}
 
@@ -237,22 +238,27 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, cons
 				/* wait safely,  for child to be done. */
 				waitpid(pid, NULL, 0);
 	}
-	return retval;
+	return PAM_IGNORE;
+}
+
+PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
+{
+	return PAM_IGNORE;
 }
 
 PAM_EXTERN int pam_sm_close_session(pam_handle_t * pamh, int flags, int argc, const char **argv)
 {
-	return PAM_SUCCESS;
+	return PAM_IGNORE;
 }
 
 PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
-	return PAM_SUCCESS;
+	return PAM_IGNORE;
 }
 
 PAM_EXTERN int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
-	return PAM_SUCCESS;
+	return PAM_IGNORE;
 }
 
 #ifdef PAM_STATIC

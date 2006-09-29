@@ -3,6 +3,99 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
+Changes for the 5.23 release (the cctools-622.5 release):
+- Support the new x86-64 relocation entry types for signed relocations
+  with offsets.  Radar bug #4664658.
+
+Changes for the 5.23 release (the cctools-622.3 release):
+- Changed the Makefile to not build otool(1) -static.  Radar bug #4624240.
+
+Changes for the 5.23 release (the cctools-620 release):
+- Added code in print_thread_states() in ofile_print.c to print the new and
+  missing x86 thread states.  Radar bug #4491230.
+- Changed main.c to use target_addr_t instead of unsigned long for section
+  addresses, which causes 64-bit section addresses to be displayed correctly.
+  Radar bug #4591066.
+
+Changes for the 5.23 release (the cctools-619 release):
+- Changed displacement() in i386_disasm.c and #ifdef'ed out for ARCH64 so to
+  not add the addr and lenght.  Also changed get_symbol() in i386_disasm.c and
+  #ifdef'ed out for ARCH64 then handling of scattered_relocation_info .
+  Radar bug #4483416.
+
+Changes for the 5.23 release (the cctools-618 release):
+- Added support for displaying S_16BYTE_LITERALS sections.  Radar bug #4555162.
+
+Changes for the 5.23 release (the cctools-617 release):
+- Don't display a suffix when diassembling setCC instructions for i386.  Radar
+  bug #3873844.
+- Disassemble x86-64 MOV instructions which take 8, 16, and 32-bit immediates
+  properly.  Radar bug #4555277.
+- Changed i386_disasm.c to allow us to mark various instructions as being
+  implicitly pointer-sized and marked those instructions like that.  Radar bug
+  #4563547.
+
+Changes for the 5.23 release (the cctools-614 release):
+- Changed ofile_print.c to add macros that rename structure members of the 
+  ppc and i386 thread states for Unix conformance.  Radar bug #4508798.
+
+Changes for the 5.23 release (the cctools-610 release):
+- Added a few ifdef x86_THREAD_STATE64 to a few places to ofile_print.c
+  to allow it to build on Tiger.  Radar bug #4535019.
+
+Changes for the 5.23 release taken from cctools-590.43 (the cctools-610
+release):
+- Added support for disassembling the Vanderpool instructions to the i386
+  disassembler.  Was radar bug #4427573 in cctools-590.43. Radar bug #4534436.
+
+Changes for the 5.22 release (the cctools-590.37.3 release):
+- Add back support for the E9 form of the jmp instruction for x86-64
+  disassembly. Radar bug #4489937.
+- Use a 'q' suffix rather than an 'l' suffix when disassembling call and jmp
+  instructions for x86-64. Radar bug #4483621.
+
+Changes for the 5.22 release (the cctools-590.36.3 release):
+- Add support for the new relocation entry types for x86-64. Radar bug
+  #4475165.
+- Print %cs, %fs, and %gs as 64-bit values in x86_64 thread states in otool.
+  Radar bug #4468148.
+- Disassemble pushq instructions with extended x86_64 registers correctly.
+  Radar bug #4476218.
+
+Changes for the 5.22 release (the cctools-590.36.1 release):
+- Fix suffixes in x86-64 disassembly for push, pop, and moves to and from
+  control and debug registers, as well as disassembly of short jumps. Radar
+  bug #4467441.
+
+Changes for the 5.22 release (the cctools-590.34.1 release):
+- Disassemble x86-64 instructions with SIB bytes correctly. Radar bug
+  #4436608.
+- Disassemble x86-64-specific instructions properly and don't recognize
+  i386-specific instructions when disassembling x86-64 code. Radar bug
+  #4437391.
+- Disassemble the movslq instruction correctly for x86-64. Radar bug #4437197.
+- Eliminated extraneous suffixes from disassembly of some i386 and
+  x86-64 instructions. Radar bug #4441526.
+- Fixed x86-64 disassembly for moves to and from control and debug registers.
+  Radar bug #4439907.
+
+Changes for the 5.22 release (the cctools-590.31.2 release):
+- Added printing x86_THREAD_STATE64 in otool64.  Radar bug #4424303.
+
+Changes for the 5.22 release (the cctools-590.31.1 release):
+- Added support for the x86_64 architecture.  Radar bug #4345090.
+- Added support for the Merom New Instructions.  Radar bug #4407298.
+- Improved otool's output for a number of i386 instructions.
+
+Changes for the 5.20 release (the cctools-590.25 release):
+- Changed print_uuid_command() in ofile_print.c to use two line for the uuid[]
+  values.  Radar bug #3415593.
+
+Changes for the 5.20 release (the cctools-590.24 release):
+- Added support for DWARF.  Radar bug #4367423.
+  - Added printing S_ATTR_DEBUG to print_section() in ofile_print.c.
+  - Added print_uuid_command() to ofile_print.[ch]
+
 Changes for the 5.20 release (the cctools-590.23 release):
 - Changed print_thread_states() in ofile_print.c for the current i386 thread
   states (#if i386_THREAD_STATE == 1 case) so that it does use the fields

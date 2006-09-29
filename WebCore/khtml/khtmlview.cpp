@@ -575,6 +575,9 @@ void KHTMLView::layout()
     d->layoutTimerId = 0;
     d->delayedLayout = false;
 
+    // Protect the view from being deleted during layout (in recalcStyle)
+    khtml::SharedPtr<KHTMLView> protector(this);
+
     if (!m_part) {
         // FIXME: Do we need to set _width here?
         // FIXME: Should we set _height here too?
@@ -596,6 +599,11 @@ void KHTMLView::layout()
     if (document->hasChangedChild())
         document->recalcStyle();
 
+    // If there is only one ref to this view left, then its going to be destroyed as soon as we exit, 
+    // so there's no point to continuiing to layout
+    if (protector->hasOneRef())
+        return;
+    
     khtml::RenderCanvas* root = static_cast<khtml::RenderCanvas*>(document->renderer());
     if (!root) {
         // FIXME: Do we need to set _width or _height here?

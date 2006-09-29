@@ -30,15 +30,8 @@
 #define EAPOLCONTROLLER_SERVER		"com.apple.network.EAPOLController"
 
 static __inline__ kern_return_t
-eapolcontroller_server_port(mach_port_t * server, boolean_t * active)
+eapolcontroller_server_port(mach_port_t * server)
 {
-    kern_return_t	status;
-
-    *active = FALSE;
-    status = bootstrap_status(bootstrap_port, EAPOLCONTROLLER_SERVER, active);
-    if (status != BOOTSTRAP_SUCCESS) {
-	return (status);
-    }
     return (bootstrap_look_up(bootstrap_port, EAPOLCONTROLLER_SERVER, server));
 }
 

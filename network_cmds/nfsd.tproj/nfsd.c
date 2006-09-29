@@ -374,8 +374,14 @@ main(argc, argv, envp)
 		inetaddr.sin_len = sizeof(inetaddr);
 		if (bind(sock,
 		    (struct sockaddr *)&inetaddr, sizeof(inetaddr)) < 0) {
-			syslog(LOG_ERR, "can't bind udp addr");
-			exit(1);
+			/* socket may still be lingering from previous incarnation */
+			/* wait a few seconds and try again */
+			sleep(6);
+			if (bind(sock,
+			    (struct sockaddr *)&inetaddr, sizeof(inetaddr)) < 0) {
+				syslog(LOG_ERR, "can't bind udp addr");
+				exit(1);
+			}
 		}
 		if (!pmap_set(RPCPROG_NFS, 2, IPPROTO_UDP, NFS_PORT) ||
 		    !pmap_set(RPCPROG_NFS, 3, IPPROTO_UDP, NFS_PORT)) {

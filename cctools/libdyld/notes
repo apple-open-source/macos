@@ -1,6 +1,10 @@
 TODO:
 - Test dlopen() with Apache, perl, and tcl.
 
+Changes for the 5.23 release (the cctools-614 release):
+- Changed debug.c to add macros that rename structure members of the 
+  ppc thread state for Unix conformance.  Radar bug #4508798.
+
 Changes for the 5.20 release (the cctools-590.20 release):
 - Removed the warnings when building. Radar bug #4340147.
   - Added -fno-builtin-round to the Makefile.
