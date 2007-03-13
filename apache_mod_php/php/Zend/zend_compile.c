@@ -6,7 +6,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -1917,6 +1917,9 @@ void zend_do_add_static_array_element(znode *result, znode *offset, znode *expr)
 				break;
 			case IS_DOUBLE:
 				zend_hash_index_update(result->u.constant.value.ht, (long)offset->u.constant.value.dval, &element, sizeof(zval *), NULL);
+				break;
+			case IS_CONSTANT_ARRAY:
+				zend_error(E_ERROR, "Illegal offset type");
 				break;
 		}
 	} else {

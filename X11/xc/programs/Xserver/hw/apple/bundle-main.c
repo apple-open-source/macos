@@ -1,5 +1,5 @@
 /* bundle-main.c -- X server launcher
-   $Id: bundle-main.c,v 1.23 2004/11/22 21:36:18 jharper Exp $
+   $Id: bundle-main.c,v 1.26 2006/01/16 21:27:56 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -79,6 +79,8 @@
 #define XTERM_PATH "/usr/X11R6/bin/xterm"
 #define WM_PATH "/usr/X11R6/bin/quartz-wm"
 #define DEFAULT_XINITRC "/etc/X11/xinit/xinitrc"
+#define DEFAULT_PATH "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R6/bin"
+#define DEFAULT_MANPATH "/usr/share/man:/usr/local/share/man:/usr/X11R6/man"
 
 /* what xinit does */
 #ifndef SHELL
@@ -526,14 +528,14 @@ start_client (void)
 	if (tem != NULL && tem[0] != 0)
 	    snprintf (buf, sizeof (buf), "%s:/usr/X11R6/bin", tem);
 	else
-	    snprintf (buf, sizeof (buf), "/bin:/usr/bin:/usr/X11R6/bin");
+	    snprintf (buf, sizeof (buf), DEFAULT_PATH);
 	setenv ("PATH", buf, TRUE);
 
 	tem = getenv ("MANPATH");
 	if (tem != NULL && tem[0] != 0)
 	    snprintf (buf, sizeof (buf), "%s:/usr/X11R6/man", tem);
 	else
-	    snprintf (buf, sizeof (buf), "/usr/man:/usr/X11R6/man");
+	    snprintf (buf, sizeof (buf), DEFAULT_MANPATH);
 	setenv ("MANPATH", buf, TRUE);
 
 	/* First try value of $XINITRC if set. */
@@ -669,6 +671,14 @@ timer_callback (CFRunLoopTimerRef timer, void *info)
 static void
 ipaddr_callback (SCDynamicStoreRef store, CFArrayRef changed_keys, void *info)
 {
+#if DEBUG
+    if (changed_keys != NULL)
+    {
+	fprintf (stderr, "x11: changed sc keys: ");
+	CFShow (changed_keys);
+    }
+#endif
+
     if (auth_file != NULL && !pending_timer)
     {
 	CFRunLoopTimerRef timer;
@@ -698,36 +708,44 @@ install_ipaddr_source (void)
 
     if (ref != NULL)
     {
-	const void *keys[2];
+	const void *keys[4], *patterns[2];
+	int i;
 
-	/* This should tell us when any IPV4 address changes */
-	keys[0] = (SCDynamicStoreKeyCreateNetworkServiceEntity
-		   (NULL, kSCDynamicStoreDomainState,
-		    kSCCompAnyRegex, kSCEntNetIPv4));
+	keys[0] = SCDynamicStoreKeyCreateNetworkGlobalEntity (NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
+	keys[1] = SCDynamicStoreKeyCreateNetworkGlobalEntity (NULL, kSCDynamicStoreDomainState, kSCEntNetIPv6);
+	keys[2] = SCDynamicStoreKeyCreateComputerName (NULL);
+	keys[3] = SCDynamicStoreKeyCreateHostNames (NULL);
 
-	/* This should tell us when the hostname(s) change */
-	keys[1] = SCDynamicStoreKeyCreateHostNames (NULL);
+	patterns[0] = SCDynamicStoreKeyCreateNetworkInterfaceEntity (NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv4);
+	patterns[1] = SCDynamicStoreKeyCreateNetworkInterfaceEntity (NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv6);
 
-	if (keys[0] != NULL && keys[1] != NULL)
+	if (keys[0] != NULL && keys[1] != NULL && keys[2] != NULL
+	    && keys[3] != NULL && patterns[0] != NULL && patterns[1] != NULL)
 	{
-	    CFArrayRef pattern_array;
+	    CFArrayRef key_array, pattern_array;
 
-	    pattern_array = CFArrayCreate (NULL, keys, 2,
-					   &kCFTypeArrayCallBacks);
+	    key_array = CFArrayCreate (NULL, keys, 4, &kCFTypeArrayCallBacks);
+	    pattern_array = CFArrayCreate (NULL, patterns, 2, &kCFTypeArrayCallBacks);
 
-	    if (pattern_array != NULL)
+	    if (key_array != NULL || pattern_array != NULL)
 	    {
-		SCDynamicStoreSetNotificationKeys (ref, NULL, pattern_array);
+		SCDynamicStoreSetNotificationKeys (ref, key_array, pattern_array);
 		source = SCDynamicStoreCreateRunLoopSource (NULL, ref, 0);
-
-		CFRelease (pattern_array);
 	    }
 
-	    if (keys[0] != NULL)
-		CFRelease (keys[0]);
-	    if (keys[1] != NULL)
-		CFRelease (keys[1]);
+	    if (key_array != NULL)
+		CFRelease (key_array);
+	    if (pattern_array != NULL)
+		CFRelease (pattern_array);
 	}
+
+
+	for (i = 0; i < 4; i++)
+	    if (keys[i] != NULL)
+		CFRelease (keys[i]);
+	for (i = 0; i < 2; i++)
+	    if (patterns[i] != NULL)
+		CFRelease (patterns[i]);
 
 	CFRelease (ref); 
     }

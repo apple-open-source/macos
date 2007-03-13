@@ -1,1 +1,1 @@
-../fips/rand/fips_rngvs.c
+../fips-1.0/rand/fips_rngvs.c

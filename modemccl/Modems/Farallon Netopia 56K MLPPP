@@ -1,1 +1,287 @@
-!  Netopia ISDN 56K MLPPP!	Author:	Kris Kreutzman!!	Copyright:	© 1991-1996 Apple Computer, Inc.	All Rights Reserved.!!	revision history:!		v1.1	New template for ISDN modems!!  'mlts' resource info for this modem:!    byte 1 == 01 -> modem HAS built-in error correction protocols!    byte 2 == 01 -> modem HAS built-in data compression protocols!    byte 3 == 40 -> max number of chars in varstr 7!    byte 4 == 40 -> max number of chars in varstr 8!    byte 5 == 40 -> max number of chars in varstr 9!	@ORIGINATE@ANSWER!! ---- Initial modem setup ----!! Set serial port speed! serreset 115200, 0, 8, 1!@LABEL 2hsreset 0 0 0 0 0 0settries 0!! Get the modem's attention!matchclrmatchstr 1 3 "OK\13\10"write "AT\13"matchread 30!@LABEL 3!! Setup the modem for the following:!   Reset to factory settings!   Standard compression/reliablity!   Lock serial port speed!   Serial port hardware handshaking, turn off software handshaking!   Verbose responces and compression/protocol results!   CONNECT returns DCE speed!   Turn off answering!   Reset or return to command mode on DTR toggle (optional)!pause 10matchclrmatchstr 1 4   "OK\13\10"matchstr 2 101 "ERROR\13\10"write "AT&FE0S0=0S80=1S71=1S60=56\13"matchread 30inctriesiftries 3 101!! Reset the Modem on setup failure!DTRClearpause 5DTRSetflushjump 3!!@LABEL 4!! Modem ready, wait for a call or originate a call!@LABEL 13ifANSWER 32!!! ---- Originating a call ----!@LABEL 19! Display the full dialstring contained in Varstring 1note "Dialing ^1" 3!! Varstrings 7, 8 and 9, contain dialstring fragments!    Long phone numbers may need to be split into smaller groups!    for the modem to use!! Varstring 3:  "p" for pulse & "t" for tone dialing! Varstring 8 == blank (dialstring in varstring 7)! Varstring 9 == blank (dialstring in varstrings 7 & 8)! Otherwise (dialstring in varstrings 7, 8 & 9)ifstr 8 27 " "ifstr 9 24 " "!!  Write dialstring in varstrings 7, 8 & 9pause 10matchclrmatchstr 1 21 "OK\13\10"write "ATD^7;\13"matchread 400jump 101@LABEL 21pause 10matchclrmatchstr 1 22 "OK\13\10"write "ATD^8;\13"matchread 400jump 101@LABEL 22pause 10write "ATD^9\13"jump 32!!@LABEL 24!  Write dialstring in varstrings 7 & 8pause 10matchclrmatchstr 1 25 "OK\13\10"write "ATD^7;\13"matchread 400jump 101@LABEL 25pause 10write "ATD^8\13"jump 32!@LABEL 27!  Write dialstring in varstring 7pause 10write "ATD^7\13"!!!    ---- Connection responce ----!! The following section will parse modem responces:!@LABEL 32matchclrmatchstr  1  81 "RING\13\10"matchstr  2 102 "NO DIALTONE\13\10"matchstr  3 103 "NO CARRIER"matchstr  4 103 "ERROR\13\10"matchstr  5 104 "BUSY\13\10"matchstr  6 105 "NO ANSWER\13\10"matchstr  7  33 "CARRIER "matchstr  8  34 "CONNECT "matchread 700ifANSWER 32jump 105!@LABEL 33   	 ! Process CARRIER resultsjsr 50jump 32!@LABEL 34   	 ! Process CONNECT resultsjsr 50jump 60!@LABEL 50matchclrmatchstr  1  56 "56000"matchstr  2  58 "64000"matchstr  3  51 "\10"matchread 10@LABEL 51return!! -- Connection rates --! CommunicatingAt informs ARA of the raw modem to modem! connection speed.@LABEL 56note "Communicating at 56000 bps." 2CommunicatingAt 56000return!@LABEL 58note "Communicating at 64000 bps." 2CommunicatingAt 64000return!!! -- Normal exit after "CONNECT" --!!  This modem has been setup to do CTS handshaking,!  and we assume that a CTS handshaking cable is being used.!@LABEL 60! Turn on CTS handshaking.HSReset 0 1 0 0 0 0!ifANSWER 71pause 30@LABEL 71exit 0!!! ---- Answer calls ----!!	A RING result from the modem and in ANSWERING mode!	claims the serial port and answering the phone!@LABEL 81ifORIGINATE 32userhook 1note "Answering phone..." 2write "ATA\13"jump 32!!! ---- Hang up and reset modem ----!@HANGUP@LABEL 90settries 0HSReset 0 0 0 0 0 0!@LABEL 92!  Escape from data to command modematchclrmatchstr 1 96 "OK\13\10"write "+++"matchread 20!@LABEL 94! Force a hangupmatchclrmatchstr 1 98 "NO CARRIER\13\10"matchstr 2 98 "OK\13\10"matchstr 3 98 "ERROR\13\10"matchstr 4 98 "0\13\10"write "ATH\13"matchread 30! ! Try to get control of the modem by toggling DTRDTRClearpause 5DTRSetflush!! Try the hangup sequence three times otherwise declare and errorinctriesiftries 3 101jump 92!@LABEL 96! Pause between data and command modepause 50jump 94!!@LABEL 98! Recall the factory settingspause 15matchclrmatchstr 1 99 "OK\13\10"write "AT&F\13"matchread 30jump 101!@LABEL 99exit 0!! ---- Error messages -----!! Modem Not Responding@LABEL 101exit -6019!! No Dial Tone@LABEL 102exit -6020!! No Carrier or Error@LABEL 103exit -6021!! Busy@LABEL 104exit -6022!! No Answer@LABEL 105exit -6023!! User Cancellation@LABEL 107exit -6008
+!  Netopia ISDN 56K MLPPP
+!	Author:	Kris Kreutzman
+!
+!	Copyright:	© 1991-1996 Apple Computer, Inc.	All Rights Reserved.
+!
+!	revision history:
+!		v1.1	New template for ISDN modems
+!
+!  'mlts' resource info for this modem:
+!    byte 1 == 01 -> modem HAS built-in error correction protocols
+!    byte 2 == 01 -> modem HAS built-in data compression protocols
+!    byte 3 == 40 -> max number of chars in varstr 7
+!    byte 4 == 40 -> max number of chars in varstr 8
+!    byte 5 == 40 -> max number of chars in varstr 9
+!	
+@ORIGINATE
+@ANSWER
+!
+! ---- Initial modem setup ----
+!
+! Set serial port speed
+! 
+serreset 115200, 0, 8, 1
+!
+@LABEL 2
+hsreset 0 0 0 0 0 0
+settries 0
+!
+! Get the modem's attention
+!
+matchclr
+matchstr 1 3 "OK\13\10"
+write "AT\13"
+matchread 30
+!
+@LABEL 3
+!
+! Setup the modem for the following:
+!   Reset to factory settings
+!   Standard compression/reliablity
+!   Lock serial port speed
+!   Serial port hardware handshaking, turn off software handshaking
+!   Verbose responces and compression/protocol results
+!   CONNECT returns DCE speed
+!   Turn off answering
+!   Reset or return to command mode on DTR toggle (optional)
+!
+pause 10
+matchclr
+matchstr 1 4   "OK\13\10"
+matchstr 2 101 "ERROR\13\10"
+write "AT&FE0S0=0S80=1S71=1S60=56\13"
+matchread 30
+inctries
+iftries 3 101
+!
+! Reset the Modem on setup failure
+!
+DTRClear
+pause 5
+DTRSet
+flush
+jump 3
+!
+!
+@LABEL 4
+!
+! Modem ready, wait for a call or originate a call
+!
+@LABEL 13
+ifANSWER 32
+!
+!
+! ---- Originating a call ----
+!
+@LABEL 19
+! Display the full dialstring contained in Varstring 1
+note "Dialing ^1" 3
+!
+! Varstrings 7, 8 and 9, contain dialstring fragments
+!    Long phone numbers may need to be split into smaller groups
+!    for the modem to use
+!
+! Varstring 3:  "p" for pulse & "t" for tone dialing
+! Varstring 8 == blank (dialstring in varstring 7)
+! Varstring 9 == blank (dialstring in varstrings 7 & 8)
+! Otherwise (dialstring in varstrings 7, 8 & 9)
+ifstr 8 27 " "
+ifstr 9 24 " "
+!
+!  Write dialstring in varstrings 7, 8 & 9
+pause 10
+matchclr
+matchstr 1 21 "OK\13\10"
+write "ATD^7;\13"
+matchread 400
+jump 101
+
+@LABEL 21
+pause 10
+matchclr
+matchstr 1 22 "OK\13\10"
+write "ATD^8;\13"
+matchread 400
+jump 101
+
+@LABEL 22
+pause 10
+write "ATD^9\13"
+jump 32
+!
+!
+@LABEL 24
+!  Write dialstring in varstrings 7 & 8
+pause 10
+matchclr
+matchstr 1 25 "OK\13\10"
+write "ATD^7;\13"
+matchread 400
+jump 101
+
+@LABEL 25
+pause 10
+write "ATD^8\13"
+jump 32
+!
+@LABEL 27
+!  Write dialstring in varstring 7
+pause 10
+write "ATD^7\13"
+!
+!
+!    ---- Connection responce ----
+!
+! The following section will parse modem responces:
+!
+@LABEL 32
+matchclr
+matchstr  1  81 "RING\13\10"
+matchstr  2 102 "NO DIALTONE\13\10"
+matchstr  3 103 "NO CARRIER"
+matchstr  4 103 "ERROR\13\10"
+matchstr  5 104 "BUSY\13\10"
+matchstr  6 105 "NO ANSWER\13\10"
+matchstr  7  33 "CARRIER "
+matchstr  8  34 "CONNECT "
+matchread 700
+ifANSWER 32
+jump 105
+!
+@LABEL 33   	 ! Process CARRIER results
+jsr 50
+jump 32
+!
+@LABEL 34   	 ! Process CONNECT results
+jsr 50
+jump 60
+!
+@LABEL 50
+matchclr
+matchstr  1  56 "56000"
+matchstr  2  58 "64000"
+matchstr  3  51 "\10"
+matchread 10
+@LABEL 51
+return
+!
+! -- Connection rates --
+! CommunicatingAt informs ARA of the raw modem to modem
+! connection speed.
+@LABEL 56
+note "Communicating at 56000 bps." 2
+CommunicatingAt 56000
+return
+!
+@LABEL 58
+note "Communicating at 64000 bps." 2
+CommunicatingAt 64000
+return
+!
+!
+! -- Normal exit after "CONNECT" --
+!
+!  This modem has been setup to do CTS handshaking,
+!  and we assume that a CTS handshaking cable is being used.
+!
+@LABEL 60
+! Turn on CTS handshaking.
+HSReset 0 1 0 0 0 0
+!
+ifANSWER 71
+pause 30
+@LABEL 71
+exit 0
+!
+!
+! ---- Answer calls ----
+!
+!	A RING result from the modem and in ANSWERING mode
+!	claims the serial port and answering the phone
+!
+@LABEL 81
+ifORIGINATE 32
+userhook 1
+note "Answering phone..." 2
+write "ATA\13"
+jump 32
+!
+!
+! ---- Hang up and reset modem ----
+!
+@HANGUP
+@LABEL 90
+settries 0
+HSReset 0 0 0 0 0 0
+!
+@LABEL 92
+!  Escape from data to command mode
+matchclr
+matchstr 1 96 "OK\13\10"
+write "+++"
+matchread 20
+!
+@LABEL 94
+! Force a hangup
+matchclr
+matchstr 1 98 "NO CARRIER\13\10"
+matchstr 2 98 "OK\13\10"
+matchstr 3 98 "ERROR\13\10"
+matchstr 4 98 "0\13\10"
+write "ATH\13"
+matchread 30
+! 
+! Try to get control of the modem by toggling DTR
+DTRClear
+pause 5
+DTRSet
+flush
+!
+! Try the hangup sequence three times otherwise declare and error
+inctries
+iftries 3 101
+jump 92
+!
+@LABEL 96
+! Pause between data and command mode
+pause 50
+jump 94
+!
+!
+@LABEL 98
+! Recall the factory settings
+pause 15
+matchclr
+matchstr 1 99 "OK\13\10"
+write "AT&F\13"
+matchread 30
+jump 101
+!
+@LABEL 99
+exit 0
+!
+! ---- Error messages -----
+!
+! Modem Not Responding
+@LABEL 101
+exit -6019
+!
+! No Dial Tone
+@LABEL 102
+exit -6020
+!
+! No Carrier or Error
+@LABEL 103
+exit -6021
+!
+! Busy
+@LABEL 104
+exit -6022
+!
+! No Answer
+@LABEL 105
+exit -6023
+!
+! User Cancellation
+@LABEL 107
+exit -6008

@@ -569,6 +569,14 @@ createde(dep, ddep, depp, cnp, offset, long_count, context)
 	DE_EXTERNALIZE(ndep, dep);
 
 	/*
+	 * If we're creating an entry for a symlink, then the de_FileSize
+	 * is the length of the symlink's target, not the length of the
+	 * symlink file.  So fix up the length on disk.
+	 */
+	if (dep->de_flag & DE_SYMLINK)
+		putulong(ndep->deFileSize, sizeof(struct symlink));
+	
+	/*
 	 * Now write the Win95 long name
 	 */
 	if (long_count > 0) {

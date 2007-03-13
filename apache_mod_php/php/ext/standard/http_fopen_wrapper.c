@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    |          Wez Furlong <wez@thebrainroom.com>                          |
    +----------------------------------------------------------------------+
  */
-/* $Id: http_fopen_wrapper.c,v 1.53.2.20.2.2 2005/07/26 09:32:58 hyanantha Exp $ */ 
+/* $Id: http_fopen_wrapper.c,v 1.53.2.20.2.9 2006/04/16 17:45:55 iliaa Exp $ */ 
 
 #include "php.h"
 #include "php_globals.h"
@@ -199,7 +199,8 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 	/* send it */
 	php_stream_write(stream, scratch, strlen(scratch));
 	
-	if (context && php_stream_context_get_option(context, "http", "header", &tmpzval) == SUCCESS && Z_STRLEN_PP(tmpzval)) {
+	if (context && php_stream_context_get_option(context, "http", "header", &tmpzval) == SUCCESS && 
+		Z_TYPE_PP(tmpzval) == IS_STRING && Z_STRLEN_PP(tmpzval)) {
 		/* Remove newlines and spaces from start and end, php_trim will estrndup() */
 		tmp = php_trim(Z_STRVAL_PP(tmpzval), Z_STRLEN_PP(tmpzval), NULL, 0, NULL, 3 TSRMLS_CC);
 		if (strlen(tmp) > 0) {
@@ -268,7 +269,8 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 	}
 
 	if (context && 
-	    php_stream_context_get_option(context, "http", "user_agent", &ua_zval) == SUCCESS) {
+	    php_stream_context_get_option(context, "http", "user_agent", &ua_zval) == SUCCESS &&
+		Z_TYPE_PP(ua_zval) == IS_STRING) {
 		ua_str = Z_STRVAL_PP(ua_zval);
 	} else if (FG(user_agent)) {
 		ua_str = FG(user_agent);
@@ -300,7 +302,8 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 	php_stream_write(stream, "\r\n", sizeof("\r\n")-1);
 
 	/* Request content, such as for POST requests */
-	if (context && php_stream_context_get_option(context, "http", "content", &tmpzval) == SUCCESS && Z_STRLEN_PP(tmpzval) > 0) {
+	if (context && php_stream_context_get_option(context, "http", "content", &tmpzval) == SUCCESS &&
+		Z_TYPE_PP(tmpzval) == IS_STRING && Z_STRLEN_PP(tmpzval) > 0) {
 		php_stream_write(stream, Z_STRVAL_PP(tmpzval), Z_STRLEN_PP(tmpzval));
 		php_stream_write(stream, "\r\n\r\n", sizeof("\r\n\r\n")-1);
 	}
@@ -336,7 +339,7 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 		size_t tmp_line_len;
 		/* get response header */
 
-		if (_php_stream_get_line(stream, tmp_line, sizeof(tmp_line) - 1, &tmp_line_len TSRMLS_CC) != NULL) {
+		if (php_stream_get_line(stream, tmp_line, sizeof(tmp_line) - 1, &tmp_line_len) != NULL) {
 			zval *http_response;
 			int response_code;
 
@@ -350,6 +353,7 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 			}
 			switch(response_code) {
 				case 200:
+				case 206: /* partial content */
 				case 302:
 				case 301:
 					reqok = 1;
@@ -389,28 +393,16 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 	
 	http_header_line = emalloc(HTTP_HEADER_BLOCK_SIZE);
 
-	while (!body && !php_stream_eof(stream))	{
-		
-		if (php_stream_gets(stream, http_header_line, HTTP_HEADER_BLOCK_SIZE-1) != NULL)	{
-			char *p;
-			int found_eol = 0;
-			int http_header_line_length;
-			
-			http_header_line[HTTP_HEADER_BLOCK_SIZE-1] = '\0';
-
-			p = http_header_line;
-			while(*p) {
-				while(*p == '\n' || *p == '\r')	{
-					*p = '\0';
-					p--;
-					found_eol = 1;
-				}
-				if (found_eol)
-					break;
-				p++;
+	while (!body && !php_stream_eof(stream)) {
+		size_t http_header_line_length;
+		if (php_stream_get_line(stream, http_header_line, HTTP_HEADER_BLOCK_SIZE, &http_header_line_length) && *http_header_line != '\n' && *http_header_line != '\r') {
+			char *e = http_header_line + http_header_line_length - 1;
+			while (*e == '\n' || *e == '\r') {
+				e--;
 			}
-			http_header_line_length = p-http_header_line+1;
-		
+			http_header_line_length = e - http_header_line + 1;
+			http_header_line[http_header_line_length] = '\0';
+
 			if (!strncasecmp(http_header_line, "Location: ", 10)) {
 				strlcpy(location, http_header_line + 10, sizeof(location));
 			} else if (!strncasecmp(http_header_line, "Content-Type: ", 14)) {
@@ -511,9 +503,11 @@ php_stream *php_stream_url_wrap_http_ex(php_stream_wrapper *wrapper, char *path,
 	}	\
 }	\
 			/* check for control characters in login, password & path */
-			CHECK_FOR_CNTRL_CHARS(resource->user)
-			CHECK_FOR_CNTRL_CHARS(resource->pass)
-			CHECK_FOR_CNTRL_CHARS(resource->path)
+			if (strncasecmp(new_path, "http://", sizeof("http://") - 1) || strncasecmp(new_path, "https://", sizeof("https://") - 1)) {
+				CHECK_FOR_CNTRL_CHARS(resource->user)
+				CHECK_FOR_CNTRL_CHARS(resource->pass)
+				CHECK_FOR_CNTRL_CHARS(resource->path)
+			}
 
 			stream = php_stream_url_wrap_http_ex(NULL, new_path, mode, options, opened_path, context, --redirect_max, 0 STREAMS_CC TSRMLS_CC);
 			if (stream && stream->wrapperdata)	{

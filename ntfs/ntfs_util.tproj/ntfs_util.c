@@ -568,6 +568,13 @@ static int fs_probe(char *devpath, int removable, int writable)
         mftRecordSize *= bytesPerSector * sectorsPerCluster;
     if (debug)
         fprintf(stderr, "%s: MFT record size = %d\n", progname, mftRecordSize);
+    if (mftRecordSize < bytesPerSector || mftRecordSize > MAX_CLUSTER_SIZE ||
+	(mftRecordSize % bytesPerSector) != 0)
+    {
+	if (debug)
+	    fprintf(stderr, "%s: invalid MFT record size (%d)\n", progname, mftRecordSize);
+	return FSUR_UNRECOGNIZED;
+    }
 
     /*
      * Read the MFT record for $Volume.  This assumes the first four

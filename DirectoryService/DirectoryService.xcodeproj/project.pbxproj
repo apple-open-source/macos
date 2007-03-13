@@ -12,18 +12,6 @@
 			buildConfigurationList = 61105F3108B53C1300CF6233 /* Build configuration list for PBXAggregateTarget "Directory Service" */;
 			buildPhases = (
 			);
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "Directory Service";
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 				6BF11E7B0766FE2D00C8E7C8 /* PBXTargetDependency */,
 				61455EEB06650174004226D6 /* PBXTargetDependency */,
@@ -39,18 +27,6 @@
 			buildConfigurationList = 61105F3D08B53C1300CF6233 /* Build configuration list for PBXAggregateTarget "DirectoryServiceFW" */;
 			buildPhases = (
 			);
-			buildSettings = {
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DirectoryServiceFW;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 				61455FE406653D2D004226D6 /* PBXTargetDependency */,
 				61455FE606653D30004226D6 /* PBXTargetDependency */,
@@ -64,18 +40,6 @@
 			buildConfigurationList = 61105F3908B53C1300CF6233 /* Build configuration list for PBXAggregateTarget "DirectoryServiceDaemon" */;
 			buildPhases = (
 			);
-			buildSettings = {
-				GCC_DEBUGGING_SYMBOLS = full;
-				GCC_MODEL_TUNING = "";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = DirectoryServiceDaemon;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 				6BD6275B073E746F00B918BB /* PBXTargetDependency */,
 			);
@@ -355,29 +319,17 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildStyle section */
-		0061873100AC6A3B00DD2B59 /* Development */ = {
+		AA32E4C50B387966001D56A1 /* Development */ = {
 			isa = PBXBuildStyle;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_DEBUGGING_SYMBOLS = full;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = "";
-				GCC_OPTIMIZATION_LEVEL = 0;
-				SECTORDER_FLAGS = "";
-				ZERO_LINK = NO;
 			};
 			name = Development;
 		};
-		0061873200AC6A3B00DD2B59 /* Deployment */ = {
+		AA32E4C60B387966001D56A1 /* Deployment */ = {
 			isa = PBXBuildStyle;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DEPLOYMENT_LOCATION = YES;
-				DEPLOYMENT_POSTPROCESSING = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
+				COPY_PHASE_STRIP = YES;
 			};
 			name = Deployment;
 		};
@@ -692,44 +644,6 @@
 				0035DB2900AB596200DD2B59 /* Frameworks */,
 				0035DB2A00AB596200DD2B59 /* Rez */,
 			);
-			buildSettings = {
-				DEAD_CODE_STRIPPING = YES;
-				DEBUGGING_SYMBOLS = NO;
-				DEPLOYMENT_POSTPROCESSING = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 305;
-				FRAMEWORK_SEARCH_PATHS = "";
-				FRAMEWORK_VERSION = A;
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-fconstant-cfstrings",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-twolevel_namespace",
-					"-dead_strip",
-				);
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DirectoryServiceCore;
-				SECTORDER_FLAGS = (
-					"-sectorder",
-					__TEXT,
-					__text,
-					"${OBJROOT}/DirectoryServiceCore.order",
-					"-e",
-					start,
-				);
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-			};
 			dependencies = (
 			);
 			name = "Core Framework";
@@ -757,11 +671,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.1</string>
+	<string>3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.1</string>
+	<string>3.3</string>
 </dict>
 </plist>
 ";
@@ -777,45 +691,6 @@
 				0035DB3000AB596200DD2B59 /* Frameworks */,
 				0035DB3100AB596200DD2B59 /* Rez */,
 			);
-			buildSettings = {
-				DEAD_CODE_STRIPPING = YES;
-				DEBUGGING_SYMBOLS = NO;
-				DEPLOYMENT_POSTPROCESSING = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 309;
-				EXPORTED_SYMBOLS_FILE = APIFramework/DirectoryService.exp;
-				FRAMEWORK_SEARCH_PATHS = "";
-				FRAMEWORK_VERSION = A;
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-fconstant-cfstrings",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-twolevel_namespace",
-					"-dead_strip",
-				);
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DirectoryService;
-				SECTORDER_FLAGS = (
-					"-sectorder",
-					__TEXT,
-					__text,
-					"${OBJROOT}/DirectoryService.order",
-					"-e",
-					start,
-				);
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-			};
 			dependencies = (
 			);
 			name = "API Framework";
@@ -843,11 +718,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.1</string>
+	<string>3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.1</string>
+	<string>3.3</string>
 </dict>
 </plist>
 ";
@@ -862,43 +737,6 @@
 				615C04760858A5BB00F7713C /* Frameworks */,
 				615C04770858A5BB00F7713C /* Rez */,
 			);
-			buildSettings = {
-				DEAD_CODE_STRIPPING = YES;
-				DEBUGGING_SYMBOLS = NO;
-				DEPLOYMENT_POSTPROCESSING = NO;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				EXPORTED_SYMBOLS_FILE = APIFramework/DirectoryService.exp;
-				FRAMEWORK_VERSION = A;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				OTHER_CFLAGS = (
-					"-DDSDEBUGFW",
-					"-fconstant-cfstrings",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-twolevel_namespace",
-					"-dead_strip",
-				);
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRINCIPAL_CLASS = "";
-				PRODUCT_NAME = DirectoryService;
-				SECTORDER_FLAGS = (
-					"-sectorder",
-					__TEXT,
-					__text,
-					"${OBJROOT}/DirectoryService.order",
-					"-e",
-					start,
-				);
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = framework;
-			};
 			dependencies = (
 			);
 			name = APIFrameworkDebug;
@@ -926,11 +764,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.0</string>
+	<string>3.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.0</string>
+	<string>3.3</string>
 </dict>
 </plist>
 ";
@@ -1723,22 +1561,6 @@
 				009E45A100AC9B4200DD2B59 /* Frameworks */,
 				009E45A200AC9B4200DD2B59 /* Rez */,
 			);
-			buildSettings = {
-				DEBUGGING_SYMBOLS = NO;
-				INSTALL_PATH = /AppleInternal/Developer/libs;
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "-gfull";
-				OTHER_LDFLAGS = "";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = libDSPlugInCommon.a;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = PlugInCommon;
@@ -1760,23 +1582,6 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G4;
-				INSTALL_PATH = /usr/local/lib;
-				LIBRARY_STYLE = STATIC;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PREBINDING = NO;
-				PRODUCT_NAME = DirectoryServiceMIG;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = DirectoryServiceMIG;
@@ -1793,8 +1598,8 @@
 			buildSettings = {
 			};
 			buildStyles = (
-				0061873100AC6A3B00DD2B59 /* Development */,
-				0061873200AC6A3B00DD2B59 /* Deployment */,
+				AA32E4C50B387966001D56A1 /* Development */,
+				AA32E4C60B387966001D56A1 /* Deployment */,
 			);
 			hasScannedForEncodings = 1;
 			mainGroup = 0035DA8C00AB410A00DD2B59;
@@ -2164,41 +1969,6 @@
 				0035DB5C00AC460E00DD2B59 /* Frameworks */,
 				0035DB5D00AC460E00DD2B59 /* Rez */,
 			);
-			buildSettings = {
-				DEBUGGING_SYMBOLS = NO;
-				EXPORTED_SYMBOLS_FILE = Server/DirectoryServiceDaemon.exp;
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				HEADER_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\"";
-				INSTALL_PATH = /usr/sbin;
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-DDSSERVERTCP",
-					"-DSERVERINTERNAL",
-					"-fconstant-cfstrings",
-					"-gfull",
-				);
-				OTHER_LDFLAGS = (
-					"-twolevel_namespace",
-					"-dead_strip",
-					"-exported_symbols_list",
-					Server/DirectoryServiceDaemon.exp,
-				);
-				PRODUCT_NAME = DirectoryService;
-				SECTORDER_FLAGS = (
-					"-sectorder",
-					__TEXT,
-					__text,
-					Server/DirectoryServiceDaemon.order,
-					"-e",
-					start,
-				);
-				STRIPFLAGS = "-u -r -S -s Server/DirectoryServiceDaemon.exp";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = Server;

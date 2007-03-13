@@ -212,7 +212,7 @@ protected:
 	UInt8									_periodicScheduleUnsynchCount;
     UInt32									_isochBandwidthAvail;					// amount of available bandwidth for Isochronous transfers
     UInt32									_periodicEDsInSchedule;					// interrupt endpoints
-    UInt64									_frameNumber;							// the current frame number
+    volatile UInt64							_frameNumber;							// the current frame number
     UInt16									_rootHubFuncAddress;					// Function Address for the root hub
     struct InterruptTransaction				_outstandingTrans[kMaxOutstandingTrans];
     struct  {
@@ -242,11 +242,14 @@ protected:
     IONotifier *                            _powerDownNotifier;
 	bool									_needToCreateRootHub;					// True if we need to create the root hub post wake
 	bool									_gangedOvercurrent;						// True if our root hubs reports overcurrent on all ports
+	thread_call_t							_portDetectInterruptThread;
 	
     // methods
     
     static void 				InterruptHandler(OSObject *owner, IOInterruptEventSource * source, int count);
     static bool 				PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSource *source);
+	static void 				PortDetectInterruptThreadEntry(OSObject *target);
+	void						PortDetectInterruptThread();
 	
     bool						FilterInterrupt(int index);
 	

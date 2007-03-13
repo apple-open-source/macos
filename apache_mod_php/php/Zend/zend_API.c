@@ -6,7 +6,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_API.c,v 1.113.2.6 2005/01/17 00:57:29 sniper Exp $ */
+/* $Id: zend_API.c,v 1.113.2.6.2.2 2006/07/22 15:48:22 sniper Exp $ */
 
 #include "zend.h"
 #include "zend_execute.h"
@@ -1302,9 +1302,9 @@ ZEND_API int zend_disable_class(char *class_name, uint class_name_length TSRMLS_
 	if (zend_hash_del(CG(class_table), class_name, class_name_length+1)==FAILURE) {
 		return FAILURE;
 	}
-
 	disabled_class_functions[0].fname = class_name;
 	INIT_CLASS_ENTRY(zce, class_name, disabled_class_functions);
+	zce.name_length = class_name_length;
 	zend_register_internal_class(&zce TSRMLS_CC);
 
 	return SUCCESS;

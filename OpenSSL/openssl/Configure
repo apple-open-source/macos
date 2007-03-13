@@ -205,7 +205,7 @@ my %table=(
 # SC4.2 is ok, better than gcc even on bn as long as you tell it -xarch=v8
 # SC5.0 note: Compiler common patch 107357-01 or later is required!
 "solaris-sparcv7-cc","cc:-xO5 -xstrconst -xdepend -Xa -DB_ENDIAN -DBN_DIV2W::-D_REENTRANT::-lsocket -lnsl -ldl:BN_LLONG RC4_CHAR RC4_CHUNK DES_PTR DES_RISC1 DES_UNROLL BF_PTR::::::::::dlfcn:solaris-shared:-KPIC:-G -dy -z text:.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR)",
-"solaris-sparcv8-cc","cc:-xarch=v8 -xO5 -xstrconst -xdepend -Xa -DB_ENDIAN -DBN_DIV2W::-D_REENTRANT::-lsocket -lnsl -ldl:BN_LLONG RC4_CHAR RC4_CHUNK DES_PTR DES_RISC1 DES_UNROLL BF_PTR:asm/sparcv8.o:::::::::dlfcn:solaris-shared:-KPIC::.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR)",
+"solaris-sparcv8-cc","cc:-xarch=v8 -xO5 -xstrconst -xdepend -Xa -DB_ENDIAN -DBN_DIV2W::-D_REENTRANT::-lsocket -lnsl -ldl:BN_LLONG RC4_CHAR RC4_CHUNK DES_PTR DES_RISC1 DES_UNROLL BF_PTR:asm/sparcv8.o:::::::::dlfcn:solaris-shared:-KPIC:-G -dy -z text:.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR)",
 "solaris-sparcv9-cc","cc:-xtarget=ultra -xarch=v8plus -xO5 -xstrconst -xdepend -Xa -DB_ENDIAN -DBN_DIV2W::-D_REENTRANT:ULTRASPARC:-lsocket -lnsl -ldl:BN_LLONG RC4_CHAR RC4_CHUNK_LL DES_PTR DES_RISC1 DES_UNROLL BF_PTR:asm/sparcv8plus.o:::asm/md5-sparcv8plus.o::::::dlfcn:solaris-shared:-KPIC:-G -dy -z text:.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR)",
 "solaris64-sparcv9-cc","cc:-xtarget=ultra -xarch=v9 -xO5 -xstrconst -xdepend -Xa -DB_ENDIAN::-D_REENTRANT:ULTRASPARC:-lsocket -lnsl -ldl:SIXTY_FOUR_BIT_LONG RC4_CHAR RC4_CHUNK DES_INT DES_PTR DES_RISC1 DES_UNROLL BF_PTR::::asm/md5-sparcv9.o::::::dlfcn:solaris-shared:-KPIC:-xarch=v9 -G -dy -z text:.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR):/usr/ccs/bin/ar rs",
 ####
@@ -563,7 +563,7 @@ my %table=(
 ##### MacOS X (a.k.a. Rhapsody or Darwin) setup
 "rhapsody-ppc-cc","cc:-O3 -DB_ENDIAN::(unknown):MACOSX_RHAPSODY::BN_LLONG RC4_CHAR RC4_CHUNK DES_UNROLL BF_PTR:::",
 "darwin-ppc-cc","cc:-O3 -fomit-frame-pointer -DB_ENDIAN::-D_REENTRANT:MACOSX::BN_LLONG RC4_CHAR RC4_CHUNK DES_UNROLL BF_PTR:asm/osx_ppc32.o:::::::::dlfcn:darwin-shared:-fPIC -fno-common::.\$(SHLIB_MAJOR).\$(SHLIB_MINOR).dylib",
-"darwin-i386-cc","cc:-O3 -fomit-frame-pointer -fno-common -DB_ENDIAN::-D_REENTRANT:MACOSX::BN_LLONG RC4_CHAR RC4_CHUNK DES_UNROLL BF_PTR:::::::::::darwin-shared:-fPIC::.\$(SHLIB_MAJOR).\$(SHLIB_MINOR).dylib",
+"darwin-i386-cc","cc:-O3 -fomit-frame-pointer -fno-common::-D_REENTRANT:MACOSX::BN_LLONG RC4_CHAR RC4_CHUNK DES_UNROLL BF_PTR:::::::::::darwin-shared:-fPIC::.\$(SHLIB_MAJOR).\$(SHLIB_MINOR).dylib",
 
 ##### A/UX
 "aux3-gcc","gcc:-O2 -DTERMIO::(unknown):AUX:-lbsd:RC4_CHAR RC4_CHUNK DES_UNROLL BF_PTR:::",
@@ -621,6 +621,8 @@ my $prefix="";
 my $openssldir="";
 my $exe_ext="";
 my $install_prefix="";
+my $fipslibdir="/usr/local/ssl/lib";
+my $baseaddr="0xFB00000";
 my $no_threads=0;
 my $no_shared=1;
 my $zlib=0;
@@ -806,7 +808,7 @@ PROCESS_ARGS:
 				{
 				while (<IN>)
 					{
-					chop;
+					chomp;
 					if (/^CONFIGURE_ARGS=(.*)/)
 						{
 						$argvstring=$1;
@@ -864,6 +866,22 @@ PROCESS_ARGS:
 			elsif (/^--with-krb5-(dir|lib|include|flavor)=(.*)$/)
 				{
 				$withargs{"krb5-".$1}=$2;
+				}
+			elsif (/^--with-zlib-lib=(.*)$/)
+				{
+				$withargs{"zlib-lib"}=$1;
+				}
+			elsif (/^--with-fipslibdir=(.*)$/)
+				{
+				$fipslibdir="$1";
+				}
+			elsif (/^--with-baseaddr=(.*)$/)
+				{
+				$baseaddr="$1";
+				}
+			elsif (/^--with-zlib-include=(.*)$/)
+				{
+				$withargs{"zlib-include"}="-I$1";
 				}
 			else
 				{
@@ -963,6 +981,21 @@ chop $prefix if $prefix =~ /\/$/;
 
 $openssldir=$prefix . "/ssl" if $openssldir eq "";
 $openssldir=$prefix . "/" . $openssldir if $openssldir !~ /(^\/|^[a-zA-Z]:[\\\/])/;
+
+if ($fips && ! -f "$fipslibdir/fipscanister.o")
+	{
+	my $fipswinerr = "";
+	$fipswinerr = <<EOF if $IsWindows;
+ Ensure that the correct path to the FIPS module directory
+has been given to the --with-fipslibdir option.
+EOF
+	print STDERR <<EOF;
+The file fipscanister.o could not be located. Please build and install the
+FIPS module using the instructions in the user guide before compiling OpenSSL
+in FIPS mode.$fipswinerr
+EOF
+	exit 1;
+	}
 
 
 print "IsWindows=$IsWindows\n";
@@ -1152,6 +1185,7 @@ if (!$no_shared)
 	if ($shared_cflag ne "")
 		{
 		$cflags = "$shared_cflag -DOPENSSL_PIC $cflags";
+		$shared_ldflag = "$shared_ldflag $shared_cflag" if($fips);
 		}
 	}
 
@@ -1261,7 +1295,7 @@ print OUT "### Generated automatically from Makefile.org by Configure.\n\n";
 my $sdirs=0;
 while (<IN>)
 	{
-	chop;
+	chomp;
 	$sdirs = 1 if /^SDIRS=/;
 	if ($sdirs) {
 		my $dir;
@@ -1308,6 +1342,10 @@ while (<IN>)
 	s/^PERL=.*/PERL= $perl/;
 	s/^KRB5_INCLUDES=.*/KRB5_INCLUDES=$withargs{"krb5-include"}/;
 	s/^LIBKRB5=.*/LIBKRB5=$withargs{"krb5-lib"}/;
+	s/^LIBZLIB=.*/LIBZLIB=$withargs{"zlib-lib"}/;
+	s/^FIPSLIBDIR=.*/FIPSLIBDIR=$fipslibdir/;
+	s/^BASEADDR=.*/BASEADDR=$baseaddr/;
+	s/^ZLIB_INCLUDE=.*/ZLIB_INCLUDE=$withargs{"zlib-include"}/;
 	s/^SHLIB_TARGET=.*/SHLIB_TARGET=$shared_target/;
 	s/^SHLIB_MARK=.*/SHLIB_MARK=$shared_mark/;
 	s/^SHARED_LIBS=.*/SHARED_LIBS=\$(SHARED_CRYPTO) \$(SHARED_SSL)/ if (!$no_shared);
@@ -1447,12 +1485,6 @@ while (<IN>)
 		$unistd = "<unistd.h>" if $unistd eq "";
 		print OUT "#define OPENSSL_UNISTD $unistd\n";
 		}
-	elsif	(/^#((define)|(undef))\s+SIXTY_FOUR_BIT_LONG/)
-		{ printf OUT "#%s SIXTY_FOUR_BIT_LONG\n",($b64l)?"define":"undef"; }
-	elsif	(/^#((define)|(undef))\s+SIXTY_FOUR_BIT/)
-		{ printf OUT "#%s SIXTY_FOUR_BIT\n",($b64)?"define":"undef"; }
-	elsif	(/^#((define)|(undef))\s+THIRTY_TWO_BIT/)
-		{ printf OUT "#%s THIRTY_TWO_BIT\n",($b32)?"define":"undef"; }
 	elsif	(/^#((define)|(undef))\s+SIXTEEN_BIT/)
 		{ printf OUT "#%s SIXTEEN_BIT\n",($b16)?"define":"undef"; }
 	elsif	(/^#((define)|(undef))\s+EIGHT_BIT/)
@@ -1480,9 +1512,6 @@ while (<IN>)
 		}
 	elsif	(/^#((define)|(undef))\s+RC4_INDEX/)
 		{ printf OUT "#%s RC4_INDEX\n",($rc4_idx)?"define":"undef"; }
-	elsif (/^#(define|undef)\s+I386_ONLY/)
-		{ printf OUT "#%s I386_ONLY\n", ($processor == 386)?
-			"define":"undef"; }
 	elsif	(/^#define\s+MD2_INT\s/)
 		{ printf OUT "#define MD2_INT unsigned %s\n",$type[$md2_int]; }
 	elsif	(/^#define\s+IDEA_INT\s/)

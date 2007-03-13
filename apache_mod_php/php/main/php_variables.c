@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.45.2.13.2.4 2005/10/02 11:33:27 rrichards Exp $ */
+/* $Id: php_variables.c,v 1.45.2.13.2.6 2006/02/13 12:19:10 dmitry Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -201,6 +201,7 @@ plain_var:
 					if (PG(http_globals)[TRACK_VARS_COOKIE] && symtable1 == Z_ARRVAL_P(PG(http_globals)[TRACK_VARS_COOKIE]) && 
 							zend_hash_find(symtable1, escaped_index, index_len+1, (void **) &tmp) != FAILURE) {
 						efree(escaped_index);
+						zval_ptr_dtor(&gpc_element);
 						break;
 					}
 					
@@ -209,6 +210,7 @@ plain_var:
 				} else {
 					if (PG(http_globals)[TRACK_VARS_COOKIE] && symtable1 == Z_ARRVAL_P(PG(http_globals)[TRACK_VARS_COOKIE]) && 
 							zend_hash_find(symtable1, index, index_len+1, (void **) &tmp) != FAILURE) {
+						zval_ptr_dtor(&gpc_element);
 						break;
 					}
 				

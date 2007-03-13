@@ -121,9 +121,9 @@ bn - multiprecision integer arithmetics
 
 =head1 DESCRIPTION
 
-This library performs arithmetic operations on integers of arbitrary
-size. It was written for use in public key cryptography, such as RSA
-and Diffie-Hellman.
+The Big Number library is part of libcrypto.  It performs arithmetic operations
+on integers of arbitrary size. It was written for use in public key cryptography,
+such as RSA and Diffie-Hellman.
 
 It uses dynamic memory allocation for storing its data structures.
 That means that there is no limit on the size of the numbers

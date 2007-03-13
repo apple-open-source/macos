@@ -289,7 +289,7 @@ IOHIDUPSClass::IOHIDUPSClass()
     _upsDevice.pseudoVTable 	= (IUnknownVTbl *)  &sUPSPlugInInterface_v140;
     _upsDevice.obj		= this;
 
-    _service			= NULL;
+    _service			= 0;
 
     _asyncEventSource		= NULL;
     
@@ -320,7 +320,7 @@ IOHIDUPSClass::~IOHIDUPSClass()
 {
     if (_service) {
         IOObjectRelease(_service);
-        _service = NULL;
+        _service = 0;
     }
         
     if (_hidProperties) {
@@ -814,7 +814,7 @@ IOReturn IOHIDUPSClass::createAsyncEventSource(CFTypeRef * eventSource)
         _asyncEventSource = CFRunLoopTimerCreate(NULL,
                              CFAbsoluteTimeGetCurrent(),    // fire date
                              (CFTimeInterval)5.0,           // interval (kUPSPollingInterval)
-                             NULL, 
+                             0, 
                              0, 
                              IOHIDUPSClass::_timerCallbackFunction, 
                              &timerContext);

@@ -290,9 +290,9 @@ racoon_start(CFBundleRef bundle, char *filename)
         
         // need to exec a tool, with complete parameters list
         if (name[0])
-            execl("/usr/sbin/racoon", "racoon", "-f", name, (char *)0);
+            execle("/usr/sbin/racoon", "racoon", "-f", name, (char *)0, (char *)0);
         else
-            execl("/usr/sbin/racoon", "racoon", (char *)0);
+            execle("/usr/sbin/racoon", "racoon", (char *)0, (char *)0);
             
         // child exits
         exit(0);

@@ -3478,36 +3478,49 @@ char* CLDAPv3Configs::ExtractAttrMap( const char *inRecType, const char *inAttrT
 	// dictionaries are normalized, everything will exist as expected
 	if ( (inRecordTypeMapCFDict != NULL) && (inRecType != NULL) && (inAttrType != NULL) && (inIndex >= 1) )
 	{
+		CFDictionaryRef cfRecordMap		= NULL;
 		CFStringRef		cfRecTypeRef	= CFStringCreateWithCString(kCFAllocatorDefault, inRecType, kCFStringEncodingUTF8);
-		CFDictionaryRef cfRecordMap		= (CFDictionaryRef) CFDictionaryGetValue( inRecordTypeMapCFDict, cfRecTypeRef );
 		
-		// if we got a map, we can continue..
-		if( cfRecordMap != NULL )
+		if ( cfRecTypeRef != NULL )
 		{
-			CFDictionaryRef	cfAttrMapDictRef	= (CFDictionaryRef) CFDictionaryGetValue( cfRecordMap, CFSTR(kXMLAttrTypeMapDictKey) );
+			fConfigMapMutex.Wait();
 			
-			// if a specific map is available..
-			if( cfAttrMapDictRef != NULL )
+			cfRecordMap = (CFDictionaryRef) CFDictionaryGetValue( inRecordTypeMapCFDict, cfRecTypeRef );
+			
+			// if we got a map, we can continue..
+			if ( cfRecordMap != NULL )
 			{
-				CFStringRef	cfAttrTypeRef	= CFStringCreateWithCString( kCFAllocatorDefault, inAttrType, kCFStringEncodingUTF8 );
-				CFArrayRef	cfMapArray		= (CFArrayRef) CFDictionaryGetValue( cfAttrMapDictRef, cfAttrTypeRef );
-
-				// now let's see if our index is within our list of attributes..
-				if( cfMapArray != NULL && inIndex <= CFArrayGetCount(cfMapArray))
+				CFDictionaryRef	cfAttrMapDictRef	= (CFDictionaryRef) CFDictionaryGetValue( cfRecordMap, CFSTR(kXMLAttrTypeMapDictKey) );
+				
+				// if a specific map is available..
+				if( cfAttrMapDictRef != NULL )
 				{
-					CFStringRef	nativeMapString = (CFStringRef) CFArrayGetValueAtIndex( cfMapArray, inIndex-1 );
+					CFArrayRef	cfMapArray		= NULL;
+					CFStringRef	cfAttrTypeRef	= CFStringCreateWithCString( kCFAllocatorDefault, inAttrType, kCFStringEncodingUTF8 );
 					
-					uInt32 uiLength = (uInt32) CFStringGetMaximumSizeForEncoding( CFStringGetLength(nativeMapString), kCFStringEncodingUTF8 ) + 1;
-					outResult = (char *) calloc( sizeof(char), uiLength );
-					CFStringGetCString( nativeMapString, outResult, uiLength, kCFStringEncodingUTF8 );
+					if ( cfAttrTypeRef != NULL )
+					{
+						cfMapArray = (CFArrayRef) CFDictionaryGetValue( cfAttrMapDictRef, cfAttrTypeRef );
+						
+						// now let's see if our index is within our list of attributes..
+						if ( cfMapArray != NULL && inIndex <= CFArrayGetCount(cfMapArray) )
+						{
+							CFStringRef	nativeMapString = (CFStringRef) CFArrayGetValueAtIndex( cfMapArray, inIndex - 1 );
+							
+							uInt32 uiLength = (uInt32) CFStringGetMaximumSizeForEncoding( CFStringGetLength(nativeMapString), kCFStringEncodingUTF8 ) + 1;
+							outResult = (char *) calloc( sizeof(char), uiLength );
+							CFStringGetCString( nativeMapString, outResult, uiLength, kCFStringEncodingUTF8 );
+						}
+						
+						DSCFRelease(cfAttrTypeRef);
+					}
 				}
-				DSCFRelease(cfAttrTypeRef);
-			}
+			}//if ( cfRecordMap != NULL )
 			
-		}//if ( cfRecordMap != NULL )
+			DSCFRelease(cfRecTypeRef);
 			
-		DSCFRelease(cfRecTypeRef);
-		
+			fConfigMapMutex.Signal();
+		}
 	} // if (inRecordTypeMapCFArray != nil) ie. an array of Record Maps exists
 	
 	return( outResult );
@@ -3526,38 +3539,48 @@ char* CLDAPv3Configs::ExtractStdAttrName( char *inRecType, CFDictionaryRef inRec
 	// this routine gets the next standard attribute at an index for a given record type... 
 	if ( (inRecordTypeMapCFDict != NULL) && (inRecType != NULL) && (inputIndex >= 1) )
 	{
+		CFDictionaryRef cfRecordMap		= NULL;
 		CFStringRef		cfRecTypeRef	= CFStringCreateWithCString(kCFAllocatorDefault, inRecType, kCFStringEncodingUTF8);
-		CFDictionaryRef cfRecordMap		= (CFDictionaryRef) CFDictionaryGetValue( inRecordTypeMapCFDict, cfRecTypeRef );
 		
-		// if we got a map, we can continue..
-		if( cfRecordMap != NULL )
+		if ( cfRecTypeRef != NULL )
 		{
-			//now we can retrieve the map dictionary
-			CFDictionaryRef cfAttrMapDict	= (CFDictionaryRef) CFDictionaryGetValue( cfRecordMap, CFSTR( kXMLAttrTypeMapDictKey ) );
-
-			// now we have to get values & keys so we can step through them...
-			// get the native map array of labels next
-			if (cfAttrMapDict != NULL)
+			fConfigMapMutex.Wait();
+			
+			cfRecordMap = (CFDictionaryRef) CFDictionaryGetValue( inRecordTypeMapCFDict, cfRecTypeRef );
+			
+			// if we got a map, we can continue..
+			if ( cfRecordMap != NULL )
 			{
-				CFIndex		iTotalEntries	= CFDictionaryGetCount( cfAttrMapDict );
+				//now we can retrieve the map dictionary
+				CFDictionaryRef cfAttrMapDict	= (CFDictionaryRef) CFDictionaryGetValue( cfRecordMap, CFSTR( kXMLAttrTypeMapDictKey ) );
 				
-				if( inputIndex <= iTotalEntries )
+				// now we have to get values & keys so we can step through them...
+				// get the native map array of labels next
+				if (cfAttrMapDict != NULL)
 				{
-					CFStringRef	*keys = (CFStringRef *) calloc( iTotalEntries, sizeof(CFStringRef) );
+					CFIndex		iTotalEntries	= CFDictionaryGetCount( cfAttrMapDict );
 					
-					CFDictionaryGetKeysAndValues( cfAttrMapDict, (const void **)keys, NULL );
-					
-					uInt32 uiLength = (uInt32) CFStringGetMaximumSizeForEncoding( CFStringGetLength(keys[inputIndex - 1]), kCFStringEncodingUTF8 ) + 1;
-					outResult = (char *) calloc( sizeof(char), uiLength );
-					CFStringGetCString( keys[inputIndex - 1], outResult, uiLength, kCFStringEncodingUTF8 );
-
-					DSFree( keys );
+					if ( inputIndex <= iTotalEntries )
+					{
+						CFStringRef	*keys = (CFStringRef *) calloc( iTotalEntries, sizeof(CFStringRef) );
+						if ( keys != NULL )
+						{
+							CFDictionaryGetKeysAndValues( cfAttrMapDict, (const void **)keys, NULL );
+							
+							uInt32 uiLength = (uInt32) CFStringGetMaximumSizeForEncoding( CFStringGetLength(keys[inputIndex - 1]), kCFStringEncodingUTF8 ) + 1;
+							outResult = (char *) calloc( sizeof(char), uiLength );
+							CFStringGetCString( keys[inputIndex - 1], outResult, uiLength, kCFStringEncodingUTF8 );
+							
+							DSFree( keys );
+						}
+					}
 				}
 			}
+			
+			CFRelease(cfRecTypeRef);
+			
+			fConfigMapMutex.Signal();
 		}
-		
-		CFRelease(cfRecTypeRef);
-		
 	} // if (inRecordTypeMapCFArray != nil) ie. an array of Record Maps exists
 	
 	return( outResult );
@@ -3576,30 +3599,37 @@ int CLDAPv3Configs::AttrMapsCount( const char *inRecType, const char *inAttrType
 	// dictionaries are normalized, everything will exist as expected
 	if ( (inRecordTypeMapCFDict != NULL) && (inRecType != NULL) && (inAttrType != NULL) )
 	{
+		fConfigMapMutex.Wait();
+		
 		CFStringRef		cfRecTypeRef	= CFStringCreateWithCString(kCFAllocatorDefault, inRecType, kCFStringEncodingUTF8);
 		CFDictionaryRef cfRecordMap		= (CFDictionaryRef) CFDictionaryGetValue( inRecordTypeMapCFDict, cfRecTypeRef );
 		
 		// if we got a map, we can continue..
-		if( cfRecordMap != NULL )
+		if ( cfRecordMap != NULL )
 		{
 			CFDictionaryRef	cfAttrMapDictRef	= (CFDictionaryRef) CFDictionaryGetValue( cfRecordMap, CFSTR(kXMLAttrTypeMapDictKey) );
 			
 			// if a specific map is available..
-			if( cfAttrMapDictRef != NULL )
+			if ( cfAttrMapDictRef != NULL )
 			{
+				CFArrayRef	cfMapArray		= NULL;
 				CFStringRef	cfAttrTypeRef	= CFStringCreateWithCString(kCFAllocatorDefault, inAttrType, kCFStringEncodingUTF8);
-				CFArrayRef	cfMapArray		= (CFArrayRef) CFDictionaryGetValue( cfAttrMapDictRef, cfAttrTypeRef );
-				
-				// now let's see if our index is within our list of attributes..
-				if( cfMapArray != NULL )
+				if ( cfAttrTypeRef != NULL )
 				{
-					outCount = CFArrayGetCount( cfMapArray );
+					cfMapArray = (CFArrayRef) CFDictionaryGetValue( cfAttrMapDictRef, cfAttrTypeRef );
+				
+					// now let's see if our index is within our list of attributes..
+					if ( cfMapArray != NULL )
+					{
+						outCount = CFArrayGetCount( cfMapArray );
+					}
+					CFRelease(cfAttrTypeRef);
 				}
-				CFRelease(cfAttrTypeRef);
 			}
 		}
 		CFRelease(cfRecTypeRef);
 		
+		fConfigMapMutex.Signal();
 	} // if (inRecordTypeMapCFDict != NULL) ie. an array of Record Maps exists
 	
 	return( outCount );

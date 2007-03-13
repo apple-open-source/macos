@@ -1,5 +1,5 @@
 /*
- * "$Id: http-private.h,v 1.8 2005/01/04 22:10:39 jlovell Exp $"
+ * "$Id: http-private.h,v 1.8.2.1 2006/12/07 19:23:03 jlovell Exp $"
  *
  *   Private HTTP definitions for the Common UNIX Printing System (CUPS).
  *
@@ -79,6 +79,10 @@ typedef struct
 
 typedef SSLConnectionRef http_tls_t;
 
+extern OSStatus	_httpReadCDSA(SSLConnectionRef connection, void *data,
+		              size_t *dataLength);
+extern OSStatus	_httpWriteCDSA(SSLConnectionRef connection, const void *data,
+		               size_t *dataLength);
 #  endif /* HAVE_LIBSSL */
 
 /*
@@ -100,5 +104,5 @@ const char *cups_get_password(const char *prompt);
 #endif /* !_CUPS_HTTP_PRIVATE_H_ */
 
 /*
- * End of "$Id: http-private.h,v 1.8 2005/01/04 22:10:39 jlovell Exp $".
+ * End of "$Id: http-private.h,v 1.8.2.1 2006/12/07 19:23:03 jlovell Exp $".
  */

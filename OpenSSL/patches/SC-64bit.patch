@@ -1,0 +1,57 @@
+diff -uNr ../openssl.orig/Configure ./Configure
+--- ../openssl.orig/Configure	2005-06-26 10:24:48.000000000 -0700
++++ ./Configure	2006-07-13 23:55:37.000000000 -0700
+@@ -1447,12 +1447,6 @@
+ 		$unistd = "<unistd.h>" if $unistd eq "";
+ 		print OUT "#define OPENSSL_UNISTD $unistd\n";
+ 		}
+-	elsif	(/^#((define)|(undef))\s+SIXTY_FOUR_BIT_LONG/)
+-		{ printf OUT "#%s SIXTY_FOUR_BIT_LONG\n",($b64l)?"define":"undef"; }
+-	elsif	(/^#((define)|(undef))\s+SIXTY_FOUR_BIT/)
+-		{ printf OUT "#%s SIXTY_FOUR_BIT\n",($b64)?"define":"undef"; }
+-	elsif	(/^#((define)|(undef))\s+THIRTY_TWO_BIT/)
+-		{ printf OUT "#%s THIRTY_TWO_BIT\n",($b32)?"define":"undef"; }
+ 	elsif	(/^#((define)|(undef))\s+SIXTEEN_BIT/)
+ 		{ printf OUT "#%s SIXTEEN_BIT\n",($b16)?"define":"undef"; }
+ 	elsif	(/^#((define)|(undef))\s+EIGHT_BIT/)
+@@ -1480,9 +1474,6 @@
+ 		}
+ 	elsif	(/^#((define)|(undef))\s+RC4_INDEX/)
+ 		{ printf OUT "#%s RC4_INDEX\n",($rc4_idx)?"define":"undef"; }
+-	elsif (/^#(define|undef)\s+I386_ONLY/)
+-		{ printf OUT "#%s I386_ONLY\n", ($processor == 386)?
+-			"define":"undef"; }
+ 	elsif	(/^#define\s+MD2_INT\s/)
+ 		{ printf OUT "#define MD2_INT unsigned %s\n",$type[$md2_int]; }
+ 	elsif	(/^#define\s+IDEA_INT\s/)
+diff -uNr ../openssl.orig/crypto/opensslconf.h.in ./crypto/opensslconf.h.in
+--- ../openssl.orig/crypto/opensslconf.h.in	2002-12-10 23:24:47.000000000 -0800
++++ ./crypto/opensslconf.h.in	2006-07-13 23:55:07.000000000 -0700
+@@ -1,7 +1,11 @@
+ /* crypto/opensslconf.h.in */
+ 
+ /* Generate 80386 code? */
++#if defined(__i386__)                                            
++#define I386_ONLY
++#else /* !__i386__ */
+ #undef I386_ONLY
++#endif /* __i386__ */
+ 
+ #if !(defined(VMS) || defined(__VMS)) /* VMS uses logical names instead */
+ #if defined(HEADER_CRYPTLIB_H) && !defined(OPENSSLDIR)
+@@ -66,8 +70,15 @@
+  * EIGHT_BIT but I don't care since I've only used this mode
+  * for debuging the bignum libraries */
+ #undef SIXTY_FOUR_BIT_LONG
++
++#ifdef __LP64__
++#define SIXTY_FOUR_BIT
++#undef THIRTY_TWO_BIT
++#else
+ #undef SIXTY_FOUR_BIT
+ #define THIRTY_TWO_BIT
++#endif /* __LP64__ */
++
+ #undef SIXTEEN_BIT
+ #undef EIGHT_BIT
+ #endif

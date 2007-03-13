@@ -37,9 +37,16 @@
 // the code from IOUserClient.cpp: is_io_connect_map_memory,
 // mapClientMemory and is_io_connect_unmap_memory
 enum IOHIDLibUserClientMemoryTypes {
-    IOHIDLibUserClientElementValuesType = 0
+    kIOHIDLibUserClientElementValuesType = 0
 };
 
+// port types: I did consider adding queue ports to this
+// as well, but i'm not comfty with sending object pointers
+// as a type.
+enum IOHIDLibUserClientPortTypes {
+    kIOHIDLibUserClientAsyncPortType = 0,
+    kIOHIDLibUserClientDeviceValidPortType
+};
 
 enum IOHIDLibUserClientAsyncCommandCodes {
     kIOHIDLibUserClientSetAsyncPort,   		// kIOUCScalarIScalarO, 0, 0
@@ -66,7 +73,7 @@ enum IOHIDLibUserClientCommandCodes {
     kIOHIDLibUserClientGetReportOOL,		// kIOUCStructIStructO, 
     kIOHIDLibUserClientSetReport,		// kIOUCScalarIScalarO, 2, 0xffffffff
     kIOHIDLibUserClientSetReportOOL,		// kIOUCStructIStructO,
-
+    kIOHIDLibUserClientDeviceIsValid,
     kIOHIDLibUserClientNumCommands
 };
 
@@ -95,7 +102,7 @@ struct IOHIDElementValue
 
 struct IOHIDReportReq
 {
-    IOHIDReportType	reportType;
+    UInt32      reportType;
     UInt32		reportID;
     void 		*reportBuffer;
     UInt32		reportBufferSize;
@@ -105,6 +112,7 @@ struct IOHIDReportReq
 
 #include <mach/mach_types.h>
 #include <IOKit/IOUserClient.h>
+#include <IOKit/IOInterruptEventSource.h>
 
 class IOHIDDevice;
 class IOSyncer;
@@ -114,9 +122,24 @@ class IOCommandGate;
 struct HIDResults;
 #endif
 
+enum {
+    kHIDQueueStateEnable,
+    kHIDQueueStateDisable,
+    kHIDQueueStateClear
+};
+
 class IOHIDLibUserClient : public IOUserClient 
 {
     OSDeclareDefaultStructors(IOHIDLibUserClient)
+
+    bool resourceNotification(void *refCon, IOService *service);
+    void resourceNotificationGated();
+    
+    void setStateForQueues(UInt32 state, IOOptionBits options = 0);
+    
+    void setValid(bool state);
+    
+    IOReturn dispatchMessage(void* message);
 
 protected:
     static const IOExternalMethod
@@ -125,30 +148,39 @@ protected:
 		sAsyncMethods[kIOHIDLibUserClientNumAsyncCommands];
 
     IOHIDDevice *fNub;
+    IOWorkLoop *fWL;
     IOCommandGate *fGate;
+    IOInterruptEventSource * fResourceES;
     
     OSSet * fQueueSet;
 
+    UInt32 fPid;
     task_t fClient;
     mach_port_t fWakePort;
     mach_port_t fQueuePort;
+    mach_port_t fValidPort;
     
+    void * fValidMessage;
+
     bool fNubIsTerminated;
+	bool fNubIsKeyboard;
     
+    IONotifier * fResourceNotification;
+    UInt64 fCachedConsoleUsersSeed;
     IOOptionBits fCachedOptionBits;
+    bool    fValid;
+    UInt32 fGeneration;
     
     // Methods
-    virtual bool
-	initWithTask(task_t owningTask, void *security_id, UInt32 type);
+    virtual bool initWithTask(task_t owningTask, void *security_id, UInt32 type);
+    
     virtual IOReturn clientClose(void);
 
     virtual bool start(IOService *provider);
 
-    virtual IOExternalMethod *
-	getTargetAndMethodForIndex(IOService **target, UInt32 index);
+    virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
 
-    virtual IOExternalAsyncMethod *
-	getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
+    virtual IOExternalAsyncMethod * getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
 
     virtual IOReturn setAsyncPort(OSAsyncReference asyncRef,
                                   void *, void *, void *,
@@ -159,99 +191,121 @@ protected:
                                   void *, void *, void *);
 
     // Open the IOHIDDevice
-    virtual IOReturn open(void * flags, void *, void *,
-			  void *, void *, void *);
-    
+    virtual IOReturn open(void * flags);
+    IOReturn openGated(IOOptionBits flags);
+
     // Close the IOHIDDevice
-    virtual IOReturn close(void * = 0, void * = 0, void * = 0,
-			   void * = 0, void * = 0, void *gated = 0);
-    
-    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
-    
-    virtual bool requestTerminate( IOService * provider, IOOptionBits options );
-    
+    virtual IOReturn close();
+    IOReturn closeGated();
+                   
+    virtual bool didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+        
     virtual void free();
+
+    virtual void cleanupGated();
+
+    virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0 );
+    virtual IOReturn messageGated(UInt32 type, IOService * provider, void * argument = 0 );
+
+    virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, UInt32 refCon );
+    virtual IOReturn registerNotificationPortGated(mach_port_t port, UInt32 type, UInt32 refCon );
 
     // return the shared memory for type (called indirectly)
     virtual IOReturn clientMemoryForType(
                            UInt32                type,
                            IOOptionBits *        options,
                            IOMemoryDescriptor ** memory );
+    IOReturn clientMemoryForTypeGated(
+                           UInt32                type,
+                           IOOptionBits *        options,
+                           IOMemoryDescriptor ** memory );
+
+    // Device Valid
+    virtual IOReturn deviceIsValid(void * vOutStatus, void * vOutGeneration);
+    IOReturn deviceIsValidGated(void * vOutStatus, void * vOutGeneration);
 
     // Create a queue
-    virtual IOReturn createQueue(void * vInFlags, void * vInDepth, void * vOutQueue,
-			   void *, void *, void * gated);
+    virtual IOReturn createQueue(void * vInFlags, void * vInDepth, void * vOutQueue);
+    IOReturn createQueueGated(void * vInFlags, void * vInDepth, void * vOutQueue);
 
     // Dispose a queue
-    virtual IOReturn disposeQueue(void * vInQueue, void *, void *,
-			   void *, void *, void * gated);
+    virtual IOReturn disposeQueue(void * vInQueue);
+    IOReturn disposeQueueGated(void * vInQueue);
 
     // Add an element to a queue
-    virtual IOReturn addElementToQueue(void * vInQueue, void * vInElementCookie, 
-                            void * vInFlags, void * vSizeChange, void *, void * gated);
+    virtual IOReturn addElementToQueue(void * vInQueue, void * vInElementCookie, void * vInFlags, void * vSizeChange);
+    IOReturn addElementToQueueGated(void * vInQueue, void * vInElementCookie, void * vInFlags, void * vSizeChange);
    
     // remove an element from a queue
-    virtual IOReturn removeElementFromQueue (void * vInQueue, void * vInElementCookie, 
-                            void * vSizeChange, void *, void *, void * gated);
+    virtual IOReturn removeElementFromQueue (void * vInQueue, void * vInElementCookie, void * vSizeChange);
+    IOReturn removeElementFromQueueGated (void * vInQueue, void * vInElementCookie, void * vSizeChange);
     
     // Check to see if a queue has an element
-    virtual IOReturn queueHasElement (void * vInQueue, void * vInElementCookie, 
-                            void * vOutHasElement, void *, void *, void * gated);
+    virtual IOReturn queueHasElement (void * vInQueue, void * vInElementCookie, void * vOutHasElement);
+    IOReturn queueHasElementGated (void * vInQueue, void * vInElementCookie, void * vOutHasElement);
     
     // start a queue
-    virtual IOReturn startQueue (void * vInQueue, void *, void *, 
-                            void *, void *, void * gated);
+    virtual IOReturn startQueue (void * vInQueue);
+    IOReturn startQueueGated (void * vInQueue);
     
     // stop a queue
-    virtual IOReturn stopQueue (void * vInQueue, void *, void *, 
-                            void *, void *, void * gated);
+    virtual IOReturn stopQueue (void * vInQueue);
+    IOReturn stopQueueGated (void * vInQueue);
                             
     // Update Feature element value
-    virtual IOReturn updateElementValue (void *cookie, void *, void *,
-                                                void *, void *, void *);
+    virtual IOReturn updateElementValue (void *cookie);
+    IOReturn updateElementValueGated (void *cookie);
                                                 
     // Post element value
-    virtual IOReturn postElementValue (void *cookie, void *, void *,
-                                                void *, void *, void *);
+    virtual IOReturn postElementValue (void *cookie, void * cookieBytes);
+    IOReturn postElementValueGated (void *cookie, void * cookieBytes);
                                                 
-    virtual IOReturn getReport (IOHIDReportType reportType, 
-                                UInt32 reportID, 
-                                void *reportBuffer, 
-                                UInt32 *reportBufferSize);
+    // Get report
+    virtual IOReturn getReport(void *vReportType, void *vReportID, void *vReportBuffer, void *vReportBufferSize);
+    IOReturn getReportGated (IOHIDReportType reportType, 
+                                    UInt32 reportID, 
+                                    void *reportBuffer, 
+                                    UInt32 *reportBufferSize);
                                 
-    virtual IOReturn getReportOOL(  IOHIDReportReq *reqIn, 
-                                    UInt32 *sizeOut, 
-                                    IOByteCount inCount, 
-                                    IOByteCount *outCount);
+    // Get report OOL
+    virtual IOReturn getReportOOL ( void *vReqIn, void *vSizeOut, void * vInCount, void *vOutCount);
+    IOReturn getReportOOLGated (IOHIDReportReq *reqIn, 
+                                        UInt32 *sizeOut, 
+                                        IOByteCount inCount, 
+                                        IOByteCount *outCount);
 
-    virtual IOReturn setReport (IOHIDReportType reportType, 
+    // Set report
+    virtual IOReturn setReport (void *vReportType, void *vReportID, void *vReportBuffer, void *vReportBufferSize);
+    IOReturn setReportGated (IOHIDReportType reportType, 
                                 UInt32 reportID, 
                                 void *reportBuffer, 
                                 UInt32 reportBufferSize);
                                 
-    virtual IOReturn setReportOOL (IOHIDReportReq *req, IOByteCount inCount);
+    // Set report OOL
+    virtual IOReturn setReportOOL (void *vReq, void *vInCount);
+    IOReturn setReportOOLGated (IOHIDReportReq *req, IOByteCount inCount);
 
 
+    // Asyn get report
     virtual IOReturn asyncGetReport (OSAsyncReference asyncRef, 
                                     IOHIDReportType reportType, 
                                     UInt32 reportID, 
                                     void *reportBuffer,
                                     UInt32 reportBufferSize, 
                                     UInt32 completionTimeOutMS);
-                                
+    IOReturn asyncGetReportGated (void * param);
+                                    
+    // Asyn set report
     virtual IOReturn asyncSetReport (OSAsyncReference asyncRef, 
                                     IOHIDReportType reportType, 
                                     UInt32 reportID, 
                                     void *reportBuffer,
                                     UInt32 reportBufferSize, 
                                     UInt32 completionTimeOutMS);
+    IOReturn asyncSetReportGated (void * param);
 
-protected:
-    // used 'cause C++ is a pain in the backside
-    static IOReturn closeAction
-        (OSObject *self, void *, void *, void *, void *);
-
-    static void ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
+    void ReqComplete(void *param, IOReturn status, UInt32 remaining);
+    void ReqCompleteGated(void *param, IOReturn status, UInt32 remaining);
 };
 
 #endif /* KERNEL */

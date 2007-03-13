@@ -1,6 +1,6 @@
 /* dri_dispatch.h -- built automatically, DO NOT EDIT
-   $Id: dri_dispatch.h,v 1.9 2004/07/16 19:09:24 jharper Exp $
-   $XFree86: xc/lib/GL/apple/dri_dispatch.h,v 1.5 2004/01/17 00:38:12 torrey Exp $ */
+   $Id: dri_dispatch.h,v 1.10 2006/09/06 21:22:28 jharper Exp $
+   $XFree86: $ */
 
 DEFUN_LOCAL_VOID (NewList,
     (void *rend, GLuint list, GLenum mode),
@@ -2724,14 +2724,6 @@ DEFUN_ALIAS_VOID (PointParameterfSGIS, PointParameterf,
 
 DEFUN_ALIAS_VOID (PointParameterfvSGIS, PointParameterfv,
     (GLenum pname, const GLfloat * params),
-    (pname, params))
-
-DEFUN_ALIAS_VOID (PointParameteri, PointParameteriNV,
-    (GLenum pname, GLint params),
-    (pname, params))
-
-DEFUN_ALIAS_VOID (PointParameteriv, PointParameterivNV,
-    (GLenum pname, const GLint * params),
     (pname, params))
 
 DEFUN_ALIAS_VOID (PrioritizeTexturesEXT, PrioritizeTextures,

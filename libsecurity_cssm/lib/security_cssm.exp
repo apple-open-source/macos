@@ -136,6 +136,7 @@ _CSSMOID_NetscapeCertSequence
 _CSSMOID_NetscapeSGC
 _CSSMOID_MicrosoftSGC
 _CSSMOID_OCSPSigning
+_CSSMOID_EKU_IPSec
 _CSSMOID_ObjectClass
 _CSSMOID_OrganizationName
 _CSSMOID_OrganizationalUnitName

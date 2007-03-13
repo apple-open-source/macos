@@ -1,0 +1,104 @@
+#!/bin/sh
+
+# usage: make-host-def [ARCHS...]
+
+known_archs="ppc ppc64 i386 x86_64 m68k hppa sparc"
+
+if [ $# -eq 0 ]; then
+  exit 0
+fi
+
+case `uname -p` in
+  powerpc)
+    native_arch="ppc"
+    ;;
+  i386)
+    native_arch="i386"
+    ;;
+  *)
+    echo "Unknown processor type: `uname -p`; edit make-host-def"
+    ;;
+esac
+
+# make_arch_env ARCHS...
+make_arch_env () {
+  vars=""
+  archs=""
+  for f in $known_archs; do
+    case "$*" in
+      $f|$f\ *|*\ $f|*\ $f\ *)
+	archs="$archs$f "
+	vars="$vars RC_$f='YES'"
+	;;
+      *)
+	vars="$vars RC_$f='NO'"
+	;;
+    esac
+  done
+  echo "RC_ARCHS='$archs' $vars"
+}
+
+# make_arch_flags ARCHS...
+make_arch_flags () {
+  out=""
+  for f in $known_archs; do
+    case "$*" in
+      $f|$f\ *|*\ $f|*\ $f\ *)
+	out="$out-arch \"$f\" "
+	;;
+    esac
+  done
+  echo $out
+}
+
+archs=$*
+cc=cc
+cxx=c++
+
+case $archs in
+  *ppc64*|*x86_64*)
+    arch_env=`make_arch_env $archs`
+    arch_flags=`make_arch_flags $archs`
+    ;;
+
+  *)
+    arch_env=`make_arch_env $native_arch $archs`
+    arch_flags=`make_arch_flags $native_arch $archs`
+    ;;
+esac
+
+cat <<-EOF
+
+	#ifdef BeforeVendorCF
+	# undef CcCmd
+	# define CcCmd ${cc} ${arch_flags}
+
+	# undef CplusplusCmd
+	# define CplusplusCmd ${cxx} ${arch_flags}
+
+	# define DarwinArchEnv ${arch_env}
+	#endif
+
+EOF
+
+case $archs in
+  *ppc64*|*x86_64*)
+    cat <<-EOF
+
+	#ifdef BeforeVendorCF
+	# define Ppc64DarwinArchitecture YES
+	# define BuildServer NO
+	# define BuildClients NO
+	# define BuildDocs NO
+	# define BuildLibraries YES
+	# define BuildFontServer NO
+	# define BuildFonts NO
+	# undef CrossCompiling
+	# define CrossCompiling YES
+	# undef HostCcCmd
+	# define HostCcCmd cc
+	#endif
+
+EOF
+    ;;
+esac

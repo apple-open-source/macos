@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  *	Copyright (c) 1998 Apple Computer, Inc. 
@@ -203,8 +201,8 @@ at_control(so, cmd, data, ifp)
 				}
 			} else {
 				ifID = ifID_home;
-				strncpy(cfgp->ifr_name, ifID->ifName, 
-					sizeof(ifID->ifName));
+				strlcpy(cfgp->ifr_name, ifID->ifName, 
+					sizeof(cfgp->ifr_name));
 			}
 			if  (ifID && ifID->ifState != LAP_OFFLINE) {
 				cfgp->flags = ifID->ifFlags;
@@ -242,8 +240,8 @@ at_control(so, cmd, data, ifp)
 			    }
 			} else {
 				ifID = ifID_home;
-				strncpy(defzonep->ifr_name, ifID->ifName, 
-					sizeof(ifID->ifName));
+				strlcpy(defzonep->ifr_name, ifID->ifName, 
+					sizeof(defzonep->ifr_name));
 			}
 
 			/* In routing mode the default zone is only set for the 
@@ -588,7 +586,7 @@ at_control(so, cmd, data, ifp)
 			/* *** find an empty entry *** */
 			ifID = &at_interfaces[xpatcnt];
 			bzero((caddr_t)ifID, sizeof(at_ifaddr_t));
-			strncpy(ifID->ifName, ifr->ifr_name, sizeof(ifID->ifName));
+			strlcpy(ifID->ifName, ifr->ifr_name, sizeof(ifID->ifName));
 
 			ifID->aa_ifp = ifp;
 			ifa = &ifID->aa_ifa;
@@ -726,7 +724,7 @@ void atalk_post_msg(struct ifnet *ifp, u_long event_code, struct at_addr *addres
 	bzero(&at_event_data, sizeof(struct kev_atalk_data));
     
 	if (ifp != 0) {
-		strncpy(&at_event_data.link_data.if_name[0], ifp->if_name, IFNAMSIZ);
+		strlcpy(&at_event_data.link_data.if_name[0], ifp->if_name, IFNAMSIZ);
 		at_event_data.link_data.if_family = ifp->if_family;
 		at_event_data.link_data.if_unit   = (unsigned long) ifp->if_unit;
 	}

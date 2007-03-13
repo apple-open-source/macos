@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 #ifndef __TANDEM
 # include <sys/file.h>
 #endif
@@ -62,6 +63,10 @@
 #ifndef lint
 static const char rcsid[] = "$Sudo: check.c,v 1.226 2004/09/08 15:48:23 millert Exp $";
 #endif /* lint */
+
+#ifdef __APPLE_MEMBERD__
+#include <membership.h>
+#endif
 
 /* Status codes for timestamp_status() */
 #define TS_CURRENT		0
@@ -131,12 +136,11 @@ lecture(status)
 	    fwrite(buf, nread, 1, stderr);
     } else {
 	(void) fputs("\n\
-We trust you have received the usual lecture from the local System\n\
-Administrator. It usually boils down to these three things:\n\
+WARNING: Improper use of the sudo command could lead to data loss\n\
+or the deletion of important system files. Please double-check your\n\
+typing when using sudo. Type \"man sudo\" for more information.\n\
 \n\
-    #1) Respect the privacy of others.\n\
-    #2) Think before you type.\n\
-    #3) With great power comes great responsibility.\n\n",
+To proceed, enter your password, or type Ctrl-C to abort.\n\n",
     stderr);
     }
 }
@@ -284,6 +288,11 @@ user_is_exempt()
 {
     struct group *grp;
     char **gr_mem;
+	#ifdef __APPLE_MEMBERD__
+	struct passwd *pw = getpwuid(getuid());
+	uuid_t uu, gu;
+	int ismember = 0;
+	#endif
 
     if (!def_exempt_group)
 	return(FALSE);
@@ -294,10 +303,16 @@ user_is_exempt()
     if (user_gid == grp->gr_gid)
 	return(TRUE);
 
+	#ifdef __APPLE_MEMBERD__
+	if ( 0 == mbr_uid_to_uuid(pw->pw_uid,uu) && 0 == mbr_gid_to_uuid(grp->gr_gid,gu) && 0 == mbr_check_membership(uu,gu,&ismember) ) {
+		if (1 == ismember) return(TRUE);
+	}
+	#else
     for (gr_mem = grp->gr_mem; *gr_mem; gr_mem++) {
 	if (strcmp(user_name, *gr_mem) == 0)
 	    return(TRUE);
     }
+	#endif
 
     return(FALSE);
 }
@@ -513,6 +528,8 @@ timestamp_status(timestampdir, timestampfile, user, make_dirs)
 		    else
 			(void) rmdir(timestampdir);
 		    status = TS_MISSING;
+		} else if (sb.st_mtime < timeofboot()) {
+		    status = TS_OLD;
 		} else
 		    status = TS_CURRENT;
 	    }
@@ -559,4 +576,26 @@ remove_timestamp(remove)
     free(timestampdir);
     if (timestampfile)
 	free(timestampfile);
+}
+
+/*
+ * Check the boottime.
+ */
+int
+timeofboot()
+{
+	struct timeval	boottime;
+	time_t timeofboot = 0;
+	int mib[2];
+	size_t size;
+	
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_BOOTTIME;
+	size = sizeof(boottime);
+	
+	if (sysctl(mib, 2, &boottime, &size, NULL, 0) != -1 && boottime.tv_sec != 0) {
+		timeofboot = boottime.tv_sec;
+	}
+	
+	return timeofboot;
 }

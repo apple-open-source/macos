@@ -76,8 +76,13 @@ in this Software without prior written authorization from The Open Group.
 
 static String XtNtranslationError = "translationError";
 
+/*
+ * CompiledAction must have the same layout as XtActionsRec.
+ * Type long is used instead of XrmQuark here because XrmQuark and String
+ * are not the same size on all systems.
+ */
 typedef struct _CompiledAction{
-    XrmQuark		signature;
+    long		signature;
     XtActionProc	proc;
 }CompiledAction, *CompiledActionTable;
 

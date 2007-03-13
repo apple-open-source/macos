@@ -1,5 +1,5 @@
 /* X11Controller.m -- connect the IB ui, also the NSApp delegate
-   $Id: X11Controller.m,v 1.39 2005/01/05 07:49:25 jharper Exp $
+   $Id: X11Controller.m,v 1.40 2006/09/06 21:19:32 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -39,7 +39,7 @@
 #define Cursor X_Cursor
 # include "quartz.h"
 # define _APPLEWM_SERVER_
-# include "applewm.h"
+# include "applewm-impl.h"
 # include "X.h"
 #undef Cursor
 #undef WindowPtr
@@ -558,8 +558,8 @@
     [NSApp prefs_set_boolean:@PREFS_SYSBEEP value:quartzUseSysBeep];
     [NSApp prefs_set_boolean:@PREFS_KEYEQUIVS value:X11EnableKeyEquivalents];
     [NSApp prefs_set_boolean:@PREFS_SYNC_KEYMAP value:darwinSyncKeymap];
-    [NSApp prefs_set_boolean:@PREFS_NO_AUTH value:![enable_auth intValue]];
-    [NSApp prefs_set_boolean:@PREFS_NO_TCP value:![enable_tcp intValue]];
+//    [NSApp prefs_set_boolean:@PREFS_NO_AUTH value:![enable_auth intValue]];
+//    [NSApp prefs_set_boolean:@PREFS_NO_TCP value:![enable_tcp intValue]];
     [NSApp prefs_set_integer:@PREFS_DEPTH value:[depth selectedTag]];
 
     [NSApp prefs_synchronize];

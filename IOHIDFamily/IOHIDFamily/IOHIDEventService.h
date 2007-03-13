@@ -26,6 +26,8 @@
 #define _IOKIT_HID_IOHIDEVENTSERVICE_H
 
 #include <IOKit/IOService.h>
+#include <IOKit/IOWorkLoop.h>
+#include <IOKit/IOTimerEventSource.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hid/IOHIDElement.h>
@@ -78,6 +80,10 @@ private:
 
 
     struct ExpansionData { 
+        IOWorkLoop *            workLoop;
+        IOTimerEventSource 	*   ejectTimerEventSource;
+        UInt32                  ejectState;
+        IOOptionBits            ejectOptions;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -110,6 +116,8 @@ private:
     IOFixed                 determineResolution ( IOHIDElement * element );
                                     
     static bool 			_publishNotificationHandler(void * target, void * ref, IOService * newService );
+
+    void                    ejectTimerCallback(IOTimerEventSource *sender);
     
 protected:
 
@@ -229,8 +237,12 @@ public:
     virtual bool            start( IOService * provider );
     
     virtual void            stop( IOService * provider );
+
+    virtual bool            matchPropertyTable(OSDictionary * table, SInt32 * score);    
     
     virtual IOReturn        setSystemProperties( OSDictionary * properties );
+    
+    virtual IOReturn        setProperties( OSObject * properties );
     
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  0);
     OSMetaClassDeclareReservedUnused(IOHIDEventService,  1);

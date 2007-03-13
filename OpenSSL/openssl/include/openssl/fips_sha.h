@@ -1,1 +1,1 @@
-../../fips/sha/fips_sha.h
+../../fips-1.0/sha/fips_sha.h

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcre.c,v 1.132.2.24.2.1 2005/10/11 06:48:33 dmitry Exp $ */
+/* $Id: php_pcre.c,v 1.132.2.24.2.3 2006/02/17 21:18:51 andrei Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1406,7 +1406,7 @@ PHP_FUNCTION(preg_quote)
 	
 	/* Allocate enough memory so that even if each character
 	   is quoted, we won't run out of room */
-	out_str = safe_emalloc(2, Z_STRLEN_PP(in_str_arg), 1);
+	out_str = safe_emalloc(4, Z_STRLEN_PP(in_str_arg), 1);
 	
 	/* Go through the string and quote necessary characters */
 	for(p = in_str, q = out_str; p != in_str_end; p++) {
@@ -1437,6 +1437,8 @@ PHP_FUNCTION(preg_quote)
 
 			case '\0':
 				*q++ = '\\';
+				*q++ = '0';
+				*q++ = '0';
 				*q++ = '0';
 				break;
 

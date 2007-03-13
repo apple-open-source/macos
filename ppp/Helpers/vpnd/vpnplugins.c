@@ -407,10 +407,10 @@ void accept_connections(struct vpn_params* params)
                     sprintf(addr_str, ":%s", address_slot->ip_address);
                     params->exec_args[params->next_arg_index] = addr_str;	// setup ip address in arg list
                     params->exec_args[params->next_arg_index + 1] = 0;		// make sure arg list end with zero
-                    execv(PATH_PPPD, params->exec_args);			// launch it
+                    execve(PATH_PPPD, params->exec_args, (char *)0);			// launch it
                     
                     /* not reached except if there is an error */
-                    vpnlog(LOG_ERR, "execv failed during exec of /usr/sbin/pppd\nARGUMENTS\n");
+                    vpnlog(LOG_ERR, "execve failed during exec of /usr/sbin/pppd\nARGUMENTS\n");
                     for (i = 1; i < MAXARG && i < params->next_arg_index; i++) {
                         if (params->exec_args[i])
                             vpnlog(LOG_DEBUG, "%d :  %s\n", i, params->exec_args[i]);

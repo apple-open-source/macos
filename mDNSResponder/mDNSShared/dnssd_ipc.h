@@ -27,6 +27,9 @@
     Change History (most recent first):
 
 $Log: dnssd_ipc.h,v $
+Revision 1.21  2005/09/29 06:38:13  herscher
+Remove #define MSG_WAITALL on Windows.  We don't use this macro anymore, and it's presence causes warnings to be emitted when compiling against the latest Microsoft Platform SDK.
+
 Revision 1.20  2005/03/21 00:39:31  shersche
 <rdar://problem/4021486> Fix build warnings on Win32 platform
 
@@ -90,7 +93,6 @@ Update to APSL 2.0
 #	define dnssd_InvalidSocket	INVALID_SOCKET
 #	define dnssd_EWOULDBLOCK	WSAEWOULDBLOCK
 #	define dnssd_EINTR			WSAEINTR
-#	define MSG_WAITALL 			0
 #	define dnssd_sock_t			SOCKET
 #	define dnssd_socklen_t		int
 #	define dnssd_sockbuf_t		const char*

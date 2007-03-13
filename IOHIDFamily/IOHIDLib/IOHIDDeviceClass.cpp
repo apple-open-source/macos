@@ -39,6 +39,8 @@ __BEGIN_DECLS
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/IODataQueueClient.h>
+#include <System/libkern/OSCrossEndian.h>
 __END_DECLS
 
 #define connectCheck() do {	    \
@@ -57,7 +59,7 @@ __END_DECLS
 } while (0)    
 
 #define seizeCheck() do {           \
-    if (fIsSeized)                  \
+    if (!isValid()) \
         return kIOReturnExclusiveAccess; \
 } while (0)
 
@@ -100,11 +102,11 @@ IOHIDDeviceClass::IOHIDDeviceClass()
     fConnection 		= MACH_PORT_NULL;
     fAsyncPort 			= MACH_PORT_NULL;
     fNotifyPort 		= MACH_PORT_NULL;
+    fDeviceValidPort    = MACH_PORT_NULL;
 
     fIsOpen 			= false;
     fIsLUNZero			= false;
     fIsTerminated		= false;
-    fIsSeized			= false;
     fAsyncPortSetupDone = false;
 
     fRunLoop 			= NULL;
@@ -125,14 +127,16 @@ IOHIDDeviceClass::IOHIDDeviceClass()
     fElementCount 		= 0;
     fElements 			= NULL;
 	
-	fCurrentValuesMappedMemory  = NULL;
-	fCurrentValuesMappedMemorySize = NULL;
+	fCurrentValuesMappedMemory  = 0;
+	fCurrentValuesMappedMemorySize = 0;
 
 	fAsyncPrivateDataRef	= NULL;
 	fNotifyPrivateDataRef   = NULL;
     
     fReportHandlerElementCount	= 0;
     fReportHandlerElements	= NULL;
+    
+    fGeneration = -1;
 }
 
 IOHIDDeviceClass::~IOHIDDeviceClass()
@@ -147,6 +151,11 @@ IOHIDDeviceClass::~IOHIDDeviceClass()
         fService = MACH_PORT_NULL;
     }
     
+    if ( fDeviceValidPort ) {
+        mach_port_deallocate(mach_task_self(), fDeviceValidPort);
+        fDeviceValidPort = MACH_PORT_NULL;
+    }
+
     if (fReportHandlerQueue){
         delete fReportHandlerQueue;
         fReportHandlerQueue = 0;
@@ -352,7 +361,7 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
     fNotifyPrivateDataRef = (MyPrivateData *)malloc(sizeof(MyPrivateData));
     bzero(fNotifyPrivateDataRef, sizeof(MyPrivateData));
     
-    fNotifyPrivateDataRef->self		= this;
+    fNotifyPrivateDataRef->self = this;
 
     // Register for an interest notification of this device being removed. Use a reference to our
     // private data as the refCon which will be passed to the notification callback.
@@ -366,6 +375,17 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
     // Now done with the master_port
     mach_port_deallocate(mach_task_self(), masterPort);
     masterPort = 0;
+
+    // Create port to determine if mem maps are valid.  Use 
+    // IODataQueueAllocateNotificationPort cause that limits the msg queue to 
+    // one entry.
+    fDeviceValidPort = IODataQueueAllocateNotificationPort();
+    if (fDeviceValidPort == MACH_PORT_NULL)
+        return kIOReturnNoMemory;
+        
+    kr = IOConnectSetNotificationPort(fConnection, kIOHIDLibUserClientDeviceValidPortType, fDeviceValidPort, NULL);
+    if (kr != kIOReturnSuccess)
+        return kr;
     
     kr = IORegistryEntryCreateCFProperties (fService,
                                             &properties,
@@ -386,6 +406,94 @@ start(CFDictionaryRef propertyTable, io_service_t inService)
     return kIOReturnSuccess;
 }
 
+IOReturn IOHIDDeviceClass::createSharedMemory(UInt32 generation)
+{
+    // get the shared memory
+    if ( generation == fGeneration ) 
+        return kIOReturnSuccess;
+        
+#if !__LP64__
+    vm_address_t        address = nil;
+    vm_size_t           size    = 0;
+#else
+    mach_vm_address_t   address = nil;
+    mach_vm_size_t      size    = 0;
+#endif
+    IOReturn ret = IOConnectMapMemory (	
+                                fConnection, 
+                                kIOHIDLibUserClientElementValuesType, 
+                                mach_task_self(), 
+                                &address, 
+                                &size, 
+                                kIOMapAnywhere	);
+
+    if (ret != kIOReturnSuccess)
+        return kIOReturnError;
+        
+    fCurrentValuesMappedMemory = address;
+    fCurrentValuesMappedMemorySize = size;
+    
+    if ( !fCurrentValuesMappedMemory )
+        return kIOReturnNoMemory;
+
+    fGeneration = generation;
+    
+    return kIOReturnSuccess;
+}
+
+IOReturn IOHIDDeviceClass::releaseSharedMemory()
+{    
+    // finished with the shared memory
+    if (!fCurrentValuesMappedMemory) 
+        return kIOReturnSuccess;
+        
+    IOReturn ret = IOConnectUnmapMemory (	
+                                fConnection, 
+                                kIOHIDLibUserClientElementValuesType, 
+                                mach_task_self(), 
+                                fCurrentValuesMappedMemory);
+                                
+    fCurrentValuesMappedMemory      = 0;
+    fCurrentValuesMappedMemorySize  = 0;
+    
+    return ret;
+}
+
+Boolean IOHIDDeviceClass::isValid()
+{
+    IOReturn kr;
+    
+    struct {
+            mach_msg_header_t	msgHdr;
+            OSNotificationHeader	notifyHeader;
+            mach_msg_trailer_t	trailer;
+    } msg;
+    
+    kr = mach_msg(&msg.msgHdr, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof(msg), fDeviceValidPort, 0, MACH_PORT_NULL);
+    
+    switch ( kr ) {
+        case MACH_MSG_SUCCESS:
+            int args[2];
+            int len = 2;
+            
+            args[0] = 1;
+            args[1] = fGeneration;
+
+            kr = io_connect_method_scalarI_scalarO(fConnection, kIOHIDLibUserClientDeviceIsValid, 0, 0, args, (mach_msg_type_number_t*)&len);
+            
+            if ( args[0] /*valid*/ )
+                kr = createSharedMemory(args[1] /*generation */);
+            else {
+                fCurrentValuesMappedMemory      = 0;
+                fCurrentValuesMappedMemorySize  = 0;
+            }
+            break;
+    };
+
+    return fCurrentValuesMappedMemory != 0;
+}
+
+
 // RY: There are 2 General Interest notification event sources.
 // One is operating on the main run loop via fNotifyPort and is internal 
 // to the IOHIDDeviceClass.  The other is used by the client to get removal 
@@ -405,65 +513,26 @@ void IOHIDDeviceClass::_deviceNotification( void *refCon,
     
     self = privateDataRef->self;
     
-    if (!self)
+    if (!self || (messageType != kIOMessageServiceIsTerminated))
+         return;
+
+    self->fIsTerminated = true;
+    
+    if ( privateDataRef != self->fAsyncPrivateDataRef)
         return;
-
-    switch(messageType)
-    {
-        case kIOMessageServiceIsTerminated:
-				
-            self->fIsTerminated = true;
-            
-			if ( privateDataRef != self->fAsyncPrivateDataRef)
-				break;
-            
-            if (self->fRemovalCallback)
-            {            
-                ((IOHIDCallbackFunction)self->fRemovalCallback)(
-                                                self->fRemovalTarget,
-                                                kIOReturnSuccess,
-                                                self->fRemovalRefcon,
-                                                (void *)&(self->fHIDDevice));
-            }
-            // Free up the notificaiton
-            IOObjectRelease(privateDataRef->notification);
-            free(self->fAsyncPrivateDataRef);
-			self->fAsyncPrivateDataRef = 0;
-            break;
-        
-        case kIOMessageServiceIsRequestingClose:
-			if ( privateDataRef != self->fNotifyPrivateDataRef)
-				break;
-
-            if ((options & kIOHIDOptionsTypeSeizeDevice) &&
-                (options != self->fCachedFlags))
-            {
-                self->stopAllQueues(true);
-                if (self->fReportHandlerQueue)
-                    self->fReportHandlerQueue->stop();
-				self->close();
-                self->fIsSeized = true;
-            }
-            break;
-            
-        case kIOMessageServiceWasClosed:
-			if ( privateDataRef != self->fNotifyPrivateDataRef)
-				break;
-
-            if (self->fIsSeized &&
-                (options & kIOHIDOptionsTypeSeizeDevice) &&
-                (options != self->fCachedFlags))
-            {
-                self->fIsSeized = false;
-
-				self->open(self->fCachedFlags);
-
-                self->startAllQueues(true);
-                if (self->fReportHandlerQueue)
-                    self->fReportHandlerQueue->start();
-            }
-            break;
-    }    
+    
+    if (self->fRemovalCallback)
+    {            
+        ((IOHIDCallbackFunction)self->fRemovalCallback)(
+                                        self->fRemovalTarget,
+                                        kIOReturnSuccess,
+                                        self->fRemovalRefcon,
+                                        (void *)&(self->fHIDDevice));
+    }
+    // Free up the notificaiton
+    IOObjectRelease(privateDataRef->notification);
+    free(self->fAsyncPrivateDataRef);
+    self->fAsyncPrivateDataRef = 0;
 }
 
 IOReturn IOHIDDeviceClass::
@@ -589,7 +658,6 @@ IOReturn IOHIDDeviceClass::open(UInt32 flags)
     }
 
     fIsOpen = true;
-    fIsSeized = false;
 
     if (!fAsyncPortSetupDone && fAsyncPort) {
 		ret = finishAsyncPortSetup();
@@ -600,24 +668,7 @@ IOReturn IOHIDDeviceClass::open(UInt32 flags)
         }
     }
     
-    // get the shared memory
-	if ( !fCurrentValuesMappedMemory )
-	{
-		vm_address_t address = nil;
-		vm_size_t size = 0;
-		
-		ret = IOConnectMapMemory (	fConnection, 
-									IOHIDLibUserClientElementValuesType, 
-									mach_task_self(), 
-									&address, 
-									&size, 
-									kIOMapAnywhere	);
-		if (ret == kIOReturnSuccess)
-		{
-			fCurrentValuesMappedMemory = address;
-			fCurrentValuesMappedMemorySize = size;
-		}
-	}
+    isValid();
     
     return ret;
 }
@@ -632,21 +683,8 @@ IOReturn IOHIDDeviceClass::close()
 	commandDeviceClosing((IOCDBDeviceInterface **) &fCDBDevice); 
 #endif
 
-// еее IOConnectUnmapMemory does not work, so we cannot call it
-// when the user client finally goes away (when our client closes the service)
-// everything will get cleaned up, but this is still ugly
-#if 0
     // finished with the shared memory
-    if (fCurrentValuesMappedMemory != 0)
-    {
-        (void) IOConnectUnmapMemory (	fConnection, 
-                                        IOHIDLibUserClientElementValuesType, 
-                                        mach_task_self(), 
-                                        fCurrentValuesMappedMemory);
-        fCurrentValuesMappedMemory = nil;
-        fCurrentValuesMappedMemorySize = 0;
-    }
-#endif
+    releaseSharedMemory();
 
     mach_msg_type_number_t len = 0;
     // kIOCDBUserClientClose,	kIOUCScalarIScalarO,	 0,  0
@@ -750,17 +788,24 @@ IOReturn IOHIDDeviceClass::setElementValue(
         IOHIDElementValue * elementValue = (IOHIDElementValue *)
                 (fCurrentValuesMappedMemory + element.valueLocation);
                 
+        UInt32 totalSize = elementValue->totalSize;
+        ROSETTA_ONLY(
+            totalSize = OSSwapInt32(totalSize);
+        );
         // if size is just one 32bit word
-        if (elementValue->totalSize == sizeof (IOHIDElementValue))
+        if (totalSize == sizeof (IOHIDElementValue))
         {
             //elementValue->cookie = valueEvent->elementCookie;
             elementValue->value[0] = valueEvent->value;
+            ROSETTA_ONLY(
+                elementValue->value[0] = OSSwapInt32(valueEvent->value);
+            );
             //elementValue->timestamp = valueEvent->timestamp;
         }
         // handle the long value size case.
         // we are assuming here that the end user has an allocated
         // longValue buffer.
-        else if (elementValue->totalSize > sizeof (IOHIDElementValue))
+        else if (totalSize > sizeof (IOHIDElementValue))
         {
             UInt32 longValueSize = valueEvent->longValueSize;
             
@@ -768,13 +813,12 @@ IOReturn IOHIDDeviceClass::setElementValue(
                 ( valueEvent->longValue == NULL))
                 return kr;
                 
-            bzero(&(elementValue->value), 
-                (elementValue->totalSize - sizeof(IOHIDElementValue)) + sizeof(UInt32));
+            bzero(&(elementValue->value), element.bytes);
             
             // *** FIX ME ***
             // Since we are setting mapped memory, we should probably
             // hold a shared lock
-            convertByteToWord ((const UInt8 *)valueEvent->longValue, elementValue->value, longValueSize<<3);
+            convertByteToWord ((const UInt8 *)valueEvent->longValue, elementValue->value, longValueSize);
             //elementValue->timestamp = valueEvent->timestamp;
         }
         
@@ -785,8 +829,11 @@ IOReturn IOHIDDeviceClass::setElementValue(
                         
         UInt32			input[1];
         IOByteCount		outputCount = 0;
-                
-        input[0] = (UInt32) elementCookie;
+        
+        input[0] = (UInt32)elementCookie;
+        ROSETTA_ONLY(
+            input[0] = OSSwapInt32((UInt32)elementCookie);
+        );
         
         //  kIOHIDLibUserClientPostElementValue,  kIOUCStructIStructO,    1,	0
         kr = io_connect_method_structureI_structureO(
@@ -847,6 +894,7 @@ IOReturn IOHIDDeviceClass::fillElementValue(IOHIDElementCookie		elementCookie,
     SInt32		value = 0;
     void *		longValue = 0;
     UInt32		longValueSize = 0;
+    UInt32      totalSize;
     UInt64		timestamp = 0;
         
     // get ptr to shared memory for this element
@@ -855,27 +903,39 @@ IOReturn IOHIDDeviceClass::fillElementValue(IOHIDElementCookie		elementCookie,
         IOHIDElementValue * elementValue = (IOHIDElementValue *)
                 (fCurrentValuesMappedMemory + element.valueLocation);
         
-        // if size is just one 32bit word
-        if (elementValue->totalSize == sizeof (IOHIDElementValue))
-        {
-            value = elementValue->value[0];
-            timestamp = *(UInt64 *)& elementValue->timestamp;
-        }
-        // handle the long value size case.
-        // we are assuming here that the end user will deallocate
-        // the longValue buffer.
-        else if (elementValue->totalSize > sizeof (IOHIDElementValue))
-        {
-            longValueSize = element.bytes;
-            longValue = malloc ( longValueSize );
-            bzero(longValue, longValueSize);
+        totalSize = elementValue->totalSize;
+        ROSETTA_ONLY(
+            totalSize = OSSwapInt32(totalSize);
+        );
 
-            // *** FIX ME ***
-            // Since we are getting mapped memory, we should probably
-            // hold a shared lock
-            convertWordToByte((const UInt32 *)elementValue->value, (UInt8 *)longValue, longValueSize<<3);
-            
-            timestamp = *(UInt64 *)& elementValue->timestamp;
+        // if size is just one 32bit word
+        if ( totalSize >= sizeof (IOHIDElementValue))
+        {        
+            if ( totalSize == sizeof (IOHIDElementValue))
+            {
+                value = elementValue->value[0];
+            }
+            // handle the long value size case.
+            // we are assuming here that the end user will deallocate
+            // the longValue buffer.
+            else
+            {
+                longValueSize = element.bytes;
+                longValue = malloc ( longValueSize );
+                bzero(longValue, longValueSize);
+
+                // *** FIX ME ***
+                // Since we are getting mapped memory, we should probably
+                // hold a shared lock
+                convertWordToByte((const UInt32 *)elementValue->value, (UInt8 *)longValue, longValueSize);
+            }
+            timestamp = *(UInt64 *)&(elementValue->timestamp);
+
+            ROSETTA_ONLY(
+                timestamp 	= OSSwapInt64(timestamp);
+                value 		= OSSwapInt32(value);
+            );
+
         }
     }
     
@@ -959,10 +1019,17 @@ IOHIDDeviceClass::setReport (	IOHIDReportType			reportType,
         {
             IOHIDReportReq		req;
                         
-            req.reportType = reportType;
-            req.reportID = reportID;
-            req.reportBuffer = reportBuffer;
-            req.reportBufferSize = reportBufferSize;
+            req.reportType          = reportType;
+            req.reportID            = reportID;
+            req.reportBuffer        = reportBuffer;
+            req.reportBufferSize    = reportBufferSize;
+            
+            ROSETTA_ONLY(
+                req.reportType          = OSSwapInt32(req.reportType);
+                req.reportID            = OSSwapInt32(req.reportID);
+                req.reportBuffer        = (void *)OSSwapInt32((uint32_t)req.reportBuffer);
+                req.reportBufferSize    = OSSwapInt32(req.reportBufferSize);
+            );
             
             ret = io_connect_method_structureI_structureO( fConnection, kIOHIDLibUserClientSetReportOOL, (char*)&req, sizeof(req), NULL, &len);
         }    
@@ -1041,12 +1108,23 @@ IOHIDDeviceClass::getReport (	IOHIDReportType			reportType,
             
             len = sizeof(*reportBufferSize);
             
-            req.reportType = reportType;
-            req.reportID = reportID;
-            req.reportBuffer = reportBuffer;
-            req.reportBufferSize = *reportBufferSize;
+            req.reportType          = reportType;
+            req.reportID            = reportID;
+            req.reportBuffer        = reportBuffer;
+            req.reportBufferSize    = *reportBufferSize;
+            
+            ROSETTA_ONLY(
+                req.reportType          = OSSwapInt32(req.reportType);
+                req.reportID            = OSSwapInt32(req.reportID);
+                req.reportBuffer        = (void *)OSSwapInt32((uint32_t)req.reportBuffer);
+                req.reportBufferSize    = OSSwapInt32(req.reportBufferSize);
+            );
             
             ret = io_connect_method_structureI_structureO( fConnection, kIOHIDLibUserClientGetReportOOL, (char*)&req, sizeof(req), (char*)reportBufferSize, &len);
+
+            ROSETTA_ONLY(
+                *reportBufferSize = OSSwapInt32(*reportBufferSize);
+            );
         }    
     }
     
@@ -1127,7 +1205,6 @@ IOHIDDeviceClass::copyMatchingElements(CFDictionaryRef matchingDict, CFArrayRef 
                 && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitKey))
                 && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementUnitExponentKey))
                 && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementNameKey))
-                && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementValueLocationKey))
                 && CompareProperty(element, matchingDict, CFSTR(kIOHIDElementDuplicateIndexKey)))
             {            
                 CFArrayAppendValue(tempElements, element);
@@ -1258,7 +1335,11 @@ void IOHIDDeviceClass::_hidReportHandlerCallback(void * target, IOReturn result,
             size = min(size, self->fInputReportBufferSize);
             bzero(self->fInputReportBuffer, size);
 
-            self->convertWordToByte((const UInt32 *)(&(event.value)), (UInt8 *)self->fInputReportBuffer, size << 3);
+            ROSETTA_ONLY(
+                event.value = OSSwapInt32(event.value);
+            );
+
+            self->convertWordToByte((const UInt32 *)(&(event.value)), (UInt8 *)self->fInputReportBuffer, size);
             
         }
         else if (event.longValueSize != 0 && (event.longValue != NULL))
@@ -1297,94 +1378,92 @@ IOHIDDeviceClass::_hidReportCallback(void *refcon, IOReturn result, UInt32 buffe
     free(hidRefcon);
 }
 
+#if __i386__
+    #define ON_INTEL 1
+#else
+    #define ON_INTEL 0
+#endif
+
 //---------------------------------------------------------------------------
 // Not very efficient, will do for now.
 
-#define BIT_MASK(bits)  ((1 << (bits)) - 1)
-
-#define UpdateByteOffsetAndShift(bits, offset, shift)  \
-    do { offset = bits >> 3; shift = bits & 0x07; } while (0)
-
-#define UpdateWordOffsetAndShift(bits, offset, shift)  \
-    do { offset = bits >> 5; shift = bits & 0x1f; } while (0)
-    
-void IOHIDDeviceClass::convertByteToWord( const UInt8 * src,
-                           UInt32 *      dst,
-                           UInt32        bitsToCopy)
+void IOHIDDeviceClass::convertByteToWord( const UInt8 *     src,
+                                           UInt32 *         dst,
+                                           UInt32           bytesToCopy)
 {
-    UInt32 srcOffset;
-    UInt32 srcShift;
-    UInt32 srcStartBit   = 0;
-    UInt32 dstShift      = 0;
-    UInt32 dstStartBit   = 0;
-    UInt32 dstOffset     = 0;
-    UInt32 lastDstOffset = 0;
-    UInt32 word          = 0;
-    UInt8  bitsProcessed;
-    UInt32 totalBitsProcessed = 0;
-
-    while ( bitsToCopy )
+    if ( ON_INTEL || _OSRosettaCheck() )
     {
-        UInt32 tmp;
+        bcopy(src, dst, bytesToCopy);
+    }
+    else 
+    {
+        UInt32 dstOffset    = 0;
+        UInt32 srcOffset    = 0;
+        UInt32 temp         = 0;
+        UInt32 tempShift    = 0;
+        
+        while ( bytesToCopy >= 4 )
+        {                
+            dst[dstOffset] = OSSwapInt32(*((UInt32 *)&(src[srcOffset])));
 
-        UpdateByteOffsetAndShift( srcStartBit, srcOffset, srcShift );
-
-        bitsProcessed = min( bitsToCopy,
-                             min( 8 - srcShift, 32 - dstShift ) );
-
-        tmp = (src[srcOffset] >> srcShift) & BIT_MASK(bitsProcessed);
-
-        word |= ( tmp << dstShift );
-
-        dstStartBit += bitsProcessed;
-        srcStartBit += bitsProcessed;
-        bitsToCopy  -= bitsProcessed;
-		totalBitsProcessed += bitsProcessed;
-
-        UpdateWordOffsetAndShift( dstStartBit, dstOffset, dstShift );
-
-        if ( ( dstOffset != lastDstOffset ) || ( bitsToCopy == 0 ) )
+            srcOffset   += 4;
+            bytesToCopy -= 4;
+            dstOffset   ++;
+        }
+        
+        while ( bytesToCopy )
         {
-            dst[lastDstOffset] = word;
-            word = 0;
-            lastDstOffset = dstOffset;
+            temp |= src[srcOffset++] << tempShift;
+            
+            tempShift += 8;
+            bytesToCopy --;
+            
+            if ( !bytesToCopy )
+                dst[dstOffset] = temp;
         }
     }
 }
 
 void IOHIDDeviceClass::convertWordToByte( const UInt32 * src,
                            UInt8 *        dst,
-                           UInt32         bitsToCopy)
+                           UInt32         bytesToCopy)
 {
-    UInt32 dstOffset;
-    UInt32 dstShift;
-    UInt32 dstStartBit = 0;
-    UInt32 srcShift    = 0;
-    UInt32 srcStartBit = 0;
-    UInt32 srcOffset   = 0;
-    UInt8  bitsProcessed;
-    UInt32 tmp;
-
-    while ( bitsToCopy )
+    if ( ON_INTEL || _OSRosettaCheck() )
     {
-        UpdateByteOffsetAndShift( dstStartBit, dstOffset, dstShift );
+        bcopy(src, dst, bytesToCopy);
+    }
+    else 
+    {
+        UInt32 dstOffset    = 0;
+        UInt32 srcOffset    = 0;
+        UInt32 temp         = 0;
+        UInt32 tmpOffset    = 0;
+        
+        while ( bytesToCopy )
+        {        
+            temp = OSSwapInt32(src[srcOffset++]);
 
-        bitsProcessed = min( bitsToCopy,
-                             min( 8 - dstShift, 32 - srcShift ) );
-
-        tmp = (src[srcOffset] >> srcShift) & BIT_MASK(bitsProcessed);
-
-        dst[dstOffset] |= ( tmp << dstShift );
-
-        dstStartBit += bitsProcessed;
-        srcStartBit += bitsProcessed;
-        bitsToCopy  -= bitsProcessed;
-
-        UpdateWordOffsetAndShift( srcStartBit, srcOffset, srcShift );
+            if ( bytesToCopy >= 4 )
+            {
+                *((UInt32 *)&(dst[dstOffset])) = temp;
+            
+                bytesToCopy -= 4;
+                dstOffset   += 4;
+            }
+            else 
+            {
+                tmpOffset = 0;
+                while ( bytesToCopy )
+                {
+                    dst[dstOffset++] = ((UInt8 *)&temp)[tmpOffset++];
+                    bytesToCopy--;
+                }
+            }
+        }
     }
 }
 
-IOReturn IOHIDDeviceClass::startAllQueues(bool deviceInitiated)
+IOReturn IOHIDDeviceClass::startAllQueues()
 {
     IOReturn ret = kIOReturnSuccess;
     
@@ -1399,7 +1478,7 @@ IOReturn IOHIDDeviceClass::startAllQueues(bool deviceInitiated)
         
         for (int i=0; queues && i<queueCount; i++)
         {
-            ret = queues[i]->start(deviceInitiated);
+            ret = queues[i]->start();
         }
         
         if (queues)
@@ -1410,7 +1489,7 @@ IOReturn IOHIDDeviceClass::startAllQueues(bool deviceInitiated)
     return ret;
 }
 
-IOReturn IOHIDDeviceClass::stopAllQueues(bool deviceInitiated)
+IOReturn IOHIDDeviceClass::stopAllQueues()
 {
     IOReturn ret = kIOReturnSuccess;
     
@@ -1425,7 +1504,7 @@ IOReturn IOHIDDeviceClass::stopAllQueues(bool deviceInitiated)
         
         for (int i=0; queues && i<queueCount && ret==kIOReturnSuccess; i++)
         {
-            ret = queues[i]->stop(deviceInitiated);
+            ret = queues[i]->stop();
         }
         
         if (queues)
@@ -2023,7 +2102,6 @@ kern_return_t IOHIDDeviceClass::CreateLeafElements (CFDictionaryRef properties, 
             } while ( 0 );
 
         }
-        
         CFRelease(dictionary);
     }
     // this case should not happen, something else was found

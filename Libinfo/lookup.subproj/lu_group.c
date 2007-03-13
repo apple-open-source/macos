@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,7 +64,7 @@ static pthread_mutex_t _group_lock = PTHREAD_MUTEX_INITIALIZER;
 #define MEMBERD_NAME "com.apple.memberd"
 static mach_port_t mbr_port = MACH_PORT_NULL;
 typedef uint32_t GIDArray[16];
-extern kern_return_t _mbr_GetGroups(mach_port_t server, uint32_t uid, uint32_t *numGroups, GIDArray gids);
+extern kern_return_t _mbr_GetGroups(mach_port_t server, uint32_t uid, uint32_t *numGroups, GIDArray gids, security_token_t *token);
 
 #define GR_GET_NAME 1
 #define GR_GET_GID 2
@@ -104,7 +104,7 @@ free_lu_thread_info_group(void *x)
 	if (x == NULL) return;
 
 	tdata = (struct lu_thread_info *)x;
-	
+
 	if (tdata->lu_entry != NULL)
 	{
 		free_group((struct group *)tdata->lu_entry);
@@ -290,7 +290,7 @@ copy_group_r(struct group *in, struct group *out, char *buffer, int buflen)
 			ap += hsize;
 		}
 	}
-	
+
 	memset(bp, 0, sizeof(unsigned long));
 	bp = ap;
 
@@ -458,7 +458,7 @@ lu_getgrgid(int gid)
 	static int proc = -1;
 	int count;
 	char *lookup_buf;
-	
+
 	if (proc < 0)
 	{
 		if (_lookup_link(_lu_port, "getgrgid", &proc) != KERN_SUCCESS)
@@ -675,6 +675,7 @@ mbr_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int du
 	int pwstatus;
 	GIDArray gids;
 	int status, maxgroups;
+	security_token_t token;
 
 	status = 0;
 
@@ -699,9 +700,13 @@ mbr_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int du
 	if (pwstatus != 0) return status;
 	if (res == NULL) return status;
 
+	token.val[0] = -1;
+	token.val[1] = -1;
+
 	count = 0;
-	kstatus = _mbr_GetGroups(mbr_port, p.pw_uid, &count, gids);
+	kstatus = _mbr_GetGroups(mbr_port, p.pw_uid, &count, gids, &token);
 	if (kstatus != KERN_SUCCESS) return status;
+	if (token.val[0] != 0) return KERN_FAILURE;
 
 	for (i = 0; (i < count) && (status == 0); i++) 
 	{
@@ -729,7 +734,7 @@ lu_getgrouplist(const char *name, int basegid, int *groups, int *grpcnt, int dup
 	if (name == NULL) return status;
 	if (groups == NULL) return status;
 	if (grpcnt == NULL) return status;
-	
+
 	maxgroups = *grpcnt;
 	*grpcnt = 0;
 
@@ -792,12 +797,12 @@ getgrouplist_internal(const char *name, int basegid, int *groups, int *grpcnt, i
 	{
 		return mbr_getgrouplist(name, basegid, groups, grpcnt, dupbase);
 	}
-	
+
 	if (_lu_running())
 	{
 		return lu_getgrouplist(name, basegid, groups, grpcnt, dupbase);
 	}
-	
+
 	return _old_getgrouplist(name, basegid, groups, grpcnt);
 }
 
@@ -836,7 +841,7 @@ lu_getgrent()
 		tdata = (struct lu_thread_info *)calloc(1, sizeof(struct lu_thread_info));
 		_lu_data_set_key(_lu_data_key_group, tdata);
 	}
-	
+
 	if (tdata->lu_vm == NULL)
 	{
 		if (proc < 0)
@@ -886,7 +891,7 @@ lu_getgrent()
 	}
 
 	tdata->lu_vm_cursor--;
-	
+
 	return g;
 }
 

@@ -178,6 +178,9 @@ void RSAKeyPairGenContext::generate(
 	 */
 	keyBits = context.getInt(CSSM_ATTRIBUTE_KEY_LENGTH,
 				CSSMERR_CSP_MISSING_ATTR_KEY_LENGTH);
+	if(keyBits > rsaMaxKeySize()) {
+		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY_LENGTH);
+	}
 				
 	/* generate the private key */
 	rPrivBinKey.mRsaKey = RSA_generate_key(keyBits,
@@ -497,6 +500,9 @@ void DSAKeyPairGenContext::generate(
 	 */
 	keyBits = context.getInt(CSSM_ATTRIBUTE_KEY_LENGTH,
 				CSSMERR_CSP_MISSING_ATTR_KEY_LENGTH);
+	if(keyBits > DSA_MAX_KEY_SIZE) {
+		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY_LENGTH);
+	}
 	CssmData *paramData = context.get<CssmData>(CSSM_ATTRIBUTE_ALG_PARAMS);
 
 	NSS_DSAAlgParams algParams;

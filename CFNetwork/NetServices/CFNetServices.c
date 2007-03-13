@@ -42,6 +42,7 @@
 
 #include <dns_sd.h>
 #include <nameser.h>
+#include <netinet/in.h>
 
 
 #if 0
@@ -1546,7 +1547,10 @@ _CFDataCreateWithRecord(CFAllocatorRef allocator, uint16_t rrtype, uint16_t rdle
 			sa->sa_family = AF_INET6;
 			
 			((struct sockaddr_in6*)sa)->sin6_port = htons(port);
-			((struct sockaddr_in6*)sa)->sin6_scope_id = htonl(interfaceIndex);
+
+			if (IN6_IS_ADDR_LINKLOCAL((struct in6_addr *)rdata)) {
+				((struct sockaddr_in6*)sa)->sin6_scope_id = interfaceIndex;
+			}
 			
 			addr = (UInt8*)(&(((struct sockaddr_in6*)sa)->sin6_addr));
 		}

@@ -351,12 +351,12 @@ static CSSM_BOOL tpCompareSubjectName(
 	crtn = cert.fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
 	if(crtn) {
 		/* should never happen, we shouldn't be here if there is no subject */
-		tpPolicyError("tp_verifySslOpts: error retrieving subject name");
+		tpPolicyError("tpCompareSubjectName: error retrieving subject name");
 		return CSSM_FALSE;
 	}
 	CSSM_X509_NAME_PTR x509name = (CSSM_X509_NAME_PTR)subjNameData->Data;
 	if((x509name == NULL) || (subjNameData->Length != sizeof(CSSM_X509_NAME))) {
-		tpPolicyError("tp_verifySslOpts: malformed CSSM_X509_NAME");
+		tpPolicyError("tpCompareSubjectName: malformed CSSM_X509_NAME");
 		cert.freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
 		return CSSM_FALSE;
 	}
@@ -843,6 +843,7 @@ errOut:
  * server name.
  */
 static CSSM_RETURN tp_verifySslOpts(
+	TPPolicy policy,
 	TPCertGroup &certGroup,
 	const CSSM_DATA *sslFieldOpts,
 	const iSignCertInfo &leafCertInfo)
@@ -921,14 +922,21 @@ static CSSM_RETURN tp_verifySslOpts(
 		assert(eku != NULL);
 
 		/* 
-		 * Determine appropriate extended key usage; default is server side 
+		 * Determine appropriate extended key usage; default is SSL server side 
 		 */
 		const CSSM_OID *extUse = &CSSMOID_ServerAuth;
-		if((sslOpts != NULL) &&				/* optional, default server side */
-		   (sslOpts->Version > 0) &&		/* this was added in struct version 1 */
-		   (sslOpts->Flags & CSSM_APPLE_TP_SSL_CLIENT)) {
-		   extUse = &CSSMOID_ClientAuth;
-		   isServer = false;
+		switch(policy) {
+			case kTP_IPSec:
+				extUse = &CSSMOID_EKU_IPSec;
+				break;
+			default:
+				if((sslOpts != NULL) &&				/* optional, default server side */
+				   (sslOpts->Version > 0) &&		/* this was added in struct version 1 */
+				   (sslOpts->Flags & CSSM_APPLE_TP_SSL_CLIENT)) {
+				   extUse = &CSSMOID_ClientAuth;
+				   isServer = false;
+				}
+				break;
 		}
 
 		/* search for that one or for "any" indicator */
@@ -1883,7 +1891,7 @@ CSSM_RETURN tp_policyVerify(
 			 * FIXME - should this be before or after the root cert test? How can
 			 * we return both errors?
 			 */
-			policyError = tp_verifySslOpts(*certGroup, policyFieldData, certInfo[0]);
+			policyError = tp_verifySslOpts(policy, *certGroup, policyFieldData, certInfo[0]);
 			break;
 			
 		case kTP_iChat:

@@ -1072,7 +1072,6 @@ extract_archive (void)
 
     directory_exists:
       if (status == 0
-	  || old_files_option == DEFAULT_OLD_FILES
 	  || old_files_option == OVERWRITE_OLD_FILES)
 	delay_set_stat (file_name, &current_stat_info.stat,
 			MODE_RWX & (mode ^ current_stat_info.stat.st_mode),

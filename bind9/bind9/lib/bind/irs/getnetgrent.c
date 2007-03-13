@@ -1,22 +1,22 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996,1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static const char rcsid[] = "$Id: getnetgrent.c,v 1.1.1.1 2003/01/10 00:48:14 bbraun Exp $";
+static const char rcsid[] = "$Id: getnetgrent.c,v 1.1.2.1.4.1 2004/03/09 08:33:36 marka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 /* Imports */
@@ -47,8 +47,11 @@ static struct net_data *init(void);
 
 /* Public */
 
+#ifndef SETNETGRENT_ARGS
+#define SETNETGRENT_ARGS const char *netgroup
+#endif
 void
-setnetgrent(const char *netgroup) {
+setnetgrent(SETNETGRENT_ARGS) {
 	struct net_data *net_data = init();
 
 	setnetgrent_p(netgroup, net_data);
@@ -61,19 +64,31 @@ endnetgrent(void) {
 	endnetgrent_p(net_data);
 }
 
+#ifndef INNETGR_ARGS
+#define INNETGR_ARGS const char *netgroup, const char *host, \
+		     const char *user, const char *domain
+#endif
 int
-innetgr(const char *netgroup, const char *host,
-	const char *user, const char *domain) {
+innetgr(INNETGR_ARGS) {
 	struct net_data *net_data = init();
 
 	return (innetgr_p(netgroup, host, user, domain, net_data));
 }
 
 int
-getnetgrent(const char **host, const char **user, const char **domain) {
+getnetgrent(char **host, char **user, char **domain) {
 	struct net_data *net_data = init();
+	const char *ch, *cu, *cd;
+	int ret;
 
-	return (getnetgrent_p(host, user, domain, net_data));
+	ret = getnetgrent_p(&ch, &cu, &cd, net_data);
+	if (ret != 1)
+		return (ret);
+
+	DE_CONST(ch, *host);
+	DE_CONST(cu, *user);
+	DE_CONST(cd, *domain);
+	return (ret);
 }
 
 /* Shared private. */

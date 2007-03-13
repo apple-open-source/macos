@@ -6,7 +6,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -383,7 +383,7 @@ zend_brk_cont_element *get_next_brk_cont_element(zend_op_array *op_array);
 ZEND_API zend_bool zend_is_compiling(TSRMLS_D);
 ZEND_API char *zend_make_compiled_string_description(char *name TSRMLS_DC);
 
-int zend_register_auto_global(char *name, uint name_len TSRMLS_DC);
+ZEND_API int zend_register_auto_global(char *name, uint name_len TSRMLS_DC);
 
 int zendlex(znode *zendlval TSRMLS_DC);
 

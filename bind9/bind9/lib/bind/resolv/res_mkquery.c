@@ -52,25 +52,25 @@
  */
 
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_mkquery.c	8.1 (Berkeley) 6/4/93";
-static const char rcsid[] = "$Id: res_mkquery.c,v 1.1.1.2 2003/03/18 19:18:35 rbraun Exp $";
+static const char rcsid[] = "$Id: res_mkquery.c,v 1.1.2.2.4.2 2004/03/16 12:34:18 marka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include "port_before.h"
@@ -105,7 +105,7 @@ res_nmkquery(res_state statp,
 	     int buflen)		/* size of buffer */
 {
 	register HEADER *hp;
-	register u_char *cp;
+	register u_char *cp, *ep;
 	register int n;
 	u_char *dnptrs[20], **dpp, **lastdnptr;
 
@@ -125,10 +125,10 @@ res_nmkquery(res_state statp,
 	hp = (HEADER *) buf;
 	hp->id = htons(++statp->id);
 	hp->opcode = op;
-	hp->rd = (statp->options & RES_RECURSE) != 0;
+	hp->rd = (statp->options & RES_RECURSE) != 0U;
 	hp->rcode = NOERROR;
 	cp = buf + HFIXEDSZ;
-	buflen -= HFIXEDSZ;
+	ep = buf + buflen;
 	dpp = dnptrs;
 	*dpp++ = buf;
 	*dpp++ = NULL;
@@ -139,15 +139,15 @@ res_nmkquery(res_state statp,
 	switch (op) {
 	case QUERY:	/*FALLTHROUGH*/
 	case NS_NOTIFY_OP:
-		if ((buflen -= QFIXEDSZ) < 0)
+		if (ep - cp < QFIXEDSZ)
 			return (-1);
-		if ((n = dn_comp(dname, cp, buflen, dnptrs, lastdnptr)) < 0)
+		if ((n = dn_comp(dname, cp, ep - cp - QFIXEDSZ, dnptrs,
+		    lastdnptr)) < 0)
 			return (-1);
 		cp += n;
-		buflen -= n;
-		__putshort(type, cp);
+		ns_put16(type, cp);
 		cp += INT16SZ;
-		__putshort(class, cp);
+		ns_put16(class, cp);
 		cp += INT16SZ;
 		hp->qdcount = htons(1);
 		if (op == QUERY || data == NULL)
@@ -155,19 +155,20 @@ res_nmkquery(res_state statp,
 		/*
 		 * Make an additional record for completion domain.
 		 */
-		buflen -= RRFIXEDSZ;
-		n = dn_comp((const char *)data, cp, buflen, dnptrs, lastdnptr);
+		if ((ep - cp) < RRFIXEDSZ)
+			return (-1);
+		n = dn_comp((const char *)data, cp, ep - cp - RRFIXEDSZ,
+			    dnptrs, lastdnptr);
 		if (n < 0)
 			return (-1);
 		cp += n;
-		buflen -= n;
-		__putshort(T_NULL, cp);
+		ns_put16(T_NULL, cp);
 		cp += INT16SZ;
-		__putshort(class, cp);
+		ns_put16(class, cp);
 		cp += INT16SZ;
-		__putlong(0, cp);
+		ns_put32(0, cp);
 		cp += INT32SZ;
-		__putshort(0, cp);
+		ns_put16(0, cp);
 		cp += INT16SZ;
 		hp->arcount = htons(1);
 		break;
@@ -176,16 +177,16 @@ res_nmkquery(res_state statp,
 		/*
 		 * Initialize answer section
 		 */
-		if (buflen < 1 + RRFIXEDSZ + datalen)
+		if (ep - cp < 1 + RRFIXEDSZ + datalen)
 			return (-1);
 		*cp++ = '\0';	/* no domain name */
-		__putshort(type, cp);
+		ns_put16(type, cp);
 		cp += INT16SZ;
-		__putshort(class, cp);
+		ns_put16(class, cp);
 		cp += INT16SZ;
-		__putlong(0, cp);
+		ns_put32(0, cp);
 		cp += INT32SZ;
-		__putshort(datalen, cp);
+		ns_put16(datalen, cp);
 		cp += INT16SZ;
 		if (datalen) {
 			memcpy(cp, data, datalen);
@@ -207,35 +208,33 @@ res_nmkquery(res_state statp,
 #endif
 
 int
-res_nopt(statp, n0, buf, buflen, anslen)
-	res_state statp;
-	int n0;
-	u_char *buf;		/* buffer to put query */
-	int buflen;		/* size of buffer */
-	int anslen;		/* answer buffer length */
+res_nopt(res_state statp,
+	 int n0,		/* current offset in buffer */
+	 u_char *buf,		/* buffer to put query */
+	 int buflen,		/* size of buffer */
+	 int anslen)		/* UDP answer buffer size */
 {
 	register HEADER *hp;
-	register u_char *cp;
+	register u_char *cp, *ep;
 	u_int16_t flags = 0;
 
 #ifdef DEBUG
-	if ((statp->options & RES_DEBUG) != 0)
+	if ((statp->options & RES_DEBUG) != 0U)
 		printf(";; res_nopt()\n");
 #endif
 
 	hp = (HEADER *) buf;
 	cp = buf + n0;
-	buflen -= n0;
+	ep = buf + buflen;
 
-	if (buflen < 1 + RRFIXEDSZ)
-		return -1;
+	if ((ep - cp) < 1 + RRFIXEDSZ)
+		return (-1);
 
 	*cp++ = 0;	/* "." */
-	buflen--;
 
-	__putshort(T_OPT, cp);	/* TYPE */
+	ns_put16(T_OPT, cp);	/* TYPE */
 	cp += INT16SZ;
-	__putshort(anslen & 0xffff, cp);	/* CLASS = UDP payload size */
+	ns_put16(anslen & 0xffff, cp);	/* CLASS = UDP payload size */
 	cp += INT16SZ;
 	*cp++ = NOERROR;	/* extended RCODE */
 	*cp++ = 0;		/* EDNS version */
@@ -246,13 +245,12 @@ res_nopt(statp, n0, buf, buflen, anslen)
 #endif
 		flags |= NS_OPT_DNSSEC_OK;
 	}
-	__putshort(flags, cp);
+	ns_put16(flags, cp);
 	cp += INT16SZ;
-	__putshort(0, cp);	/* RDLEN */
+	ns_put16(0, cp);	/* RDLEN */
 	cp += INT16SZ;
 	hp->arcount = htons(ntohs(hp->arcount) + 1);
-	buflen -= RRFIXEDSZ;
 
-	return cp - buf;
+	return (cp - buf);
 }
 #endif

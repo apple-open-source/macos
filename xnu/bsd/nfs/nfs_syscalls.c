@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /* Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved */
 /*
@@ -1268,6 +1266,7 @@ nfssvc_iod_continue(int error)
 	struct nfsmount *nmp;
 	struct uthread *ut;
 	proc_t p;
+	int exiterror = 0;
 
 	/*
 	 * real myiod is stored in uthread, recover it
@@ -1293,9 +1292,21 @@ nfssvc_iod_continue(int error)
 			PWAIT | PCATCH | PDROP, "nfsidl", 0, nfssvc_iod_continue);
 		lck_mtx_lock(nfs_iod_mutex);
 	    }
+	    if (error && !exiterror && nmp && (nmp->nm_bufqiods == 1) &&
+	        !TAILQ_EMPTY(&nmp->nm_bufq)) {
+		/*
+		 * Finish processing the queued buffers before exitting.
+		 * Decrement the iod count now to make sure nfs_asyncio()
+		 * doesn't keep queueing up more work.
+		 */
+		nmp->nm_bufqiods--;
+		exiterror = error;
+		error = 0;
+	    }
 	    if (error) {
 		nfs_asyncdaemon[myiod] = 0;
-		if (nmp) nmp->nm_bufqiods--;
+		if (nmp && !exiterror)
+			nmp->nm_bufqiods--;
 		nfs_iodwant[myiod] = NULL;
 		nfs_iodmount[myiod] = NULL;
 		lck_mtx_unlock(nfs_iod_mutex);
@@ -1329,7 +1340,7 @@ nfssvc_iod_continue(int error)
 		     * If there are more than one iod on this mount, then defect
 		     * so that the iods can be shared out fairly between the mounts
 		     */
-		    if (nfs_defect && nmp->nm_bufqiods > 1) {
+		    if (!exiterror && nfs_defect && nmp->nm_bufqiods > 1) {
 			nfs_iodmount[myiod] = NULL;
 			nmp->nm_bufqiods--;
 			break;
@@ -1355,6 +1366,8 @@ nfssvc_iod_continue(int error)
 				nfs_buf_drop(bp);
 				continue;
 			}
+			if (ISSET(bp->nb_flags, NB_NEEDCOMMIT))
+				nfs_buf_check_write_verifier(np, bp);
 			if (ISSET(bp->nb_flags, NB_NEEDCOMMIT)) {
 				/* put buffer at end of delwri list */
 				TAILQ_INSERT_TAIL(&nfsbufdelwri, bp, nb_free);
@@ -1374,6 +1387,8 @@ nfssvc_iod_continue(int error)
 	    }
 
 	    lck_mtx_lock(nfs_iod_mutex);
+	    if (exiterror)
+	    	error = exiterror;
 	}
 }
 

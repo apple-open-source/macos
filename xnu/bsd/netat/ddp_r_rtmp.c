@@ -1,31 +1,29 @@
 /*
  * Copyright (c) 1994, 1996-2000 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
- *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*--------------------------------------------------------------------------
  * Router RTMP protocol functions: 
@@ -289,7 +287,7 @@ static void rtmp_update(ifID, rtmp, tuple_nb)
 				ifID->ifRoutingState = PORT_ERR_SEED;
 				ke.error 	= KE_CONF_SEED_RNG;
 				ke.port1 	= ifID->ifPort;
-				strncpy(ke.name1, ifID->ifName, sizeof(ke.name1));
+				strlcpy(ke.name1, ifID->ifName, sizeof(ke.name1));
 				ke.net 		=  NET_VALUE(rtmp->at_rtmp_this_net);
 				ke.node     = SenderNodeID;
 				ke.netr1b 	= TUPLENET(FirstTuple);
@@ -312,7 +310,7 @@ static void rtmp_update(ifID, rtmp, tuple_nb)
 			    (ifID->ifThisCableEnd != NET_VALUE(rtmp->at_rtmp_this_net))) {
 				ke.error 	= KE_CONF_SEED1;
 				ke.port1 	= ifID->ifPort;
-				strncpy(ke.name1, ifID->ifName,sizeof(ke.name1));
+				strlcpy(ke.name1, ifID->ifName,sizeof(ke.name1));
 				ke.net 		=  NET_VALUE(rtmp->at_rtmp_this_net);
 				ke.node     = SenderNodeID;
 				ke.netr1e 	= ifID->ifThisCableEnd;
@@ -350,7 +348,7 @@ static void rtmp_update(ifID, rtmp, tuple_nb)
 				ifID->ifRoutingState = PORT_ERR_CABLER;
 				ke.error 	= KE_CONF_SEED_NODE;
 				ke.port1 	= ifID->ifPort;
-				strncpy(ke.name1, ifID->ifName,sizeof(ke.name1));
+				strlcpy(ke.name1, ifID->ifName,sizeof(ke.name1));
 				ke.net 		=  NET_VALUE(rtmp->at_rtmp_this_net);
 				ke.node     = SenderNodeID;
 				ke.netr1b 	= TUPLENET(FirstTuple);
@@ -378,7 +376,7 @@ static void rtmp_update(ifID, rtmp, tuple_nb)
 			ifID->ifRoutingState = PORT_ERR_STARTUP;
 			ke.error 	= KE_SEED_STARTUP;
 			ke.port1 	= ifID->ifPort;
-			strncpy(ke.name1, ifID->ifName,sizeof(ke.name1));
+			strlcpy(ke.name1, ifID->ifName,sizeof(ke.name1));
 			ke.net 		=  NET_VALUE(rtmp->at_rtmp_this_net);
 			ke.node     = SenderNodeID;
 			RouterError(ifID->ifPort, ERTR_CABLE_STARTUP);
@@ -1274,12 +1272,12 @@ int rtmp_router_start(keP)
 				if (ifID->ifThisCableEnd == 0)  {
 					keP->error 	= KE_NO_SEED;
 					keP->port1 	= ifID->ifPort;
-					strncpy(keP->name1, ifID->ifName,sizeof(keP->name1));
+					strlcpy(keP->name1, ifID->ifName,sizeof(keP->name1));
 				}
 				else {
 					keP->error 	= KE_INVAL_RANGE;
 					keP->port1 	= ifID->ifPort;
-					strncpy(keP->name1, ifID->ifName,sizeof(keP->name1));
+					strlcpy(keP->name1, ifID->ifName,sizeof(keP->name1));
 					keP->netr1b 	= ifID->ifThisCableStart;
 					keP->netr1e 	= ifID->ifThisCableEnd;
 				}
@@ -1323,12 +1321,12 @@ int rtmp_router_start(keP)
 			if (ifID->ifThisCableEnd == 0)  {
 				keP->error 	= KE_NO_SEED;
 				keP->port1 	= ifID->ifPort;
-				strncpy(keP->name1, ifID->ifName,sizeof(keP->name1));
+				strlcpy(keP->name1, ifID->ifName,sizeof(keP->name1));
 			}
 			else {
 				keP->error 	= KE_INVAL_RANGE;
 				keP->port1 	= ifID->ifPort;
-				strncpy(keP->name1, ifID->ifName,sizeof(keP->name1));
+				strlcpy(keP->name1, ifID->ifName,sizeof(keP->name1));
 				keP->netr1b 	= ifID->ifThisCableStart;
 				keP->netr1e 	= ifID->ifThisCableEnd;
 			}
@@ -1358,9 +1356,9 @@ int rtmp_router_start(keP)
 
 					keP->error 	= KE_CONF_RANGE;
 					keP->port1 	= ifID->ifPort;
-					strncpy(keP->name1, ifID->ifName,sizeof(keP->name1));
+					strlcpy(keP->name1, ifID->ifName,sizeof(keP->name1));
 					keP->port2 	= ifID2->ifPort;
-					strncpy(keP->name2, ifID2->ifName,sizeof(keP->name2));
+					strlcpy(keP->name2, ifID2->ifName,sizeof(keP->name2));
 					keP->netr1b 	= ifID->ifThisCableStart;
 					keP->netr1e 	= ifID->ifThisCableEnd;
 					ifID->ifRoutingState = PORT_ERR_CABLER;
@@ -1468,7 +1466,7 @@ startZoneInfo:
 					("rtmp_router_start: no received response to ZipNeedQueries\n"));
 				keP->error 	= KE_NO_ZONES_FOUND;
 				keP->port1 	= ifID->ifPort;
-				strncpy(keP->name1, ifID->ifName,sizeof(keP->name1));
+				strlcpy(keP->name1, ifID->ifName,sizeof(keP->name1));
 				keP->netr1b 	= ifID->ifThisCableStart;
 				keP->netr1e 	= ifID->ifThisCableEnd;
 				ifID->ifRoutingState = PORT_ERR_CABLER;

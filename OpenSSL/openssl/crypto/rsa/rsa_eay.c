@@ -56,7 +56,7 @@
  * [including the GNU Public Licence.]
  */
 /* ====================================================================
- * Copyright (c) 1998-2005 The OpenSSL Project.  All rights reserved.
+ * Copyright (c) 1998-2006 The OpenSSL Project.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -157,6 +157,28 @@ static int RSA_eay_public_encrypt(int flen, const unsigned char *from,
 	unsigned char *buf=NULL;
 	BN_CTX *ctx=NULL;
 
+ 	if (BN_num_bits(rsa->n) > OPENSSL_RSA_MAX_MODULUS_BITS)
+ 		{
+ 		RSAerr(RSA_F_RSA_EAY_PUBLIC_DECRYPT, RSA_R_MODULUS_TOO_LARGE);
+ 		return -1;
+ 		}
+ 
+ 	if (BN_ucmp(rsa->n, rsa->e) <= 0)
+ 		{
+ 		RSAerr(RSA_F_RSA_EAY_PUBLIC_DECRYPT, RSA_R_BAD_E_VALUE);
+ 		return -1;
+ 		}
+ 
+ 	/* for large moduli, enforce exponent limit */
+ 	if (BN_num_bits(rsa->n) > OPENSSL_RSA_SMALL_MODULUS_BITS)
+ 		{
+ 		if (BN_num_bits(rsa->e) > OPENSSL_RSA_MAX_PUBEXP_BITS)
+ 			{
+ 			RSAerr(RSA_F_RSA_EAY_PUBLIC_DECRYPT, RSA_R_BAD_E_VALUE);
+ 			return -1;
+ 			}
+ 		}
+ 	
 	BN_init(&f);
 	BN_init(&ret);
 	if ((ctx=BN_CTX_new()) == NULL) goto err;
@@ -228,24 +250,39 @@ err:
 	return(r);
 	}
 
-static int rsa_eay_blinding(RSA *rsa, BN_CTX *ctx)
+static int blinding_helper(RSA *rsa, BN_CTX *ctx)
 	{
-	int ret = 1;
-	CRYPTO_w_lock(CRYPTO_LOCK_RSA);
-	/* Check again inside the lock - the macro's check is racey */
-	if(rsa->blinding == NULL)
-		ret = RSA_blinding_on(rsa, ctx);
-	CRYPTO_w_unlock(CRYPTO_LOCK_RSA);
+	int ret = 0;
+	int got_write_lock = 0;
+
+	CRYPTO_r_lock(CRYPTO_LOCK_RSA);
+
+	if (rsa->flags & RSA_FLAG_NO_BLINDING)
+		ret = 1;
+	else
+		{
+		if (rsa->blinding != NULL)
+			ret = 1;
+		else
+			{
+			CRYPTO_r_unlock(CRYPTO_LOCK_RSA);
+			CRYPTO_w_lock(CRYPTO_LOCK_RSA);
+			got_write_lock = 1;
+
+			if(rsa->blinding != NULL)
+				ret = 1;
+			else
+				ret = RSA_blinding_on(rsa, ctx);
+			}
+		}
+
+	if (got_write_lock)
+		CRYPTO_w_unlock(CRYPTO_LOCK_RSA);
+	else
+		CRYPTO_r_unlock(CRYPTO_LOCK_RSA);
+
 	return ret;
 	}
-
-#define BLINDING_HELPER(rsa, ctx, err_instr) \
-	do { \
-		if((!((rsa)->flags & RSA_FLAG_NO_BLINDING)) && \
-		    ((rsa)->blinding == NULL) && \
-		    !rsa_eay_blinding(rsa, ctx)) \
-		    err_instr \
-	} while(0)
 
 static BN_BLINDING *setup_blinding(RSA *rsa, BN_CTX *ctx)
 	{
@@ -271,6 +308,13 @@ static BN_BLINDING *setup_blinding(RSA *rsa, BN_CTX *ctx)
 		if (!BN_rand_range(A,rsa->n)) goto err;
 		}
 	if ((Ai=BN_mod_inverse(NULL,A,rsa->n,ctx)) == NULL) goto err;
+
+	if (rsa->flags & RSA_FLAG_CACHE_PUBLIC)
+		{
+		if (!BN_MONT_CTX_set_locked(&rsa->_method_mod_n,
+					CRYPTO_LOCK_RSA, rsa->n, ctx))
+			goto err;
+		}
 
 	if (!rsa->meth->bn_mod_exp(A,A,rsa->e,rsa->n,ctx,rsa->_method_mod_n))
 		goto err;
@@ -327,7 +371,8 @@ static int RSA_eay_private_encrypt(int flen, const unsigned char *from,
 		goto err;
 		}
 
-	BLINDING_HELPER(rsa, ctx, goto err;);
+	if (!blinding_helper(rsa, ctx))
+		goto err;
 	blinding = rsa->blinding;
 	
 	/* Now unless blinding is disabled, 'blinding' is non-NULL.
@@ -347,7 +392,7 @@ static int RSA_eay_private_encrypt(int flen, const unsigned char *from,
 	
 	if (blinding != NULL)
 		{
-		if (blinding->thread_id != CRYPTO_thread_id())
+		if (1)
 			{
 			/* we need a local one-time blinding factor */
 
@@ -463,7 +508,8 @@ static int RSA_eay_private_decrypt(int flen, const unsigned char *from,
 		goto err;
 		}
 
-	BLINDING_HELPER(rsa, ctx, goto err;);
+	if (!blinding_helper(rsa, ctx))
+		goto err;
 	blinding = rsa->blinding;
 	
 	/* Now unless blinding is disabled, 'blinding' is non-NULL.
@@ -483,7 +529,7 @@ static int RSA_eay_private_decrypt(int flen, const unsigned char *from,
 	
 	if (blinding != NULL)
 		{
-		if (blinding->thread_id != CRYPTO_thread_id())
+		if (1)
 			{
 			/* we need a local one-time blinding factor */
 
@@ -575,6 +621,28 @@ static int RSA_eay_public_decrypt(int flen, const unsigned char *from,
 	unsigned char *p;
 	unsigned char *buf=NULL;
 	BN_CTX *ctx=NULL;
+
+	if (BN_num_bits(rsa->n) > OPENSSL_RSA_MAX_MODULUS_BITS)
+		{
+		RSAerr(RSA_F_RSA_EAY_PUBLIC_ENCRYPT, RSA_R_MODULUS_TOO_LARGE);
+		return -1;
+		}
+
+	if (BN_ucmp(rsa->n, rsa->e) <= 0)
+		{
+		RSAerr(RSA_F_RSA_EAY_PUBLIC_ENCRYPT, RSA_R_BAD_E_VALUE);
+		return -1;
+		}
+
+	/* for large moduli, enforce exponent limit */
+	if (BN_num_bits(rsa->n) > OPENSSL_RSA_SMALL_MODULUS_BITS)
+		{
+		if (BN_num_bits(rsa->e) > OPENSSL_RSA_MAX_PUBEXP_BITS)
+			{
+			RSAerr(RSA_F_RSA_EAY_PUBLIC_ENCRYPT, RSA_R_BAD_E_VALUE);
+			return -1;
+			}
+		}
 
 	BN_init(&f);
 	BN_init(&ret);

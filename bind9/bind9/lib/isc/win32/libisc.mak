@@ -25,6 +25,10 @@ NULL=
 NULL=nul
 !ENDIF 
 
+CPP=cl.exe
+MTL=midl.exe
+RSC=rc.exe
+
 !IF  "$(CFG)" == "libisc - Win32 Release"
 
 OUTDIR=.\Release
@@ -50,6 +54,7 @@ CLEAN :
 	-@erase "$(INTDIR)\event.obj"
 	-@erase "$(INTDIR)\file.obj"
 	-@erase "$(INTDIR)\fsaccess.obj"
+	-@erase "$(INTDIR)\hash.obj"
 	-@erase "$(INTDIR)\heap.obj"
 	-@erase "$(INTDIR)\hex.obj"
 	-@erase "$(INTDIR)\hmacmd5.obj"
@@ -69,14 +74,16 @@ CLEAN :
 	-@erase "$(INTDIR)\mutexblock.obj"
 	-@erase "$(INTDIR)\net.obj"
 	-@erase "$(INTDIR)\netaddr.obj"
-	-@erase "$(INTDIR)\ntfile.obj"
+	-@erase "$(INTDIR)\netscope.obj"
 	-@erase "$(INTDIR)\ntpaths.obj"
 	-@erase "$(INTDIR)\once.obj"
 	-@erase "$(INTDIR)\ondestroy.obj"
 	-@erase "$(INTDIR)\os.obj"
+	-@erase "$(INTDIR)\parseint.obj"
 	-@erase "$(INTDIR)\quota.obj"
 	-@erase "$(INTDIR)\random.obj"
 	-@erase "$(INTDIR)\ratelimiter.obj"
+	-@erase "$(INTDIR)\region.obj"
 	-@erase "$(INTDIR)\resource.obj"
 	-@erase "$(INTDIR)\result.obj"
 	-@erase "$(INTDIR)\rwlock.obj"
@@ -86,6 +93,7 @@ CLEAN :
 	-@erase "$(INTDIR)\socket.obj"
 	-@erase "$(INTDIR)\stdio.obj"
 	-@erase "$(INTDIR)\stdtime.obj"
+	-@erase "$(INTDIR)\strerror.obj"
 	-@erase "$(INTDIR)\string.obj"
 	-@erase "$(INTDIR)\symtab.obj"
 	-@erase "$(INTDIR)\syslog.obj"
@@ -96,6 +104,7 @@ CLEAN :
 	-@erase "$(INTDIR)\timer.obj"
 	-@erase "$(INTDIR)\vc60.idb"
 	-@erase "$(INTDIR)\version.obj"
+	-@erase "$(INTDIR)\win32os.obj"
 	-@erase "$(OUTDIR)\libisc.exp"
 	-@erase "$(OUTDIR)\libisc.lib"
 	-@erase "..\..\..\Build\Release\libisc.dll"
@@ -103,42 +112,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP=cl.exe
 CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "./" /I "../../../" /I "include" /I "../include" /I "win32" /I "../../isccfg/include" /D "WIN32" /D "NDEBUG" /D "__STDC__" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LIBISC_EXPORTS" /Fp"$(INTDIR)\libisc.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
-
-.c{$(INTDIR)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(INTDIR)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(INTDIR)}.obj::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.c{$(INTDIR)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cpp{$(INTDIR)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-.cxx{$(INTDIR)}.sbr::
-   $(CPP) @<<
-   $(CPP_PROJ) $< 
-<<
-
-MTL=midl.exe
 MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /win32 
-RSC=rc.exe
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\libisc.bsc" 
 BSC32_SBRS= \
@@ -160,7 +135,6 @@ LINK32_OBJS= \
 	"$(INTDIR)\ipv6.obj" \
 	"$(INTDIR)\keyboard.obj" \
 	"$(INTDIR)\net.obj" \
-	"$(INTDIR)\ntfile.obj" \
 	"$(INTDIR)\ntpaths.obj" \
 	"$(INTDIR)\once.obj" \
 	"$(INTDIR)\os.obj" \
@@ -168,10 +142,12 @@ LINK32_OBJS= \
 	"$(INTDIR)\socket.obj" \
 	"$(INTDIR)\stdio.obj" \
 	"$(INTDIR)\stdtime.obj" \
+	"$(INTDIR)\strerror.obj" \
 	"$(INTDIR)\syslog.obj" \
 	"$(INTDIR)\thread.obj" \
 	"$(INTDIR)\time.obj" \
 	"$(INTDIR)\version.obj" \
+	"$(INTDIR)\win32os.obj" \
 	"$(INTDIR)\assertions.obj" \
 	"$(INTDIR)\base64.obj" \
 	"$(INTDIR)\bitstring.obj" \
@@ -180,6 +156,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\commandline.obj" \
 	"$(INTDIR)\error.obj" \
 	"$(INTDIR)\event.obj" \
+	"$(INTDIR)\hash.obj" \
 	"$(INTDIR)\heap.obj" \
 	"$(INTDIR)\hex.obj" \
 	"$(INTDIR)\hmacmd5.obj" \
@@ -195,6 +172,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\msgcat.obj" \
 	"$(INTDIR)\mutexblock.obj" \
 	"$(INTDIR)\netaddr.obj" \
+	"$(INTDIR)\netscope.obj" \
 	"$(INTDIR)\ondestroy.obj" \
 	"$(INTDIR)\quota.obj" \
 	"$(INTDIR)\random.obj" \
@@ -208,7 +186,9 @@ LINK32_OBJS= \
 	"$(INTDIR)\symtab.obj" \
 	"$(INTDIR)\task.obj" \
 	"$(INTDIR)\taskpool.obj" \
-	"$(INTDIR)\timer.obj"
+	"$(INTDIR)\timer.obj" \
+	"$(INTDIR)\parseint.obj" \
+	"$(INTDIR)\region.obj"
 
 "..\..\..\Build\Release\libisc.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
     $(LINK32) @<<
@@ -259,6 +239,8 @@ CLEAN :
 	-@erase "$(INTDIR)\file.sbr"
 	-@erase "$(INTDIR)\fsaccess.obj"
 	-@erase "$(INTDIR)\fsaccess.sbr"
+	-@erase "$(INTDIR)\hash.obj"
+	-@erase "$(INTDIR)\hash.sbr"
 	-@erase "$(INTDIR)\heap.obj"
 	-@erase "$(INTDIR)\heap.sbr"
 	-@erase "$(INTDIR)\hex.obj"
@@ -297,8 +279,8 @@ CLEAN :
 	-@erase "$(INTDIR)\net.sbr"
 	-@erase "$(INTDIR)\netaddr.obj"
 	-@erase "$(INTDIR)\netaddr.sbr"
-	-@erase "$(INTDIR)\ntfile.obj"
-	-@erase "$(INTDIR)\ntfile.sbr"
+	-@erase "$(INTDIR)\netscope.obj"
+	-@erase "$(INTDIR)\netscope.sbr"
 	-@erase "$(INTDIR)\ntpaths.obj"
 	-@erase "$(INTDIR)\ntpaths.sbr"
 	-@erase "$(INTDIR)\once.obj"
@@ -307,12 +289,16 @@ CLEAN :
 	-@erase "$(INTDIR)\ondestroy.sbr"
 	-@erase "$(INTDIR)\os.obj"
 	-@erase "$(INTDIR)\os.sbr"
+	-@erase "$(INTDIR)\parseint.obj"
+	-@erase "$(INTDIR)\parseint.sbr"
 	-@erase "$(INTDIR)\quota.obj"
 	-@erase "$(INTDIR)\quota.sbr"
 	-@erase "$(INTDIR)\random.obj"
 	-@erase "$(INTDIR)\random.sbr"
 	-@erase "$(INTDIR)\ratelimiter.obj"
 	-@erase "$(INTDIR)\ratelimiter.sbr"
+	-@erase "$(INTDIR)\region.obj"
+	-@erase "$(INTDIR)\region.sbr"
 	-@erase "$(INTDIR)\resource.obj"
 	-@erase "$(INTDIR)\resource.sbr"
 	-@erase "$(INTDIR)\result.obj"
@@ -331,6 +317,8 @@ CLEAN :
 	-@erase "$(INTDIR)\stdio.sbr"
 	-@erase "$(INTDIR)\stdtime.obj"
 	-@erase "$(INTDIR)\stdtime.sbr"
+	-@erase "$(INTDIR)\strerror.obj"
+	-@erase "$(INTDIR)\strerror.sbr"
 	-@erase "$(INTDIR)\string.obj"
 	-@erase "$(INTDIR)\string.sbr"
 	-@erase "$(INTDIR)\symtab.obj"
@@ -351,6 +339,8 @@ CLEAN :
 	-@erase "$(INTDIR)\vc60.pdb"
 	-@erase "$(INTDIR)\version.obj"
 	-@erase "$(INTDIR)\version.sbr"
+	-@erase "$(INTDIR)\win32os.obj"
+	-@erase "$(INTDIR)\win32os.sbr"
 	-@erase "$(OUTDIR)\libisc.bsc"
 	-@erase "$(OUTDIR)\libisc.exp"
 	-@erase "$(OUTDIR)\libisc.lib"
@@ -362,8 +352,161 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP=cl.exe
 CPP_PROJ=/nologo /MDd /W3 /Gm /GX /ZI /Od /I "./" /I "../../../" /I "include" /I "../include" /I "win32" /I "../../isccfg/include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "__STDC__" /D "_MBCS" /D "_USRDLL" /D "LIBISC_EXPORTS" /FR"$(INTDIR)\\" /Fp"$(INTDIR)\libisc.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
+MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /win32 
+BSC32=bscmake.exe
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\libisc.bsc" 
+BSC32_SBRS= \
+	"$(INTDIR)\app.sbr" \
+	"$(INTDIR)\condition.sbr" \
+	"$(INTDIR)\dir.sbr" \
+	"$(INTDIR)\DLLMain.sbr" \
+	"$(INTDIR)\entropy.sbr" \
+	"$(INTDIR)\errno2result.sbr" \
+	"$(INTDIR)\file.sbr" \
+	"$(INTDIR)\fsaccess.sbr" \
+	"$(INTDIR)\interfaceiter.sbr" \
+	"$(INTDIR)\ipv6.sbr" \
+	"$(INTDIR)\keyboard.sbr" \
+	"$(INTDIR)\net.sbr" \
+	"$(INTDIR)\ntpaths.sbr" \
+	"$(INTDIR)\once.sbr" \
+	"$(INTDIR)\os.sbr" \
+	"$(INTDIR)\resource.sbr" \
+	"$(INTDIR)\socket.sbr" \
+	"$(INTDIR)\stdio.sbr" \
+	"$(INTDIR)\stdtime.sbr" \
+	"$(INTDIR)\strerror.sbr" \
+	"$(INTDIR)\syslog.sbr" \
+	"$(INTDIR)\thread.sbr" \
+	"$(INTDIR)\time.sbr" \
+	"$(INTDIR)\version.sbr" \
+	"$(INTDIR)\win32os.sbr" \
+	"$(INTDIR)\assertions.sbr" \
+	"$(INTDIR)\base64.sbr" \
+	"$(INTDIR)\bitstring.sbr" \
+	"$(INTDIR)\buffer.sbr" \
+	"$(INTDIR)\bufferlist.sbr" \
+	"$(INTDIR)\commandline.sbr" \
+	"$(INTDIR)\error.sbr" \
+	"$(INTDIR)\event.sbr" \
+	"$(INTDIR)\hash.sbr" \
+	"$(INTDIR)\heap.sbr" \
+	"$(INTDIR)\hex.sbr" \
+	"$(INTDIR)\hmacmd5.sbr" \
+	"$(INTDIR)\inet_aton.sbr" \
+	"$(INTDIR)\inet_ntop.sbr" \
+	"$(INTDIR)\inet_pton.sbr" \
+	"$(INTDIR)\lex.sbr" \
+	"$(INTDIR)\lfsr.sbr" \
+	"$(INTDIR)\lib.sbr" \
+	"$(INTDIR)\log.sbr" \
+	"$(INTDIR)\md5.sbr" \
+	"$(INTDIR)\mem.sbr" \
+	"$(INTDIR)\msgcat.sbr" \
+	"$(INTDIR)\mutexblock.sbr" \
+	"$(INTDIR)\netaddr.sbr" \
+	"$(INTDIR)\netscope.sbr" \
+	"$(INTDIR)\ondestroy.sbr" \
+	"$(INTDIR)\quota.sbr" \
+	"$(INTDIR)\random.sbr" \
+	"$(INTDIR)\ratelimiter.sbr" \
+	"$(INTDIR)\result.sbr" \
+	"$(INTDIR)\rwlock.sbr" \
+	"$(INTDIR)\serial.sbr" \
+	"$(INTDIR)\sha1.sbr" \
+	"$(INTDIR)\sockaddr.sbr" \
+	"$(INTDIR)\string.sbr" \
+	"$(INTDIR)\symtab.sbr" \
+	"$(INTDIR)\task.sbr" \
+	"$(INTDIR)\taskpool.sbr" \
+	"$(INTDIR)\timer.sbr" \
+	"$(INTDIR)\parseint.sbr" \
+	"$(INTDIR)\region.sbr"
+
+"$(OUTDIR)\libisc.bsc" : "$(OUTDIR)" $(BSC32_SBRS)
+    $(BSC32) @<<
+  $(BSC32_FLAGS) $(BSC32_SBRS)
+<<
+
+LINK32=link.exe
+LINK32_FLAGS=user32.lib advapi32.lib ws2_32.lib /nologo /dll /incremental:yes /pdb:"$(OUTDIR)\libisc.pdb" /map:"$(INTDIR)\libisc.map" /debug /machine:I386 /def:".\libisc.def" /out:"../../../Build/Debug/libisc.dll" /implib:"$(OUTDIR)\libisc.lib" /pdbtype:sept 
+DEF_FILE= \
+	".\libisc.def"
+LINK32_OBJS= \
+	"$(INTDIR)\app.obj" \
+	"$(INTDIR)\condition.obj" \
+	"$(INTDIR)\dir.obj" \
+	"$(INTDIR)\DLLMain.obj" \
+	"$(INTDIR)\entropy.obj" \
+	"$(INTDIR)\errno2result.obj" \
+	"$(INTDIR)\file.obj" \
+	"$(INTDIR)\fsaccess.obj" \
+	"$(INTDIR)\interfaceiter.obj" \
+	"$(INTDIR)\ipv6.obj" \
+	"$(INTDIR)\keyboard.obj" \
+	"$(INTDIR)\net.obj" \
+	"$(INTDIR)\ntpaths.obj" \
+	"$(INTDIR)\once.obj" \
+	"$(INTDIR)\os.obj" \
+	"$(INTDIR)\resource.obj" \
+	"$(INTDIR)\socket.obj" \
+	"$(INTDIR)\stdio.obj" \
+	"$(INTDIR)\stdtime.obj" \
+	"$(INTDIR)\strerror.obj" \
+	"$(INTDIR)\syslog.obj" \
+	"$(INTDIR)\thread.obj" \
+	"$(INTDIR)\time.obj" \
+	"$(INTDIR)\version.obj" \
+	"$(INTDIR)\win32os.obj" \
+	"$(INTDIR)\assertions.obj" \
+	"$(INTDIR)\base64.obj" \
+	"$(INTDIR)\bitstring.obj" \
+	"$(INTDIR)\buffer.obj" \
+	"$(INTDIR)\bufferlist.obj" \
+	"$(INTDIR)\commandline.obj" \
+	"$(INTDIR)\error.obj" \
+	"$(INTDIR)\event.obj" \
+	"$(INTDIR)\hash.obj" \
+	"$(INTDIR)\heap.obj" \
+	"$(INTDIR)\hex.obj" \
+	"$(INTDIR)\hmacmd5.obj" \
+	"$(INTDIR)\inet_aton.obj" \
+	"$(INTDIR)\inet_ntop.obj" \
+	"$(INTDIR)\inet_pton.obj" \
+	"$(INTDIR)\lex.obj" \
+	"$(INTDIR)\lfsr.obj" \
+	"$(INTDIR)\lib.obj" \
+	"$(INTDIR)\log.obj" \
+	"$(INTDIR)\md5.obj" \
+	"$(INTDIR)\mem.obj" \
+	"$(INTDIR)\msgcat.obj" \
+	"$(INTDIR)\mutexblock.obj" \
+	"$(INTDIR)\netaddr.obj" \
+	"$(INTDIR)\netscope.obj" \
+	"$(INTDIR)\ondestroy.obj" \
+	"$(INTDIR)\quota.obj" \
+	"$(INTDIR)\random.obj" \
+	"$(INTDIR)\ratelimiter.obj" \
+	"$(INTDIR)\result.obj" \
+	"$(INTDIR)\rwlock.obj" \
+	"$(INTDIR)\serial.obj" \
+	"$(INTDIR)\sha1.obj" \
+	"$(INTDIR)\sockaddr.obj" \
+	"$(INTDIR)\string.obj" \
+	"$(INTDIR)\symtab.obj" \
+	"$(INTDIR)\task.obj" \
+	"$(INTDIR)\taskpool.obj" \
+	"$(INTDIR)\timer.obj" \
+	"$(INTDIR)\parseint.obj" \
+	"$(INTDIR)\region.obj"
+
+"..\..\..\Build\Debug\libisc.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ENDIF 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<
@@ -394,153 +537,6 @@ CPP_PROJ=/nologo /MDd /W3 /Gm /GX /ZI /Od /I "./" /I "../../../" /I "include" /I
    $(CPP) @<<
    $(CPP_PROJ) $< 
 <<
-
-MTL=midl.exe
-MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /win32 
-RSC=rc.exe
-BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\libisc.bsc" 
-BSC32_SBRS= \
-	"$(INTDIR)\app.sbr" \
-	"$(INTDIR)\condition.sbr" \
-	"$(INTDIR)\dir.sbr" \
-	"$(INTDIR)\DLLMain.sbr" \
-	"$(INTDIR)\entropy.sbr" \
-	"$(INTDIR)\errno2result.sbr" \
-	"$(INTDIR)\file.sbr" \
-	"$(INTDIR)\fsaccess.sbr" \
-	"$(INTDIR)\interfaceiter.sbr" \
-	"$(INTDIR)\ipv6.sbr" \
-	"$(INTDIR)\keyboard.sbr" \
-	"$(INTDIR)\net.sbr" \
-	"$(INTDIR)\ntfile.sbr" \
-	"$(INTDIR)\ntpaths.sbr" \
-	"$(INTDIR)\once.sbr" \
-	"$(INTDIR)\os.sbr" \
-	"$(INTDIR)\resource.sbr" \
-	"$(INTDIR)\socket.sbr" \
-	"$(INTDIR)\stdio.sbr" \
-	"$(INTDIR)\stdtime.sbr" \
-	"$(INTDIR)\syslog.sbr" \
-	"$(INTDIR)\thread.sbr" \
-	"$(INTDIR)\time.sbr" \
-	"$(INTDIR)\version.sbr" \
-	"$(INTDIR)\assertions.sbr" \
-	"$(INTDIR)\base64.sbr" \
-	"$(INTDIR)\bitstring.sbr" \
-	"$(INTDIR)\buffer.sbr" \
-	"$(INTDIR)\bufferlist.sbr" \
-	"$(INTDIR)\commandline.sbr" \
-	"$(INTDIR)\error.sbr" \
-	"$(INTDIR)\event.sbr" \
-	"$(INTDIR)\heap.sbr" \
-	"$(INTDIR)\hex.sbr" \
-	"$(INTDIR)\hmacmd5.sbr" \
-	"$(INTDIR)\inet_aton.sbr" \
-	"$(INTDIR)\inet_ntop.sbr" \
-	"$(INTDIR)\inet_pton.sbr" \
-	"$(INTDIR)\lex.sbr" \
-	"$(INTDIR)\lfsr.sbr" \
-	"$(INTDIR)\lib.sbr" \
-	"$(INTDIR)\log.sbr" \
-	"$(INTDIR)\md5.sbr" \
-	"$(INTDIR)\mem.sbr" \
-	"$(INTDIR)\msgcat.sbr" \
-	"$(INTDIR)\mutexblock.sbr" \
-	"$(INTDIR)\netaddr.sbr" \
-	"$(INTDIR)\ondestroy.sbr" \
-	"$(INTDIR)\quota.sbr" \
-	"$(INTDIR)\random.sbr" \
-	"$(INTDIR)\ratelimiter.sbr" \
-	"$(INTDIR)\result.sbr" \
-	"$(INTDIR)\rwlock.sbr" \
-	"$(INTDIR)\serial.sbr" \
-	"$(INTDIR)\sha1.sbr" \
-	"$(INTDIR)\sockaddr.sbr" \
-	"$(INTDIR)\string.sbr" \
-	"$(INTDIR)\symtab.sbr" \
-	"$(INTDIR)\task.sbr" \
-	"$(INTDIR)\taskpool.sbr" \
-	"$(INTDIR)\timer.sbr"
-
-"$(OUTDIR)\libisc.bsc" : "$(OUTDIR)" $(BSC32_SBRS)
-    $(BSC32) @<<
-  $(BSC32_FLAGS) $(BSC32_SBRS)
-<<
-
-LINK32=link.exe
-LINK32_FLAGS=user32.lib advapi32.lib ws2_32.lib /nologo /dll /incremental:yes /pdb:"$(OUTDIR)\libisc.pdb" /map:"$(INTDIR)\libisc.map" /debug /machine:I386 /def:".\libisc.def" /out:"../../../Build/Debug/libisc.dll" /implib:"$(OUTDIR)\libisc.lib" /pdbtype:sept 
-DEF_FILE= \
-	".\libisc.def"
-LINK32_OBJS= \
-	"$(INTDIR)\app.obj" \
-	"$(INTDIR)\condition.obj" \
-	"$(INTDIR)\dir.obj" \
-	"$(INTDIR)\DLLMain.obj" \
-	"$(INTDIR)\entropy.obj" \
-	"$(INTDIR)\errno2result.obj" \
-	"$(INTDIR)\file.obj" \
-	"$(INTDIR)\fsaccess.obj" \
-	"$(INTDIR)\interfaceiter.obj" \
-	"$(INTDIR)\ipv6.obj" \
-	"$(INTDIR)\keyboard.obj" \
-	"$(INTDIR)\net.obj" \
-	"$(INTDIR)\ntfile.obj" \
-	"$(INTDIR)\ntpaths.obj" \
-	"$(INTDIR)\once.obj" \
-	"$(INTDIR)\os.obj" \
-	"$(INTDIR)\resource.obj" \
-	"$(INTDIR)\socket.obj" \
-	"$(INTDIR)\stdio.obj" \
-	"$(INTDIR)\stdtime.obj" \
-	"$(INTDIR)\syslog.obj" \
-	"$(INTDIR)\thread.obj" \
-	"$(INTDIR)\time.obj" \
-	"$(INTDIR)\version.obj" \
-	"$(INTDIR)\assertions.obj" \
-	"$(INTDIR)\base64.obj" \
-	"$(INTDIR)\bitstring.obj" \
-	"$(INTDIR)\buffer.obj" \
-	"$(INTDIR)\bufferlist.obj" \
-	"$(INTDIR)\commandline.obj" \
-	"$(INTDIR)\error.obj" \
-	"$(INTDIR)\event.obj" \
-	"$(INTDIR)\heap.obj" \
-	"$(INTDIR)\hex.obj" \
-	"$(INTDIR)\hmacmd5.obj" \
-	"$(INTDIR)\inet_aton.obj" \
-	"$(INTDIR)\inet_ntop.obj" \
-	"$(INTDIR)\inet_pton.obj" \
-	"$(INTDIR)\lex.obj" \
-	"$(INTDIR)\lfsr.obj" \
-	"$(INTDIR)\lib.obj" \
-	"$(INTDIR)\log.obj" \
-	"$(INTDIR)\md5.obj" \
-	"$(INTDIR)\mem.obj" \
-	"$(INTDIR)\msgcat.obj" \
-	"$(INTDIR)\mutexblock.obj" \
-	"$(INTDIR)\netaddr.obj" \
-	"$(INTDIR)\ondestroy.obj" \
-	"$(INTDIR)\quota.obj" \
-	"$(INTDIR)\random.obj" \
-	"$(INTDIR)\ratelimiter.obj" \
-	"$(INTDIR)\result.obj" \
-	"$(INTDIR)\rwlock.obj" \
-	"$(INTDIR)\serial.obj" \
-	"$(INTDIR)\sha1.obj" \
-	"$(INTDIR)\sockaddr.obj" \
-	"$(INTDIR)\string.obj" \
-	"$(INTDIR)\symtab.obj" \
-	"$(INTDIR)\task.obj" \
-	"$(INTDIR)\taskpool.obj" \
-	"$(INTDIR)\timer.obj"
-
-"..\..\..\Build\Debug\libisc.dll" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
-    $(LINK32) @<<
-  $(LINK32_FLAGS) $(LINK32_OBJS)
-<<
-
-!ENDIF 
 
 
 !IF "$(NO_EXTERNAL_DEPS)" != "1"
@@ -745,22 +741,6 @@ SOURCE=.\net.c
 
 !ENDIF 
 
-SOURCE=.\ntfile.c
-
-!IF  "$(CFG)" == "libisc - Win32 Release"
-
-
-"$(INTDIR)\ntfile.obj" : $(SOURCE) "$(INTDIR)"
-
-
-!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
-
-
-"$(INTDIR)\ntfile.obj"	"$(INTDIR)\ntfile.sbr" : $(SOURCE) "$(INTDIR)"
-
-
-!ENDIF 
-
 SOURCE=.\ntpaths.c
 
 !IF  "$(CFG)" == "libisc - Win32 Release"
@@ -873,6 +853,22 @@ SOURCE=.\stdtime.c
 
 !ENDIF 
 
+SOURCE=.\strerror.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\strerror.obj" : $(SOURCE) "$(INTDIR)"
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\strerror.obj"	"$(INTDIR)\strerror.sbr" : $(SOURCE) "$(INTDIR)"
+
+
+!ENDIF 
+
 SOURCE=.\syslog.c
 
 !IF  "$(CFG)" == "libisc - Win32 Release"
@@ -933,6 +929,22 @@ SOURCE=.\version.c
 
 
 "$(INTDIR)\version.obj"	"$(INTDIR)\version.sbr" : $(SOURCE) "$(INTDIR)"
+
+
+!ENDIF 
+
+SOURCE=.\win32os.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\win32os.obj" : $(SOURCE) "$(INTDIR)"
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\win32os.obj"	"$(INTDIR)\win32os.sbr" : $(SOURCE) "$(INTDIR)"
 
 
 !ENDIF 
@@ -1076,6 +1088,24 @@ SOURCE=..\event.c
 
 
 "$(INTDIR)\event.obj"	"$(INTDIR)\event.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\hash.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\hash.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\hash.obj"	"$(INTDIR)\hash.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -1351,6 +1381,24 @@ SOURCE=..\netaddr.c
 
 !ENDIF 
 
+SOURCE=..\netscope.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\netscope.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\netscope.obj"	"$(INTDIR)\netscope.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
 SOURCE=..\ondestroy.c
 
 !IF  "$(CFG)" == "libisc - Win32 Release"
@@ -1364,6 +1412,24 @@ SOURCE=..\ondestroy.c
 
 
 "$(INTDIR)\ondestroy.obj"	"$(INTDIR)\ondestroy.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\parseint.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\parseint.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\parseint.obj"	"$(INTDIR)\parseint.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -1418,6 +1484,24 @@ SOURCE=..\ratelimiter.c
 
 
 "$(INTDIR)\ratelimiter.obj"	"$(INTDIR)\ratelimiter.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\region.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\region.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\region.obj"	"$(INTDIR)\region.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2003-2004, International Business Machines
+* Copyright (c) 2003-2006, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -45,6 +45,7 @@
 #include <vector>
 
 #include "tz2icu.h"
+#include "unicode/uversion.h"
 
 using namespace std;
 
@@ -277,9 +278,16 @@ void readzoneinfo(ifstream& file, ZoneInfo& info) {
     if (strncmp(buf, TZ_ICU_MAGIC, 4) != 0) {
         throw invalid_argument("TZ_ICU_MAGIC signature missing");
     }
+    // skip additional Olson byte version
+    file.read(buf, 1);
+    // if '\0', we have just one copy of data, if '2', there is additional
+    // 64 bit version at the end.
+    if(buf[0]!=0 && buf[0]!='2') {
+      throw invalid_argument("Bad Olson version info");
+    }
 
     // Read reserved bytes.  The first of these will be a version byte.
-    file.read(buf, 16);
+    file.read(buf, 15);
     if (*(ICUZoneinfoVersion*)&buf != TZ_ICU_VERSION) {
         throw invalid_argument("File version mismatch");
     }
@@ -457,12 +465,20 @@ void handleFile(string path, string id) {
 
     // Check eof-relative pos (there may be a cleaner way to do this)
     long eofPos = (long) file.tellg();
+    char buf[32];
+    file.read(buf, 4);
     file.seekg(0, ios::end);
     eofPos =  eofPos - (long) file.tellg();
     if (eofPos) {
+      // 2006c merged 32 and 64 bit versions in a fat binary
+      // 64 version starts at the end of 32 bit version.
+      // Therefore, if the file is *not* consumed, check
+      // if it is maybe being restarted.
+      if (strncmp(buf, TZ_ICU_MAGIC, 4) != 0) {
         ostringstream os;
         os << (-eofPos) << " unprocessed bytes at end";
         throw invalid_argument(os.str());
+    }
     }
 
     ZONEINFO[id] = info;
@@ -596,7 +612,9 @@ enum {
 
 const char* TIME_MODE[] = {"w", "s", "u"};
 
-const int MONTH_LEN[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+// Allow 29 days in February because zic outputs February 29
+// for rules like "last Sunday in February".
+const int MONTH_LEN[] = {31,29,31,30,31,30,31,31,30,31,30,31};
 
 const int HOUR = 3600;
 
@@ -607,15 +625,27 @@ struct FinalZone {
     set<string> aliases;
     FinalZone(int _offset, int _year, const string& _ruleid) :
         offset(_offset), year(_year), ruleid(_ruleid)  {
-        if (offset <= -16*HOUR || offset >= 16*HOUR ||
-            year < 1900 || year >= 2050) {
-            throw invalid_argument("Invalid input arguments");
+        if (offset <= -16*HOUR || offset >= 16*HOUR) {
+            ostringstream os;
+            os << "Invalid input offset " << offset
+               << " for year " << year
+               << " and rule ID " << ruleid;
+            throw invalid_argument(os.str());
+        }
+        if (year < 1900 || year >= 2050) {
+            ostringstream os;
+            os << "Invalid input year " << year
+               << " with offset " << offset
+               << " and rule ID " << ruleid;
+            throw invalid_argument(os.str());
         }
     }
     FinalZone() : offset(-1), year(-1) {}
     void addLink(const string& alias) {
         if (aliases.find(alias) != aliases.end()) {
-            throw invalid_argument("Duplicate alias");
+            ostringstream os;
+            os << "Duplicate alias " << alias;
+            throw invalid_argument(os.str());
         }
         aliases.insert(alias);
     }
@@ -649,7 +679,8 @@ struct FinalRulePart {
     bool isset; // used during building; later ignored
 
     FinalRulePart() : isset(false) {}
-    void set(const string& _mode,
+    void set(const string& id,
+             const string& _mode,
              int _month,
              int _dom,
              int _dow,
@@ -677,11 +708,31 @@ struct FinalRulePart {
         isstd = _isstd;
         isgmt = _isgmt;
         offset = _offset;
-        if (month < 0 || month >= 12 || dom < 1 || dom > MONTH_LEN[month] ||
-            (mode != DOM && (dow < 0 || dow >= 7)) ||
-            offset < 0 || offset > HOUR ||
-            (isgmt && !isstd)) {
-            throw invalid_argument("Invalid input arguments");
+
+        ostringstream os;
+        if (month < 0 || month >= 12) {
+            os << "Invalid input month " << month;
+        }
+        if (dom < 1 || dom > MONTH_LEN[month]) {
+            os << "Invalid input day of month " << dom;
+        }
+        if (mode != DOM && (dow < 0 || dow >= 7)) {
+            os << "Invalid input day of week " << dow;
+        }
+        if (offset < 0 || offset > HOUR) {
+            os << "Invalid input offset " << offset;
+        }
+        if (isgmt && !isstd) {
+            os << "Invalid input isgmt && !isstd";
+        }
+        if (!os.str().empty()) {
+            os << " for rule "
+               << id
+               << _mode
+               << month << dom << dow << time
+               << isstd << isgmt
+               << offset;
+            throw invalid_argument(os.str());
         }
     }
 
@@ -802,7 +853,7 @@ void readFinalZonesAndRules(istream& in) {
             consumeLine(in);
             FinalRule& fr = finalRules[id];
             int p = fr.part[0].isset ? 1 : 0;
-            fr.part[p].set(mode, month, dom, dow, time, isstd, isgmt, offset);
+            fr.part[p].set(id, mode, month, dom, dow, time, isstd, isgmt, offset);
         } else if (token == "link") {
             string fromid, toid; // fromid == "real" zone, toid == alias
             in >> fromid >> toid;
@@ -1488,6 +1539,7 @@ int main(int argc, char *argv[]) {
              << "// Build date: " << asctime(now) /* << endl -- asctime emits CR */
              << "// Olson source: ftp://elsie.nci.nih.gov/pub/" << endl
              << "// Olson version: " << version << endl
+             << "// ICU version: " << U_ICU_VERSION << endl
              << "//---------------------------------------------------------" << endl
              << "// >> !!! >>   THIS IS A MACHINE-GENERATED FILE   << !!! <<" << endl
              << "// >> !!! >>>            DO NOT EDIT             <<< !!! <<" << endl
@@ -1499,6 +1551,7 @@ int main(int argc, char *argv[]) {
 
         // Emit equivalency lists
         bool first1 = true;
+	java << "  public static final String VERSION = \"" + version + "\";" << endl;
         java << "  public static final String[][] EQUIV = {" << endl;
         for (ZoneMap::const_iterator i=ZONEINFO.begin(); i!=ZONEINFO.end(); ++i) {
             if (i->second.isAlias() || i->second.getAliases().size() == 0) {

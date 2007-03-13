@@ -2108,7 +2108,7 @@ device_script(program, in, out, dont_wait)
     setgid(getgid());
 	}
 #endif
-    execl("/bin/sh", "sh", "-c", program, (char *)0);
+    execle("/bin/sh", "sh", "-c", program, (char *)0, (char *)0);
     error("could not exec /bin/sh: %m");
     exit(99);
     /* NOTREACHED */

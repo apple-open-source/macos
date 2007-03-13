@@ -1793,3 +1793,18 @@ Sudo 1.6.8p8 released.
      safe_cmnd.
 
 Sudo 1.6.8p9 released.
+
+567) Added PS4 and SHELLOPTS to the list of variables to remove from
+     the environment.
+
+Sudo 1.6.8p10 released.
+
+567) Added JAVA_TOOL_OPTIONS to the list of variables to remove from
+     the environment.
+
+Sudo 1.6.8p11 released.
+
+567) Added PERLLIB, PERL5LIB and PERL5OPT to the list of variables to
+     remove from the environment.
+
+Sudo 1.6.8p12 released.

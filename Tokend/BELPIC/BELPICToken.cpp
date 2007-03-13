@@ -414,7 +414,7 @@ uint32 BELPICToken::probe(SecTokendProbeFlags flags,
 		else
 		{
 			// If the length is not an exact match only return a score of 100
-			score = resultLength == 29 ? 200 : 100;
+			score = (resultLength == 29) ? 200 : 100;
 			// @@@ If the ATR matches one of the built in BELPIC ATR's we
 			// should probably return an even better score.
 
@@ -429,6 +429,7 @@ uint32 BELPICToken::probe(SecTokendProbeFlags flags,
 			}
 			assert(TOKEND_MAX_UID > offset);
 			memset(tokenUid + offset, 0, TOKEND_MAX_UID - offset);
+			Tokend::ISO7816Token::name(tokenUid);
 			secdebug("probe", "recognized %s", tokenUid);
 		}
 	}

@@ -43,7 +43,7 @@ class IOHIDEventQueue: public IODataQueue
     OSDeclareDefaultStructors( IOHIDEventQueue )
     
 protected:
-    Boolean                 _started;
+    IOOptionBits            _state;
     
     IOLock *                _lock;
         
@@ -74,6 +74,9 @@ public:
     virtual void start();
     virtual void stop();
     virtual Boolean isStarted();
+
+    virtual void enable();
+    virtual void disable();
     
     virtual void addElement( IOHIDElementPrivate * element );
     virtual void removeElement( IOHIDElementPrivate * element );

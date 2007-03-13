@@ -1,0 +1,189 @@
+!********************************************************************
+!  Honda Electron Co., Ltd.  128K Packet Card //  AH-H402P
+!  Ver.1.0  11/1/2002
+!
+!********************************************************************
+!	
+@ORIGINATE
+@ANSWER
+!**************************************
+! Serial Speed 115200 bps.  
+!**************************************
+serreset 115200, 0, 8, 1
+!
+!**********************
+! reset
+!**********************
+HSReset 0 0 0 0 0 0
+settries 0
+!
+!
+@LABEL 1
+matchclr
+matchstr 1 3 "OK\13\10"
+! Initialize Command
+write "ATE0&C1&D2X4\\V1\\X0\13"
+matchread 30
+inctries
+iftries 2 82
+!****************
+DTRClear
+pause 5
+DTRSet
+flush
+jump 1
+!
+!
+@LABEL 3
+!*****************************************
+! Initialize OK
+!*****************************************
+! this card dosen't support commpression or etc..
+jump 27
+!
+@label 27
+!***** Dialing *****
+write "ATD^3^7\13"
+jump 30
+!
+!*************************************
+!    Connection Check
+!*************************************
+!
+@LABEL 30
+matchclr
+matchstr 1  85 "RING\13\10"
+matchstr 2  82 "NO CARRIER\13\10"
+matchstr 3  82 "ERROR\13\10"
+matchstr 4  83 "BUSY\13\10"
+matchstr 5  84 "NO ANSWER\13\10"
+matchstr 6  82 "DELAYED\13\10"
+matchstr 7  60 "CONNECT"
+matchread 700
+jump 80
+!
+!
+@LABEL 40
+matchclr
+matchstr 1  41 " / 32kPACKET\13\10"
+matchstr 2  42 " / 128kPACKET\13\10"
+matchread 30
+jump 60
+!
+!
+@LABEL 41
+note "Connected : 32k Packet" 2
+!CommunicatingAt 1200
+jump 70
+!
+@LABEL 42
+note "Connected : 128k Packet" 2
+!CommunicatingAt 1200
+jump 70
+!
+@LABEL 60
+note "Connected..." 2
+jump 70
+!
+!
+!*****************************
+! "CONNECT" & exit
+!*****************************
+!
+@LABEL 70
+HSReset 0 1 0 0 0 0
+!
+!pause 30
+exit 0
+!
+!
+!***************************************
+! error messages - label range is 80-100
+!***************************************
+!
+! Modem Not Responding
+@LABEL 80
+exit -6019
+!
+! No Dial Tone
+@LABEL 81
+exit -6020
+!
+! No Carrier or Error
+@LABEL 82
+exit -6021
+!
+! Busy
+@LABEL 83
+exit -6022
+!
+! No Answer
+@LABEL 84
+exit -6023
+!
+! varstring invalid value
+@LABEL 85
+exit -6027
+!
+!
+!****************************************
+! Hang up the modem - label range is 100-
+!****************************************
+!
+@HANGUP
+@LABEL 102
+settries 0
+HSReset 0 0 0 0 0 0
+@LABEL 105
+!
+! Try to get control of the modem.
+!
+DTRSet
+pause 5
+DTRClear
+flush
+!
+@LABEL 108
+flush
+matchclr
+matchstr 1 111 "NO CARRIER\13\10"
+matchstr 2 111 "OK\13\10"
+matchstr 3 111 "ERROR\13\10"
+write "ATH\13"
+matchread 30
+inctries
+iftries 3 80
+DTRSet
+pause 5
+DTRClear
+pause 5
+DTRSet
+flush
+!
+@LABEL 109
+matchclr
+matchstr 1 115 "OK\13\10"
+write "+++"
+matchread 15
+jump 108
+!
+! recall the factory settings.
+!
+@LABEL 111
+pause 15
+matchclr
+matchstr 1 114 "OK\13\10"
+write "AT&FS0=0\13"
+matchread 30
+jump 80
+!
+@LABEL 114
+exit 0
+
+@LABEL 115
+pause 50
+jump 108
+
+!
+! labels 121-128 are reserved for future emergency hacks
+!

@@ -1,0 +1,128 @@
+! ----------------------------------------------------------------------!
+!    Modem Script for au CDMA 1x WIN W01K by Kyocera!
+!    1/30/2004
+!
+!    Copyright 2004 Apple Computer, Inc. All Rights Reserved.!
+! ----------------------------------------------------------------------@ORIGINATE@ANSWER
+
+!
+!  Initial setup
+!
+serreset 230400, 0, 8, 1hsreset 0 0 0 0 0 0settries 0
+
+!!  Get the modem's attention!
+
+matchclrmatchstr 1 3 "OK\13\10"write "AT\13"matchread 30
+jump 101
+!!  Setup the modem for the following:
+!    Reset to factory defaults (&F)!    Echo off (E0)!    Return result codes (Q0)!    Verbose responses (V1)!
+
+@LABEL 3matchclrmatchstr 1 13  "OK\13\10"matchstr 2 101 "ERROR\13\10"write "AT&FE0Q0V1\13"matchread 50inctriesiftries 3 101
+
+!!  Reset the Modem on setup failure!
+DTRClearpause 5DTRSetflushjump 3
+
+!!  Originating a call.!
+
+@LABEL 13ifANSWER 32
+
+!
+!  Dial
+!
+@LABEL 19! Display the full dialstring contained in Varstring 1note "Dialing ^1" 3!! Varstrings 7, 8 and 9, contain dialstring fragments!    Long phone numbers may need to be split into smaller groups!    for the modem to use!! Varstring 8 == blank (dialstring in varstring 7)! Varstring 9 == blank (dialstring in varstrings 7 & 8)! Otherwise (dialstring in varstrings 7, 8 & 9)
+
+ifstr 8 21 " "ifstr 9 20 " "
+
+!
+!  Write dialstring in varstrings 7, 8 & 9
+!
+
+write "ATD^7^8^9\13"
+jump 32
+
+!
+!  Write dialstring in varstrings 7 & 8
+!
+
+@LABEL 20
+write "ATD^7^8\13"
+jump 32
+
+!
+!
+!  Write dialstring in varstring 7
+!
+
+@LABEL 21
+write "ATD^7\13"
+
+!
+!  Parse the modem's response.!
+@LABEL 32matchclrmatchstr  1 70  "CONNECT\13\10"matchstr  2 81  "RING\13\10"matchstr  3 105 "NO CARRIER"matchstr  4 105 "ERROR\13\10"matchstr  5 107 "DELAYED\13\10"matchread 700ifANSWER 32jump 101! -- Normal exit after "CONNECT" --!!  This modem has been setup to do CTS handshaking,!  and we assume that a CTS handshaking cable is being used.
+@LABEL 70! Turn on CTS handshaking.HSReset 0 1 0 0 0 0ifANSWER 71pause 30@LABEL 71exit 0
+! ----------------------------------------------------------------------!
+!  Answer calls
+!
+!  A RING result from the modem when in ANSWER mode claims the
+!  serial port and answers the phone!
+@LABEL 81ifORIGINATE 32userhook 1note "Answering phone..." 2write "ATA\13"jump 32
+! ----------------------------------------------------------------------!!  Hang up and reset modem!
+@HANGUP@LABEL 90settries 0HSReset 0 0 0 0 0 0
+
+!!  Escape from data to command mode
+!
+
+@LABEL 92flush
+pause 1
+write "+++"
+pause 1
+matchclrmatchstr 1 96 "OK\13\10"
+matchread 30
+
+!
+!  Force a hangup
+!
+@LABEL 94
+matchclrmatchstr 1 98 "NO CARRIER\13\10"matchstr 2 98 "OK\13\10"matchstr 3 98 "ERROR\13\10"matchstr 4 98 "0\13\10"write "ATH\13"matchread 150
+! !  Try to get control of the modem by toggling DTR
+!
+
+DTRClearpause 5DTRSetflush
+
+!!  Try the hangup sequence three times otherwise declare and error
+!
+
+inctriesiftries 3 101jump 92
+
+!!  Pause between data and command mode!
+
+@LABEL 96pause 50jump 94
+!!  Recall the factory settings
+!
+@LABEL 98pause 15matchclrmatchstr 1 99 "OK\13\10"write "AT&F\13"matchread 30jump 101
+@LABEL 99exit 0
+
+! ----------------------------------------------------------------------!
+!  Error messages!
+
+!
+!  Modem Not Responding!
+
+@LABEL 101
+write "AT&F\13"
+pause 10exit -6019
+
+!!  No Carrier or Error!
+
+@LABEL 105matchstr 1 106 "OK\13\10"write "AT&F\13"
+matchread 30
+@LABEL 106
+exit -6021
+
+!
+!  Delayed!
+
+@LABEL 107matchstr 1 108 "OK\13\10"write "AT&F\13"
+matchread 30
+@LABEL 108
+exit -6022

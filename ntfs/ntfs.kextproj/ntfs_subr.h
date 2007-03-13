@@ -104,7 +104,8 @@ int ntfs_readattr( struct ntfsmount *, struct ntnode *, u_int32_t, char *, off_t
 int ntfs_filesize( struct ntfsmount *, struct fnode *, proc_t, u_int64_t *, u_int64_t *);
 int ntfs_times( struct ntfsmount *, struct ntnode *, vfs_context_t, ntfs_times_t *);
 struct timespec	ntfs_nttimetounix( u_int64_t );
-int ntfs_ntreaddir( struct ntfsmount *, struct fnode *, u_int32_t, struct attr_indexentry **, proc_t);
+int ntfs_ntreaddir_bufsize( struct ntfsmount * ntmp, struct fnode * fp, proc_t p, u_int32_t *bufsize );
+int ntfs_ntreaddir( struct ntfsmount *, struct fnode *, u_int32_t, caddr_t rdbuf, struct attr_indexentry **, proc_t);
 int ntfs_loadntvattrs( struct ntfsmount *, vnode_t, caddr_t, struct ntvattr **);
 struct ntvattr * ntfs_findntvattr( struct ntfsmount *, struct ntnode *, u_int32_t, cn_t );
 int ntfs_ntlookupfile(struct ntfsmount *, vnode_t, struct componentname *, proc_t, vnode_t *);

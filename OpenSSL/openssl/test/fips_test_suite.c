@@ -1,1 +1,1 @@
-../fips/fips_test_suite.c
+../fips-1.0/fips_test_suite.c

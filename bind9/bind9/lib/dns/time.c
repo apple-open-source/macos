@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 1998-2001  Internet Software Consortium.
+ * Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 1998-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: time.c,v 1.1.1.1 2003/01/10 00:48:34 bbraun Exp $ */
+/* $Id: time.c,v 1.18.2.4.2.8 2004/08/28 06:25:20 marka Exp $ */
 
 #include <config.h>
 
@@ -23,6 +23,7 @@
 #include <isc/string.h>		/* Required for HP/UX (and others?) */
 #include <time.h>
 
+#include <isc/print.h>
 #include <isc/region.h>
 #include <isc/stdtime.h>
 #include <isc/util.h>
@@ -35,7 +36,7 @@ static int days[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 isc_result_t
 dns_time64_totext(isc_int64_t t, isc_buffer_t *target) {
 	struct tm tm;
-	char buf[sizeof "YYYYMMDDHHMMSS"];
+	char buf[sizeof("YYYYMMDDHHMMSS")];
 	int secs;
 	unsigned int l;
 	isc_region_t region;
@@ -74,10 +75,10 @@ dns_time64_totext(isc_int64_t t, isc_buffer_t *target) {
 		tm.tm_min++;
 	}
 	tm.tm_sec = (int)t;
-		    /* yy  mm  dd  HH  MM  SS */
-	sprintf(buf, "%04d%02d%02d%02d%02d%02d",
-		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-		tm.tm_hour, tm.tm_min, tm.tm_sec);
+				 /* yyyy  mm  dd  HH  MM  SS */
+	snprintf(buf, sizeof(buf), "%04d%02d%02d%02d%02d%02d",
+		 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+		 tm.tm_hour, tm.tm_min, tm.tm_sec);
 
 	isc_buffer_availableregion(target, &region);
 	l = strlen(buf);
@@ -115,7 +116,7 @@ dns_time32_totext(isc_uint32_t value, isc_buffer_t *target) {
 }
 
 isc_result_t
-dns_time64_fromtext(char *source, isc_int64_t *target) {
+dns_time64_fromtext(const char *source, isc_int64_t *target) {
 	int year, month, day, hour, minute, second;
 	isc_int64_t value;
 	int secs;
@@ -127,7 +128,7 @@ dns_time64_fromtext(char *source, isc_int64_t *target) {
 			return (ISC_R_RANGE); \
 	} while (0)
 
-	if (strlen(source) != 14)
+	if (strlen(source) != 14U)
 		return (DNS_R_SYNTAX);
 	if (sscanf(source, "%4d%2d%2d%2d%2d%2d",
 		   &year, &month, &day, &hour, &minute, &second) != 6)
@@ -145,7 +146,7 @@ dns_time64_fromtext(char *source, isc_int64_t *target) {
 	 * Calulate seconds since epoch.
 	 */
 	value = second + (60 * minute) + (3600 * hour) + ((day - 1) * 86400);
-	for (i = 0; i < (month - 1) ; i++)
+	for (i = 0; i < (month - 1); i++)
 		value += days[i] * 86400;
 	if (is_leap(year) && month > 2)
 		value += 86400;
@@ -159,17 +160,13 @@ dns_time64_fromtext(char *source, isc_int64_t *target) {
 }
 
 isc_result_t
-dns_time32_fromtext(char *source, isc_uint32_t *target) {
+dns_time32_fromtext(const char *source, isc_uint32_t *target) {
 	isc_int64_t value64;
-	isc_int32_t value32;
 	isc_result_t result;
 	result = dns_time64_fromtext(source, &value64);
 	if (result != ISC_R_SUCCESS)
 		return (result);
-	value32 = (isc_uint32_t)value64;
-	if (value32 != value64)
-		return (ISC_R_RANGE);
-	*target = value32;
+	*target = (isc_uint32_t)value64;
 
 	return (ISC_R_SUCCESS);
 }

@@ -43,6 +43,15 @@
 #define DSA_MAX_KEY_SIZE		4096
 #define DSA_KEY_BITS_MASK		(64 - 1)	/* these bits must be zero */
 											/* i.e., aligned to 64 bits */
+											
+#define RSA_MAX_KEY_SIZE			4096
+#define RSA_MAX_PUB_EXPONENT_SIZE	64
+
+/* Those max RSA sizes can be overridden with these system preferences */
+#define kRSAKeySizePrefsDomain		"com.apple.crypto"
+#define kRSAMaxKeySizePref			CFSTR("RSAMaxKeySize")
+#define kRSAMaxPublicExponentPref	CFSTR("RSAMaxPublicExponent")
+
 /*
  * RSA version of a BinaryKey.
  */

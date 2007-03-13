@@ -575,6 +575,10 @@ BOOL check_lanman_password(char *user, uchar * pass1,
 	const uint8 *lanman_pw;
 	BOOL ret;
 	
+	if (!NT_STATUS_IS_OK(pdb_init_sam(&sampass))) {
+		return False;
+	}
+
 	become_root();
 	ret = pdb_getsampwnam(sampass, user);
 	unbecome_root();

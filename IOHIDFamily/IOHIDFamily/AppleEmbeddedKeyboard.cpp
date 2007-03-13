@@ -97,7 +97,8 @@ void AppleEmbeddedKeyboard::dispatchKeyboardEvent(
     if (( usagePage == kHIDPage_AppleVendor ) && ( usage == kHIDUsage_AppleVendor_KeyboardFn ))
     {        
         if (_keyboardRollOverElement 
-            && (CMP_ABSOLUTETIME(&(_keyboardRollOverElement->getTimeStamp()), &timeStamp) == 0))
+            && (CMP_ABSOLUTETIME(&(_keyboardRollOverElement->getTimeStamp()), &timeStamp) == 0)
+            && ((_keyboardRollOverElement->getValue() && value && !_fnKeyDown) || (_fnKeyDown == value)))
             return;
             
         _fnKeyDown = (value != 0);

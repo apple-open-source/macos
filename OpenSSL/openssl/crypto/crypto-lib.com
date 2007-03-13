@@ -247,7 +247,7 @@ $ LIB_X509 = "x509_def,x509_d2,x509_r2x,x509_cmp,"+ -
 $ LIB_X509V3 = "v3_bcons,v3_bitst,v3_conf,v3_extku,v3_ia5,v3_lib,"+ -
 	"v3_prn,v3_utl,v3err,v3_genn,v3_alt,v3_skey,v3_akey,v3_pku,"+ -
 	"v3_int,v3_enum,v3_sxnet,v3_cpols,v3_crld,v3_purp,v3_info,"+ -
-	"v3_ocsp,v3_akeya,v3_pcia,v3_pci"
+	"v3_ocsp,v3_akeya,v3_pcia,v3_pci,v3_hex"
 $ LIB_CONF = "conf_err,conf_lib,conf_api,conf_def,conf_mod,conf_mall,conf_sap"
 $ LIB_TXT_DB = "txt_db"
 $ LIB_PKCS7 = "pk7_asn1,pk7_lib,pkcs7err,pk7_doit,pk7_smime,pk7_attr,"+ -
@@ -265,10 +265,15 @@ $ LIB_KRB5 = "krb5_asn"
 $!
 $! Setup exceptional compilations
 $!
+$ ! Add definitions for no threads on OpenVMS 7.1 and higher
 $ COMPILEWITH_CC3 = ",bss_rtcp,"
+$ ! Disable the DOLLARID warning
 $ COMPILEWITH_CC4 = ",a_utctm,bss_log,o_time,"
+$ ! Disable disjoint optimization
 $ COMPILEWITH_CC5 = ",md2_dgst,md4_dgst,md5_dgst,mdc2dgst," + -
                     "sha_dgst,sha1dgst,rmd_dgst,bf_enc,"
+$ ! Disable the MIXLINKAGE warning
+$ COMPILEWITH_CC6 = ",enc_read,set_key,"
 $!
 $! Figure Out What Other Modules We Are To Build.
 $!
@@ -497,7 +502,12 @@ $       IF COMPILEWITH_CC5 - FILE_NAME0 .NES. COMPILEWITH_CC5
 $       THEN
 $         CC5/OBJECT='OBJECT_FILE' 'SOURCE_FILE'
 $       ELSE
-$         CC/OBJECT='OBJECT_FILE' 'SOURCE_FILE'
+$         IF COMPILEWITH_CC6 - FILE_NAME0 .NES. COMPILEWITH_CC6
+$         THEN
+$           CC6/OBJECT='OBJECT_FILE' 'SOURCE_FILE'
+$         ELSE
+$           CC/OBJECT='OBJECT_FILE' 'SOURCE_FILE'
+$         ENDIF
 $       ENDIF
 $     ENDIF
 $   ENDIF
@@ -1077,14 +1087,18 @@ $   THEN
 $     IF CCDISABLEWARNINGS .EQS. ""
 $     THEN
 $       CC4DISABLEWARNINGS = "DOLLARID"
+$       CC6DISABLEWARNINGS = "MIXLINKAGE"
 $     ELSE
 $       CC4DISABLEWARNINGS = CCDISABLEWARNINGS + ",DOLLARID"
+$       CC6DISABLEWARNINGS = CCDISABLEWARNINGS + ",MIXLINKAGE"
 $       CCDISABLEWARNINGS = "/WARNING=(DISABLE=(" + CCDISABLEWARNINGS + "))"
 $     ENDIF
 $     CC4DISABLEWARNINGS = "/WARNING=(DISABLE=(" + CC4DISABLEWARNINGS + "))"
+$     CC6DISABLEWARNINGS = "/WARNING=(DISABLE=(" + CC6DISABLEWARNINGS + "))"
 $   ELSE
 $     CCDISABLEWARNINGS = ""
 $     CC4DISABLEWARNINGS = ""
+$     CC6DISABLEWARNINGS = ""
 $   ENDIF
 $   CC3 = CC + "/DEFINE=(" + CCDEFS + ISSEVEN + ")" + CCDISABLEWARNINGS
 $   CC = CC + "/DEFINE=(" + CCDEFS + ")" + CCDISABLEWARNINGS
@@ -1095,6 +1109,7 @@ $   ELSE
 $     CC5 = CC + "/NOOPTIMIZE"
 $   ENDIF
 $   CC4 = CC - CCDISABLEWARNINGS + CC4DISABLEWARNINGS
+$   CC6 = CC - CCDISABLEWARNINGS + CC6DISABLEWARNINGS
 $!
 $!  Show user the result
 $!

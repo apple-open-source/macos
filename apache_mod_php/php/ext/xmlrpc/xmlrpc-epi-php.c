@@ -37,12 +37,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -51,7 +51,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: xmlrpc-epi-php.c,v 1.24.2.4.4.2 2005/10/05 16:41:18 rrichards Exp $ */
+/* $Id: xmlrpc-epi-php.c,v 1.24.2.4.4.5 2006/08/11 17:50:01 tony2001 Exp $ */
 
 /**********************************************************************
 * BUGS:                                                               *
@@ -684,8 +684,13 @@ PHP_FUNCTION(xmlrpc_encode_request)
             free(outBuf);
          }
          XMLRPC_RequestFree(xRequest, 1);
+
+	
       }
    }
+	if (out.xmlrpc_out.xml_elem_opts.encoding != ENCODING_DEFAULT) {
+		efree(out.xmlrpc_out.xml_elem_opts.encoding);
+	}
 }
 /* }}} */
 
@@ -1487,7 +1492,7 @@ PHP_FUNCTION(xmlrpc_get_type)
 
    type = get_zval_xmlrpc_type(arg, 0);
    if (type == xmlrpc_vector) {
-      vtype = determine_vector_type(Z_ARRVAL_P(arg));
+      vtype = determine_vector_type((Z_TYPE_P(arg) == IS_OBJECT) ? Z_OBJPROP_P(arg) : Z_ARRVAL_P(arg));
    }
    
    RETURN_STRING((char*) xmlrpc_type_as_str(type, vtype), 1);

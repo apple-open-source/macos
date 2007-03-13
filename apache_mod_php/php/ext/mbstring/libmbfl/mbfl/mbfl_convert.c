@@ -88,6 +88,7 @@
 #include "filters/mbfilter_ucs4.h"
 #include "filters/mbfilter_ucs2.h"
 #include "filters/mbfilter_htmlent.h"
+#include "filters/mbfilter_armscii8.h"
 
 static void mbfl_convert_filter_reset_vtbl(mbfl_convert_filter *filter);
 
@@ -208,6 +209,8 @@ const struct mbfl_convert_vtbl *mbfl_convert_filter_list[] = {
 	&vtbl_wchar_byte2be,
 	&vtbl_byte2le_wchar,
 	&vtbl_wchar_byte2le,
+	&vtbl_armscii8_wchar,
+	&vtbl_wchar_armscii8,
 	&vtbl_pass,
 	NULL
 };
@@ -247,6 +250,7 @@ mbfl_convert_filter_new(
 	filter->data = data;
 	filter->illegal_mode = MBFL_OUTPUTFILTER_ILLEGAL_MODE_CHAR;
 	filter->illegal_substchar = 0x3f;		/* '?' */
+	filter->num_illegalchar = 0;
 
 	/* setup the function table */
 	mbfl_convert_filter_reset_vtbl(filter);
@@ -314,6 +318,7 @@ mbfl_convert_filter_copy(
 	dist->to = src->to;
 	dist->illegal_mode = src->illegal_mode;
 	dist->illegal_substchar = src->illegal_substchar;
+	dist->num_illegalchar = src->num_illegalchar;
 }
 
 int mbfl_convert_filter_devcat(mbfl_convert_filter *filter, mbfl_memory_device *src) 
@@ -429,7 +434,7 @@ mbfl_filt_conv_illegal_output(int c, mbfl_convert_filter *filter)
 		break;
 	}
 	filter->illegal_mode = mode_backup;
-
+	filter->num_illegalchar++;
 	return ret;
 }
 

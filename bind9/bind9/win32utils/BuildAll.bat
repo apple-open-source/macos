@@ -1,19 +1,19 @@
 echo off
 rem
-rem  Copyright (C) 2001  Internet Software Consortium.
+rem Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+rem Copyright (C) 2001-2002  Internet Software Consortium.
+rem
+rem Permission to use, copy, modify, and distribute this software for any
+rem purpose with or without fee is hereby granted, provided that the above
+rem copyright notice and this permission notice appear in all copies.
 rem 
-rem  Permission to use, copy, modify, and distribute this software for any
-rem  purpose with or without fee is hereby granted, provided that the above
-rem  copyright notice and this permission notice appear in all copies.
-rem 
-rem  THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
-rem  DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
-rem  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
-rem  INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
-rem  INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
-rem  FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
-rem  NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
-rem  WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+rem THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+rem REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+rem AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+rem INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+rem LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+rem OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+rem PERFORMANCE OF THIS SOFTWARE.
 
 rem BuildAll.bat
 rem This script sets up the files necessary ready to build BIND 9
@@ -25,7 +25,7 @@ rem OpenSSL is a prerequisite for building and running this release of
 rem BIND 9. You must fetch the OpenSSL sources yourself from
 rem http://www.OpenSSL.org/ and compile it yourself.  The code must reside
 rem at the same level as the bind 9.2.0 source tree and it's top-level
-rem directory be named openssl-0.9.6b. This restriction will be lifted in
+rem directory be named openssl-0.9.6k. This restriction will be lifted in
 rem a future release of BIND 9 for Windows NT/2000/XP.
 
 echo Setting up the BIND files required for the build
@@ -50,6 +50,10 @@ cd ..\..
 
 cd isccc\win32
 nmake /nologo -f libisccc.mak CFG="libisccc - Win32 Release"  NO_EXTERNAL_DEPS="1"
+cd ..\..
+
+cd bind9\win32
+nmake /nologo -f libbind9.mak CFG="libbind9 - Win32 Release"  NO_EXTERNAL_DEPS="1"
 cd ..\..
 
 cd lwres\win32
@@ -101,10 +105,12 @@ cd ..\..
 
 cd dnssec\win32
 nmake /nologo -f keygen.mak CFG="keygen - Win32 Release"  NO_EXTERNAL_DEPS="1"
-nmake /nologo -f makekeyset.mak CFG="makekeyset - Win32 Release"  NO_EXTERNAL_DEPS="1"
-nmake /nologo -f signkey.mak CFG="signkey - Win32 Release"  NO_EXTERNAL_DEPS="1"
+rem nmake /nologo -f makekeyset.mak CFG="makekeyset - Win32 Release"  NO_EXTERNAL_DEPS="1"
+rem nmake /nologo -f signkey.mak CFG="signkey - Win32 Release"  NO_EXTERNAL_DEPS="1"
 nmake /nologo -f signzone.mak CFG="signzone - Win32 Release"  NO_EXTERNAL_DEPS="1"
-copy ..\*.html ..\..\..\Build\Release
+rem copy ..\*.html ..\..\..\Build\Release
+copy ..\dnssec-keygen.html ..\..\..\Build\Release
+copy ..\dnssec-signzone.html ..\..\..\Build\Release
 cd ..\..
 
 rem This is the BIND 9 Installer
@@ -116,6 +122,9 @@ cd ..\..
 cd ..
 
 cd win32utils
+
+copy ..\doc\misc\migration ..\Build\Release
+copy ..\doc\misc\migration-4to9 ..\Build\Release
 
 echo Done.
 

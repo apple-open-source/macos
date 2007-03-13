@@ -2,7 +2,7 @@
 
 ;; dri_dispatch.defs
 
-;; $Id: dri_dispatch.defs,v 1.10 2004/07/16 19:09:24 jharper Exp $
+;; $Id: dri_dispatch.defs,v 1.11 2006/09/06 21:22:28 jharper Exp $
 ;; $XFree86: xc/lib/GL/apple/dri_dispatch.defs,v 1.5 2004/01/16 22:39:56 torrey Exp $
 
 ;; Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
@@ -745,8 +745,8 @@
 (void MinmaxEXT -1 "GLenum target, GLenum internalformat, GLboolean sink" Minmax)
 (void PointParameterfSGIS -1 "GLenum pname, GLfloat param" PointParameterf)
 (void PointParameterfvSGIS -1 "GLenum pname, const GLfloat * params" PointParameterfv)
-(void PointParameteri -1 "GLenum pname, GLint params" PointParameteriNV)
-(void PointParameteriv -1 "GLenum pname, const GLint * params" PointParameterivNV)
+;(void PointParameteri -1 "GLenum pname, GLint params" PointParameteriNV)
+;(void PointParameteriv -1 "GLenum pname, const GLint * params" PointParameterivNV)
 (void PrioritizeTexturesEXT -1 "GLsizei n, const GLenum * textures, const GLclampf * priorities" PrioritizeTextures)
 (void ResetHistogramEXT -1 "GLenum target" ResetHistogram)
 (void ResetMinmaxEXT -1 "GLenum target" ResetMinmax)

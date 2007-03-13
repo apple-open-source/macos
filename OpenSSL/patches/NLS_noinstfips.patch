@@ -1,0 +1,38 @@
+diff -Naur /tmp/OpenSSL.roots/OpenSSL/openssl/fips-1.0/Makefile ./fips-1.0/Makefile
+--- /tmp/OpenSSL.roots/OpenSSL/openssl/fips-1.0/Makefile	2006-03-28 04:10:37.000000000 -0800
++++ ./fips-1.0/Makefile	2006-10-10 15:54:04.000000000 -0700
+@@ -159,28 +159,30 @@
+ 	done;
+ 
+ install:
++	@if egrep 'define OPENSSL_FIPS' $(TOP)/include/openssl/opensslconf.h > /dev/null; then \
+ 	@headerlist="$(EXHEADER)"; for i in $$headerlist ;\
+ 	do \
+ 		(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
+ 		chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
+-	done;
++	done; \
+ 	@for i in $(FDIRS) ;\
+ 	do \
+ 		(cd $$i && echo "making install in fips/$$i..." && \
+ 		$(MAKE) CC='$(CC)' CFLAG='${CFLAG}' INSTALL_PREFIX='${INSTALL_PREFIX}'  INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' install ); \
+-	done;
++	done; \
+ 	@for i in $(EXE) ; \
+ 	do \
+ 		echo "installing $$i"; \
+ 		cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i.new; \
+ 		chmod 755 $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i.new; \
+ 		mv -f $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i.new $(INSTALL_PREFIX)$(INSTALLTOP)/bin/$$i; \
+-	done
++	done \
+ 	@cp -p -f fipscanister.o fipscanister.o.sha1 fips_premain.c \
+ 		$(INSTALL_PREFIX)$(INSTALLTOP)/lib/; \
+ 	strings fipscanister.o | grep "HMAC-SHA1(fips_premain\\.c)" > \
+ 		$(INSTALL_PREFIX)$(INSTALLTOP)/lib/fips_premain.c.sha1; \
+-	chmod 0444 $(INSTALL_PREFIX)$(INSTALLTOP)/lib/fips*
++	chmod 0444 $(INSTALL_PREFIX)$(INSTALLTOP)/lib/fips* \
++	fi #if fips
+ 
+ lint:
+ 	@for i in $(FDIRS) ;\

@@ -284,7 +284,7 @@ clean::									@@\
 #include <xfree86.cf>
 
 /* ..and fix some stuff up */
-#if XAppleServer
+#if defined (XAppleServer)
 
 # undef ServerExtraDefines
 # define ServerExtraDefines XFree86ServerDefines -UX_BYTE_ORDER -DROOTLESS -DDDXTIME

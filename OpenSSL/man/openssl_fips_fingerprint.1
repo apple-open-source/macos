@@ -1,0 +1,15 @@
+.IX Title "OpenSSL 1"
+.TH openssl_fips_fingerprint 1 "2006-10-08" "0.9.7i" "OpenSSL"
+.SH "NAME"
+openssl_fips_fingerprint \- OpenSSL FIPS Fingerprint tool
+.SH "SYNOPSIS"
+.IX Header "SYNOPSIS"
+\&\fBopenssl_fips_fingerprint\fR
+\&\fIlibcrypto\fR
+\&\fIapplication\fR
+.SH "DESCRIPTION"
+.IX Header "DESCRIPTION"
+\fBopenssl_fips_fingerprint\fR checks the SHA-1 HMAC fingerprint of the passed \&\fIlibcrypto\fR (which should be the one the passed \&\fIapplication\fR was linked against).  If the fingerprint is correct \fBopenssl_fips_fingerprint\fR generates a digest of the application in its parent directory.  This digest will be checked by the application's FIPS functions at runtime.  If the digest does not match, FIPS_mode_set() will fail.
+.SH "SEE ALSO"
+.IX Header "SEE ALSO"
+\fIopenssl\fR\|(1)

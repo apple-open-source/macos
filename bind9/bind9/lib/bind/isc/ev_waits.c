@@ -1,18 +1,18 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 /* ev_waits.c - implement deferred function calls for the eventlib
@@ -20,7 +20,7 @@
  */
 
 #if !defined(LINT) && !defined(CODECENTER)
-static const char rcsid[] = "$Id: ev_waits.c,v 1.1.1.1 2003/01/10 00:48:15 bbraun Exp $";
+static const char rcsid[] = "$Id: ev_waits.c,v 1.1.2.1.4.1 2004/03/09 08:33:43 marka Exp $";
 #endif
 
 #include "port_before.h"
@@ -190,14 +190,14 @@ print_waits(evContext_p *ctx) {
 	evPrintf(ctx, 9, "wait waiting:\n");
 	for (wl = ctx->waitLists; wl != NULL; wl = wl->next) {
 		INSIST(wl->first != NULL);
-		evPrintf(ctx, 9, "  tag %#x:", wl->first->tag);
+		evPrintf(ctx, 9, "  tag %p:", wl->first->tag);
 		for (this = wl->first; this != NULL; this = this->next)
-			evPrintf(ctx, 9, " %#x", this);
+			evPrintf(ctx, 9, " %p", this);
 		evPrintf(ctx, 9, "\n");
 	}
 	evPrintf(ctx, 9, "wait done:");
 	for (this = ctx->waitDone.first; this != NULL; this = this->next)
-		evPrintf(ctx, 9, " %#x", this);
+		evPrintf(ctx, 9, " %p", this);
 	evPrintf(ctx, 9, "\n");
 }
 

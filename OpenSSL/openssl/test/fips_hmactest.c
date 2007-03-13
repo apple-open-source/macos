@@ -1,1 +1,1 @@
-../fips/hmac/fips_hmactest.c
+../fips-1.0/hmac/fips_hmactest.c

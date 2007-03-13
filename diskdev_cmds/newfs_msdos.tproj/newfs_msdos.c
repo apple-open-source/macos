@@ -777,7 +777,7 @@ main(int argc, char *argv[])
 		    setstr(bs->oem, opt_O ? opt_O : "BSD  4.4",
 			   sizeof(bs->oem));
 		    memcpy(img + x1, bootcode, sizeof(bootcode));
-		    mk2(img + bpb.bps - 2, DOSMAGIC);
+		    mk2(img + 510, DOSMAGIC);
 		}
 	    } else if (fat == 32 && bpb.infs != MAXU16 &&
 		       (lsn == bpb.infs ||

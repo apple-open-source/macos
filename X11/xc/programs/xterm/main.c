@@ -660,6 +660,7 @@ static char etc_wtmp[] = WTMP_FILENAME;
 #ifdef __DARWIN__
 #define USE_LOGIN_DASH_P
 #define LOGIN_FILENAME "/usr/bin/login"
+#define setpgrp setpgid
 #endif
 
 #ifdef USE_LOGIN_DASH_P

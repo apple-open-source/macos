@@ -32,7 +32,7 @@
 
 /*
  *      from nameser.h	8.1 (Berkeley) 6/2/93
- *	$Id: nameser_compat.h,v 1.1.1.2 2003/03/18 19:18:30 rbraun Exp $
+ *	$Id: nameser_compat.h,v 1.1.2.3.4.2 2004/07/01 04:43:41 marka Exp $
  */
 
 #ifndef _ARPA_NAMESER_COMPAT_
@@ -44,7 +44,7 @@
 #if (BSD >= 199103)
 # include <machine/endian.h>
 #else
-#ifdef linux
+#ifdef __linux
 # include <endian.h>
 #else
 #define	LITTLE_ENDIAN	1234	/* least-significant byte first (vax, pc) */
@@ -65,12 +65,12 @@
     defined(__hppa) || defined(__hp9000) || \
     defined(__hp9000s300) || defined(__hp9000s700) || \
     defined(__hp3000s900) || defined(__hpux) || defined(MPE) || \
-    defined (BIT_ZERO_ON_LEFT) || defined(m68k) || \
+    defined (BIT_ZERO_ON_LEFT) || defined(m68k) || defined(__sparc) ||  \
     (defined(__Lynx__) && \
      (defined(__68k__) || defined(__sparc__) || defined(__powerpc__)))
 #define BYTE_ORDER	BIG_ENDIAN
 #endif
-#endif /* linux */
+#endif /* __linux */
 #endif /* BSD */
 #endif /* BYTE_ORDER */
 
@@ -138,6 +138,7 @@ typedef struct {
 #define RRFIXEDSZ	NS_RRFIXEDSZ
 #define	INT32SZ		NS_INT32SZ
 #define	INT16SZ		NS_INT16SZ
+#define	INT8SZ		NS_INT8SZ
 #define	INADDRSZ	NS_INADDRSZ
 #define	IN6ADDRSZ	NS_IN6ADDRSZ
 #define	INDIR_MASK	NS_CMPRSFLGS

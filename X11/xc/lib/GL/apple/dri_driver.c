@@ -681,7 +681,7 @@ driCreatePixelFormat (Display *dpy, __DRIscreenPrivate *psp,
     int i;
     CGLPixelFormatAttribute attr[64]; // currently uses max of 30
     CGLPixelFormatObj result;
-    long n_formats;
+    GLint n_formats;
 
     i = 0;
 

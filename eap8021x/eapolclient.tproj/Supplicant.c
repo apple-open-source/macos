@@ -1744,6 +1744,9 @@ Supplicant_logoff(SupplicantRef supp, SupplicantEvent event, void * evdata)
     switch (event) {
     case kSupplicantEventStart:
 	Supplicant_cancel_pending_events(supp);
+	if (supp->state != kSupplicantStateAuthenticated) {
+	    break;
+	}
 	supp->state = kSupplicantStateLogoff;
 	supp->last_status = kEAPClientStatusOK;
 	eap_client_free(supp);

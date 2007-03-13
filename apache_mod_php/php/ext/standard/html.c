@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: html.c,v 1.63.2.23 2005/03/09 10:11:15 derick Exp $ */
+/* $Id: html.c,v 1.63.2.23.2.2 2006/02/25 21:33:06 rasmus Exp $ */
 
 /*
  * HTML entity resources:
@@ -793,7 +793,7 @@ PHPAPI char *php_unescape_html_entities(unsigned char *old, int oldlen, int *new
 	enum entity_charset charset = determine_charset(hint_charset TSRMLS_CC);
 	unsigned char replacement[15];
 	
-	ret = estrdup(old);
+	ret = estrndup(old, oldlen);
 	retlen = oldlen;
 	if (!retlen) {
 		goto empty_source;
@@ -878,7 +878,7 @@ PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newle
 
 		matches_map = 0;
 
-		if (len + 9 > maxlen)
+		if (len + 16 > maxlen)
 			replaced = erealloc (replaced, maxlen += 128);
 
 		if (all) {
@@ -903,9 +903,15 @@ PHPAPI char *php_escape_html_entities(unsigned char *old, int oldlen, int *newle
 			}
 
 			if (matches_map) {
+				int l = strlen(rep);
+				/* increase the buffer size */
+				if (len + 2 + l >= maxlen) {
+					replaced = erealloc(replaced, maxlen += 128);
+				}
+
 				replaced[len++] = '&';
 				strcpy(replaced + len, rep);
-				len += strlen(rep);
+				len += l;
 				replaced[len++] = ';';
 			}
 		}

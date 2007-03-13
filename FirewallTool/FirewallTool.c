@@ -30,6 +30,7 @@
 #define RULE_5	2040
 #define RULE_6	2050
 #define RULE_7	2060
+#define fragRULE	2065
 #define RULE_8	12180
 #define RULE_9 	12190
 
@@ -146,7 +147,9 @@ int AddDefaultRule6OutboundOKV6(int controlSocket);
 int AddDefaultRule7KeepEstablished(int controlSocket);
 int AddDefaultRule7KeepEstablishedV6(int controlSocket);
 int AddDefaultRule9DenyTCP(int controlSocket, Boolean loggingenabled);
+int AddFragRuleTCP(int controlSocket);
 int AddDefaultRule9DenyTCPV6(int controlSocket, Boolean loggingenabled);
+int AddFragRuleTCPV6(int controlSocket);
 
 
 int AddDefaultUDPRULE(int controlSocket, int udpport, int rulenumber );
@@ -1278,7 +1281,10 @@ int AddDefaultRules(int controlSocket, Boolean doUDP, Boolean loggingenabled, Bo
         
         error = AddDefaultRule9DenyTCP(controlSocket, loggingenabled);
         if( error != SUCCESS ) break;
-        
+		
+		error = AddFragRuleTCP(controlSocket);
+		if( error != SUCCESS ) break;
+       
 		if ( stealthenabled )
 		{
 			error = AddICMPRule( controlSocket, loggingenabled );
@@ -1356,6 +1362,9 @@ int AddDefaultRulesV6(int controlSocket, Boolean doUDP, Boolean loggingenabled, 
         error = AddDefaultRule9DenyTCPV6(controlSocket, loggingenabled);
         if( error != SUCCESS ) break;
         
+        error = AddFragRuleTCPV6(controlSocket);
+        if( error != SUCCESS ) break;
+		
 		if ( stealthenabled )
 		{
 			error = AddICMPRuleV6( controlSocket, loggingenabled );
@@ -2097,6 +2106,68 @@ int AddDefaultRule9DenyTCPV6(int controlSocket, Boolean loggingenabled)
     
     return SUCCESS;
 }
+
+//********************************************************************************
+// AddFragRuleTCP
+//********************************************************************************
+int AddFragRuleTCP(int controlSocket)
+{
+	struct ip_fw rule;
+	int i;
+
+	memset( &rule, 0, sizeof(rule));
+
+	rule.version = IP_FW_CURRENT_API_VERSION;
+	rule.context = (void*)'AAPL';
+	rule.fw_number = fragRULE;                   // rule #
+	rule.fw_flg |= IP_FW_F_FRAG;                 // frag
+	rule.fw_prot = IPPROTO_TCP;                   // ip
+	rule.fw_flg |= IP_FW_F_ACCEPT;              // allow
+	rule.fw_flg |= IP_FW_F_IN; // packets both directions
+	rule.fw_flg |= IP_FW_F_OUT; // packets both directions
+
+	i = setsockopt(controlSocket, IPPROTO_IP, IP_FW_ADD, &rule, sizeof(rule));
+
+	if( i )
+	{
+		printf("Firewall Tool: Error adding TCP frag rule: %d\n", fragRULE);
+		return i;
+	}
+		
+    return SUCCESS;
+}
+
+
+//********************************************************************************
+// AddFragRuleTCPV6
+//********************************************************************************
+int AddFragRuleTCPV6(int controlSocket)
+{
+	struct ip6_fw rule;
+	int i;
+
+	memset( &rule, 0, sizeof(rule));
+
+	rule.version = IPV6_FW_CURRENT_API_VERSION;
+	rule.context = (void*)'AAPL';
+	rule.fw_number = fragRULE;                   // rule #
+	rule.fw_flg |= IPV6_FW_F_FRAG;                 // frag
+	rule.fw_prot = IPPROTO_TCP;                   // ip
+	rule.fw_flg |= IPV6_FW_F_ACCEPT;              // allow
+	rule.fw_flg |= IPV6_FW_F_IN; // packets both directions
+	rule.fw_flg |= IPV6_FW_F_OUT; // packets both directions
+
+	i = setsockopt(controlSocket, IPPROTO_IPV6, IPV6_FW_ADD, &rule, sizeof(rule));
+
+	if( i )
+	{
+		printf("Firewall Tool: Error adding TCP V6 frag rule: %d\n", fragRULE);
+		return i;
+	}
+		
+    return SUCCESS;
+}
+
 
 /**************************************** UDP RULES ******************************/
 

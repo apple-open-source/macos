@@ -3,7 +3,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<!-- $appleBlojsomRevision -->
-	<title>$BLOJSOM_BLOG.getBlogName()</title>
+	<title>$BLOJSOM_BLOG.getEscapedBlogName()</title>
 	<link rel="stylesheet" href="${BLOJSOM_SITE_URL}blojsom_resources/includes/base_layout.css" />
 	#set($blogCustomStylesheet = $BLOJSOM_BLOG.getBlogProperty("blog-stylesheet"))
 	#if(!$blogCustomStylesheet.equals(""))
@@ -43,7 +43,7 @@
 		#if ($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT.startsWith(" "))
 <div id="blojsom_system_message"> $locStrings.getProperty($opResultString)</div>
 		#else
-<div id="blojsom_system_message">$BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT</div>
+<div id="blojsom_system_message">$ESCAPE_TAGS_PLUGIN.escapeTagsInText($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT)</div>
 		#end
 	#end
 #end
@@ -53,8 +53,8 @@
 	<table id="header_table">
 		<tr>
 			<td id="header_description_cell">
-				<h2 id="title"><a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getBlogName()</a></h2>
-				<p id="subtitle">$BLOJSOM_BLOG.getBlogDescription()</p>
+				<h2 id="title"><a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getEscapedBlogName()</a></h2>
+				<p id="subtitle">$BLOJSOM_BLOG.getEscapedBlogDescription()</p>
 				#set( $totalEntries = 0 )
 			</td>
 			<td id="header_logo_cell"><img src="${BLOJSOM_SITE_URL}blojsom_resources/images/grayx.jpg" width="56" height="71" alt="" /></td>

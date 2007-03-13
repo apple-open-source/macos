@@ -6,7 +6,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/*	$Id: zend_multibyte.h,v 1.3.2.1 2002/12/31 16:23:04 sebastian Exp $ */
+/*	$Id: zend_multibyte.h,v 1.3.2.1.8.1 2006/01/01 13:46:49 sniper Exp $ */
 
 #ifndef ZEND_MULTIBYTE_H
 #define ZEND_MULTIBYTE_H

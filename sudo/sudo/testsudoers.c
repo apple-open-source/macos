@@ -78,6 +78,9 @@
 static const char rcsid[] = "$Sudo: testsudoers.c,v 1.88 2004/08/02 18:44:58 millert Exp $";
 #endif /* lint */
 
+#ifdef __APPLE_MEMBERD__
+#include <membership.h>
+#endif
 
 /*
  * Prototypes
@@ -255,6 +258,10 @@ usergr_matches(group, user, pw)
 {
     struct group *grp;
     char **cur;
+	#ifdef __APPLE_MEMBERD__
+	uuid_t uu, gu;
+	int ismember = 0;
+	#endif
 
     /* Make sure we have a valid usergroup, sudo style. */
     if (*group++ != '%')
@@ -269,10 +276,16 @@ usergr_matches(group, user, pw)
     if (getgid() == grp->gr_gid)
 	return(TRUE);
 
+	#ifdef __APPLE_MEMBERD__
+	if ( 0 == mbr_uid_to_uuid(pw->pw_uid,uu) && 0 == mbr_gid_to_uuid(grp->gr_gid,gu) && 0 == mbr_check_membership(uu,gu,&ismember) ) {
+		if (1 == ismember) return(TRUE);
+	}
+	#else
     for (cur=grp->gr_mem; *cur; cur++) {
 	if (strcmp(*cur, user) == 0)
 	    return(TRUE);
     }
+	#endif
 
     return(FALSE);
 }

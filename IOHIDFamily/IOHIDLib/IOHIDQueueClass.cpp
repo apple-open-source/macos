@@ -35,6 +35,7 @@ __BEGIN_DECLS
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
+#include <System/libkern/OSCrossEndian.h>
 __END_DECLS
 
 #define ownerCheck() do {		\
@@ -48,8 +49,10 @@ __END_DECLS
 	return kIOReturnNoDevice;	\
 } while (0)
 
-#define openCheck() do {	    \
-    if (!fIsCreated)		    \
+#define openCheck() do {            \
+    if (!fOwningDevice ||           \
+        !fOwningDevice->fIsOpen ||  \
+        !fIsCreated)                \
         return kIOReturnNotOpen;    \
 } while (0)
 
@@ -59,15 +62,9 @@ __END_DECLS
         return kIOReturnNotAttached;	\
 } while (0)    
 
-#define seizeCheck() do {               \
-    if ((!fOwningDevice) ||		\
-         (fOwningDevice->fIsSeized))    \
-        return kIOReturnExclusiveAccess;\
-} while (0)
-
 #define allChecks() do {		\
+    ownerCheck();           \
     connectCheck();			\
-    seizeCheck();			\
     openCheck();			\
     terminatedCheck();			\
 } while (0)
@@ -91,7 +88,7 @@ IOHIDQueueClass::IOHIDQueueClass()
     fEventCallback          = NULL;
     fEventTarget            = NULL;
     fEventRefcon            = NULL;
-    fQueueRef               = NULL;
+    fQueueRef               = 0;
     fQueueMappedMemory      = NULL;
     fQueueMappedMemorySize  = 0;
     fQueueEntrySizeChanged  = false;
@@ -305,15 +302,17 @@ IOReturn IOHIDQueueClass::addElement (
     allChecks();
 
     //  kIOHIDLibUserClientAddElementToQueue, kIOUCScalarIScalarO, 3, 0
-    int args[6], i = 0;
+    int args[6], i = 0, sizeChange=0;
     args[i++] = fQueueRef;
     args[i++] = (int) elementCookie;
     args[i++] = flags;
     mach_msg_type_number_t len = 1;
     ret = io_connect_method_scalarI_scalarO(
-            fOwningDevice->fConnection, kIOHIDLibUserClientAddElementToQueue, args, i, (int *) &fQueueEntrySizeChanged, &len);
+            fOwningDevice->fConnection, kIOHIDLibUserClientAddElementToQueue, args, i, &sizeChange, &len);
     if (ret != kIOReturnSuccess)
         return ret;
+
+    fQueueEntrySizeChanged = sizeChange;
 
     return kIOReturnSuccess;
 }
@@ -325,21 +324,23 @@ IOReturn IOHIDQueueClass::removeElement (IOHIDElementCookie elementCookie)
     allChecks();
 
     //  kIOHIDLibUserClientRemoveElementFromQueue, kIOUCScalarIScalarO, 2, 0
-    int args[6], i = 0;
+    int args[6], i = 0, sizeChange=0;
     args[i++] = fQueueRef;
     args[i++] = (int) elementCookie;
     mach_msg_type_number_t len = 1;
     ret = io_connect_method_scalarI_scalarO(
-            fOwningDevice->fConnection, kIOHIDLibUserClientRemoveElementFromQueue, args, i, (int *) &fQueueEntrySizeChanged, &len);
+            fOwningDevice->fConnection, kIOHIDLibUserClientRemoveElementFromQueue, args, i, &sizeChange, &len);
     if (ret != kIOReturnSuccess)
         return ret;
+
+    fQueueEntrySizeChanged = sizeChange;
 
     return kIOReturnSuccess;
 }
 
 Boolean IOHIDQueueClass::hasElement (IOHIDElementCookie elementCookie)
 {
-    Boolean returnHasElement = false;
+    int returnHasElement = 0;
 
     // cannot do allChecks(), since return is a Boolean
     if (((!fOwningDevice) ||
@@ -354,7 +355,7 @@ Boolean IOHIDQueueClass::hasElement (IOHIDElementCookie elementCookie)
     mach_msg_type_number_t len = 1;
     IOReturn ret = io_connect_method_scalarI_scalarO(
             fOwningDevice->fConnection, kIOHIDLibUserClientQueueHasElement, args, 
-            i, (int *) &returnHasElement, &len);
+            i, &returnHasElement, &len);
     if (ret != kIOReturnSuccess)
         return false;
 
@@ -363,21 +364,11 @@ Boolean IOHIDQueueClass::hasElement (IOHIDElementCookie elementCookie)
 
 
 /* start/stop data delivery to a queue */
-IOReturn IOHIDQueueClass::start (bool deviceInitiated)
+IOReturn IOHIDQueueClass::start ()
 {
     IOReturn ret = kIOReturnSuccess;
     
-    if (deviceInitiated)
-    {
-        if (fIsStopped)
-            return kIOReturnError;
-            
-        deviceInitiatedChecks();
-    }
-    else 
-    {
-        allChecks();
-    }
+    allChecks();
     
     // if the queue size changes, we will need to dispose of the 
     // queue mapped memory
@@ -425,21 +416,11 @@ IOReturn IOHIDQueueClass::start (bool deviceInitiated)
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDQueueClass::stop (bool deviceInitiated)
+IOReturn IOHIDQueueClass::stop ()
 {
     IOReturn ret = kIOReturnSuccess;
 
-    if (deviceInitiated)
-    {
-        if (fIsStopped)
-            return ret;
-            
-        deviceInitiatedChecks();
-    }
-    else 
-    {
-        allChecks();
-    }
+    allChecks();
 
     //  kIOHIDLibUserClientStopQueue, kIOUCScalarIScalarO, 1, 0
     int args[6], i = 0;
@@ -450,8 +431,7 @@ IOReturn IOHIDQueueClass::stop (bool deviceInitiated)
     if (ret != kIOReturnSuccess)
         return ret;
         
-    if (!deviceInitiated)
-        fIsStopped = true;
+    fIsStopped = true;
         
     // еее TODO after we stop the queue, we should empty the queue here, in user space
     // (to be consistant with setting the head from user space)
@@ -477,47 +457,26 @@ IOReturn IOHIDQueueClass::getNextEvent (
     
     if ( !fQueueMappedMemory )
         return kIOReturnNoMemory;
-#if 0
-    printf ("IOHIDQueueClass::getNextEvent about to peek\n");
 
-    printf ("fQueueMappedMemory->queueSize = %lx\n", fQueueMappedMemory->queueSize);
-    printf ("fQueueMappedMemory->head = %lx\n", fQueueMappedMemory->head);
-    printf ("fQueueMappedMemory->tail = %lx\n", fQueueMappedMemory->tail);
-#endif
-    
     // check entry size
-    IODataQueueEntry * nextEntry = IODataQueuePeek(fQueueMappedMemory);
+    IODataQueueEntry *  nextEntry = IODataQueuePeek(fQueueMappedMemory);
+    UInt32              entrySize;
 
 	// if queue empty, then stop
 	if (nextEntry == NULL)
 		return kIOReturnUnderrun;
 
-#if 0
-    printf ("IODataQueuePeek: %lx\n", (UInt32) nextEntry);
-    if (nextEntry)
-    {
-        printf ("nextEntry->size = %lx\n", nextEntry->size);
-        printf ("nextEntry->data = %lx\n", (UInt32) nextEntry->data);
-
-        IOHIDElementValue * nextElementValue = (IOHIDElementValue *) &nextEntry->data;
-        
-        printf ("nextElementValue->cookie = %lx\n", (UInt32) nextElementValue->cookie);
-        printf ("nextElementValue->value[0] = %lx\n", nextElementValue->value[0]);
-    }
-#endif
+    entrySize = nextEntry->size;
+    ROSETTA_ONLY(
+        entrySize = OSSwapInt32(entrySize);
+    );
 
     UInt32 dataSize = sizeof(IOHIDElementValue);
     
-#if 0
-    // еее TODO deal with long sizes
-    if (event->longValueSize !=	0)
-        printf ("long size specified\n");
-#endif
-    
     // check size of next entry
     // Make sure that it is not smaller than IOHIDElementValue
-    if (nextEntry && (nextEntry->size < sizeof(IOHIDElementValue)))
-        printf ("IOHIDQueueClass: Queue size mismatch (%ld, %ld)\n", nextEntry->size, sizeof(IOHIDElementValue));
+    if (entrySize < sizeof(IOHIDElementValue))
+        printf ("IOHIDQueueClass: Queue size mismatch (%ld, %ld)\n", entrySize, sizeof(IOHIDElementValue));
     
     // dequeue the item
 //    printf ("IOHIDQueueClass::getNextEvent about to dequeue\n");
@@ -528,46 +487,53 @@ IOReturn IOHIDQueueClass::getNextEvent (
     // if we got an entry
     if (ret == kIOReturnSuccess && nextEntry)
     {
-    
-        IOHIDElementValue * nextElementValue = (IOHIDElementValue *) &nextEntry->data;
+        IOHIDElementValue * nextElementValue = (IOHIDElementValue *) &(nextEntry->data);
         
-#if 0
-        printf ("nextElementValue->cookie = %lx\n", (UInt32) nextElementValue->cookie);
-        printf ("nextElementValue->value[0] = %lx\n", nextElementValue->value[0]);
-#endif
+        void *              longValue = 0;
+        UInt32              longValueSize = 0;
+        SInt32              value = 0;
+        UInt64              timestamp = 0;
+        IOHIDElementCookie  cookie = 0;
 
-        void *		longValue = 0;
-        UInt32		longValueSize = 0;
-        SInt32		value = 0;
-        UInt64		timestamp = 0;
-
-        
         // check size of result
-        if (dataSize == sizeof(IOHIDElementValue))
+        if ( dataSize >= sizeof(IOHIDElementValue))
         {
-            value = nextElementValue->value[0];
-            timestamp = *(UInt64 *)& nextElementValue->timestamp;
-        }
-        else if (dataSize > sizeof(IOHIDElementValue))
-        {
-            longValueSize = fOwningDevice->getElementByteSize(nextElementValue->cookie);
-            longValue = malloc( longValueSize );
-            bzero(longValue, longValueSize);
-            
-            // *** FIX ME ***
-            // Since we are getting mapped memory, we should probably
-            // hold a shared lock
-            fOwningDevice->convertWordToByte(nextElementValue->value, (UInt8 *)longValue, longValueSize<<3);
             
             timestamp = *(UInt64 *)& nextElementValue->timestamp;
+            cookie = nextElementValue->cookie;
 
+			ROSETTA_ONLY(
+                timestamp   = OSSwapInt64(timestamp);
+                cookie      = (IOHIDElementCookie)OSSwapInt32((UInt32)cookie);
+            );
+            
+            if (dataSize == sizeof(IOHIDElementValue))
+            {
+                value = nextElementValue->value[0];
+
+                ROSETTA_ONLY(
+                    value		= OSSwapInt32(value);
+                );
+            }
+            else
+            {
+                longValueSize = fOwningDevice->getElementByteSize(cookie);
+                longValue = malloc( longValueSize );
+                bzero(longValue, longValueSize);
+                
+                // *** FIX ME ***
+                // Since we are getting mapped memory, we should probably
+                // hold a shared lock
+                fOwningDevice->convertWordToByte(nextElementValue->value, (UInt8 *)longValue, longValueSize);
+            }
+            
         }
         else
             printf ("IOHIDQueueClass: Queue size mismatch (%ld, %ld)\n", dataSize, sizeof(IOHIDElementValue));
         
         // copy the data to the event struct
-        event->type = fOwningDevice->getElementType(nextElementValue->cookie);
-        event->elementCookie = nextElementValue->cookie;
+        event->type = fOwningDevice->getElementType(cookie);
+        event->elementCookie = cookie;
         event->value = value;
         *(UInt64 *)& event->timestamp = timestamp;
         event->longValueSize = longValueSize;

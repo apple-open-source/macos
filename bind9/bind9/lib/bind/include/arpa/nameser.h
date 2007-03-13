@@ -32,24 +32,24 @@
  */
 
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 /*
- *	$Id: nameser.h,v 1.1.1.2 2003/03/18 19:18:30 rbraun Exp $
+ *	$Id: nameser.h,v 1.2.2.4.4.1 2004/03/09 08:33:30 marka Exp $
  */
 
 #ifndef _ARPA_NAMESER_H_
@@ -78,8 +78,9 @@
 /*
  * Define constants based on RFC 883, RFC 1034, RFC 1035
  */
-#define NS_PACKETSZ	512	/* maximum packet size */
+#define NS_PACKETSZ	512	/* default UDP packet size */
 #define NS_MAXDNAME	1025	/* maximum domain name */
+#define NS_MAXMSG	65535	/* maximum message size */
 #define NS_MAXCDNAME	255	/* maximum compressed domain name */
 #define NS_MAXLABEL	63	/* maximum length of domain label */
 #define NS_HFIXEDSZ	12	/* #/bytes of fixed data in header */
@@ -294,6 +295,7 @@ typedef enum __ns_type {
 	ns_t_dname = 39,	/* Non-terminal DNAME (for IPv6) */
 	ns_t_sink = 40,		/* Kitchen sink (experimentatl) */
 	ns_t_opt = 41,		/* EDNS0 option (meta-RR) */
+	ns_t_apl = 42,		/* Address prefix list (RFC 3123) */
 	ns_t_tkey = 249,	/* Transaction key */
 	ns_t_tsig = 250,	/* Transaction signature. */
 	ns_t_ixfr = 251,	/* Incremental zone transfer. */
@@ -398,7 +400,7 @@ typedef enum __ns_cert_types {
 
 /* Signatures */
 #define	NS_MD5RSA_MIN_BITS	 512	/* Size of a mod or exp in bits */
-#define	NS_MD5RSA_MAX_BITS	2552
+#define	NS_MD5RSA_MAX_BITS	4096
 	/* Total of binary mod and exp */
 #define	NS_MD5RSA_MAX_BYTES	((NS_MD5RSA_MAX_BITS+7/8)*2+3)
 	/* Max length of text sig block */

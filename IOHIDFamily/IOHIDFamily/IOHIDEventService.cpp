@@ -35,6 +35,7 @@
 #include "IOHIDPointing.h"
 #include "IOHIDKeyboard.h"
 #include "IOHIDConsumer.h"
+#include "IOHIDFamilyPrivate.h"
 
 enum {
     kBootProtocolNone   = 0,
@@ -53,9 +54,16 @@ enum
 #define     kMaxSystemBarrelPressure            32767
 #define     kMaxSystemTipPressure               65535
 
+#define     kEjectDelayMS                       250
+#define     kEjectDelayedOption                 (1<<31)
+
 #define     NUB_LOCK                            if (_nubLock) IORecursiveLockLock(_nubLock)
 #define     NUB_UNLOCK                          if (_nubLock) IORecursiveLockUnlock(_nubLock)
 
+#define     _workLoop                           _reserved->workLoop
+#define     _ejectTimerEventSource              _reserved->ejectTimerEventSource
+#define     _ejectState                         _reserved->ejectState
+#define     _ejectOptions                       _reserved->ejectOptions
 
 struct  TransducerData {
     UInt32  reportID;
@@ -81,6 +89,9 @@ bool IOHIDEventService::init ( OSDictionary * properties )
         return false;
 
     _nubLock = IORecursiveLockAlloc();         
+
+    _reserved = IONew(ExpansionData, 1);
+    bzero(_reserved, sizeof(ExpansionData));
     
     return true;
 }
@@ -89,41 +100,42 @@ bool IOHIDEventService::init ( OSDictionary * properties )
 //====================================================================================================
 bool IOHIDEventService::start ( IOService * provider )
 {
-    UInt32      bootProtocol    = 0;
-
+    UInt32          bootProtocol        = 0;
+    
     if ( !super::start(provider) )
         return false;
-		
-    if ( provider )
-    {
-        IOService * service = provider->getProvider();
-        
-        while (service = service->getProvider())
-        {
-            if(service->metaCast("IOHIDevice"))
-            {
-                return false;
-            }
-            else if (service->metaCast("IOHIDDevice"))
-                return false;
-        }
-
-        OSNumber *  number = (OSNumber *)provider->getProperty("BootProtocol");
-        
-        if (number) 
-            bootProtocol = number->unsigned32BitValue();
-
-    }
-
+    
     if ( !handleStart(provider) )
         return false;
-            
-    setProperty(kIOHIDTransportKey, getTransport());
-    setProperty(kIOHIDVendorIDKey, getVendorID(), 32);
-    setProperty(kIOHIDProductIDKey, getProductID(), 32);
-    setProperty(kIOHIDLocationIDKey, getLocationID(), 32);
 
-    parseSupportedElements ( getReportElements(), bootProtocol );
+
+    _workLoop = provider->getWorkLoop();
+    if ( !_workLoop )
+        return false;
+        
+    _workLoop->retain();
+
+    _ejectTimerEventSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::ejectTimerCallback));
+    if (!_ejectTimerEventSource || (_workLoop->addEventSource(_ejectTimerEventSource) != kIOReturnSuccess))
+        return false;
+        
+    setProperty(kIOHIDTransportKey, getTransport());
+    setProperty(kIOHIDLocationIDKey, getLocationID(), 32);
+    setProperty(kIOHIDVendorIDKey, getVendorID(), 32);
+    setProperty(kIOHIDVendorIDSourceKey, getVendorIDSource(), 32);
+    setProperty(kIOHIDProductIDKey, getProductID(), 32);
+    setProperty(kIOHIDVersionNumberKey, getVersion(), 32);
+    setProperty(kIOHIDCountryCodeKey, getCountryCode(), 32);
+    setProperty(kIOHIDManufacturerKey, getManufacturer());
+    setProperty(kIOHIDProductKey, getProduct());
+    setProperty(kIOHIDSerialNumberKey, getSerialNumber());
+
+    OSNumber *  number = OSDynamicCast(OSNumber, getProperty("BootProtocol"));
+    
+    if (number) 
+        bootProtocol = number->unsigned32BitValue();
+
+    parseSupportedElements (getReportElements(), bootProtocol);
     
     if ((!_consumerNub && _keyboardNub) || (!_keyboardNub && _consumerNub))
     {
@@ -160,7 +172,7 @@ bool IOHIDEventService::start ( IOService * provider )
     
     _readyForInputReports = true;
     
-    registerService();
+    registerService(kIOServiceSynchronous);
     
     return true;
 }
@@ -202,9 +214,26 @@ void IOHIDEventService::stop( IOService * provider )
     stopAndReleaseShim ( _consumerNub, this );
     _consumerNub = 0;
 
+    if (_publishNotify) {
+        _publishNotify->remove();
+    	_publishNotify = 0;
+    }
+
     NUB_UNLOCK;
     
     super::stop( provider );
+}
+
+//====================================================================================================
+// IOHIDEventService::matchPropertyTable
+//====================================================================================================
+bool IOHIDEventService::matchPropertyTable(OSDictionary * table, SInt32 * score)
+{
+    // Ask our superclass' opinion.
+    if (super::matchPropertyTable(table, score) == false)  
+        return false;
+
+    return MatchPropertyTable(this, table, score);
 }
 
 //====================================================================================================
@@ -276,8 +305,32 @@ bool IOHIDEventService::_publishNotificationHandler(
 //====================================================================================================
 IOReturn IOHIDEventService::setSystemProperties( OSDictionary * properties )
 {
+    if ( _keyboardNub )
+        _keyboardNub->setParamProperties(properties);
+        
+    if ( _pointingNub )
+        _pointingNub->setParamProperties(properties);
+        
+    if ( _consumerNub )
+        _consumerNub->setParamProperties(properties);
+        
     return kIOReturnSuccess;
 }
+
+//====================================================================================================
+// IOHIDEventService::setSystemProperties
+//====================================================================================================
+IOReturn IOHIDEventService::setProperties( OSObject * properties )
+{
+    OSDictionary *  propertyDict    = OSDynamicCast(OSDictionary, properties);
+    IOReturn        ret             = kIOReturnBadArgument;
+    
+    if ( propertyDict )
+        ret = setSystemProperties(propertyDict);
+    
+    return ret;
+}
+
 
 //====================================================================================================
 // IOHIDEventService::parseSupportedElements
@@ -291,6 +344,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
     UInt32              supportedModifiers  = 0;
     UInt32              buttonCount         = 0;
     IOHIDElement *      element             = 0;
+    OSArray *           functions           = 0;
     IOFixed             pointingResolution  = 0;
     IOFixed             scrollResolution    = 0;
     bool                pointingDevice      = false;
@@ -308,7 +362,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
     }
     
     if ( elementArray )
-    {
+    {        
         count = elementArray->getCount();
         
         for ( index = 0; index < count; index++ )
@@ -419,7 +473,47 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
                     }
                     break;
             }
+            
+            // Cache device functions
+            if ((element->getType() == kIOHIDElementTypeCollection) &&
+                ((element->getCollectionType() == kIOHIDElementCollectionTypeApplication) ||
+                (element->getCollectionType() == kIOHIDElementCollectionTypePhysical)))
+            {
+                OSNumber * usagePageRef, * usageRef;
+                OSDictionary * pairRef;
+                
+                if(!functions) functions = OSArray::withCapacity(2);
+                
+                pairRef     = OSDictionary::withCapacity(2);
+                usageRef    = OSNumber::withNumber(usage, 32);
+                usagePageRef= OSNumber::withNumber(usagePage, 32);
+                
+                pairRef->setObject(kIOHIDDeviceUsageKey, usageRef);
+                pairRef->setObject(kIOHIDDeviceUsagePageKey, usagePageRef);
+                
+                UInt32 	pairCount = functions->getCount();
+                bool 	found = false;
+                for(unsigned i=0; i<pairCount; i++)
+                {
+                    OSDictionary *tempPair = (OSDictionary *)functions->getObject(i);
+                    
+                    if (found = tempPair->isEqualTo(pairRef))
+                        break;
+                }
+                
+                if (!found) 
+                {
+                    functions->setObject(functions->getCount(), pairRef);                
+                }
+                
+                pairRef->release();
+                usageRef->release();
+                usagePageRef->release();
+            }
         }
+        
+        setProperty(kIOHIDDeviceUsagePairsKey, functions);
+        if (functions) functions->release();
     }
     
     processTransducerData();
@@ -435,7 +529,7 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
     if ( consumerDevice )
     {
 		_consumerNub = newConsumerShim(kShimEventProcessor);
-    }
+    }    
 }
 
 //====================================================================================================
@@ -741,31 +835,48 @@ IOFixed IOHIDEventService::determineResolution ( IOHIDElement * element )
 //====================================================================================================
 void IOHIDEventService::free()
 {
+    IORecursiveLock* tempLock = NULL;
+    if ( _nubLock )
+    {
+        IORecursiveLockLock(_nubLock);
+        tempLock = _nubLock;
+        _nubLock = NULL;
+    }
+
+    if ( _transducerDataArray )
+    {
+        _transducerDataArray->release();
+        _transducerDataArray = 0;
+    }
+        
     if ( _transducerDataArray )
     {
         _transducerDataArray->release();
         _transducerDataArray = 0;
     }
 
-    if (_publishNotify) 
-    {
-        _publishNotify->remove();
-    	_publishNotify = 0;
+    if (_ejectTimerEventSource) {
+        if ( _workLoop )
+            _workLoop->removeEventSource(_ejectTimerEventSource);
+            
+        _ejectTimerEventSource->release();
+        _ejectTimerEventSource = 0; 
+    }
+
+    if ( _workLoop ) {
+        _workLoop->release();
+        _workLoop = NULL;
+    }
+
+    if (_reserved) {
+        IODelete(_reserved, ExpansionData, 1);
+        _reserved = NULL;
     }
     
-    if ( _nubLock )
+    if ( tempLock )
     {
-        IORecursiveLockLock(_nubLock);
-        IORecursiveLock*	 tempLock = _nubLock;
-        _nubLock = NULL;
         IORecursiveLockUnlock(tempLock);
-        IORecursiveLockFree(tempLock);
-    }
-    
-    if ( _transducerDataArray )
-    {
-        _transducerDataArray->release();
-        _transducerDataArray = 0;
+        IORecursiveLockFree(tempLock);    
     }
     
     super::free();
@@ -893,6 +1004,23 @@ UInt32 IOHIDEventService::getElementValue (
     return 0;
 }
 
+//====================================================================================================
+// ejectTimerCallback
+//====================================================================================================
+void IOHIDEventService::ejectTimerCallback(IOTimerEventSource *sender) 
+{ 
+    NUB_LOCK;
+    if ( _ejectState ) {
+        AbsoluteTime timeStamp;
+        
+        clock_get_uptime(&timeStamp);
+        
+        dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Eject, 1, _ejectOptions | kEjectDelayedOption);
+        dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Eject, 0, _ejectOptions | kEjectDelayedOption);
+    }
+    NUB_UNLOCK;
+}
+
 
 //====================================================================================================
 // IOHIDEventService::dispatchKeyboardEvent
@@ -924,11 +1052,28 @@ void IOHIDEventService::dispatchKeyboardEvent(
     }
     else    
     {
-        if ( !_consumerNub )
-            _consumerNub = newConsumerShim();
+    
+        if ( (usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Eject) && ((options & kEjectDelayedOption) == 0) ) 
+        {
+            if ( _ejectState != value ) {
+                if ( value ) {
+                    _ejectOptions       = options;
+                    
+                    _ejectTimerEventSource->setTimeoutMS( kEjectDelayMS );
+                } else
+                    _ejectTimerEventSource->cancelTimeout();
+                    
+                _ejectState = value;
+            }
+        }
+        else 
+        {
+            if ( !_consumerNub )
+                _consumerNub = newConsumerShim();
 
-        if ( _consumerNub )
-            _consumerNub->dispatchConsumerEvent(_keyboardNub, timeStamp, usagePage, usage, value, options);
+            if ( _consumerNub )
+                _consumerNub->dispatchConsumerEvent(_keyboardNub, timeStamp, usagePage, usage, value, options);
+        }
     }
     
     NUB_UNLOCK;

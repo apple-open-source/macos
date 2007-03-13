@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: string.c,v 1.333.2.52.2.1 2005/09/28 22:34:04 iliaa Exp $ */
+/* $Id: string.c,v 1.333.2.52.2.6 2006/08/10 17:27:12 iliaa Exp $ */
 
 /* Synced with php 3.0 revision 1.193 1999-06-16 [ssb] */
 
@@ -628,7 +628,8 @@ PHP_FUNCTION(wordwrap)
 {
 	const char *text, *breakchar = "\n";
 	char *newtext;
-	int textlen, breakcharlen = 1, newtextlen, alloced, chk;
+	int textlen, breakcharlen = 1, newtextlen, chk;
+	size_t alloced;
 	long current = 0, laststart = 0, lastspace = 0;
 	long linelength = 75;
 	zend_bool docut = 0;
@@ -672,15 +673,13 @@ PHP_FUNCTION(wordwrap)
 		/* Multiple character line break or forced cut */
 		if (linelength > 0) {
 			chk = (int)(textlen/linelength + 1);
+			newtext = safe_emalloc(chk, breakcharlen, textlen + 1);
 			alloced = textlen + chk * breakcharlen + 1;
 		} else {
 			chk = textlen;
+			newtext = safe_emalloc(textlen, (breakcharlen + 1), 1);
 			alloced = textlen * (breakcharlen + 1) + 1;
 		}
-		if (alloced <= 0) {
-			RETURN_FALSE;
-		}
-		newtext = emalloc(alloced);
 
 		/* now keep track of the actual new text length */
 		newtextlen = 0;
@@ -1065,12 +1064,14 @@ PHP_FUNCTION(strtolower)
 PHPAPI char *php_basename(char *s, size_t len, char *suffix, size_t sufflen)
 {
 	char *ret=NULL, *c, *p=NULL, buf='\0', *p2=NULL, buf2='\0';
+	int cnt = len;
 	c = s + len - 1;	
 
 	/* do suffix removal as the unix command does */
 	if (suffix && (len > sufflen)) {
 		if (!strncmp(suffix, c-sufflen+1, sufflen)) {
-			c -= sufflen; 
+			c -= sufflen;
+			cnt -= sufflen;
 			buf2 = *(c + 1); /* Save overwritten char */
 			*(c + 1) = '\0'; /* overwrite char */
 			p2 = c + 1;      /* Save pointer to overwritten char */
@@ -1079,12 +1080,15 @@ PHPAPI char *php_basename(char *s, size_t len, char *suffix, size_t sufflen)
 
 
 	/* strip trailing slashes */
-	while (*c == '/'
+	while (cnt > 0 && (*c == '/'
 #ifdef PHP_WIN32
 		   || (*c == '\\' && !IsDBCSLeadByte(*(c-1)))
 #endif
-		)
+		   )) {
 		c--;
+		cnt--;
+	}
+
 	if (c+1 >= s && c < s+len-1) {
 		buf = *(c + 1);  /* Save overwritten char */
 		*(c + 1) = '\0'; /* overwrite char */
@@ -3515,7 +3519,7 @@ PHP_FUNCTION(str_repeat)
 	zval		**input_str;		/* Input string */
 	zval		**mult;			/* Multiplier */
 	char		*result;		/* Resulting string */
-	int		result_len;		/* Length of the resulting string */
+	size_t		result_len;		/* Length of the resulting string */
 	
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &input_str, &mult) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -3540,11 +3544,7 @@ PHP_FUNCTION(str_repeat)
 	
 	/* Initialize the result string */	
 	result_len = Z_STRLEN_PP(input_str) * Z_LVAL_PP(mult);
-	if (result_len < 1) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "You may not create strings longer then 2147483647 bytes");
-		RETURN_FALSE;
-	}
-	result = (char *)emalloc(result_len + 1);
+	result = (char *)safe_emalloc(Z_STRLEN_PP(input_str), Z_LVAL_PP(mult), 1);
 	
 	/* Heavy optimization for situations where input string is 1 byte long */
 	if (Z_STRLEN_PP(input_str) == 1) {

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ifx.ec,v 1.69.2.28 2004/12/16 12:36:41 sniper Exp $ */
+/* $Id: ifx.ec,v 1.69.2.28.2.3 2006/01/13 14:31:19 sas Exp $ */
 
 /* -------------------------------------------------------------------
  * if you want a function reference : "grep '^\*\*' ifx.ec" will give
@@ -3949,6 +3949,7 @@ static long php_intifx_create_char(char* param, long len, HashTable *list TSRMLS
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't create char-resource");
 		return -1;
 	}
+	memset(Ifx_char, 0, sizeof(IFX_IDRES));
 
 	Ifx_char->type = TYPE_CHAR;
 
@@ -4233,6 +4234,7 @@ static long php_intifxus_create_slob(long create_mode, HashTable *list TSRMLS_DC
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't create slob-resource");
 		return -1;
 	}
+	memset(Ifx_slob, 0, sizeof(IFX_IDRES));
 
 	errcode = ifx_lo_def_create_spec(&(Ifx_slob->SLOB.createspec));
 	if (errcode < 0) {
@@ -4475,6 +4477,7 @@ static long php_intifxus_new_slob(HashTable *list TSRMLS_DC)
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't create slob-resource");
 		return -1;
 	}
+	memset(Ifx_slob, 0, sizeof(IFX_IDRES));
 	
 	Ifx_slob->type = TYPE_SLOB;
 	Ifx_slob->SLOB.lofd = -1;

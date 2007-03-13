@@ -1,0 +1,19 @@
+/I386_ONLY/c
+#if defined(__i386__)
+#define I386_ONLY
+#else /* !__i386__ */
+#undef I386_ONLY
+#endif /* __i386__ */
+.
+/SIXTY_FOUR_BIT$/a
+.
+.,.+1c
+#ifdef __LP64__
+#define SIXTY_FOUR_BIT
+#undef THIRTY_TWO_BIT
+#else /* !__LP64__ */
+#undef SIXTY_FOUR_BIT
+#define THIRTY_TWO_BIT
+#endif /* __LP64__ */
+.
+w

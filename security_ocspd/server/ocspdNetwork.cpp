@@ -28,11 +28,15 @@
 #include "ocspdNetwork.h"
 #include <security_ocspd/ocspdUtils.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <CoreServices/CoreServices.h>
 #include <security_cdsa_utils/cuEnc64.h>
 #include <stdlib.h>
 #include <Security/cssmapple.h>
+#include <security_utilities/cfutilities.h>
+#include <CoreServices/CoreServices.h>
+#include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
 #include <LDAP/ldap.h>
+
+#define ocspdHttpDebug(args...)     secdebug("ocspdHttp", ## args)
 
 #pragma mark ----- OCSP support -----
 
@@ -222,6 +226,7 @@ CSSM_RETURN ocspdHttpPost(
 	CFDataRef postData = NULL;
 	CFURLRef cfUrl = NULL;
 	CFNumberRef cfnTo = NULL;
+	CFRef<CFDictionaryRef> proxyDict;
 	
 	/* trim off possible NULL terminator from incoming URL */
 	uint32 urlLen = url.Length;
@@ -282,6 +287,13 @@ CSSM_RETURN ocspdHttpPost(
 		/* but keep going */
 	}
 	
+	/* set up possible proxy info */
+	proxyDict.take(SCDynamicStoreCopyProxies(NULL));
+	if(proxyDict) {
+		ocspdHttpDebug("ocspdHttpPost setting proxy dict");
+		CFReadStreamSetProperty(cfStream, kCFStreamPropertyHTTPProxy, proxyDict);
+	}
+	
 	/* go, synchronously */
 	if(!CFReadStreamOpen(cfStream)) {
 		ocspdErrorLog("ocspdHttpPost: error opening CFReadStream\n");
@@ -312,6 +324,7 @@ CSSM_RETURN ocspdHttpPost(
 		SecAsn1AllocCopy(coder, CFDataGetBytePtr(inData), CFDataGetLength(inData),
 			&fetched);
 		writeBlob(OCSP_RESP_FILE, "OCSP Response", fetched.Data, fetched.Length);
+		ocspdHttpDebug("ocspdHttpPost fetched %lu bytes", (unsigned long)fetched.Length);
 	}
 
 errOut:
@@ -498,51 +511,88 @@ cleanup:
 
 #pragma mark ----- HTTP fetch via GET -----
 
+#define kResponseIncrement  4096
+
 /* fetch via HTTP */
 static CSSM_RETURN httpFetch(
 	Allocator			&alloc, 
 	const CSSM_DATA 	&url,
 	CSSM_DATA			&fetched)	// mallocd in alloc space and RETURNED
 {
+	ocspdHttpDebug("httpFetch top");
+	
 	/* trim off possible NULL terminator */
 	CSSM_DATA theUrl = url;
 	if(theUrl.Data[theUrl.Length - 1] == '\0') {
 		theUrl.Length--;
 	}
-	CFURLRef cfUrl = CFURLCreateWithBytes(NULL,
+	CFRef<CFURLRef> cfUrl(CFURLCreateWithBytes(NULL,
 		theUrl.Data, theUrl.Length,
 		kCFStringEncodingUTF8,		// right?
-		//kCFStringEncodingASCII,		// right?
-		NULL);						// this is absolute path 
-	if(cfUrl == NULL) {
+		NULL));						// this is absolute path 
+	if(!cfUrl) {
 		ocspdErrorLog("CFURLCreateWithBytes returned NULL\n");
 		return CSSMERR_APPLETP_CRL_BAD_URI;
 	}
-	CFDataRef urlData = NULL;
-	SInt32 errorCode;
-	Boolean brtn = CFURLCreateDataAndPropertiesFromResource(NULL,
-		cfUrl,
-		&urlData, 
-		NULL,			// no properties
-		NULL,
-		&errorCode);
-	CFRelease(cfUrl);
-	if(!brtn) {
-		ocspdErrorLog("CFURLCreateDataAndPropertiesFromResource err: %d\n",
-			(int)errorCode);
-		if(urlData) {
-			return CSSMERR_APPLETP_NETWORK_FAILURE;
-		}
-	}
-	if(urlData == NULL) {
-		ocspdErrorLog("CFURLCreateDataAndPropertiesFromResource: no data\n");
+	
+	CFRef<CFHTTPMessageRef> httpRequestRef(CFHTTPMessageCreateRequest(NULL, 
+		CFSTR("GET"), cfUrl, kCFHTTPVersion1_1));
+	if(!httpRequestRef) {
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
 	}
-	CFIndex len = CFDataGetLength(urlData);
-	fetched.Data = (uint8 *)alloc.malloc(len);
-	fetched.Length = len;
-	memmove(fetched.Data, CFDataGetBytePtr(urlData), len);
-	CFRelease(urlData);
+	
+	// open the stream
+	CFRef<CFReadStreamRef> httpStreamRef(CFReadStreamCreateForHTTPRequest(NULL, 
+		httpRequestRef));
+	if(!httpStreamRef) {
+		return CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
+
+	// set a reasonable timeout
+	SInt32 ito = READ_STREAM_TIMEOUT;
+	CFRef<CFNumberRef> cfnTo(CFNumberCreate(NULL, kCFNumberSInt32Type, &ito));
+    if(!CFReadStreamSetProperty(httpStreamRef, _kCFStreamPropertyReadTimeout, cfnTo)) {
+		// oh well - keep going 
+	}
+	
+	/* set up possible proxy info */
+	CFRef<CFDictionaryRef> proxyDict(SCDynamicStoreCopyProxies(NULL));
+	if(proxyDict) {
+		ocspdHttpDebug("httpFetch setting proxy dict");
+		CFReadStreamSetProperty(httpStreamRef, kCFStreamPropertyHTTPProxy, proxyDict);
+	}
+
+	if(CFReadStreamOpen(httpStreamRef) == false) {
+		return CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
+	
+	fetched.Data = (uint8 *)alloc.malloc(kResponseIncrement);	
+	size_t responseBufferLength = kResponseIncrement;
+	size_t responseLength = 0;
+
+	ocspdHttpDebug("httpFetch starting read");
+	
+	// read data from the stream
+	CFIndex bytesRead = CFReadStreamRead (httpStreamRef, (UInt8*)fetched.Data, 
+		kResponseIncrement);
+	while (bytesRead > 0) {
+		responseLength += bytesRead;
+		responseBufferLength = responseLength + kResponseIncrement;
+		fetched.Data = (uint8 *)alloc.realloc (fetched.Data, responseBufferLength);
+		bytesRead = CFReadStreamRead(httpStreamRef, (UInt8*) fetched.Data + responseLength, 
+			kResponseIncrement);
+	}
+	
+	if (bytesRead < 0) {
+		return CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
+
+	if(responseLength == 0) {
+		ocspdErrorLog("CFReadStreamRead: no data\n");
+		return CSSMERR_APPLETP_NETWORK_FAILURE;
+	}
+	fetched.Length = responseLength;
+	ocspdHttpDebug("httpFetch total %lu bytes read", (unsigned long)responseLength);
 	return CSSM_OK;
 }
 

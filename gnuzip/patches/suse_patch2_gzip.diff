@@ -1,0 +1,72 @@
+--- inflate.c
++++ inflate.c
+@@ -337,7 +337,7 @@
+   {
+     *t = (struct huft *)NULL;
+     *m = 0;
+-    return 0;
++    return 2;
+   }
+ 
+ 
+--- unlzh.c
++++ unlzh.c
+@@ -69,11 +69,7 @@
+ #define NT (CODE_BIT + 3)
+ #define PBIT 4  /* smallest integer such that (1U << PBIT) > NP */
+ #define TBIT 5  /* smallest integer such that (1U << TBIT) > NT */
+-#if NT > NP
+-# define NPT NT
+-#else
+-# define NPT NP
+-#endif
++#define NPT (1<<TBIT)
+ 
+ /* local ush left[2 * NC - 1]; */
+ /* local ush right[2 * NC - 1]; */
+@@ -179,6 +175,8 @@
+ 	if ((len = bitlen[ch]) == 0) continue;
+ 	nextcode = start[len] + weight[len];
+ 	if (len <= (unsigned)tablebits) {
++	    if (nextcode > 1 << tablebits)
++		error("Bad table\n");
+ 	    for (i = start[len]; i < nextcode; i++) table[i] = ch;
+ 	} else {
+ 	    k = start[len];
+@@ -223,6 +221,8 @@
+ 	    if (c == 7) {
+ 		mask = (unsigned) 1 << (BITBUFSIZ - 1 - 3);
+ 		while (mask & bitbuf) {  mask >>= 1;  c++;  }
++		if (c > 16)
++		    error("Bad table\n");
+ 	    }
+ 	    fillbuf((c < 7) ? 3 : c - 3);
+ 	    pt_len[i++] = c;
+--- unpack.c
++++ unpack.c
+@@ -97,6 +97,7 @@
+     int len;  /* bit length */
+     int base; /* base offset for a sequence of leaves */
+     int n;
++    int max_leaves;
+ 
+     /* Read the original input size, MSB first */
+     orig_len = 0;
+@@ -109,11 +110,15 @@
+ 
+     /* Get the number of leaves at each bit length */
+     n = 0;
++    max_leaves = 1;
+     for (len = 1; len <= max_len; len++) {
+ 	leaves[len] = (int)get_byte();
++	if (leaves[len] > max_leaves - (len == max_len))
++	    error("too many leaves in Huffman tree");
++	max_leaves = (max_leaves - leaves[len] + 1) * 2 - 1;
+ 	n += leaves[len];
+     }
+-    if (n > LITERALS) {
++    if (n >= LITERALS) {
+ 	error("too many leaves in Huffman tree");
+     }
+     Trace((stderr, "orig_len %lu, max_len %d, leaves %d\n",
+

@@ -563,22 +563,20 @@ calcsb(dev, devfd, fs)
 	}
 	memset(fs, 0, sizeof(struct fs));
 	fs->fs_fsize = pp->p_fsize;
-//	fs->fs_frag = pp->p_frag;
+	fs->fs_frag = pp->p_frag;
 	fs->fs_cpg = pp->p_cpg;
 	fs->fs_size = pp->p_size;
 	fs->fs_ntrak = lp->d_ntracks;
 	fs->fs_nsect = lp->d_nsectors;
-#warning fix this
-//	fs->fs_spc = lp->d_secpercyl;
+	fs->fs_spc = lp->d_secpercyl;
 	fs->fs_nspf = fs->fs_fsize / lp->d_secsize;
-#ifdef __APPLE__
-#warning verify this change
-	fs->fs_sblkno = SBOFF/secsize;
-#else
-	fs->fs_sblkno = roundup(
-		howmany(lp->d_bbsize + lp->d_sbsize, fs->fs_fsize),
-		fs->fs_frag);
-#endif
+	if (fs->fs_frag)
+		fs->fs_sblkno = roundup(
+			howmany(lp->d_bbsize + lp->d_sbsize, fs->fs_fsize),
+			fs->fs_frag);
+	else
+		fs->fs_sblkno = SBOFF/secsize;
+
 	fs->fs_cgmask = 0xffffffff;
 	for (i = fs->fs_ntrak; i > 1; i >>= 1)
 		fs->fs_cgmask <<= 1;

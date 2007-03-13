@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sockets.c,v 1.125.2.29 2005/05/12 16:27:21 tony2001 Exp $ */
+/* $Id: sockets.c,v 1.125.2.29.2.6 2006/08/01 12:04:14 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -515,6 +515,7 @@ PHP_RSHUTDOWN_FUNCTION(sockets)
 int php_sock_array_to_fd_set(zval *sock_array, fd_set *fds, SOCKET *max_fd TSRMLS_DC) {
 	zval		**element;
 	php_socket	*php_sock;
+	int			num = 0;
 	
 	if (Z_TYPE_P(sock_array) != IS_ARRAY) return 0;
 
@@ -529,9 +530,10 @@ int php_sock_array_to_fd_set(zval *sock_array, fd_set *fds, SOCKET *max_fd TSRML
 		if (php_sock->bsd_socket > *max_fd) {
 			*max_fd = php_sock->bsd_socket;
 		}
+		num++;
 	}
 
-	return 1;
+	return num ? 1 : 0;
 }
 
 int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) {
@@ -539,6 +541,8 @@ int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) {
 	zval		**dest_element;
 	php_socket	*php_sock;
 	HashTable	*new_hash;
+	int			num = 0;
+
 	if (Z_TYPE_P(sock_array) != IS_ARRAY) return 0;
 
 	ALLOC_HASHTABLE(new_hash);
@@ -555,6 +559,7 @@ int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) {
 			zend_hash_next_index_insert(new_hash, (void *)element, sizeof(zval *), (void **)&dest_element);
 			if (dest_element) zval_add_ref(dest_element);
 		}
+		num++;
 	}
 
 	/* Destroy old array, add new one */
@@ -564,7 +569,7 @@ int php_sock_array_from_fd_set(zval *sock_array, fd_set *fds TSRMLS_DC) {
 	zend_hash_internal_pointer_reset(new_hash);
 	Z_ARRVAL_P(sock_array) = new_hash;
 
-	return 1;
+	return num ? 1 : 0;
 }
 
 
@@ -839,7 +844,19 @@ PHP_FUNCTION(socket_read)
 	}
 
 	if (retval == -1) {
-		PHP_SOCKET_ERROR(php_sock, "unable to read from socket", errno);
+		/* if the socket is in non-blocking mode and there's no data to read,
+		don't output any error, as this is a normal situation, and not an error */
+		if (errno == EAGAIN
+#ifdef EWOULDBLOCK
+		|| errno == EWOULDBLOCK
+#endif
+		) {
+			php_sock->error = errno;
+			SOCKETS_G(last_error) = errno;
+		} else {
+			PHP_SOCKET_ERROR(php_sock, "unable to read from socket", errno);
+		}
+
 		efree(tmpbuf);
 		RETURN_FALSE;
 	}
@@ -1842,6 +1859,7 @@ PHP_FUNCTION(socket_get_option)
 	zval			*arg1;
 	struct linger	linger_val;
 	struct timeval		tv;
+	int				timeout = 0;
 	socklen_t		optlen;
 	php_socket		*php_sock;
 	int				other_val;
@@ -1871,12 +1889,24 @@ PHP_FUNCTION(socket_get_option)
 			break; 
 		case SO_RCVTIMEO:
 		case SO_SNDTIMEO:
+#ifndef PHP_WIN32
 			optlen = sizeof(tv);
 
 			if (getsockopt(php_sock->bsd_socket, level, optname, (char*)&tv, &optlen) != 0) {
 				PHP_SOCKET_ERROR(php_sock, "unable to retrieve socket option", errno);
 				RETURN_FALSE;
 			}
+#else
+			optlen = sizeof(int);
+			
+			if (getsockopt(php_sock->bsd_socket, level, optname, (char*)&timeout, &optlen) != 0) {
+				PHP_SOCKET_ERROR(php_sock, "unable to retrieve socket option", errno);
+				RETURN_FALSE;
+			}
+			
+			tv.tv_sec = timeout ? timeout / 1000 : 0;
+			tv.tv_usec = timeout ? (timeout * 1000) % 1000000 : 0;
+#endif
 
 			if (array_init(return_value) == FAILURE) {
 				RETURN_FALSE;
@@ -1908,7 +1938,7 @@ PHP_FUNCTION(socket_set_option)
 	struct linger	lv;
 	struct timeval tv;
 	php_socket		*php_sock;
-	int				ov, optlen, retval;
+	int				ov, optlen, retval, timeout;
 	long				level, optname;
 	void 			*opt_ptr;
 	
@@ -1968,11 +1998,16 @@ PHP_FUNCTION(socket_set_option)
 			
 			convert_to_long_ex(sec);
 			convert_to_long_ex(usec);
+#ifndef PHP_WIN32
 			tv.tv_sec = Z_LVAL_PP(sec);
 			tv.tv_usec = Z_LVAL_PP(usec);
-
 			optlen = sizeof(tv);
 			opt_ptr = &tv;
+#else
+			timeout = Z_LVAL_PP(sec) * 1000 + Z_LVAL_PP(usec) / 1000;
+			optlen = sizeof(int);
+			opt_ptr = &timeout;
+#endif
 			break;
 		default:
 			convert_to_long_ex(&arg4);

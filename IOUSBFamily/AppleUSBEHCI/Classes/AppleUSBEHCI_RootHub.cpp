@@ -450,6 +450,8 @@ AppleUSBEHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 wIndex)
     IOReturn	err;
     UInt16	port = wIndex;
 	
+	USBLog(4, "AppleUSBEHCI[%p]::ClearRootHubPortFeature - port %d, feature: %d",  this, wIndex, wValue);
+
 	if ( _idleSuspend )
 	{
 		USBLog(4, "AppleUSBEHCI[%p]::ClearRootHubPortFeature - in _idleSuspend - restarting",  this);
@@ -1432,4 +1434,56 @@ AppleUSBEHCI::RootHubAreAllPortsDisconnectedOrSuspended( )
 	USBLog(6, "AppleUSBEHCI[%p]::RootHubAreAllPortsDisconnectedOrSuspended - YES THEY ARE",  this);
     return result;
 }
+
+// this is a static method - hence no slot
+void
+AppleUSBEHCI::PortDetectInterruptThreadEntry(OSObject *target)
+{
+    AppleUSBEHCI *					me = OSDynamicCast(AppleUSBEHCI, target);
+	
+    if (!me )
+        return;
+	
+    me->retain();
+    me->PortDetectInterruptThread();
+    me->release();
+}
+
+void
+AppleUSBEHCI::PortDetectInterruptThread()
+{
+    UInt8						numPorts = 0;
+    UInt32						hcsParams;
+	UInt32						portSC = 0;
+    unsigned int				port;
+	
+	hcsParams = USBToHostLong(_pEHCICapRegisters->HCSParams);
+	numPorts = hcsParams & kEHCINumPortsMask;
+	
+	USBLog(5,"AppleUSBEHCI[%p]::PortDetectInterruptThread numPorts %d",  this, numPorts);
+	
+	for (port = 1; port <= numPorts; port++)
+	{
+		portSC = USBToHostLong (_pEHCIRegisters->PortSC[port-1]);
+        if (portSC & kEHCIPortSC_Resume) 
+		{
+            USBLog(3, "AppleUSBUHCI[%p]::PortDetectInterruptThread - resume detected on port %d, resuming", this, port);
+			if ( _idleSuspend )
+			{
+				USBLog(3, "AppleUSBUHCI[%p]::PortDetectInterruptThread  - restarting bus before resuming port",  this);
+				setPowerState(kEHCISetPowerLevelRunning, this);
+			}
+            EHCIRootHubPortSuspend(port, false);
+        } 
+	}
+	
+	if ( _idleSuspend )
+	{
+		USBLog(2, "AppleUSBEHCI[%p]::PortDetectInterruptThread - port change detect interrupt while in idlesuspend - restarting bus",  this);
+		setPowerState(kEHCISetPowerLevelRunning, this);
+	}
+	
+	UIMRootHubStatusChange();
+}
+
 

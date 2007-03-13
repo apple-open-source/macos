@@ -989,6 +989,7 @@ bool Token::isLocked()
 //
 ISO7816Token::ISO7816Token()
 {
+	mPrintName[0]=0;
 }
 
 ISO7816Token::~ISO7816Token()
@@ -1008,8 +1009,10 @@ void ISO7816Token::establish(const CSSM_GUID *guid, uint32 subserviceId,
 	const char *workDirectory, char mdsDirectory[PATH_MAX],
 	char printName[PATH_MAX])
 {
-	secdebug("establish", "cacheDirectory %s, workDirectory: %s",
-		cacheDirectory, workDirectory);
+	secdebug("establish", "cacheDirectory %s, workDirectory: %s, name: %s",
+		cacheDirectory, workDirectory, mPrintName);
+	if (mPrintName[0])
+		::strlcpy(printName, mPrintName, PATH_MAX);
 	Token::establish(guid, subserviceId, flags, cacheDirectory,
 		workDirectory, mdsDirectory, printName);
 
@@ -1110,6 +1113,11 @@ uint16_t ISO7816Token::transmitAPDU(uint8_t cla, uint8_t ins, uint8_t p1,
 	}
 }
 
+void ISO7816Token::name(const char *printName)
+{
+	// Set the printName
+	::strlcpy(mPrintName,printName,min(1+strlen(printName),size_t(PATH_MAX)));
+}
 
 } // end namespace Tokend
 

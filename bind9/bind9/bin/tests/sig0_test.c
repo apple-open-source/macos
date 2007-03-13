@@ -1,21 +1,21 @@
 /*
+ * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sig0_test.c,v 1.1.1.1 2003/01/10 00:47:32 bbraun Exp $ */
+/* $Id: sig0_test.c,v 1.9.12.5 2005/03/17 03:58:28 marka Exp $ */
 
 #include <config.h>
 
@@ -68,7 +68,7 @@ isc_buffer_t qbuffer, rbuffer;
 isc_taskmgr_t *taskmgr;
 isc_entropy_t *ent = NULL;
 isc_task_t *task1;
-isc_log_t *log = NULL;
+isc_log_t *lctx = NULL;
 isc_logconfig_t *logconfig = NULL;
 isc_socket_t *s;
 isc_sockaddr_t address;
@@ -155,7 +155,7 @@ buildquery(void) {
 	CHECK("dns_message_gettempname", result);
 	isc_buffer_init(&namesrc, nametext, strlen(nametext));
 	isc_buffer_add(&namesrc, strlen(nametext));
-	isc_buffer_init(&namedst, namedata, sizeof namedata);
+	isc_buffer_init(&namedst, namedata, sizeof(namedata));
 	dns_name_init(qname, NULL);
 	result = dns_name_fromtext(qname, &namesrc, dns_rootname, ISC_FALSE,
 				   &namedst);
@@ -250,7 +250,7 @@ main(int argc, char *argv[]) {
 	socketmgr = NULL;
 	RUNTIME_CHECK(isc_socketmgr_create(mctx, &socketmgr) == ISC_R_SUCCESS);
 
-	RUNTIME_CHECK(isc_log_create(mctx, &log, &logconfig) == ISC_R_SUCCESS);
+	RUNTIME_CHECK(isc_log_create(mctx, &lctx, &logconfig) == ISC_R_SUCCESS);
 
 	s = NULL;
 	RUNTIME_CHECK(isc_socket_create(socketmgr, PF_INET,
@@ -291,7 +291,7 @@ main(int argc, char *argv[]) {
 
 	isc_entropy_detach(&ent);
 
-	isc_log_destroy(&log);
+	isc_log_destroy(&lctx);
 
 	if (verbose)
 		isc_mem_stats(mctx, stdout);

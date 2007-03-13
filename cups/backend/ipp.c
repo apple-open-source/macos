@@ -1,5 +1,5 @@
 /*
- * "$Id: ipp.c,v 1.7 2005/01/04 22:10:36 jlovell Exp $"
+ * "$Id: ipp.c,v 1.7.2.1 2006/12/19 23:10:10 gelphman Exp $"
  *
  *   IPP backend for the Common UNIX Printing System (CUPS).
  *
@@ -126,7 +126,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   				/* printer-is-accepting-jobs attribute */
   const char	*charset;	/* Character set to use */
   cups_lang_t	*language;	/* Default language */
-  int		copies;		/* Number of copies remaining */
+  int		copies,			/* Number of copies for job */
+		copies_remaining;	/* Number of copies remaining */
   const char	*content_type;	/* CONTENT_TYPE environment variable */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;	/* Actions for POSIX signals */
@@ -634,10 +635,17 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   * See if the printer supports multiple copies...
   */
 
+  copies = atoi(argv[4]);
+
   if (copies_sup || argc < 7)
-    copies = 1;
+  {
+    copies_remaining = 1;
+
+    if (argc < 7)
+      copies = 1;
+  }
   else
-    copies = atoi(argv[4]);
+    copies_remaining = copies;
 
  /*
   * Figure out the character set to use...
@@ -682,7 +690,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
   reasons = 0;
 
-  while (copies > 0)
+  while (copies_remaining > 0)
   {
    /*
     * Build the IPP request...
@@ -751,6 +759,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	*/
 
 	content_type = "application/postscript";
+	copies           = 1;
+	copies_remaining = 1;
       }
     }
 #endif /* __APPLE__ */
@@ -779,7 +789,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
       cupsEncodeOptions(request, num_options, options);
       ippAddInteger(request, IPP_TAG_JOB, IPP_TAG_INTEGER, "copies",
-                    atoi(argv[4]));
+                    copies);
+      fprintf(stderr, "DEBUG: ipp backend will request %d copies to the remote server\n", copies);
     }
 
     cupsFreeOptions(num_options, options);
@@ -835,7 +846,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     if (ipp_status <= IPP_OK_CONFLICT && argc > 6)
     {
       fprintf(stderr, "PAGE: 1 %d\n", copies_sup ? atoi(argv[4]) : 1);
-      copies --;
+      copies_remaining --;
     }
     else if (ipp_status != IPP_SERVICE_UNAVAILABLE &&
 	     ipp_status != IPP_PRINTER_BUSY)
@@ -1379,5 +1390,5 @@ sigterm_handler(int sig)		/* I - Signal */
 
 
 /*
- * End of "$Id: ipp.c,v 1.7 2005/01/04 22:10:36 jlovell Exp $".
+ * End of "$Id: ipp.c,v 1.7.2.1 2006/12/19 23:10:10 gelphman Exp $".
  */

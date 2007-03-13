@@ -16,7 +16,7 @@ include $(MAKEFILEPATH)/pb_makefiles/platform.make
 include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 PROJECT_NAME	= MySQL
-MYSQL_VERSION	= mysql-4.1.13a
+MYSQL_VERSION	= mysql-4.1.22
 BUILD_DIR	= /usr
 STAGING_DIR 	:= $(shell mktemp -d /tmp/mysql-tmp-XXXXXX)
 SHARE_DIR	= /usr/share
@@ -28,12 +28,12 @@ INSTALL		=/usr/bin/install
 DITTO		=/usr/bin/ditto
 CHOWN		=/usr/sbin/chown
 PATCH		=/usr/bin/patch
-MKDIR		=/bin/mkdir
+MYSQL_CONFIG_CFLAGS	= -arch ppc -pipe
+MYSQL_MAKE_CFLAGS	= $RC_CFLAGS
 
 FILES		= $(MYSQL_VERSION).tar.gz mysqlman.1 Makefile \
 MySQL.plist MySQL.txt config.h.sed applemysqlcheckcnf \
-my-huge.cnf.patch my-large.cnf.patch mysqld_safe.patch \
-applemysqlcheckcnf.8
+my-huge.cnf.patch my-large.cnf.patch mysqld_safe.patch
 
 FILES_TO_REMOVE = \
 /usr/share/info/dir \
@@ -137,7 +137,7 @@ configure: mysql/config.status
 
 build: configure
 	$(SILENT) $(ECHO) "Building mysql..."
-	$(SILENT) $(CD) mysql;make
+	$(SILENT) $(CD) mysql; make
 	$(SILENT) $(ECHO) "Patching mysql/support-files/my-huge.cnf..."
 	$(SILENT) $(CD) mysql/support-files; $(PATCH) -u my-huge.cnf ../../my-huge.cnf.patch
 	$(SILENT) $(ECHO) "Patching mysql/support-files/my-large.cnf..."
@@ -150,9 +150,6 @@ install: build $(STAGING_DIR)$(VERSIONS_DIR) $(STAGING_DIR)$(LICENSE_DIR) $(STAG
 	$(SILENT) $(ECHO) "Installing mysql..."
 	$(SILENT) $(CD) mysql;make install DESTDIR=$(STAGING_DIR)
 	$(SILENT) $(CP) mysqlman.1 $(STAGING_DIR)/usr/share/man/man1
-	$(SILENT) $(MKDIR) -p -m 755 $(STAGING_DIR)/usr/share/man/man8
-	$(SILENT) $(CHOWN) root:wheel $(STAGING_DIR)/usr/share/man/man8
-	$(SILENT) $(CP) applemysqlcheckcnf.8 $(STAGING_DIR)/usr/share/man/man8
 	$(SILENT) $(INSTALL) -m 444 -o root -g wheel MySQL.plist $(STAGING_DIR)$(VERSIONS_DIR)
 	$(SILENT) $(INSTALL) -m 444 -o root -g wheel MySQL.txt $(STAGING_DIR)$(LICENSE_DIR)
 	$(SILENT) $(INSTALL) -m 755 -o root -g wheel applemysqlcheckcnf $(STAGING_DIR)$(LIBEXEC_DIR)

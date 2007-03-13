@@ -1,21 +1,21 @@
 /*
+ * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000, 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: lwres_test.c,v 1.1.1.1 2003/01/10 00:47:32 bbraun Exp $ */
+/* $Id: lwres_test.c,v 1.25.12.5 2005/03/17 03:58:28 marka Exp $ */
 
 #include <config.h>
 
@@ -47,7 +47,7 @@ hexdump(const char *msg, void *base, size_t len) {
 	p = base;
 	cnt = 0;
 
-	printf("*** %s (%u bytes @ %p)\n", msg, len, base);
+	printf("*** %s (%lu bytes @ %p)\n", msg, (unsigned long)len, base);
 
 	while (cnt < len) {
 		if (cnt % 16 == 0)
@@ -172,11 +172,11 @@ test_gabn(const char *target) {
 	printf("Returned real name: (%u, %s)\n",
 	       res->realnamelen, res->realname);
 	printf("%u aliases:\n", res->naliases);
-	for (i = 0 ; i < res->naliases ; i++)
+	for (i = 0; i < res->naliases; i++)
 		printf("\t(%u, %s)\n", res->aliaslen[i], res->aliases[i]);
 	printf("%u addresses:\n", res->naddrs);
 	addr = LWRES_LIST_HEAD(res->addrs);
-	for (i = 0 ; i < res->naddrs ; i++) {
+	for (i = 0; i < res->naddrs; i++) {
 		INSIST(addr != NULL);
 
 		if (addr->family == LWRES_ADDRTYPE_V4)
@@ -220,7 +220,7 @@ test_gnba(const char *target, lwres_uint32_t af) {
 	printf("Returned real name: (%u, %s)\n",
 	       res->realnamelen, res->realname);
 	printf("%u aliases:\n", res->naliases);
-	for (i = 0 ; i < res->naliases ; i++)
+	for (i = 0; i < res->naliases; i++)
 		printf("\t(%u, %s)\n", res->aliaslen[i], res->aliases[i]);
 
 	lwres_gnbaresponse_free(ctx, &res);

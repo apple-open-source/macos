@@ -1,35 +1,34 @@
 /*
  * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
- *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
 
 #include <IOKit/IOKitServer.h>
+#include <IOKit/IOKitKeysPrivate.h>
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOService.h>
@@ -765,48 +764,75 @@ void IOUserClient::setAsyncReference(OSAsyncReference asyncRef,
     asyncRef[kIOAsyncCalloutRefconIndex] = (natural_t) refcon;
 }
 
-IOReturn IOUserClient::clientHasPrivilege( void * securityToken,
-                                            const char * privilegeName )
+inline OSDictionary * CopyConsoleUser(UInt32 uid)
 {
-    kern_return_t	   kr;
-    security_token_t	   token;
-    mach_msg_type_number_t count;
-
-    count = TASK_SECURITY_TOKEN_COUNT;
-    kr = task_info( (task_t) securityToken, TASK_SECURITY_TOKEN,
-		    (task_info_t) &token, &count );
-
-    if (KERN_SUCCESS != kr)
-    {}
-    else if (!strcmp(privilegeName, kIOClientPrivilegeAdministrator))
-    {
-	if (0 != token.val[0])
-	    kr = kIOReturnNotPrivileged;
-    }
-    else if (!strcmp(privilegeName, kIOClientPrivilegeLocalUser))
-    {
-	OSArray *      array;
-	OSDictionary * user = 0;
+	OSArray * array;
+	OSDictionary * user = 0; 
 
 	if ((array = OSDynamicCast(OSArray,
 	    IORegistryEntry::getRegistryRoot()->copyProperty(gIOConsoleUsersKey))))
 	{
 	    for (unsigned int idx = 0;
 		    (user = OSDynamicCast(OSDictionary, array->getObject(idx)));
-		    idx++)
-	    {
-		OSNumber * num;
-		if ((num = OSDynamicCast(OSNumber, user->getObject(gIOConsoleSessionUIDKey)))
-		  && (token.val[0] == num->unsigned32BitValue()))
-		    break;
+		    idx++) {
+            OSNumber * num;
+            
+            if ((num = OSDynamicCast(OSNumber, user->getObject(gIOConsoleSessionUIDKey)))
+              && (uid == num->unsigned32BitValue())) {
+                user->retain();
+                break;
+            }
 	    }
 	    array->release();
 	}
-	if (!user)
-	    kr = kIOReturnNotPrivileged;
-    }
+    return user;
+}
+
+IOReturn IOUserClient::clientHasPrivilege( void * securityToken,
+                                            const char * privilegeName )
+{
+    kern_return_t           kr;
+    security_token_t        token;
+    mach_msg_type_number_t  count;
+    task_t                  task;
+    OSDictionary *          user;
+    bool                    secureConsole;
+
+    if ((secureConsole = !strcmp(privilegeName, kIOClientPrivilegeSecureConsoleProcess)))
+        task = (task_t)((IOUCProcessToken *)securityToken)->token;
     else
-	kr = kIOReturnUnsupported;
+        task = (task_t)securityToken;
+    
+    count = TASK_SECURITY_TOKEN_COUNT;
+    kr = task_info( task, TASK_SECURITY_TOKEN, (task_info_t) &token, &count );
+
+    if (KERN_SUCCESS != kr)
+    {}
+    else if (!strcmp(privilegeName, kIOClientPrivilegeAdministrator)) {
+        if (0 != token.val[0])
+            kr = kIOReturnNotPrivileged;
+    } else if (!strcmp(privilegeName, kIOClientPrivilegeLocalUser)) {
+        user = CopyConsoleUser(token.val[0]);
+        if ( user )
+            user->release();
+        else
+            kr = kIOReturnNotPrivileged;            
+    } else if (secureConsole || !strcmp(privilegeName, kIOClientPrivilegeConsoleUser)) {
+        user = CopyConsoleUser(token.val[0]);
+        if ( user ) {
+            if (user->getObject(gIOConsoleSessionOnConsoleKey) != kOSBooleanTrue)
+                kr = kIOReturnNotPrivileged;
+            else if ( secureConsole ) {
+                OSNumber * pid = OSDynamicCast(OSNumber, user->getObject(gIOConsoleSessionSecureInputPIDKey));
+                if ( pid && pid->unsigned32BitValue() != ((IOUCProcessToken *)securityToken)->pid)
+                    kr = kIOReturnNotPrivileged;
+            }
+            user->release();
+        }
+        else 
+            kr = kIOReturnNotPrivileged;
+    } else
+        kr = kIOReturnUnsupported;
 
     return (kr);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2006 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,57 +26,64 @@
 
 #ifdef GSSAPI
 
+#include "includes.h"
+
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
+#include <string.h>
+
 #include "xmalloc.h"
 #include "buffer.h"
-#include "bufaux.h"
+#include "ssh2.h"
+#include "key.h"
+#include "cipher.h"
 #include "kex.h"
 #include "log.h"
 #include "packet.h"
 #include "dh.h"
-#include "canohost.h"
-#include "ssh2.h"
+
 #include "ssh-gss.h"
 
 void
 kexgss_client(Kex *kex) {
 	gss_buffer_desc send_tok = GSS_C_EMPTY_BUFFER;
-        gss_buffer_desc recv_tok, gssbuf, msg_tok, *token_ptr;
+	gss_buffer_desc recv_tok, gssbuf, msg_tok, *token_ptr;
 	Gssctxt *ctxt;
 	OM_uint32 maj_status, min_status, ret_flags;
-	unsigned int klen, kout;
+	u_int klen, kout, slen = 0, hashlen, strlen;
 	DH *dh; 
 	BIGNUM *dh_server_pub = NULL;
 	BIGNUM *shared_secret = NULL;
 	BIGNUM *p = NULL;
 	BIGNUM *g = NULL;	
-	unsigned char *kbuf;
-	unsigned char *hash;
-	unsigned char *serverhostkey = NULL;
+	u_char *kbuf, *hash;
+	u_char *serverhostkey = NULL;
 	char *msg;
 	char *lang;
 	int type = 0;
 	int first = 1;
-	int slen = 0;
-	int gex = 0;
-	int nbits, min, max;
-	u_int strlen;
+	int nbits = 0, min = DH_GRP_MIN, max = DH_GRP_MAX;
 
 	/* Initialise our GSSAPI world */	
 	ssh_gssapi_build_ctx(&ctxt);
-	if (ssh_gssapi_id_kex(ctxt, kex->name, &gex) == NULL)
+	if (ssh_gssapi_id_kex(ctxt, kex->name, kex->kex_type) 
+	    == GSS_C_NO_OID)
 		fatal("Couldn't identify host exchange");
 
 	if (ssh_gssapi_import_name(ctxt, kex->gss_host))
 		fatal("Couldn't import hostname");
 	
-	if (gex) {
+	switch (kex->kex_type) {
+	case KEX_GSS_GRP1_SHA1:
+		dh = dh_new_group1();
+		break;
+	case KEX_GSS_GRP14_SHA1:
+		dh = dh_new_group14();
+		break;
+	case KEX_GSS_GEX_SHA1:
 		debug("Doing group exchange\n");
 		nbits = dh_estimate(kex->we_need * 8);
-		min = DH_GRP_MIN;
-		max = DH_GRP_MAX;
 		packet_start(SSH2_MSG_KEXGSS_GROUPREQ);
 		packet_put_int(min);
 		packet_put_int(nbits);
@@ -99,8 +106,9 @@ kexgss_client(Kex *kex) {
 			    min, BN_num_bits(p), max);
 
 		dh = dh_new_group(g, p);
-	} else {
-		dh = dh_new_group1();
+		break;
+	default:
+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
 	}
 	
 	/* Step 1 - e is dh->pub_key */
@@ -208,7 +216,7 @@ kexgss_client(Kex *kex) {
 				min_status = packet_get_int();
 				msg = packet_get_string(NULL);
 				lang = packet_get_string(NULL);
-				fatal("GSSAPI Error: \n%s",msg);
+				fatal("GSSAPI Error: \n%.400s",msg);
 			default:
 				packet_disconnect("Protocol error: didn't expect packet type %d",
 		    		type);
@@ -243,8 +251,24 @@ kexgss_client(Kex *kex) {
 	memset(kbuf, 0, klen);
 	xfree(kbuf);
 
-	if (gex) {
-		hash = kexgex_hash( kex->client_version_string,
+	switch (kex->kex_type) {
+	case KEX_GSS_GRP1_SHA1:
+	case KEX_GSS_GRP14_SHA1:
+		kex_dh_hash( kex->client_version_string, 
+		    kex->server_version_string,
+		    buffer_ptr(&kex->my), buffer_len(&kex->my),
+		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
+		    serverhostkey, slen, /* server host key */
+		    dh->pub_key,	/* e */
+		    dh_server_pub,	/* f */
+		    shared_secret,	/* K */
+		    &hash, &hashlen
+		);
+		break;
+	case KEX_GSS_GEX_SHA1:
+		kexgex_hash(
+		    kex->evp_md,
+		    kex->client_version_string,
 		    kex->server_version_string,
 		    buffer_ptr(&kex->my), buffer_len(&kex->my),
 		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
@@ -253,25 +277,18 @@ kexgss_client(Kex *kex) {
 		    dh->p, dh->g,
 		    dh->pub_key,
 		    dh_server_pub,
-		    shared_secret
+		    shared_secret,
+		    &hash, &hashlen
 		);
-	} else {
-		/* The GSS hash is identical to the DH one */
-		hash = kex_dh_hash( kex->client_version_string, 
-		    kex->server_version_string,
-		    buffer_ptr(&kex->my), buffer_len(&kex->my),
-		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
-		    serverhostkey, slen, /* server host key */
-		    dh->pub_key,	/* e */
-		    dh_server_pub,	/* f */
-		    shared_secret	/* K */
-		);
-        }
+		break;
+	default:
+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
+	}
 
 	gssbuf.value = hash;
-	gssbuf.length = 20;
+	gssbuf.length = hashlen;
 
-        /* Verify that the hash matches the MIC we just got. */
+	/* Verify that the hash matches the MIC we just got. */
 	if (GSS_ERROR(ssh_gssapi_checkmic(ctxt, &gssbuf, &msg_tok)))
 		packet_disconnect("Hash's MIC didn't verify");
 
@@ -284,7 +301,7 @@ kexgss_client(Kex *kex) {
 
 	/* save session id */
 	if (kex->session_id == NULL) {
-		kex->session_id_len = 20;
+		kex->session_id_len = hashlen;
 		kex->session_id = xmalloc(kex->session_id_len);
 		memcpy(kex->session_id, hash, kex->session_id_len);
 	}
@@ -294,7 +311,7 @@ kexgss_client(Kex *kex) {
 	else
 		ssh_gssapi_delete_ctx(&ctxt);
 
-	kex_derive_keys(kex, hash, shared_secret);
+	kex_derive_keys(kex, hash, hashlen, shared_secret);
 	BN_clear_free(shared_secret);
 	kex_finish(kex);
 }

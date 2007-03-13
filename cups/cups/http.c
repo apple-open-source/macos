@@ -1,5 +1,5 @@
 /*
- * "$Id: http.c,v 1.28.2.3 2006/02/27 21:19:12 jlovell Exp $"
+ * "$Id: http.c,v 1.28.2.4 2006/12/07 19:23:03 jlovell Exp $"
  *
  *   HTTP routines for the Common UNIX Printing System (CUPS).
  *
@@ -69,8 +69,8 @@
  *   http_shutdown_ssl()  - Shut down SSL/TLS on a connection.
  *   http_read_ssl()      - Read from a SSL/TLS connection.
  *   http_write_ssl()     - Write to a SSL/TLS connection.
- *   CDSAReadFunc()       - Read function for CDSA decryption code.
- *   CDSAWriteFunc()      - Write function for CDSA encryption code.
+ *   _httpReadCDSA()      - Read function for CDSA decryption code.
+ *   _httpWriteCDSA()     - Write function for CDSA encryption code.
  */
 
 /*
@@ -138,10 +138,6 @@ static int		http_setup_ssl(http_t *http);
 static void		http_shutdown_ssl(http_t *http);
 static int		http_read_ssl(http_t *http, char *buf, int len);
 static int		http_write_ssl(http_t *http, const char *buf, int len);
-#  ifdef HAVE_CDSASSL
-static OSStatus		CDSAReadFunc(SSLConnectionRef connection, void *data, size_t *dataLength);
-static OSStatus		CDSAWriteFunc(SSLConnectionRef connection, const void *data, size_t *dataLength);
-#  endif /* HAVE_CDSASSL */
 #endif /* HAVE_SSL */
 
 #if HAVE_DOMAINSOCKETS
@@ -2285,43 +2281,30 @@ http_upgrade(http_t *http)	/* I - HTTP data */
   * encryption on the link...
   */
 
-  httpClearFields(&myhttp);
-  httpSetField(&myhttp, HTTP_FIELD_CONNECTION, "upgrade");
-  httpSetField(&myhttp, HTTP_FIELD_UPGRADE, "TLS/1.0, SSL/2.0, SSL/3.0");
+  httpClearFields(http);
+  httpSetField(http, HTTP_FIELD_CONNECTION, "upgrade");
+  httpSetField(http, HTTP_FIELD_UPGRADE, "TLS/1.0, SSL/2.0, SSL/3.0");
 
-  if ((ret = httpOptions(&myhttp, "*")) == 0)
+  if ((ret = httpOptions(http, "*")) == 0)
   {
    /*
     * Wait for the secure connection...
     */
 
-    while (httpUpdate(&myhttp) == HTTP_CONTINUE);
+    while (httpUpdate(http) == HTTP_CONTINUE);
   }
 
-  httpFlush(&myhttp);
+  httpFlush(http);
 
  /*
-  * Copy the HTTP data back over, if any...
+  * Restore the HTTP request data...
   */
 
-  http->fd         = myhttp.fd;
-  http->error      = myhttp.error;
-  http->activity   = myhttp.activity;
-  http->status     = myhttp.status;
-  http->version    = myhttp.version;
-  http->keep_alive = myhttp.keep_alive;
-  http->used       = myhttp.used;
-
-  if (http->used)
-    memcpy(http->buffer, myhttp.buffer, http->used);
-
-  http->auth_type   = myhttp.auth_type;
-  http->nonce_count = myhttp.nonce_count;
-
-  memcpy(http->nonce, myhttp.nonce, sizeof(http->nonce));
-
-  http->tls        = myhttp.tls;
-  http->encryption = myhttp.encryption;
+  memcpy(http->fields, myhttp.fields, sizeof(http->fields));
+  http->data_encoding   = myhttp.data_encoding;
+  http->data_remaining  = myhttp.data_remaining;
+  http->deprecated_data_remaining = myhttp.deprecated_data_remaining;
+  http->expect          = myhttp.expect;
 
  /*
   * See if we actually went secure...
@@ -2446,10 +2429,10 @@ http_setup_ssl(http_t *http)		/* I - HTTP data */
   error = (*_cupsSSLNewContextProc)(false, &conn);
 
   if (!error)
-    error = (*_cupsSSLSetIOFuncsProc)(conn, CDSAReadFunc, CDSAWriteFunc);
+    error = (*_cupsSSLSetIOFuncsProc)(conn, _httpReadCDSA, _httpWriteCDSA);
 
   if (!error)
-    error = (*_cupsSSLSetConnectionProc)(conn, (SSLConnectionRef)http->fd);
+    error = (*_cupsSSLSetConnectionProc)(conn, (SSLConnectionRef)http);
 
   if (!error)
     error = (*_cupsSSLSetEnableCertVerifyProc)(conn, FALSE);
@@ -2636,23 +2619,43 @@ http_write_ssl(http_t     *http,	/* I - HTTP data */
 
 #  if defined(HAVE_CDSASSL)
 /*
- * 'CDSAReadFunc()' - Read function for CDSA decryption code.
+ * '_httpReadCDSA()' - Read function for CDSA decryption code.
  */
 
-static OSStatus					/* O  - -1 on error, 0 on success */
-CDSAReadFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
+OSStatus					/* O  - -1 on error, 0 on success */
+_httpReadCDSA(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
              void             *data,		/* I  - Data buffer */
 	     size_t           *dataLength)	/* IO - Number of bytes */
 {
   OSStatus	result;				/* Function return value */
   ssize_t	bytes;				/* Number of bytes read */
+  http_t	*http;				/* HTTP connection */
+
+  http = (http_t *)connection;
+
+  if (!http->blocking)
+  {
+   /*
+    * Make sure we have data before we read...
+    */
+
+    if (!http_wait(http, 10000))
+    {
+      http->error = ETIMEDOUT;
+      return (-1);
+    }
+  }
 
   do
-    bytes = recv((int)connection, data, *dataLength, 0);
+  {
+    bytes = recv(http->fd, data, *dataLength, 0);
+  }
   while (bytes == -1 && errno == EINTR);
 
   if (bytes == *dataLength)
+  {
     result = 0;
+  }
   else if (bytes > 0)
   {
     *dataLength = bytes;
@@ -2677,23 +2680,30 @@ CDSAReadFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
 
 
 /*
- * 'CDSAWriteFunc()' - Write function for CDSA encryption code.
+ * '_httpWriteCDSA()' - Write function for CDSA encryption code.
  */
 
-static OSStatus					/* O  - -1 on error, 0 on success */
-CDSAWriteFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
+OSStatus					/* O  - -1 on error, 0 on success */
+_httpWriteCDSA(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
               const void       *data,		/* I  - Data buffer */
 	      size_t           *dataLength)	/* IO - Number of bytes */
 {
   OSStatus	result;				/* Function return value */
   ssize_t	bytes;				/* Number of bytes written */
+  http_t	*http;				/* HTTP connection */
+
+  http = (http_t *)connection;
 
   do
-    bytes = write((int)connection, data, *dataLength);
+  {
+    bytes = write(http->fd, data, *dataLength);
+  }
   while (bytes == -1 && errno == EINTR);
 
   if (bytes == *dataLength)
+  {
     result = 0;
+  }
   else if (bytes >= 0)
   {
     *dataLength = bytes;
@@ -2868,5 +2878,5 @@ static void wakeupCupsd()
 #endif /* __APPLE__ */
 
 /*
- * End of "$Id: http.c,v 1.28.2.3 2006/02/27 21:19:12 jlovell Exp $".
+ * End of "$Id: http.c,v 1.28.2.4 2006/12/07 19:23:03 jlovell Exp $".
  */

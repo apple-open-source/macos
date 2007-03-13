@@ -24,7 +24,7 @@ FREETYPESRC = $(FREETYPETOP)/src
 FREETYPEINC = $(FREETYPETOP)/include/freetype
 
 #ifdef DarwinArchitecture
-# if DarwinQuartzSupport
+# if DarwinQuartzSupport && !defined (Ppc64DarwinArchitecture)
 DARWINDEFINES = -DTARGET_API_MAC_CARBON=TRUE
 REQUIREDLIBS = -framework CoreServices -framework ApplicationServices
 # else
@@ -93,7 +93,7 @@ OBJS_BASE = ftapi.o \
             ftwinfnt.o \
             ftxf86.o
 
-#if defined(DarwinArchitecture) && DarwinQuartzSupport
+#if defined(DarwinArchitecture) && DarwinQuartzSupport && !defined (Ppc64DarwinArchitecture)
 SRCS_MACBASE  = ftmac.c
 OBJS_MACBASE  = ftmac.o
 #endif

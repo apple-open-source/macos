@@ -52,7 +52,7 @@ import java.security.NoSuchAlgorithmException;
  * @author David Czarnecki
  * @author Mark Lussier
  * @author Dan Morrill
- * @version $Id: Blog.java,v 1.13.2.1 2005/07/21 14:11:02 johnan Exp $
+ * @version $Id: Blog.java,v 1.13.2.2 2006/10/19 21:14:32 johnan Exp $
  */
 public class Blog implements BlojsomConstants {
 
@@ -632,12 +632,30 @@ public class Blog implements BlojsomConstants {
     }
 
     /**
+     * Return the blog owner's HTML escaped e-mail address
+     * 
+     * @return Blog owner's e-mail
+     */
+    public String getEscapedBlogOwnerEmail() {
+        return BlojsomUtils.escapeString(_blogOwnerEmail);
+    }
+
+    /**
      * Return the blog owner's name
      * 
      * @return Blog owner's name
      */
     public String getBlogOwner() {
         return _blogOwner;
+    }
+
+    /**
+     * Return the blog owner's HTML escaped name
+     * 
+     * @return Blog owner's name
+     */
+    public String getEscapedBlogOwner() {
+        return BlojsomUtils.escapeString(_blogOwner);
     }
 
     /**

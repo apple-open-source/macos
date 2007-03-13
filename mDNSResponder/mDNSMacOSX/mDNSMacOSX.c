@@ -3,14 +3,14 @@
  * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,12 +18,18 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
 
     Change History (most recent first):
 
 $Log: mDNSMacOSX.c,v $
+Revision 1.318.2.2  2006/12/14 21:38:51  cheshire
+Fix problem exposed by previous changes: kSecAccountItemAttr is not necessarily nul-terminated
+
+Revision 1.318.2.1  2006/10/31 02:37:04  cheshire
+<rdar://problem/4779534> Stop creating HINFO records
+
 Revision 1.318  2005/10/20 00:10:34  cheshire
 <rdar://problem/4290265> Add check to avoid crashing NAT gateways that have buggy DNS relay code
 
@@ -536,10 +542,10 @@ Revision 1.161  2004/08/11 00:17:46  ksekar
 set default bit for their domains
 
 Revision 1.160  2004/07/29 19:27:16  ksekar
-NATPMP Support - minor fixes and cleanup
+NAT-PMP Support - minor fixes and cleanup
 
 Revision 1.159  2004/07/26 22:49:31  ksekar
-<rdar://problem/3651409>: Feature #9516: Need support for NATPMP in client
+<rdar://problem/3651409>: Feature #9516: Need support for NAT-PMP in client
 
 Revision 1.158  2004/07/13 21:24:24  rpantos
 Fix for <rdar://problem/3701120>.
@@ -965,6 +971,12 @@ Minor code tidying
 // For debugging, set LIST_ALL_INTERFACES to 1 to display all found interfaces,
 // including ones that mDNSResponder chooses not to use.
 #define LIST_ALL_INTERFACES 0
+
+// For debugging, being able to identify software versions is useful.
+// Some people are concerned that this information could be exploited by hackers.
+// I'm not totally convinced by that argument, but we don't want to cause our users distress,
+// so for shipping code, define "NO_HINFO" to suppress the generation of HINFO records. -- SC
+#define NO_HINFO 1
 
 // For enabling AAAA records over IPv4. Setting this to 0 sends only
 // A records over IPv4 and AAAA over IPv6. Setting this to 1 sends both
@@ -2934,7 +2946,8 @@ mDNSlocal void SetSecretForDomain(mDNS *m, const domainname *domain)
 				if (attr.tag == kSecAccountItemAttr)
 					{
 					if (!attr.length || attr.length > MAX_ESCAPED_DOMAIN_NAME) { LogMsg("SetSecretForDomain - Bad key length %d", attr.length); goto cleanup; }					
-					strncpy(keybuf, attr.data, attr.length);
+					memcpy(keybuf, attr.data, attr.length);
+					keybuf[attr.length] = 0;
 					if (!MakeDomainNameFromDNSNameString(&keyname, keybuf)) { LogMsg("SetSecretForDomain - bad key %s", keybuf); goto cleanup; }
 					debugf("Setting shared secret for zone %s with key %##s", dstring, keyname.c);
 					mDNS_SetSecretForZone(m, d, &keyname, secret);
@@ -3517,6 +3530,7 @@ mDNSlocal mStatus mDNSPlatformInit_setup(mDNS *const m)
 	if (mDNSMacOSXSystemBuildNumber(HINFO_SWstring) < 7) m->KnownBugs |= mDNS_KnownBug_PhantomInterfaces;
 	if (mDNSPlatformInit_CanReceiveUnicast())            m->CanReceiveUnicastOn5353 = mDNStrue;
 
+#ifndef NO_HINFO
 	mDNSu32 hlen = mDNSPlatformStrLen(HINFO_HWstring);
 	mDNSu32 slen = mDNSPlatformStrLen(HINFO_SWstring);
 	if (hlen + slen < 254)
@@ -3526,6 +3540,7 @@ mDNSlocal mStatus mDNSPlatformInit_setup(mDNS *const m)
 		mDNSPlatformMemCopy(HINFO_HWstring, &m->HIHardware.c[1], hlen);
 		mDNSPlatformMemCopy(HINFO_SWstring, &m->HISoftware.c[1], slen);
 		}
+#endif /* NO_HINFO */
 
  	m->p->unicastsockets.m     = m;
 	m->p->unicastsockets.info  = NULL;

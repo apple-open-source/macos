@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: output.c,v 1.142.2.16.2.1 2005/08/24 16:20:12 iliaa Exp $ */
+/* $Id: output.c,v 1.142.2.16.2.4 2006/01/01 13:46:59 sniper Exp $ */
 
 #include "php.h"
 #include "ext/standard/head.h"
@@ -240,7 +240,7 @@ PHPAPI void php_end_ob_buffer(zend_bool send_buffer, zend_bool just_flush TSRMLS
 		OG(ob_lock) = 1;
 
 		if (call_user_function_ex(CG(function_table), NULL, OG(active_ob_buffer).output_handler, &alternate_buffer, 2, params, 1, NULL TSRMLS_CC)==SUCCESS) {
-			if (!(Z_TYPE_P(alternate_buffer)==IS_BOOL && Z_BVAL_P(alternate_buffer)==0)) {
+			if (alternate_buffer && !(Z_TYPE_P(alternate_buffer)==IS_BOOL && Z_BVAL_P(alternate_buffer)==0)) {
 				convert_to_string_ex(&alternate_buffer);
 				final_buffer = Z_STRVAL_P(alternate_buffer);
 				final_buffer_length = Z_STRLEN_P(alternate_buffer);
@@ -296,7 +296,7 @@ PHPAPI void php_end_ob_buffer(zend_bool send_buffer, zend_bool just_flush TSRMLS
 	OG(ob_nesting_level)--;
 
 	if (send_buffer) {
-		if (just_flush) { /* if flush is called prior to proper end, ensure presence of NUL */
+		if (just_flush && final_buffer[0] != '\0') { /* if flush is called prior to proper end, ensure presence of NUL */
 			final_buffer[final_buffer_length] = '\0';
 		}
 		OG(php_body_write)(final_buffer, final_buffer_length TSRMLS_CC);

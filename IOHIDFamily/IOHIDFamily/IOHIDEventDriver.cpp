@@ -131,6 +131,17 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
 	
 	if ( !_interface )
 		return false;
+
+    IOService * service = provider->getProvider();
+    
+    // Check to see if this is a product of an IOHIDevice or IOHIDDevice shim
+    while (service = service->getProvider())
+    {
+        if(service->metaCast("IOHIDevice") || service->metaCast("IOHIDDevice"))
+        {
+            return false;
+        }
+    }
 						
 	if (!_interface->open(this, 0, _handleInterruptReport, 0))
         return false;
@@ -148,6 +159,8 @@ bool IOHIDEventDriver::handleStart( IOService * provider )
     
     if (number) 
         bootProtocol = number->unsigned32BitValue();
+        
+    setProperty("BootProtocol", number);
 
     if ( !findElements ( _interface->createMatchingElements(), bootProtocol ))
         return false;
@@ -522,6 +535,7 @@ void IOHIDEventDriver::handleInterruptReport (
     SInt32          tipPressureMax  = EV_MAXPRESSURE;
     SInt32          barrelPressureMin = 0;
     SInt32          barrelPressureMax = 0;
+    SInt32          boundsDiff      = 0;
     bool            absoluteAxis    = false;
     bool            pointingHandled = false;
     bool            tabletHandled   = false;
@@ -573,6 +587,9 @@ void IOHIDEventDriver::handleInterruptReport (
                             absoluteX       = element->getValue();
                             bounds.minx     = element->getLogicalMin();
                             bounds.maxx     = element->getLogicalMax();
+                            boundsDiff      = ((bounds.maxx - bounds.minx) * 15) / 200;
+                            bounds.minx     += boundsDiff;
+                            bounds.maxx     -= boundsDiff;
                         }
                         break;
                     
@@ -590,6 +607,9 @@ void IOHIDEventDriver::handleInterruptReport (
                             absoluteY       = element->getValue();
                             bounds.miny     = element->getLogicalMin();
                             bounds.maxy     = element->getLogicalMax();                            
+                            boundsDiff      = ((bounds.maxy - bounds.miny) * 15) / 200;
+                            bounds.miny     += boundsDiff;
+                            bounds.maxy     -= boundsDiff;
                         }
                         break;
 
@@ -646,13 +666,15 @@ void IOHIDEventDriver::handleInterruptReport (
                         tabletHandled      |= elementIsCurrent;
                         barrelPressure      = element->getValue();
                         barrelPressureMin   = element->getLogicalMin();
-                        barrelPressureMax   = element->getLogicalMax();                        
+                        barrelPressureMax   = element->getLogicalMax();
+                        barrelPressureMin  += ((barrelPressureMax - barrelPressureMin) * 15) / 100;                        
                         break;
                     case kHIDUsage_Dig_TipPressure:
                         tabletHandled  |= elementIsCurrent;
                         tipPressure     = element->getValue();
                         tipPressureMin  = element->getLogicalMin();
-                        tipPressureMax  = element->getLogicalMax();                        
+                        tipPressureMax  = element->getLogicalMax();
+                        tipPressureMin  += ((tipPressureMax - tipPressureMin) * 15) / 100;                        
                         break;
                     case kHIDUsage_Dig_XTilt:
                         tabletHandled  |= elementIsCurrent;
@@ -761,9 +783,15 @@ void IOHIDEventDriver::handleInterruptReport (
         
     if ( pointingHandled || proximityHandled )
     {
-        if ( proximityHandled || (absoluteAxis && !relativeX && !relativeY && 
+        if ( proximityHandled || (absoluteAxis && inRange && !relativeX && !relativeY && 
             !((buttonState != _cachedButtonState) && _relativeButtonCollection))) 
         {
+            if ( !inRange )
+            {
+                buttonState = 0;
+                tipPressure = tipPressureMin;
+            }
+            
             dispatchAbsolutePointerEvent(timeStamp, absoluteX, absoluteY, &bounds, buttonState, inRange, tipPressure, tipPressureMin, tipPressureMax);
         } 
         else if (relativeX || relativeY || (buttonState != _cachedButtonState)) 

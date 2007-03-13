@@ -457,10 +457,22 @@ IOHIDKeyboardDevice::newKeyboardDeviceAndStart(IOService * owner, UInt32 locatio
 
     IOHIDKeyboardDevice * device = new IOHIDKeyboardDevice;
     
-    if (device && (!device->initWithLocation(location) || !device->attach(owner) || !device->start(owner)))
+    if (device)
     {
-        device->release();
-        device = 0;
+        if ( device->initWithLocation(location) && device->attach(owner) )
+        {
+            if (!device->start(owner))
+            {
+                device->detach(owner);
+                device->release();
+                device = 0;
+            }
+        }
+        else 
+        {
+            device->release();
+            device = 0;
+        }
     }
     
     return device;

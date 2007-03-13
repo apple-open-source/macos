@@ -1,7 +1,11 @@
 /* crypto/opensslconf.h.in */
 
 /* Generate 80386 code? */
+#if defined(__i386__)                                            
+#define I386_ONLY
+#else /* !__i386__ */
 #undef I386_ONLY
+#endif /* __i386__ */
 
 #if !(defined(VMS) || defined(__VMS)) /* VMS uses logical names instead */
 #if defined(HEADER_CRYPTLIB_H) && !defined(OPENSSLDIR)
@@ -66,8 +70,15 @@
  * EIGHT_BIT but I don't care since I've only used this mode
  * for debuging the bignum libraries */
 #undef SIXTY_FOUR_BIT_LONG
+
+#ifdef __LP64__
+#define SIXTY_FOUR_BIT
+#undef THIRTY_TWO_BIT
+#else
 #undef SIXTY_FOUR_BIT
 #define THIRTY_TWO_BIT
+#endif /* __LP64__ */
+
 #undef SIXTEEN_BIT
 #undef EIGHT_BIT
 #endif

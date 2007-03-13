@@ -54,7 +54,7 @@ int do_unlink(char *fname)
 	if (dry_run) return 0;
 	RETURN_ERROR_IF_RO_OR_LO;
 #ifdef HAVE_COPYFILE
-	if (!strncmp("._", fname, 2))
+	if (extended_attributes && !strncmp("._", basename(fname), 2))
 	{
 	    int ret;
 	    ret = unlink(fname);

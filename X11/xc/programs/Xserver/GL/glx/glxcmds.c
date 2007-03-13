@@ -638,7 +638,7 @@ static int DoMakeCurrent( __GLXclientState *cl,
     }
 
     if (prevglxc) {
-	if (prevglxc->drawPixmap) {
+      if (prevglxc->drawPixmap && prevglxc->readPixmap) {
 	    if (prevglxc->drawPixmap != prevglxc->readPixmap) {
 		/*
 		** The previous drawable was a glx pixmap, release it.

@@ -130,11 +130,11 @@ int RSA_padding_check_SSLv23(unsigned char *to, int tlen,
 		RSAerr(RSA_F_RSA_PADDING_CHECK_SSLV23,RSA_R_NULL_BEFORE_BLOCK_MISSING);
 		return(-1);
 		}
-	for (k= -8; k<0; k++)
+	for (k= -9; k<-1; k++)
 		{
 		if (p[k] !=  0x03) break;
 		}
-	if (k == -1)
+	if (k != -1)
 		{
 		RSAerr(RSA_F_RSA_PADDING_CHECK_SSLV23,RSA_R_SSLV3_ROLLBACK_ATTACK);
 		return(-1);

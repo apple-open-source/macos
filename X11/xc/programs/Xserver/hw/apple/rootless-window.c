@@ -42,7 +42,7 @@
 #include "x-hash.h"
 #include "x-list.h"
 #define _APPLEWM_SERVER_
-#include "applewmstr.h"
+#include "applewm-impl.h"
 
 #include "fb.h"
 #include "propertyst.h"

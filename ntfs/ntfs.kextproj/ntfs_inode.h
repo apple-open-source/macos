@@ -115,8 +115,6 @@ struct fnode {
 	u_int32_t       f_lastdblnum;
 	u_int32_t       f_lastdoff;
 	u_int32_t       f_lastdnum;
-	caddr_t         f_dirblbuf;
-	u_int32_t       f_dirblsz;
 	
 	size_t			f_compsize;		/* Bytes per compression unit; 0 if not compressed */
 };

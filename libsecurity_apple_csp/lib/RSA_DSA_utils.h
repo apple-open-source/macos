@@ -31,6 +31,9 @@
 extern "C" {
 #endif
 
+uint32 rsaMaxKeySize();
+uint32 rsaMaxPubExponentSize();
+
 /* 
  * Given a Context:
  * -- obtain CSSM key (there must only be one)

@@ -77,12 +77,12 @@ protected:
     IONotificationPortRef 		fAsyncPort;
     CFRunLoopRef 		fRunLoop;
     IONotificationPortRef 	fNotifyPort;
+    mach_port_t             fDeviceValidPort;
     CFRunLoopSourceRef 		fCFSource;
 	CFRunLoopSourceRef		fNotifyCFSource;
     bool 			fIsOpen;
     bool 			fIsLUNZero;
     bool			fIsTerminated;
-    bool			fIsSeized;
     bool            fAsyncPortSetupDone;
     UInt32			fCachedFlags;
 	
@@ -116,6 +116,13 @@ protected:
     void *				fInputReportBuffer;
     UInt32				fInputReportBufferSize;   
 
+    UInt32              fGeneration;
+
+    virtual IOReturn createSharedMemory(UInt32 generation);
+    virtual IOReturn releaseSharedMemory();
+    
+    virtual Boolean isValid();
+
     // routines to create owned classes
     HRESULT queryInterfaceQueue (void **ppv);
     HRESULT queryInterfaceOutputTransaction (void **ppv);
@@ -126,11 +133,11 @@ protected:
                                 
     void convertByteToWord( const UInt8 * src,
                         UInt32 *      dst,
-                        UInt32        bitsToCopy);
+                        UInt32        bytesToCopy);
     
     void convertWordToByte( const UInt32 * src,
                         UInt8 *        dst,
-                        UInt32         bitsToCopy);
+                        UInt32         bytesToCopy);
                         
 	IOReturn finishAsyncPortSetup();
 	IOReturn finishReportHandlerQueueSetup();
@@ -210,8 +217,8 @@ public:
                                 void * 				callbackTarget,
                                 void *				callbackRefcon);
 
-    virtual IOReturn startAllQueues(bool deviceInitiated = false);
-    virtual IOReturn stopAllQueues(bool deviceInitiated = false);
+    virtual IOReturn startAllQueues();
+    virtual IOReturn stopAllQueues();
 
     virtual IOHIDQueueInterface ** allocQueue();
     

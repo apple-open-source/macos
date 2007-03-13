@@ -65,6 +65,7 @@
 #include <sys/buf.h>
 #include <sys/fcntl.h>
 #include <sys/malloc.h>
+#include <libkern/OSMalloc.h>
 #include <miscfs/specfs/specdev.h>
 #include <string.h>
 #include <mach/memory_object_types.h>
@@ -88,8 +89,6 @@
 #include "ntfsmount.h"
 
 MALLOC_DEFINE(M_NTFSMNT, "NTFS mount", "NTFS mount structure");
-MALLOC_DEFINE(M_NTFSNTNODE,"NTFS ntnode",  "NTFS ntnode information");
-MALLOC_DEFINE(M_NTFSFNODE,"NTFS fnode",  "NTFS fnode information");
 MALLOC_DEFINE(M_NTFSDIR,"NTFS dir",  "NTFS dir buffer");
 
 extern int (**ntfs_vnodeop_p)(void *);		/* vnode dispatch table */
@@ -108,6 +107,8 @@ static int	ntfs_init(struct vfsconf *);
 
 static int ntfs_calccfree(struct ntfsmount *, proc_t, cn_t *);
 
+OSMallocTag ntfs_malloc_tag;
+
 static int
 ntfs_init (
 	struct vfsconf *vcp )
@@ -120,7 +121,6 @@ ntfs_init (
 
 	return 0;
 }
-
 
 static int
 ntfs_mount ( 
@@ -217,7 +217,7 @@ ntfs_mountfs(devvp, mp, argsp, context)
 	error = (int)buf_meta_bread(devvp, BBLOCK, BBSIZE, vfs_context_ucred(context), &bp);
 	if (error)
 		goto out;
-	MALLOC(ntmp, struct ntfsmount *, sizeof *ntmp, M_NTFSMNT, M_WAITOK);
+	ntmp = OSMalloc(sizeof(struct ntfsmount), ntfs_malloc_tag);
 	bzero(ntmp, sizeof *ntmp);
 	bootfile_to_host((struct bootfile *) buf_dataptr(bp), &ntmp->ntm_bootfile);
 	buf_markaged(bp);
@@ -360,7 +360,7 @@ out:
 	if (ntmp) {
             if (ntmp->ntm_ad)
                 FREE(ntmp->ntm_ad, M_NTFSMNT);
-            FREE(ntmp, M_NTFSMNT);
+	    OSFree(ntmp, sizeof(struct ntfsmount), ntfs_malloc_tag);
             vfs_setfsprivate(mp, NULL);
         }
 	return (error);
@@ -410,7 +410,7 @@ ntfs_unmount(
 
 	dprintf(("ntfs_umount: freeing memory...\n"));
 	FREE(ntmp->ntm_ad, M_NTFSMNT);
-	FREE(ntmp, M_NTFSMNT);
+	OSFree(ntmp, sizeof(struct ntfsmount), ntfs_malloc_tag);
 	vfs_setfsprivate(mp, NULL);
 	return (error);
 }
@@ -452,7 +452,7 @@ ntfs_calccfree(
 
 	bmsize = VTOF(vp)->f_size;
 
-	MALLOC(tmp, u_int8_t *, MAXBSIZE, M_TEMP, M_WAITOK);
+	tmp = OSMalloc(MAXBSIZE, ntfs_malloc_tag);
 
 	for (bmbase = 0; bmbase < bmsize; bmbase += MAXBSIZE) {
 		readsize = MIN(bmsize - bmbase, MAXBSIZE);
@@ -470,7 +470,7 @@ ntfs_calccfree(
 	*cfreep = cfree;
 
 out:
-	FREE(tmp, M_TEMP);
+	OSFree(tmp, MAXBSIZE, ntfs_malloc_tag);
 	return(error);
 }
 
@@ -816,6 +816,8 @@ ntfs_kext_start(struct kmod_info_t *ki, void *data)
 	errno_t error;
 	struct vfs_fsentry vfe;
 
+	ntfs_malloc_tag = OSMalloc_Tagalloc("ntfs", OSMT_DEFAULT);
+
 	vfe.vfe_vfsops = &ntfs_vfsops;
 	vfe.vfe_vopcnt = 1;		/* We just have vnode operations for regular files and directories */
 	vfe.vfe_opvdescs = ntfs_vnodeop_opv_desc_list;
@@ -825,6 +827,9 @@ ntfs_kext_start(struct kmod_info_t *ki, void *data)
 	vfe.vfe_reserv[1] = 0;
 	
 	error = vfs_fsadd(&vfe, &ntfs_vfsconf);
+	if (error)
+		OSMalloc_Tagfree(ntfs_malloc_tag);
+
 	return error ? KERN_FAILURE : KERN_SUCCESS;
 }
      
@@ -838,6 +843,8 @@ ntfs_kext_stop(kmod_info_t *ki, void *data)
 	errno_t error;
 
 	error = vfs_fsremove(ntfs_vfsconf);
-	
+	if (error == 0)
+		OSMalloc_Tagfree(ntfs_malloc_tag);
+
 	return error ? KERN_FAILURE : KERN_SUCCESS;
 }   

@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 1998-2002  Internet Software Consortium.
+ * Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 1998-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: gen.c,v 1.1.1.1 2003/01/10 00:48:33 bbraun Exp $ */
+/* $Id: gen.c,v 1.65.2.5.2.6 2004/03/15 01:02:54 marka Exp $ */
 
 #include <config.h>
 
@@ -34,7 +34,7 @@
 #include "gen-unix.h"
 #endif
 
-#define FROMTEXTARGS "rdclass, type, lexer, origin, downcase, target, callbacks"
+#define FROMTEXTARGS "rdclass, type, lexer, origin, options, target, callbacks"
 #define FROMTEXTCLASS "rdclass"
 #define FROMTEXTTYPE "type"
 #define FROMTEXTDEF "result = DNS_R_UNKNOWN"
@@ -44,7 +44,7 @@
 #define TOTEXTTYPE "rdata->type"
 #define TOTEXTDEF "use_default = ISC_TRUE"
 
-#define FROMWIREARGS "rdclass, type, source, dctx, downcase, target"
+#define FROMWIREARGS "rdclass, type, source, dctx, options, target"
 #define FROMWIRECLASS "rdclass"
 #define FROMWIRETYPE "type"
 #define FROMWIREDEF "use_default = ISC_TRUE"
@@ -84,22 +84,32 @@
 #define DIGESTTYPE "rdata->type"
 #define DIGESTDEF "use_default = ISC_TRUE"
 
+#define CHECKOWNERARGS "name, rdclass, type, wildcard"
+#define CHECKOWNERCLASS "rdclass"
+#define CHECKOWNERTYPE "type"
+#define CHECKOWNERDEF "result = ISC_TRUE"
+
+#define CHECKNAMESARGS "rdata, owner, bad"
+#define CHECKNAMESCLASS "rdata->rdclass"
+#define CHECKNAMESTYPE "rdata->type"
+#define CHECKNAMESDEF "result = ISC_TRUE"
+
 const char copyright[] =
 "/*\n"
-" * Copyright (C) 1998%s Internet Software Consortium.\n"
+" * Copyright (C) 2004%s Internet Systems Consortium, Inc. (\"ISC\")\n"
+" * Copyright (C) 1998-2003 Internet Software Consortium.\n"
 " *\n"
 " * Permission to use, copy, modify, and distribute this software for any\n"
 " * purpose with or without fee is hereby granted, provided that the above\n"
 " * copyright notice and this permission notice appear in all copies.\n"
 " *\n"
-" * THE SOFTWARE IS PROVIDED \"AS IS\" AND INTERNET SOFTWARE CONSORTIUM\n"
-" * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL\n"
-" * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL\n"
-" * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,\n"
-" * INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING\n"
-" * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,\n"
-" * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION\n"
-" * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.\n"
+" * THE SOFTWARE IS PROVIDED \"AS IS\" AND ISC DISCLAIMS ALL WARRANTIES WITH\n"
+" * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY\n"
+" * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,\n"
+" * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM\n"
+" * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE\n"
+" * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR\n"
+" * PERFORMANCE OF THIS SOFTWARE.\n"
 " */\n"
 "\n"
 "/***************\n"
@@ -109,6 +119,8 @@ const char copyright[] =
 " ***************\n"
 " ***************/\n"
 "\n";
+
+#define TYPENAMES 256
 
 struct cc {
 	struct cc *next;
@@ -130,7 +142,10 @@ struct ttnam {
 	char macroname[11];
 	char attr[256];
 	unsigned int sorted;
-} typenames[256];
+	int type;
+} typenames[TYPENAMES];
+
+int maxtype = -1;
 
 char *
 upper(char *);
@@ -197,7 +212,7 @@ doswitch(const char *name, const char *function, const char *args,
 	if (res == NULL)
 		result = "";
 
-	for (tt = types; tt != NULL ; tt = tt->next) {
+	for (tt = types; tt != NULL; tt = tt->next) {
 		if (first) {
 			fprintf(stdout, "\n#define %s \\\n", name);
 			fprintf(stdout, "\tswitch (%s) { \\\n" /*}*/, tsw);
@@ -260,7 +275,7 @@ dodecl(char *type, char *function, char *args) {
 	char buf1[11], buf2[11];
 
 	fputs("\n", stdout);
-	for (tt = types; tt ; tt = tt->next)
+	for (tt = types; tt; tt = tt->next)
 		if (tt->rdclass)
 			fprintf(stdout,
 				"static inline %s %s_%s_%s(%s);\n",
@@ -274,25 +289,48 @@ dodecl(char *type, char *function, char *args) {
 				funname(tt->typename, buf1), args);
 }
 
+static struct ttnam *
+find_typename(int type) {
+	int i;
+
+	for (i = 0; i < TYPENAMES; i++) {
+		if (typenames[i].typename[0] != 0 &&
+		    typenames[i].type == type)
+			return (&typenames[i]);
+	}
+	return (NULL);
+}
+
 void
 insert_into_typenames(int type, const char *typename, const char *attr) {
-	struct ttnam *ttn;
-	int c;
+	struct ttnam *ttn = NULL;
+	int c, i;
 	char tmp[256];
 
-	ttn = &typenames[type];
-	if (ttn->typename[0] == 0) {
-		if (strlen(typename) > sizeof(ttn->typename) - 1) {
-			fprintf(stderr, "Error:  type name %s is too long\n",
-				typename);
+	for (i = 0; i < TYPENAMES; i++) {
+		if (typenames[i].typename[0] != 0 &&
+		    typenames[i].type == type &&
+		    strcmp(typename, typenames[i].typename) != 0) {
+			fprintf(stderr,
+				"Error:  type %d has two names: %s, %s\n",
+				type, typenames[i].typename, typename);
 			exit(1);
 		}
-		strcpy(ttn->typename, typename);
-	} else if (strcmp(typename, ttn->typename) != 0) {
-		fprintf(stderr, "Error:  type %d has two names: %s, %s\n",
-			type, ttn->typename, typename);
+		if (typenames[i].typename[0] == 0 && ttn == NULL)
+			ttn = &typenames[i];
+	}
+	if (ttn == NULL) {
+		fprintf(stderr, "Error: typenames array too small\n");
 		exit(1);
 	}
+	
+	if (strlen(typename) > sizeof(ttn->typename) - 1) {
+		fprintf(stderr, "Error:  type name %s is too long\n",
+			typename);
+		exit(1);
+	}
+	strcpy(ttn->typename, typename);
+	ttn->type = type;
 
 	strcpy(ttn->macroname, ttn->typename);
 	c = strlen(ttn->macroname);
@@ -320,13 +358,15 @@ insert_into_typenames(int type, const char *typename, const char *attr) {
 	}
 	strcpy(ttn->attr, attr);
 	ttn->sorted = 0;
+	if (maxtype < type)
+		maxtype = type;
 }
 
 void
 add(int rdclass, const char *classname, int type, const char *typename,
     const char *dirname)
 {
-	struct tt *newtt = (struct tt *)malloc(sizeof *newtt);
+	struct tt *newtt = (struct tt *)malloc(sizeof(*newtt));
 	struct tt *tt, *oldtt;
 	struct cc *newcc;
 	struct cc *cc, *oldcc;
@@ -375,7 +415,7 @@ add(int rdclass, const char *classname, int type, const char *typename,
 	if (rdclass == 0)
 		return;
 
-	newcc = (struct cc *)malloc(sizeof *newcc);
+	newcc = (struct cc *)malloc(sizeof(*newcc));
 	newcc->rdclass = rdclass;
 	strcpy(newcc->classname, classname);
 	cc = classes;
@@ -400,8 +440,8 @@ add(int rdclass, const char *classname, int type, const char *typename,
 
 void
 sd(int rdclass, const char *classname, const char *dirname, char filetype) {
-	char buf[sizeof "0123456789_65535.h"];
-	char fmt[sizeof "%10[-0-9a-z]_%d.h"];
+	char buf[sizeof("0123456789_65535.h")];
+	char fmt[sizeof("%10[-0-9a-z]_%d.h")];
 	int type;
 	char typename[11];
 	isc_dir_t dir;
@@ -469,7 +509,7 @@ main(int argc, char **argv) {
 	char *file = NULL;
 	isc_dir_t dir;
 
-	for (i = 0 ; i <= 255 ; i++)
+	for (i = 0; i < TYPENAMES; i++)
 		memset(&typenames[i], 0, sizeof(typenames[i]));
 
 	strcpy(srcdir, "");
@@ -545,7 +585,7 @@ main(int argc, char **argv) {
 	sd(0, "", buf, filetype);
 
 	if (time(&now) != -1) {
-		if ((tm = localtime(&now)) != NULL && tm->tm_year > 98)
+		if ((tm = localtime(&now)) != NULL && tm->tm_year > 104) 
 			sprintf(year, "-%d", tm->tm_year + 1900);
 		else
 			year[0] = 0;
@@ -562,7 +602,7 @@ main(int argc, char **argv) {
 		fputs("#include <isc/result.h>\n\n", stdout);
 		fputs("#include <dns/name.h>\n\n", stdout);
 
-		for (tt = types; tt != NULL ; tt = tt->next)
+		for (tt = types; tt != NULL; tt = tt->next)
 			fprintf(stdout, "#include \"%s/%s_%d.c\"\n",
 				tt->dirname, tt->typename, tt->type);
 
@@ -590,13 +630,19 @@ main(int argc, char **argv) {
 		doswitch("DIGESTSWITCH", "digest",
 			 DIGESTARGS, DIGESTTYPE,
 			 DIGESTCLASS, DIGESTDEF);
+		doswitch("CHECKOWNERSWITCH", "checkowner",
+			CHECKOWNERARGS, CHECKOWNERTYPE,
+			CHECKOWNERCLASS, CHECKOWNERDEF);
+		doswitch("CHECKNAMESSWITCH", "checknames",
+			CHECKNAMESARGS, CHECKNAMESTYPE,
+			CHECKNAMESCLASS, CHECKNAMESDEF);
 
 		/*
 		 * From here down, we are processing the rdata names and
 		 * attributes.
 		 */
 
-#define PRINT_COMMA(x) (x == 255 ? "" : ",")
+#define PRINT_COMMA(x) (x == maxtype ? "" : ",")
 
 #define METANOTQUESTION  "DNS_RDATATYPEATTR_META | " \
 			 "DNS_RDATATYPEATTR_NOTQUESTION"
@@ -621,41 +667,6 @@ main(int argc, char **argv) {
 		insert_into_typenames(254, "maila", METAQUESTIONONLY);
 		insert_into_typenames(255, "any", METAQUESTIONONLY);
 
-		fprintf(stdout, "\ntypedef struct {\n");
-		fprintf(stdout, "\tconst char *name;\n");
-		fprintf(stdout, "\tunsigned int flags;\n");
-		fprintf(stdout, "} typeattr_t;\n");
-		fprintf(stdout, "static typeattr_t typeattr[] = {\n");
-		for (i = 0 ; i <= 255 ; i++) {
-			ttn = &typenames[i];
-			if (ttn->typename[0] == 0) {
-				const char *attrs;
-				if (i >= 128 && i < 255)
-					attrs = "DNS_RDATATYPEATTR_UNKNOWN | "
-						"DNS_RDATATYPEATTR_META";
-				else
-					attrs = "DNS_RDATATYPEATTR_UNKNOWN";
-				fprintf(stdout, "\t{ \"TYPE%d\", %s}%s\n",
-				       i, attrs, PRINT_COMMA(i));
-			} else {
-				fprintf(stdout, "\t{ \"%s\", %s }%s\n",
-				       upper(ttn->typename),
-				       upper(ttn->attr),
-				       PRINT_COMMA(i));
-			}
-		}
-		fprintf(stdout, "};\n");
-
-		/*
-		 * Run through the list of types and pre-mark the unused
-		 * ones as "sorted" so we simply ignore them below.
-		 */
-		for (i = 0 ; i <= 255 ; i++) {
-			ttn = &typenames[i];
-			if (ttn->typename[0] == 0)
-				ttn->sorted = 1;
-		}
-
 		/*
 		 * Spit out a quick and dirty hash function.  Here,
 		 * we walk through the list of type names, and calculate
@@ -671,7 +682,7 @@ main(int argc, char **argv) {
 		fprintf(stdout, "\t\tif (sizeof(_s) - 1 == _n && \\\n"
 				"\t\t    strncasecmp(_s,(_tn),"
 				"(sizeof(_s) - 1)) == 0) { \\\n");
-		fprintf(stdout, "\t\t\tif ((typeattr[_d].flags & "
+		fprintf(stdout, "\t\t\tif ((dns_rdatatype_attributes(_d) & "
 		       		  "DNS_RDATATYPEATTR_RESERVED) != 0) \\\n");
 		fprintf(stdout, "\t\t\t\treturn (ISC_R_NOTIMPLEMENTED); \\\n");
 		fprintf(stdout, "\t\t\t*(_tp) = _d; \\\n");
@@ -682,8 +693,10 @@ main(int argc, char **argv) {
 		fprintf(stdout, "#define RDATATYPE_FROMTEXT_SW(_hash,"
 				"_typename,_length,_typep) \\\n");
 		fprintf(stdout, "\tswitch (_hash) { \\\n");
-		for (i = 0 ; i <= 255 ; i++) {
-			ttn = &typenames[i];
+		for (i = 0; i <= maxtype; i++) {
+			ttn = find_typename(i);
+			if (ttn == NULL)
+				continue;
 
 			/*
 			 * Skip entries we already processed.
@@ -698,19 +711,42 @@ main(int argc, char **argv) {
 			 * Find all other entries that happen to match
 			 * this hash.
 			 */
-			for (j = 0 ; j <= 255 ; j++) {
-				ttn2 = &typenames[j];
-				if (ttn2->sorted != 0)
+			for (j = 0; j <= maxtype; j++) {
+				ttn2 = find_typename(j);
+				if (ttn2 == NULL)
 					continue;
 				if (hash == HASH(ttn2->typename)) {
 					fprintf(stdout, "\t\t\tRDATATYPE_COMPARE"
 					       "(\"%s\", %u, "
 					       "_typename, _length, _typep); \\\n",
-					       ttn2->typename, j);
+					       ttn2->typename, ttn2->type);
 					ttn2->sorted = 1;
 				}
 			}
 			fprintf(stdout, "\t\t\tbreak; \\\n");
+		}
+		fprintf(stdout, "\t}\n");
+
+		fprintf(stdout, "#define RDATATYPE_ATTRIBUTE_SW \\\n");
+		fprintf(stdout, "\tswitch (type) { \\\n");
+		for (i = 0; i <= maxtype; i++) {
+			ttn = find_typename(i);
+			if (ttn == NULL)
+				continue;
+			fprintf(stdout, "\tcase %u: return (%s); \\\n",
+			        i, upper(ttn->attr));
+		}
+		fprintf(stdout, "\t}\n");
+
+		fprintf(stdout, "#define RDATATYPE_TOTEXT_SW \\\n");
+		fprintf(stdout, "\tswitch (type) { \\\n");
+		for (i = 0; i <= maxtype; i++) {
+			ttn = find_typename(i);
+			if (ttn == NULL)
+				continue;
+			fprintf(stdout, "\tcase %u: return "
+				"(str_totext(\"%s\", target)); \\\n",
+			        i, upper(ttn->typename));
 		}
 		fprintf(stdout, "\t}\n");
 
@@ -725,7 +761,7 @@ main(int argc, char **argv) {
 		fprintf(stdout, "\tdns_rdatatype_none = 0,\n");
 
 		lasttype = 0;
-		for (tt = types; tt != NULL ; tt = tt->next)
+		for (tt = types; tt != NULL; tt = tt->next)
 			if (tt->type != lasttype)
 				fprintf(stdout,
 					"\tdns_rdatatype_%s = %d,\n",
@@ -743,14 +779,14 @@ main(int argc, char **argv) {
 		fprintf(stdout, "#define dns_rdatatype_none\t"
 			"((dns_rdatatype_t)dns_rdatatype_none)\n");
 
-		for (tt = types; tt != NULL ; tt = tt->next)
+		for (tt = types; tt != NULL; tt = tt->next)
 			if (tt->type != lasttype) {
 				s = funname(tt->typename, buf1);
 				fprintf(stdout,
 					"#define dns_rdatatype_%s\t%s"
 					"((dns_rdatatype_t)dns_rdatatype_%s)"
 					"\n",
-					s, strlen(s) < 2 ? "\t" : "", s);
+					s, strlen(s) < 2U ? "\t" : "", s);
 				lasttype = tt->type;
 			}
 
@@ -808,29 +844,29 @@ main(int argc, char **argv) {
 	} else if (structs) {
 		if (prefix != NULL) {
 			if ((fd = fopen(prefix,"r")) != NULL) {
-				while (fgets(buf, sizeof buf, fd) != NULL)
+				while (fgets(buf, sizeof(buf), fd) != NULL)
 					fputs(buf, stdout);
 				fclose(fd);
 			}
 		}
-		for (tt = types; tt != NULL ; tt = tt->next) {
+		for (tt = types; tt != NULL; tt = tt->next) {
 			sprintf(buf, "%s/%s_%d.h",
 				tt->dirname, tt->typename, tt->type);
 			if ((fd = fopen(buf,"r")) != NULL) {
-				while (fgets(buf, sizeof buf, fd) != NULL)
+				while (fgets(buf, sizeof(buf), fd) != NULL)
 					fputs(buf, stdout);
 				fclose(fd);
 			}
 		}
 		if (suffix != NULL) {
 			if ((fd = fopen(suffix,"r")) != NULL) {
-				while (fgets(buf, sizeof buf, fd) != NULL)
+				while (fgets(buf, sizeof(buf), fd) != NULL)
 					fputs(buf, stdout);
 				fclose(fd);
 			}
 		}
 	} else if (depend) {
-		for (tt = types; tt != NULL ; tt = tt->next)
+		for (tt = types; tt != NULL; tt = tt->next)
 			fprintf(stdout, "%s:\t%s/%s_%d.h\n", file,
 				tt->dirname, tt->typename, tt->type);
 	}

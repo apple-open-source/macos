@@ -4,10 +4,10 @@
    +----------------------------------------------------------------------+
    | Copyright (c) 2001 The PHP Group                                     |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mbstring.h,v 1.40.2.12 2003/11/06 15:41:37 hirokawa Exp $ */
+/* $Id: mbstring.h,v 1.40.2.12.4.5 2006/04/03 13:04:13 masugata Exp $ */
 
 /*
  * PHP4 Multibyte String module "mbstring" (currently only for Japanese)
@@ -117,6 +117,7 @@ PHP_FUNCTION(mb_encode_numericentity);
 PHP_FUNCTION(mb_decode_numericentity);
 PHP_FUNCTION(mb_send_mail);
 PHP_FUNCTION(mb_get_info);
+PHP_FUNCTION(mb_check_encoding);
 
 MBSTRING_API int php_mb_encoding_translation(TSRMLS_D);
 
@@ -176,6 +177,7 @@ ZEND_BEGIN_MODULE_GLOBALS(mbstring)
 	int current_filter_illegal_substchar;
 	long func_overload;
 	zend_bool encoding_translation;
+	long illegalchars;
 	mbfl_buffer_converter *outconv;
 #if HAVE_MBREGEX && defined(PHP_MBREGEX_GLOBALS)
 	PHP_MBREGEX_GLOBALS	

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -21,7 +21,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: file.c,v 1.279.2.70.2.2 2005/07/26 09:32:57 hyanantha Exp $ */
+/* $Id: file.c,v 1.279.2.70.2.7 2006/04/14 17:46:59 pollita Exp $ */
 
 /* Synced with php 3.0 revision 1.218 1999-06-16 [ssb] */
 
@@ -552,7 +552,7 @@ PHP_FUNCTION(tempnam)
 	pval **arg1, **arg2;
 	char *d;
 	char *opened_path;
-	char p[64];
+	char *p;
 	FILE *fp;
 
 	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg1, &arg2) == FAILURE) {
@@ -566,7 +566,11 @@ PHP_FUNCTION(tempnam)
 	}
 
 	d = estrndup(Z_STRVAL_PP(arg1), Z_STRLEN_PP(arg1));
-	strlcpy(p, Z_STRVAL_PP(arg2), sizeof(p));
+
+	p = php_basename(Z_STRVAL_PP(arg2), Z_STRLEN_PP(arg2), NULL, 0);
+	if (strlen(p) > 64) {
+		p[63] = '\0';
+	}
 
 	if ((fp = php_open_temporary_file(d, p, &opened_path TSRMLS_CC))) {
 		fclose(fp);
@@ -574,6 +578,7 @@ PHP_FUNCTION(tempnam)
 	} else {
 		RETVAL_FALSE;
 	}
+	efree(p);
 	efree(d);
 }
 /* }}} */
@@ -819,7 +824,7 @@ PHP_FUNCTION(stream_select)
 
 	/* If seconds is not set to null, build the timeval, else we wait indefinitely */
 	if (sec != NULL) {
-		convert_to_long_ex(&sec);
+		convert_to_long(sec);
 
 		if (usec > 999999) {
 			tv.tv_sec = Z_LVAL_P(sec) + (usec / 1000000);
@@ -2196,7 +2201,7 @@ no_stat:
 safe_to_copy:
 
 	srcstream = php_stream_open_wrapper(src, "rb",
-				STREAM_DISABLE_OPEN_BASEDIR | REPORT_ERRORS,
+				ENFORCE_SAFE_MODE | REPORT_ERRORS,
 				NULL);
 
 	if (!srcstream)

@@ -29,14 +29,11 @@ We can't support interrupt() with a synchronous interface unless we add some not
 #include <security_agent_server/sa_reply.h> // for size of replies
 #include <security_agent_client/sa_request.h>
 
-
 #include <security_utilities/mach++.h>
 #include <security_cdsa_utilities/walkers.h>
 #include <security_cdsa_utilities/cssmwalkers.h>
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
 #include <security_cdsa_utilities/AuthorizationData.h>
-
-using Security::MachPlusPlus::VMGuard;
 
 using LowLevelMemoryUtilities::increment;
 using LowLevelMemoryUtilities::difference;
@@ -489,10 +486,6 @@ extern "C" {
         COPY_IN(AuthorizationItemSet,inHints) ,
         COPY_IN(AuthorizationItemSet,inContext) )
 	{
-
-		VMGuard _(inHints, inHintsLength);
-		VMGuard _2(inContext, inContextLength);
-
 		secdebug("agentclient", "got setResult at port %u; result %ld", instanceReplyPort, result);
 
 		// relink internal references according to current place in memory

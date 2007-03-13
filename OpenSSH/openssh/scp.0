@@ -92,6 +92,7 @@ DESCRIPTION
                    Protocol
                    ProxyCommand
                    PubkeyAuthentication
+                   RekeyLimit
                    RhostsRSAAuthentication
                    RSAAuthentication
                    SendEnv
@@ -126,8 +127,7 @@ DESCRIPTION
              about their progress.  This is helpful in debugging connection,
              authentication, and configuration problems.
 
-DIAGNOSTICS
-     scp exits with 0 on success or >0 if an error occurred.
+     The scp utility exits 0 on success, and >0 if an error occurs.
 
 SEE ALSO
      rcp(1), sftp(1), ssh(1), ssh-add(1), ssh-agent(1), ssh-keygen(1),
@@ -141,4 +141,4 @@ AUTHORS
      Timo Rinne <tri@iki.fi>
      Tatu Ylonen <ylo@cs.hut.fi>
 
-OpenBSD 3.8                   September 25, 1999                             3
+OpenBSD 4.0                   September 25, 1999                             3

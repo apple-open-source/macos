@@ -1,5 +1,7 @@
 __cupsRestoreLocale
 __cupsSaveLocale
+__httpReadCDSA
+__httpWriteCDSA
 __ipp_add_attr
 __ipp_free_attr
 __ppd_attr_compare

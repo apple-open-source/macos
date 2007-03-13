@@ -1,22 +1,22 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static const char rcsid[] = "$Id: dns_nw.c,v 1.1.1.2 2003/03/18 19:18:31 rbraun Exp $";
+static const char rcsid[] = "$Id: dns_nw.c,v 1.3.2.4.4.4 2004/09/16 00:57:34 marka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 /* Imports. */
@@ -349,7 +349,7 @@ get1101answer(struct irs_nw *this,
 				RES_SET_H_ERRNO(pvt->res, NO_RECOVERY);
 				return (NULL);
 			}
-			pvt->net.n_name = strcpy(bp, name);
+			pvt->net.n_name = strcpy(bp, name);	/* (checked) */
 			bp += n;
 		}
 		break;
@@ -522,37 +522,37 @@ get1101mask(struct irs_nw *this, struct nwent *nwent) {
 static int
 make1101inaddr(const u_char *net, int bits, char *name, int size) {
 	int n, m;
+	char *ep;
+
+	ep = name + size;
 
 	/* Zero fill any whole bytes left out of the prefix. */
 	for (n = (32 - bits) / 8; n > 0; n--) {
-		if (size < (int)(sizeof "0."))
+		if (ep - name < (int)(sizeof "0."))
 			goto emsgsize;
 		m = SPRINTF((name, "0."));
 		name += m;
-		size -= m;
 	}
 
 	/* Format the partial byte, if any, within the prefix. */
 	if ((n = bits % 8) != 0) {
-		if (size < (int)(sizeof "255."))
+		if (ep - name < (int)(sizeof "255."))
 			goto emsgsize;
 		m = SPRINTF((name, "%u.",
 			     net[bits / 8] & ~((1 << (8 - n)) - 1)));
 		name += m;
-		size -= m;
 	}
 
 	/* Format the whole bytes within the prefix. */
 	for (n = bits / 8; n > 0; n--) {
-		if (size < (int)(sizeof "255."))
+		if (ep - name < (int)(sizeof "255."))
 			goto emsgsize;
 		m = SPRINTF((name, "%u.", net[n - 1]));
 		name += m;
-		size -= m;
 	}
 
 	/* Add the static text. */
-	if (size < (int)(sizeof "in-addr.arpa"))
+	if (ep - name < (int)(sizeof "in-addr.arpa"))
 		goto emsgsize;
 	(void) SPRINTF((name, "in-addr.arpa"));
 	return (0);
@@ -569,7 +569,7 @@ normalize_name(char *name) {
 	/* Make lower case. */
 	for (t = name; *t; t++)
 		if (isascii((unsigned char)*t) && isupper((unsigned char)*t))
-			*t = tolower(*t);
+			*t = tolower((*t)&0xff);
 
 	/* Remove trailing dots. */
 	while (t > name && t[-1] == '.')
@@ -582,7 +582,7 @@ init(struct irs_nw *this) {
 	
 	if (!pvt->res && !nw_res_get(this))
 		return (-1);
-	if (((pvt->res->options & RES_INIT) == 0) &&
+	if (((pvt->res->options & RES_INIT) == 0U) &&
 	    res_ninit(pvt->res) == -1)
 		return (-1);
 	return (0);

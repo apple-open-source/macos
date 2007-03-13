@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: math.c,v 1.97.2.13.2.2 2005/07/29 12:59:38 sniper Exp $ */
+/* $Id: math.c,v 1.97.2.13.2.4 2006/07/16 10:53:55 helly Exp $ */
 
 #include "php.h"
 #include "php_math.h"
@@ -1015,13 +1015,8 @@ PHPAPI char *_php_math_number_format(double d, int dec, char dec_point, char tho
 		is_negative = 1;
 		d = -d;
 	}
-	if (!dec_point && dec > 0) {
-		d *= pow(10, dec);
-		dec = 0;
-	} else {
-		dec = MAX(0, dec);
-	}
 
+	dec = MAX(0, dec);
 	PHP_ROUND_WITH_FUZZ(d, dec);
 
 	tmplen = spprintf(&tmpbuf, 0, "%.*f", dec, d);
@@ -1030,8 +1025,10 @@ PHPAPI char *_php_math_number_format(double d, int dec, char dec_point, char tho
 		return tmpbuf;
 	}
 
+	/* find decimal point, if expected */
+	dp = dec ? strchr(tmpbuf, '.') : NULL;
+
 	/* calculate the length of the return buffer */
-	dp = strchr(tmpbuf, '.');
 	if (dp) {
 		integral = dp - tmpbuf;
 	} else {
@@ -1047,7 +1044,11 @@ PHPAPI char *_php_math_number_format(double d, int dec, char dec_point, char tho
 	reslen = integral;
 
 	if (dec) {
-		reslen += 1 + dec;
+		reslen += dec;
+
+		if (dec_point) {
+			reslen++;
+		}
 	}
 
 	/* add a byte for minus sign */
@@ -1064,29 +1065,29 @@ PHPAPI char *_php_math_number_format(double d, int dec, char dec_point, char tho
 	 * Take care, as the sprintf implementation may return less places than
 	 * we requested due to internal buffer limitations */
 	if (dec) {
-		int declen = dp ? strlen(dp+1) : 0;
-		int topad = declen > 0 ? dec - declen : 0;
+		int declen = dp ? s - dp : 0;
+		int topad = dec > declen ? dec - declen : 0;
 
 		/* pad with '0's */
-
 		while (topad--) {
 			*t-- = '0';
 		}
 
 		if (dp) {
-			/* now copy the chars after the point */
-			memcpy(t - declen + 1, dp + 1, declen);
-
+			s -= declen + 1; /* +1 to skip the point */
 			t -= declen;
-			s -= declen;
+
+			/* now copy the chars after the point */
+			memcpy(t + 1, dp + 1, declen);
 		}
 
 		/* add decimal point */
-		*t-- = dec_point;
-		s--;
+		if (dec_point) {
+			*t-- = dec_point;
+		}
 	}
 
-	/* copy the numbers before the decimal place, adding thousand
+	/* copy the numbers before the decimal point, adding thousand
 	 * separator every three digits */
 	while(s >= tmpbuf) {
 		*t-- = *s--;

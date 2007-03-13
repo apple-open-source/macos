@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: session.c,v 1.336.2.53.2.3 2005/09/23 08:16:01 sniper Exp $ */
+/* $Id: session.c,v 1.336.2.53.2.7 2006/08/01 08:33:13 tony2001 Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -625,6 +625,12 @@ static void php_session_initialize(TSRMLS_D)
 {
 	char *val;
 	int vallen;
+
+	/* check session name for invalid characters */
+	if (PS(id) && strpbrk(PS(id), "\r\n\t <>'\"\\")) {
+		efree(PS(id));
+		PS(id) = NULL;
+	}
 
 	if (!PS(mod)) {
 		php_error_docref(NULL TSRMLS_CC, E_ERROR, "No storage module chosen - failed to initialize session.");
@@ -1345,6 +1351,10 @@ PHP_FUNCTION(session_id)
    Update the current session id with a newly generated one. */
 PHP_FUNCTION(session_regenerate_id)
 {
+	if (SG(headers_sent)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot regenerate session id - headers already sent");
+		RETURN_FALSE;
+	}
 	if (PS(session_status) == php_session_active) {
 		if (PS(id)) efree(PS(id));
 	
@@ -1395,8 +1405,8 @@ PHP_FUNCTION(session_cache_expire)
 		WRONG_PARAM_COUNT;
 
 	if (ac == 1) {
-		convert_to_long_ex(p_cache_expire);
-		PS(cache_expire) = Z_LVAL_PP(p_cache_expire);
+		convert_to_string_ex(p_cache_expire);
+		zend_alter_ini_entry("session.cache_expire", sizeof("session.cache_expire"), Z_STRVAL_PP(p_cache_expire), Z_STRLEN_PP(p_cache_expire), ZEND_INI_USER, ZEND_INI_STAGE_RUNTIME);
 	}
 
 	RETVAL_LONG(old);
@@ -1774,6 +1784,6 @@ PHP_MINFO_FUNCTION(session)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 fdm=marker
+ * vim600: noet sw=4 ts=4 fdm=marker
  * vim<600: sw=4 ts=4
  */

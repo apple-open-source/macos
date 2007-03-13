@@ -33,10 +33,10 @@
 ;; bashdb.el is based on perldb in gud.el in XEmacs 21.1.
 
 ;; Revision:
-;; $Revision: 1.1.1.1 $
+;; $Revision: 1.1 $
 ;; $Log: bashdb.el,v $
-;; Revision 1.1.1.1  2003/04/05 08:00:30  jkh
-;; Vendor import of 2.05b
+;; Revision 1.1  2003/04/05 08:00:30  jkh
+;; Initial revision
 ;;
 ;; Revision 1.6  2001/01/06 12:18:06  masata-y
 ;; Write note about XEmacs.

@@ -1,4 +1,4 @@
-dnl $Id: acinclude.m4,v 1.218.2.50.2.5 2005/09/23 09:20:22 hyanantha Exp $ -*- autoconf -*-
+dnl $Id: acinclude.m4,v 1.218.2.50.2.6 2005/12/19 22:29:11 sniper Exp $ -*- autoconf -*-
 dnl
 dnl This file contains local autoconf functions.
 
@@ -548,6 +548,10 @@ AC_DEFUN([PHP_MODULE_PTR],[
 ])
  
 AC_DEFUN([PHP_CONFIG_NICE],[
+  AC_REQUIRE([AC_PROG_EGREP])
+  AC_REQUIRE([LT_AC_PROG_SED])
+  PHP_SUBST(EGREP)
+  PHP_SUBST(SED)
   test -f $1 && mv $1 $1.old
   rm -f $1.old
   cat >$1<<EOF
@@ -5149,6 +5153,21 @@ AC_ENABLE_FAST_INSTALL(no)])
 AC_DEFUN([AC_LIBTOOL_PICMODE],
 [AC_BEFORE([$0],[AC_LIBTOOL_SETUP])dnl
 pic_mode=ifelse($#,1,$1,default)])
+
+
+# AC_PROG_EGREP
+# -------------
+# This is predefined starting with Autoconf 2.54, so this conditional
+# definition can be removed once we require Autoconf 2.54 or later.
+ifdef([AC_PROG_EGREP], [], [AC_DEFUN([AC_PROG_EGREP],
+[AC_CACHE_CHECK([for egrep], [ac_cv_prog_egrep],
+   [if echo a | (grep -E '(a|b)') >/dev/null 2>&1
+    then ac_cv_prog_egrep='grep -E'
+    else ac_cv_prog_egrep='egrep'
+    fi])
+ EGREP=$ac_cv_prog_egrep
+ AC_SUBST([EGREP])
+])])
 
 
 # AC_PATH_TOOL_PREFIX - find a file program which can recognise shared library

@@ -1,0 +1,267 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		23237B1505ED2D08005C54E8 /* CCLEngine.c in Sources */ = {isa = PBXBuildFile; fileRef = 23237A7C05ED237F005C54E8 /* CCLEngine.c */; };
+		23237B1605ED2D0B005C54E8 /* CCLEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = 23237A7D05ED237F005C54E8 /* CCLEngine.h */; };
+		23237B2705ED2DB4005C54E8 /* CCLEngine_defs.h in Headers */ = {isa = PBXBuildFile; fileRef = 23237B2605ED2DB4005C54E8 /* CCLEngine_defs.h */; };
+		23237BEB05ED2E4D005C54E8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23237BEA05ED2E4D005C54E8 /* CoreFoundation.framework */; };
+		23237C3305ED2E71005C54E8 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23237C3205ED2E71005C54E8 /* SystemConfiguration.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		23237A7C05ED237F005C54E8 /* CCLEngine.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = CCLEngine.c; path = CCLEngine/CCLEngine.c; sourceTree = "<group>"; };
+		23237A7D05ED237F005C54E8 /* CCLEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = CCLEngine.h; path = CCLEngine/CCLEngine.h; sourceTree = "<group>"; };
+		23237B1105ED2CB3005C54E8 /* CCLEngine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = CCLEngine; sourceTree = BUILT_PRODUCTS_DIR; };
+		23237B2605ED2DB4005C54E8 /* CCLEngine_defs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CCLEngine_defs.h; path = CCLEngine/CCLEngine_defs.h; sourceTree = "<group>"; };
+		23237BEA05ED2E4D005C54E8 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		23237C3205ED2E71005C54E8 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		23237B0E05ED2CB3005C54E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				23237BEB05ED2E4D005C54E8 /* CoreFoundation.framework in Frameworks */,
+				23237C3305ED2E71005C54E8 /* SystemConfiguration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		23237A0505ED2216005C54E8 = {
+			isa = PBXGroup;
+			children = (
+				23237A1205ED230B005C54E8 /* CCLEngine */,
+				23237A1505ED2312005C54E8 /* Modems */,
+				23237AF305ED24E3005C54E8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		23237A1205ED230B005C54E8 /* CCLEngine */ = {
+			isa = PBXGroup;
+			children = (
+				23237A7C05ED237F005C54E8 /* CCLEngine.c */,
+				23237A7D05ED237F005C54E8 /* CCLEngine.h */,
+				23237B2605ED2DB4005C54E8 /* CCLEngine_defs.h */,
+				23237BEA05ED2E4D005C54E8 /* CoreFoundation.framework */,
+				23237C3205ED2E71005C54E8 /* SystemConfiguration.framework */,
+			);
+			name = CCLEngine;
+			sourceTree = "<group>";
+		};
+		23237A1505ED2312005C54E8 /* Modems */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Modems;
+			sourceTree = "<group>";
+		};
+		23237AF305ED24E3005C54E8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				23237B1105ED2CB3005C54E8 /* CCLEngine */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		23237B0C05ED2CB3005C54E8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				23237B1605ED2D0B005C54E8 /* CCLEngine.h in Headers */,
+				23237B2705ED2DB4005C54E8 /* CCLEngine_defs.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		23237B0B05ED2CB3005C54E8 /* CCLEngine (Tool) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0CA94F6F0B7BF8DE003343DE /* Build configuration list for PBXNativeTarget "CCLEngine (Tool)" */;
+			buildPhases = (
+				23237B0C05ED2CB3005C54E8 /* Headers */,
+				23237B0D05ED2CB3005C54E8 /* Sources */,
+				23237B0E05ED2CB3005C54E8 /* Frameworks */,
+				23237B0F05ED2CB3005C54E8 /* Rez */,
+				2340DACA05EE729E004E52CA /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "CCLEngine (Tool)";
+			productInstallPath = /usr/local/bin;
+			productName = CCLEngine;
+			productReference = 23237B1105ED2CB3005C54E8 /* CCLEngine */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		23237A0905ED2216005C54E8 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 0CA94F6B0B7BF8DD003343DE /* Build configuration list for PBXProject "modemccl" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 23237A0505ED2216005C54E8;
+			productRefGroup = 23237AF305ED24E3005C54E8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				23237B0B05ED2CB3005C54E8 /* CCLEngine (Tool) */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		23237B0F05ED2CB3005C54E8 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		2340DACA05EE729E004E52CA /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nmkdir -m 755 -p $DSTROOT/Library/Modem\\ Scripts\nmkdir -m 755 -p $DSTROOT/System/Library/Modem\\ Scripts\n\n# essential system scripts\nfor CCL in \\\n    \"Apple Internal 56K Modem (v.32)\" \\\n    \"Apple Internal 56K Modem (v.34)\" \\\n    \"Apple Internal 56K Modem (v.90)\" \\\n    \"Apple Internal 56K Modem (v.92)\"     \ndo\n    cp \"Modems/${CCL}\" \"$DSTROOT/System/Library/Modem Scripts\"\n    ln \"$DSTROOT/System/Library/Modem Scripts/${CCL}\" \"$DSTROOT/Library/Modem Scripts/${CCL}\"\ndone\n    \n# third parties or non essential scripts\nfor CCL in \\\n\"Honda-Elc AH-G10\" \\\n\"Honda-Elc AH-H401C\" \\\n\"Honda-Elc AH-H402P\" \\\n\"Honda-Elc AH-H403C\" \\\n\"Honda-Elc AH-H407P\" \\\n\"Honda-Elc BMH11C-J\" \\\n\"Honda-Elc ERT-PV02CF\" \\\n\"Honda-Elc KW-H128C2\" \\\n\"I-O DATA DFML-560EL\" \\\n\"I-O DATA PCDC-96(PACKET)\" \\\n\"I-O DATA PCDC-96(PDC)\" \\\n\"I-O DATA PCDC-96P(PACKET)\" \\\n\"I-O DATA PCDC-96P(PDC)\" \\\n\"I-O DATA PCMA-9664P\" \\\n\"I-O DATA PCMA-9664P(PDC)\" \\\n\"I-O DATA PCMA-9664P(PHS64K)\" \\\n\"I-O DATA PCMA-9664P2\" \\\n\"I-O DATA PCMA-9664P2(PDC)\" \\\n\"I-O DATA PCMA-9664P2(PHS64K)\" \\\n\"I-O DATA PCMD-56096E(MODEM)\" \\\n\"I-O DATA PCMD-56096E(PACKET)\" \\\n\"I-O DATA PCMD-56096E(PDC)\" \\\n\"I-O DATA PCMD-56096P(MODEM)\" \\\n\"I-O DATA PCMD-56096P(PACKET)\" \\\n\"I-O DATA PCMD-56096P(PDC)\" \\\n\"I-O DATA PCML-560\" \\\n\"I-O DATA PCSDAH-ADP (AH-S101S)\" \\\n\"I-O DATA USB-CFADP\" \\\n\"I-O DATA USB-DM560\" \\\n\"I-O DATA USB-PCADP\" \\\n\"I-O DATA USB2-PCADP\" \\\n\"I-O DATA xxDC-9664P DoccimoPHS\" \\\n\"I-O DATA xxDC-9664P H\" \\\n\"I-O DATA xxDC-9664P PDC\" \\\n\"I-O DATA xxDC-9664P PHS\" \\\n\"JRC USB MODEM\" \\\n\"NEC Infrontia AH-N401C\" \\\n\"NEC Infrontia AX510N\" \\\n\"NEC Infrontia CFE-01, CFE-02\" \\\n\"NTT DoCoMo FOMA F900iT\" \\\n\"NTT DoCoMo FOMA P2401\" \\\n\"NTT DoCoMo P-in Series\" \\\n\"NTT DoCoMo Paldio 611S\" \\\n\"NTT DoCoMo Paldio 633S\" \\\n\"NTT INSMATE FT80bt MP\" \\\n\"NTT INSMATE FT80bt SYNC\" \\\n\"NTT INSMATE V30Slim MP\" \\\n\"NTT INSMATE V30Slim SYNC\" \\\n\"NTT INSMATEV70G-MAX  MP\" \\\n\"NTT INSMATEV70G-MAX 64KPPP\" \\\n\"SII AH-S405C\" \\\n\"SII CH-S203C:TD\" \\\n\"SII Card Modem Ver.1.0\" \\\n\"SII MC-P300\" \\\n\"SUNTAC Slipper\" \\\n\"SUNTAC U-Cable\" \\\n\"SUNTAC U-Cable D3(PDC)\" \\\n\"Vodafone VC701SI\" \\\n\"au CDMA 1x WIN W01K\" \\\n\"au cdmaOne Bluetooth Adapter\" \\\n\"au cdmaOne C413S by Sony\" \\\n    \"3Com Impact Analog 14.4\" \\\n    \"3Com Impact ISDN 56K\" \\\n    \"3Com Impact ISDN 56K MLPPP\" \\\n    \"3Com Impact ISDN 64K\" \\\n    \"3Com Impact ISDN 64K MLPPP\" \\\n    \"AT&T Dataport 288\" \\\n    \"AT&T KeepInTouch\" \\\n    \"Apple Personal Modem\" \\\n    \"Apple:GV 56k\" \\\n    \"Best Data Smart One 28.8:33.6\" \\\n    \"Dayna CommuniCard 28800\" \\\n    \"Ericsson Infrared\" \\\n    \"Ericsson Infrared V110\" \\\n    \"Ericsson R520 14.4\" \\\n    \"Ericsson R520 14.4 V110\" \\\n    \"Ericsson R520 19.2\" \\\n    \"Ericsson R520 19.2 V110\" \\\n    \"Ericsson R520 28.8\" \\\n    \"Ericsson R520 28.8 V110\" \\\n    \"Ericsson R520 9.6\" \\\n    \"Ericsson R520 9.6 V110\" \\\n    \"Ericsson T39 14.4\" \\\n    \"Ericsson T39 14.4 V110\" \\\n    \"Ericsson T39 19.2\" \\\n    \"Ericsson T39 19.2 V110\" \\\n    \"Ericsson T39 28.8\" \\\n    \"Ericsson T39 28.8 V110\" \\\n    \"Ericsson T39 9.6\" \\\n    \"Ericsson T39 9.6 V110\" \\\n    \"Farallon ISDN PC Card ARA 56K\" \\\n    \"Farallon ISDN PC Card ARA 64K\" \\\n    \"Farallon ISDN PC Card PPP 56K\" \\\n    \"Farallon ISDN PC Card PPP 64K\" \\\n    \"Farallon LAN:Modem PC Card\" \\\n    \"Farallon Netopia 56K\" \\\n    \"Farallon Netopia 56K MLPPP\" \\\n    \"Farallon Netopia 64K\" \\\n    \"Farallon Netopia 64K MLPPP\" \\\n    \"GV flex:V.90\" \\\n    \"GV x2:V.90\" \\\n    \"GeoPort:Express Modem\" \\\n    \"GeoPort:Express Modem CNG\" \\\n    \"Global Village 28.8-K56\" \\\n    \"Global Village Gold:Silver:Merc\" \\\n    \"Global Village Platinum:Gold II\" \\\n    \"Global Village x2\" \\\n    \"Hayes Accura 288\" \\\n    \"Hayes Accura 56K\" \\\n    \"Hayes Optima 288\" \\\n    \"Megahertz CruiseCard 14.4\" \\\n    \"Megahertz CruiseCard 28.8\" \\\n    \"Metricom Ricochet Wireless\" \\\n    \"Microcom DeskPorte Fast:288\" \\\n    \"Microcom QX:4232bis\" \\\n    \"Microcom QX:4232bis\" \\\n    \"Motorola BitSURFR 56K\" \\\n    \"Motorola BitSURFR 56K MLPPP\" \\\n    \"Motorola BitSURFR 64K\" \\\n    \"Motorola BitSURFR 64K MLPPP\" \\\n    \"Motorola ModemSURFR 28.8\" \\\n    \"Motorola iR TimePort (2x0)\" \\\n    \"Motorola iR TimePort (7089)\" \\\n    \"Motorola Power:Lifestyle 28.8\" \\\n    \"MultiTech MT2834\" \\\n    \"MultiTech MT3334\" \\\n    \"MultiTech MT5600\" \\\n    \"MultiTech MT5634\" \\\n    \"MultiTech MTA128NT ML-PPP\" \\\n    \"MultiTech MTA128NT ML-PPP w:DBA\" \\\n    \"MultiTech MTA128NT PPP\" \\\n    \"MultiTech MTA128ST ML-PPP\" \\\n    \"MultiTech MTA128ST ML-PPP w:DBA\" \\\n    \"MultiTech MTA128ST PPP\" \\\n    \"Nokia Infrared\" \\\n    \"Nokia iR 6210 _ 8xxx\" \\\n    \"Nokia iR 7110\" \\\n    \"Null Modem 115200\" \\\n    \"Null Modem 19200\" \\\n    \"Null Modem 57600\" \\\n    \"Null Modem 9600\" \\\n    \"Practical Peripherals V.34\" \\\n    \"Sprint PCS Vision\" \\\n    \"Supra 144\" \\\n    \"Supra 288:336\" \\\n    \"Supra 336v+:336e:56e\" \\\n    \"Supra 56 V90\" \\\n    \"SupraExpress V.90 USB\" \\\n    \"TDK DF2814\" \\\n    \"Telebit QBlazer\" \\\n    \"U.S. Robotics High Speed\" \\\n    \"US Robotics Universal\" \\\n    \"Zoom ISDN 56K\" \\\n    \"Zoom ISDN 56K MLPPP\" \\\n    \"Zoom ISDN 64K\" \\\n    \"Zoom ISDN 64K MLPPP\" \\\n    \"Zoom V-Series\" \\\n    \"Zoom Universal (115k)\" \\\n    \"Zoom Bluetooth Modem (v.34)\" \\\n    \"Zoom Bluetooth Modem (v.90)\"\ndo\n    cp \"Modems/${CCL}\" \"$DSTROOT/Library/Modem Scripts\"\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		23237B0D05ED2CB3005C54E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				23237B1505ED2D08005C54E8 /* CCLEngine.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0CA94F6C0B7BF8DD003343DE /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		0CA94F6D0B7BF8DD003343DE /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		0CA94F6E0B7BF8DD003343DE /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		0CA94F700B7BF8DE003343DE /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CCLEngine;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		0CA94F710B7BF8DE003343DE /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CCLEngine;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Deployment;
+		};
+		0CA94F720B7BF8DE003343DE /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = CCLEngine;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0CA94F6B0B7BF8DD003343DE /* Build configuration list for PBXProject "modemccl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CA94F6C0B7BF8DD003343DE /* Development */,
+				0CA94F6D0B7BF8DD003343DE /* Deployment */,
+				0CA94F6E0B7BF8DD003343DE /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		0CA94F6F0B7BF8DE003343DE /* Build configuration list for PBXNativeTarget "CCLEngine (Tool)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CA94F700B7BF8DE003343DE /* Development */,
+				0CA94F710B7BF8DE003343DE /* Deployment */,
+				0CA94F720B7BF8DE003343DE /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 23237A0905ED2216005C54E8 /* Project object */;
+}

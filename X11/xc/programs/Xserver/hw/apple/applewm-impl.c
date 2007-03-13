@@ -40,7 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "scrnintstr.h"
 #include "servermd.h"
 #define _APPLEWM_SERVER_
-#include "applewmstr.h"
+#include "applewm-impl.h"
 #include "swaprep.h"
 #include "rootless-common.h"
 #include "X11Application.h"

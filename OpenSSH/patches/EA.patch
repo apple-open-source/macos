@@ -1,7 +1,29 @@
-diff -Naurdp ../openssh.sacl/configure ./configure
---- ../openssh.sacl/configure	2005-09-28 16:11:11.000000000 -0700
-+++ ./configure	2005-09-28 16:39:28.000000000 -0700
-@@ -25580,6 +25580,259 @@ fi
+diff -Naur ../openssh-4.4p1.orig/config.h.in ./config.h.in
+--- ../openssh-4.4p1.orig/config.h.in	2006-09-26 04:03:33.000000000 -0700
++++ ./config.h.in	2006-10-19 17:37:13.000000000 -0700
+@@ -56,6 +56,18 @@
+ /* Define if your snprintf is busted */
+ #undef BROKEN_SNPRINTF
+ 
++/* platform uses an in-memory credentials cache */
++#undef USE_CCAPI
++
++/* platform has a Security Authorization Session API */
++#undef USE_SECURITY_SESSION_API
++
++/* Define to 1 if you have the `copyfile' function. */
++#undef HAVE_COPYFILE
++
++/* Define to 1 if you have the <copyfile.h> header file. */
++#undef HAVE_COPYFILE_H
++
+ /* updwtmpx is broken (if present) */
+ #undef BROKEN_UPDWTMPX
+ 
+diff -Naur ../openssh-4.4p1.orig/configure ./configure
+--- ../openssh-4.4p1.orig/configure	2006-09-26 04:03:41.000000000 -0700
++++ ./configure	2006-10-19 17:42:00.000000000 -0700
+@@ -32166,6 +32166,259 @@
  CFLAGS="$CFLAGS $werror_flags"
  
  
@@ -258,13 +280,13 @@ diff -Naurdp ../openssh.sacl/configure ./configure
 +
 +
 +
-                                                                       ac_config_files="$ac_config_files Makefile buildpkg.sh opensshd.init openbsd-compat/Makefile scard/Makefile ssh_prng_cmds survey.sh"
+ ac_config_files="$ac_config_files Makefile buildpkg.sh opensshd.init openssh.xml openbsd-compat/Makefile openbsd-compat/regress/Makefile scard/Makefile ssh_prng_cmds survey.sh"
  
  cat >confcache <<\_ACEOF
-diff -Naurdp ../openssh.sacl/configure.ac ./configure.ac
---- ../openssh.sacl/configure.ac	2005-09-28 16:11:11.000000000 -0700
-+++ ./configure.ac	2005-09-28 16:38:55.000000000 -0700
-@@ -3429,6 +3429,9 @@ dnl Adding -Werror to CFLAGS early preve
+diff -Naur ../openssh-4.4p1.orig/configure.ac ./configure.ac
+--- ../openssh-4.4p1.orig/configure.ac	2006-09-24 12:08:59.000000000 -0700
++++ ./configure.ac	2006-10-19 17:42:56.000000000 -0700
+@@ -3916,6 +3916,9 @@
  dnl Add now.
  CFLAGS="$CFLAGS $werror_flags"
  
@@ -272,11 +294,11 @@ diff -Naurdp ../openssh.sacl/configure.ac ./configure.ac
 +AC_CHECK_HEADERS(copyfile.h)
 +
  AC_EXEEXT
- AC_CONFIG_FILES([Makefile buildpkg.sh opensshd.init openbsd-compat/Makefile \
- 	scard/Makefile ssh_prng_cmds survey.sh])
-diff -Naurdp ../openssh.sacl/scp.1 ./scp.1
---- ../openssh.sacl/scp.1	2005-09-28 16:11:11.000000000 -0700
-+++ ./scp.1	2005-09-28 16:38:55.000000000 -0700
+ AC_CONFIG_FILES([Makefile buildpkg.sh opensshd.init openssh.xml \
+ 	openbsd-compat/Makefile openbsd-compat/regress/Makefile \
+diff -Naur ../openssh-4.4p1.orig/scp.1 ./scp.1
+--- ../openssh-4.4p1.orig/scp.1	2006-07-23 21:04:36.000000000 -0700
++++ ./scp.1	2006-10-19 17:43:58.000000000 -0700
 @@ -20,7 +20,7 @@
  .Sh SYNOPSIS
  .Nm scp
@@ -286,7 +308,7 @@ diff -Naurdp ../openssh.sacl/scp.1 ./scp.1
  .Op Fl c Ar cipher
  .Op Fl F Ar ssh_config
  .Op Fl i Ar identity_file
-@@ -87,6 +87,8 @@ Passes the
+@@ -87,6 +87,8 @@
  flag to
  .Xr ssh 1
  to enable compression.
@@ -295,10 +317,10 @@ diff -Naurdp ../openssh.sacl/scp.1 ./scp.1
  .It Fl c Ar cipher
  Selects the cipher to use for encrypting the data transfer.
  This option is directly passed to
-diff -Naurdp ../openssh.sacl/scp.c ./scp.c
---- ../openssh.sacl/scp.c	2005-09-28 16:11:11.000000000 -0700
-+++ ./scp.c	2005-09-28 16:38:55.000000000 -0700
-@@ -80,6 +80,11 @@ RCSID("$OpenBSD: scp.c,v 1.125 2005/07/2
+diff -Naur ../openssh-4.4p1.orig/scp.c ./scp.c
+--- ../openssh-4.4p1.orig/scp.c	2006-08-04 19:39:40.000000000 -0700
++++ ./scp.c	2006-10-19 18:06:48.000000000 -0700
+@@ -104,6 +104,11 @@
  #include "misc.h"
  #include "progressmeter.h"
  
@@ -309,8 +331,8 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
 +
  extern char *__progname;
  
- void bwlimit(int);
-@@ -105,6 +110,12 @@ char *ssh_program = _PATH_SSH_PROGRAM;
+ int do_cmd(char *host, char *remuser, char *cmd, int *fdin, int *fdout);
+@@ -131,6 +136,12 @@
  /* This is used to store the pid of ssh_program */
  pid_t do_cmd_pid = -1;
  
@@ -323,7 +345,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  static void
  killchild(int signo)
  {
-@@ -231,7 +242,11 @@ main(int argc, char **argv)
+@@ -310,7 +321,11 @@
  	addargs(&args, "-oClearAllForwardings yes");
  
  	fflag = tflag = 0;
@@ -335,7 +357,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  		switch (ch) {
  		/* User-visible flags. */
  		case '1':
-@@ -277,6 +292,11 @@ main(int argc, char **argv)
+@@ -356,6 +371,11 @@
  			showprogress = 0;
  			break;
  
@@ -347,7 +369,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  		/* Server options. */
  		case 'd':
  			targetshouldbedirectory = 1;
-@@ -326,7 +346,12 @@ main(int argc, char **argv)
+@@ -405,7 +425,12 @@
  	remin = remout = -1;
  	do_cmd_pid = -1;
  	/* Command to be executed on remote system using "ssh". */
@@ -360,7 +382,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  	    verbose_mode ? " -v" : "",
  	    iamrecursive ? " -r" : "", pflag ? " -p" : "",
  	    targetshouldbedirectory ? " -d" : "");
-@@ -509,6 +534,11 @@ source(int argc, char **argv)
+@@ -584,6 +609,10 @@
  	int fd = -1, haderr, indx;
  	char *last, *name, buf[2048];
  	int len;
@@ -368,11 +390,10 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
 +	char md_name[MAXPATHLEN];
 +	char *md_tmp;
 +#endif
-+
  
  	for (indx = 0; indx < argc; ++indx) {
  		name = argv[indx];
-@@ -521,6 +551,17 @@ source(int argc, char **argv)
+@@ -596,6 +625,17 @@
  			    name);
  			goto next;
  		}
@@ -390,7 +411,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  		if ((fd = open(name, O_RDONLY, 0)) < 0)
  			goto syserr;
  		if (fstat(fd, &stb) < 0) {
-@@ -604,6 +645,36 @@ next:			(void) close(fd);
+@@ -685,6 +725,36 @@
  		else
  			run_err("%s: %s", name, strerror(haderr));
  		(void) response();
@@ -427,7 +448,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  	}
  }
  
-@@ -751,6 +822,10 @@ sink(int argc, char **argv)
+@@ -833,6 +903,10 @@
  	if (stat(targ, &stb) == 0 && S_ISDIR(stb.st_mode))
  		targisdir = 1;
  	for (first = 1;; first = 0) {
@@ -438,7 +459,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  		cp = buf;
  		if (atomicio(read, remin, cp, 1) != 1)
  			return;
-@@ -884,6 +959,29 @@ sink(int argc, char **argv)
+@@ -966,6 +1040,29 @@
  		}
  		omode = mode;
  		mode |= S_IWRITE;
@@ -468,7 +489,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  		if ((ofd = open(np, O_WRONLY|O_CREAT, mode)) < 0) {
  bad:			run_err("%s: %s", np, strerror(errno));
  			continue;
-@@ -971,6 +1069,21 @@ bad:			run_err("%s: %s", np, strerror(er
+@@ -1053,6 +1150,21 @@
  			wrerrno = errno;
  		}
  		(void) response();
@@ -490,7 +511,7 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  		if (setimes && wrerr == NO) {
  			setimes = 0;
  			if (utimes(np, tv) < 0) {
-@@ -1032,7 +1145,11 @@ void
+@@ -1114,7 +1226,11 @@
  usage(void)
  {
  	(void) fprintf(stderr,
@@ -502,25 +523,3 @@ diff -Naurdp ../openssh.sacl/scp.c ./scp.c
  	    "           [-l limit] [-o ssh_option] [-P port] [-S program]\n"
  	    "           [[user@]host1:]file1 [...] [[user@]host2:]file2\n");
  	exit(1);
---- config.h.in 2005-02-22 13:45:22.000000000 -0800
-+++ config.h.in 2005-02-22 14:03:52.000000000 -0800
-@@ -354,6 +353,18 @@
- /* getaddrinfo is broken (if present) */
- #undef BROKEN_GETADDRINFO
- 
-+/* platform uses an in-memory credentials cache */
-+#undef USE_CCAPI
-+
-+/* platform has a Security Authorization Session API */
-+#undef USE_SECURITY_SESSION_API
-+
-+/* Define to 1 if you have the `copyfile' function. */
-+#undef HAVE_COPYFILE
-+
-+/* Define to 1 if you have the <copyfile.h> header file. */
-+#undef HAVE_COPYFILE_H
-+
- /* updwtmpx is broken (if present) */
- #undef BROKEN_UPDWTMPX
-
-

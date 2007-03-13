@@ -336,6 +336,7 @@ uint32 CACToken::probe(SecTokendProbeFlags flags,
 						result[20], result[15], result[16], result[17],
 						result[18]);
 				}
+				Tokend::ISO7816Token::name(tokenUid);
 				secdebug("probe", "recognized %s", tokenUid);
 			}
 		}

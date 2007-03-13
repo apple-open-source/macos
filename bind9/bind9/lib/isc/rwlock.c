@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 1998-2001  Internet Software Consortium.
+ * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 1998-2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: rwlock.c,v 1.1.1.1 2003/01/10 00:48:39 bbraun Exp $ */
+/* $Id: rwlock.c,v 1.33.2.4.2.3 2005/03/17 03:58:32 marka Exp $ */
 
 #include <config.h>
 
@@ -82,6 +82,7 @@ isc_rwlock_init(isc_rwlock_t *rwl, unsigned int read_quota,
 	rwl->magic = 0;
 
 	rwl->type = isc_rwlocktype_read;
+	rwl->original = isc_rwlocktype_none;
 	rwl->active = 0;
 	rwl->granted = 0;
 	rwl->readers_waiting = 0;
@@ -108,7 +109,9 @@ isc_rwlock_init(isc_rwlock_t *rwl, unsigned int read_quota,
 				 isc_msgcat_get(isc_msgcat, ISC_MSGSET_GENERAL,
 						ISC_MSG_FAILED, "failed"),
 				 isc_result_totext(result));
-		return (ISC_R_UNEXPECTED);
+		result = ISC_R_UNEXPECTED;
+		goto destroy_lock;
+
 	}
 	result = isc_condition_init(&rwl->writeable);
 	if (result != ISC_R_SUCCESS) {
@@ -117,12 +120,20 @@ isc_rwlock_init(isc_rwlock_t *rwl, unsigned int read_quota,
 				 isc_msgcat_get(isc_msgcat, ISC_MSGSET_GENERAL,
 						ISC_MSG_FAILED, "failed"),
 				 isc_result_totext(result));
-		return (ISC_R_UNEXPECTED);
+		result = ISC_R_UNEXPECTED;
+		goto destroy_rcond;
 	}
 
 	rwl->magic = RWLOCK_MAGIC;
 
 	return (ISC_R_SUCCESS);
+
+  destroy_rcond:
+	(void)isc_condition_destroy(&rwl->readable);
+  destroy_lock:
+	DESTROYLOCK(&rwl->lock);
+
+	return (result);
 }
 
 static isc_result_t
@@ -206,6 +217,50 @@ isc_rwlock_trylock(isc_rwlock_t *rwl, isc_rwlocktype_t type) {
 }
 
 isc_result_t
+isc_rwlock_tryupgrade(isc_rwlock_t *rwl) {
+	isc_result_t result = ISC_R_SUCCESS;
+
+	REQUIRE(VALID_RWLOCK(rwl));
+	LOCK(&rwl->lock);
+	REQUIRE(rwl->type == isc_rwlocktype_read);
+	REQUIRE(rwl->active != 0);
+
+	/* If we are the only reader then succeed. */
+	if (rwl->active == 1) {
+		rwl->original = (rwl->original == isc_rwlocktype_none) ?
+				isc_rwlocktype_read : isc_rwlocktype_none;
+		rwl->type = isc_rwlocktype_write;
+	} else
+		result = ISC_R_LOCKBUSY;
+
+	UNLOCK(&rwl->lock);
+	return (result);
+}
+
+void
+isc_rwlock_downgrade(isc_rwlock_t *rwl) {
+
+	REQUIRE(VALID_RWLOCK(rwl));
+	LOCK(&rwl->lock);
+	REQUIRE(rwl->type == isc_rwlocktype_write);
+	REQUIRE(rwl->active == 1);
+
+	rwl->type = isc_rwlocktype_read;
+	rwl->original = (rwl->original == isc_rwlocktype_none) ?
+			isc_rwlocktype_write : isc_rwlocktype_none;
+	/*
+	 * Resume processing any read request that were blocked when
+	 * we upgraded.
+	 */
+	if (rwl->original == isc_rwlocktype_none &&
+	    (rwl->writers_waiting == 0 || rwl->granted < rwl->read_quota) &&
+	    rwl->readers_waiting > 0)
+		BROADCAST(&rwl->readable);
+
+	UNLOCK(&rwl->lock);
+}
+
+isc_result_t
 isc_rwlock_unlock(isc_rwlock_t *rwl, isc_rwlocktype_t type) {
 
 	REQUIRE(VALID_RWLOCK(rwl));
@@ -222,6 +277,10 @@ isc_rwlock_unlock(isc_rwlock_t *rwl, isc_rwlocktype_t type) {
 	INSIST(rwl->active > 0);
 	rwl->active--;
 	if (rwl->active == 0) {
+		if (rwl->original != isc_rwlocktype_none) {
+			rwl->type = rwl->original;
+			rwl->original = isc_rwlocktype_none;
+		}
 		if (rwl->type == isc_rwlocktype_read) {
 			rwl->granted = 0;
 			if (rwl->writers_waiting > 0) {
@@ -249,6 +308,7 @@ isc_rwlock_unlock(isc_rwlock_t *rwl, isc_rwlocktype_t type) {
 			}
 		}
 	}
+	INSIST(rwl->original == isc_rwlocktype_none);
 
 #ifdef ISC_RWLOCK_TRACE
 	print_lock(isc_msgcat_get(isc_msgcat, ISC_MSGSET_RWLOCK,
@@ -316,6 +376,32 @@ isc_rwlock_lock(isc_rwlock_t *rwl, isc_rwlocktype_t type) {
 isc_result_t
 isc_rwlock_trylock(isc_rwlock_t *rwl, isc_rwlocktype_t type) {
 	return (isc_rwlock_lock(rwl, type));
+}
+
+isc_result_t
+isc_rwlock_tryupgrade(isc_rwlock_t *rwl) {
+	isc_result_t result = ISC_R_SUCCESS;
+
+	REQUIRE(VALID_RWLOCK(rwl));
+	REQUIRE(rwl->type == isc_rwlocktype_read);
+	REQUIRE(rwl->active != 0);
+	
+	/* If we are the only reader then succeed. */
+	if (rwl->active == 1)
+		rwl->type = isc_rwlocktype_write;
+	else
+		result = ISC_R_LOCKBUSY;
+	return (result);
+}
+
+void
+isc_rwlock_downgrade(isc_rwlock_t *rwl) {
+
+	REQUIRE(VALID_RWLOCK(rwl));
+	REQUIRE(rwl->type == isc_rwlocktype_write);
+	REQUIRE(rwl->active == 1);
+
+	rwl->type = isc_rwlocktype_read;
 }
 
 isc_result_t

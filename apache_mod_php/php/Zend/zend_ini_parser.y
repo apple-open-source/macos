@@ -7,7 +7,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -18,7 +18,7 @@
 */
 
 
-/* $Id: zend_ini_parser.y,v 1.18.2.8 2003/10/17 02:48:24 iliaa Exp $ */
+/* $Id: zend_ini_parser.y,v 1.18.2.8.4.1 2006/01/01 13:46:49 sniper Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"

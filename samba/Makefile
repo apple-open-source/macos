@@ -28,7 +28,6 @@ Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-ads						\
 			--with-cups						\
 			--with-ldap						\
-			--with-spinlocks					\
 			--with-libiconv						\
 			--without-readline					\
 			--disable-shared					\

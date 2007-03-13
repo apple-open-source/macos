@@ -55,11 +55,7 @@ static const char rcsid[] =
 #include <getopt.h>
 #endif
 
-#if (MAXLOGNAME-1) > UT_NAMESIZE
-#define LOGNAMESIZE UT_NAMESIZE
-#else
 #define LOGNAMESIZE (MAXLOGNAME-1)
-#endif
 
 /* Local headers */
 
@@ -119,7 +115,8 @@ run_file(const char *filename, uid_t uid, gid_t gid)
     pid_t pid;
     int fd_out, fd_in;
     int queue;
-    char mailbuf[LOGNAMESIZE + 1], fmt[49];
+    char mailbuf[LOGNAMESIZE + 1];
+    char *fmt = NULL;
     char *mailname = NULL;
     FILE *stream;
     int send_mail = 0;
@@ -208,13 +205,15 @@ run_file(const char *filename, uid_t uid, gid_t gid)
 
     fcntl(fd_in, F_SETFD, fflags & ~FD_CLOEXEC);
 
-    snprintf(fmt, sizeof(fmt),
-	"#!/bin/sh\n# atrun uid=%%ld gid=%%ld\n# mail %%%ds %%d",
-                          LOGNAMESIZE);
+    asprintf(&fmt, "%s%d%s",
+	     "#!/bin/sh\n# atrun uid=%ld gid=%ld\n# mail %",
+	     LOGNAMESIZE,
+	     "s %d");
     if (fscanf(stream, fmt, &nuid, &ngid, mailbuf, &send_mail) != 4) {
 	syslog(LOG_ERR,"File %s is in wrong format - aborting", filename);
 	exit(EXIT_FAILURE);
     }
+    free(fmt);
     if (mailbuf[0] == '-') {
 	syslog(LOG_ERR,"illegal mail name %s in %s",mailbuf,filename);
 	exit(EXIT_FAILURE);

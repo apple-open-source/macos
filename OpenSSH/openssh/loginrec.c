@@ -147,8 +147,26 @@
 
 #include "includes.h"
 
-#include "ssh.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+
+#include <netinet/in.h>
+
+#include <errno.h>
+#include <fcntl.h>
+#ifdef HAVE_PATHS_H
+# include <paths.h>
+#endif
+#include <pwd.h>
+#include <stdarg.h>
+#include <string.h>
+#include <unistd.h>
+
 #include "xmalloc.h"
+#include "key.h"
+#include "hostfile.h"
+#include "ssh.h"
 #include "loginrec.h"
 #include "log.h"
 #include "atomicio.h"
@@ -164,8 +182,6 @@
 #ifdef HAVE_LIBUTIL_H
 # include <libutil.h>
 #endif
-
-RCSID("$Id: loginrec.c,v 1.70 2005/07/17 07:26:44 djm Exp $");
 
 /**
  ** prototypes for helper functions in this file
@@ -1439,6 +1455,38 @@ syslogin_write_entry(struct logininfo *li)
  **/
 
 #ifdef USE_LASTLOG
+#ifdef __APPLE_UTMPX__
+int
+lastlog_write_entry(struct logininfo *li)
+{
+	switch(li->type) {
+	case LTYPE_LOGIN:
+		return 1; /* lastlog written by pututxline */
+	default:
+		logit("lastlog_write_entry: Invalid type field");
+		return 0;
+	}
+}
+
+int
+lastlog_get_entry(struct logininfo *li)
+{
+	struct lastlogx l, *ll;
+
+	if ((ll = getlastlogxbyname(li->username, &l)) == NULL) {
+		memset(&l, '\0', sizeof(l));
+		ll = &l;
+	}
+	line_fullname(li->line, ll->ll_line, sizeof(li->line));
+	strlcpy(li->hostname, ll->ll_host,
+		MIN_SIZEOF(li->hostname, ll->ll_host));
+	li->tv_sec = ll->ll_tv.tv_sec;
+	li->tv_usec = ll->ll_tv.tv_usec;
+	return (1);
+}
+
+#else /* !__APPLE_UTMPX__ */
+
 #define LL_FILE 1
 #define LL_DIR 2
 #define LL_OTHER 3
@@ -1589,13 +1637,14 @@ lastlog_get_entry(struct logininfo *li)
 		return (0);
 	default:
 		error("%s: Error reading from %s: Expecting %d, got %d",
-		    __func__, LASTLOG_FILE, sizeof(last), ret);
+		    __func__, LASTLOG_FILE, (int)sizeof(last), ret);
 		return (0);
 	}
 
 	/* NOTREACHED */
 	return (0);
 }
+#endif /* __APPLE_UTMPX__ */
 #endif /* USE_LASTLOG */
 
 #ifdef USE_BTMP
@@ -1613,7 +1662,7 @@ record_failed_login(const char *username, const char *hostname,
 	int fd;
 	struct utmp ut;
 	struct sockaddr_storage from;
-	size_t fromlen = sizeof(from);
+	socklen_t fromlen = sizeof(from);
 	struct sockaddr_in *a4;
 	struct sockaddr_in6 *a6;
 	time_t t;

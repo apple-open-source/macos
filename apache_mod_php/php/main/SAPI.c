@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: SAPI.c,v 1.155.2.24.2.1 2005/10/19 20:36:19 iliaa Exp $ */
+/* $Id: SAPI.c,v 1.155.2.24.2.5 2006/01/01 13:46:59 sniper Exp $ */
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -525,6 +525,10 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 	case SAPI_HEADER_REPLACE:
 	case SAPI_HEADER_ADD: {
 		sapi_header_line *p = arg;
+		
+		if (!p->line || !p->line_len) {
+			return FAILURE;
+		}
 		header_line = p->line;
 		header_line_len = p->line_len;
 		http_response_code = p->response_code;
@@ -542,6 +546,19 @@ SAPI_API int sapi_header_op(sapi_header_op_enum op, void *arg TSRMLS_DC)
 	while(isspace(header_line[header_line_len-1])) 
 		  header_line[--header_line_len]='\0';
 	
+	/* new line safety check */
+	{
+		char *s = header_line, *e = header_line + header_line_len, *p;
+		while (s < e && (p = memchr(s, '\n', (e - s)))) {
+			if (*(p + 1) == ' ' || *(p + 1) == '\t') {
+				s = p + 1;
+				continue;
+			}
+			efree(header_line);
+			sapi_module.sapi_error(E_WARNING, "Header may not contain more than a single header, new line detected.");
+			return FAILURE;
+		}
+	}
 
 	sapi_header.header = header_line;
 	sapi_header.header_len = header_line_len;

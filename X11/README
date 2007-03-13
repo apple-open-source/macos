@@ -1,19 +1,43 @@
 
 README
-======
+******
 
-To compile this X distribution you need the X11LibApple binary package
-installed on the root volume. This can be found on one of the Mac OS X
-installation CDs. Note that for X11 1.1 the X11LibApple package from
-Mac OS X 10.4 is required.
+This is a modified version of the XonX / XDarwin rootless X11
+environment for OS X.
 
-(To check if this package is already installed, look for files
-/usr/include/Xplugin.h and /usr/lib/libXplugin*.dylib)
+The rootless X server was derived from the HEAD of cvs.xfree86.org as
+of 2002-10-08. The rest of the tree is currently from the XFree86 4.3.0
+release
 
-After installing the X11LibApple package, cd into the "xc" directory
-and type:
 
-	$ make World			# build everything
-	$ sudo make install		# install everything but manpages
-	$ sudo make install.man		# install manpages
+Compiling
+=========
+
+Don't use the top-level Makefile, it's only there for B&I. Instead, the
+usual way to build everything the first time is:
+
+	$ ./build.sh
+
+This will build and install everything in the correct order. Running it
+again will only rebuild things that have changed, unless you invoke it
+with the "-c" option to start a clean build.
+
+
+Running X11
+===========
+
+Launch the X11.app installed in /Applications/Utilities. It creates
+Xauth session keys and then launches the X server (called Xquartz).
+
+Xquartz subsequently completes the initialization process by running
+your .xinitrc script (using /bin/sh). If .xinitrc doesn't exist Xquartz
+spawns the window manager (quartz-wm) and an xterm.
+
+
+Details
+=======
+
+See the "Fenster" radar component and the "TODO" file in this directory
+for known issues. See the "ChangeLog" file for description of recent
+changes.
 

@@ -8,7 +8,7 @@
    subject to change. Applications should only use zlib.h.
  */
 
-/* @(#) $Id: zutil.h,v 1.1.1.1 2004/07/15 22:46:13 jharper Exp $ */
+/* @(#) $Id: zutil.h,v 1.1 2004/07/15 22:46:13 jharper Exp $ */
 
 /* $XFree86: xc/extras/freetype2/src/gzip/zutil.h,v 1.2 2003/05/29 14:53:28 dawes Exp $ */
 

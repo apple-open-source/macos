@@ -1,0 +1,265 @@
+
+LEOPARD_SUBMISSION_0_44
+
+<rdar://problem/4668697> 64-bit X11 libraries don't use libz even though it is available
+<rdar://problem/4714345> Why do we ship 2 different versions of libexpat?
+<rdar://problem/4664153> X11 is three-way and needs to be four-way
+
+LEOPARD_SUBMISSION_0_43
+
+<rdar://problem/4377346> X11 server not reporting stereo visuals and pbuffer support
+<rdar://problem/4534332> X11 is using obsolete SPI which is slated for removal
+<rdar://problem/4607761> xterm is missing in Leopard
+
+LEOPARD_SUBMISSION_0_42
+
+<rdar://problem/4356702> trivial to crash X11.app with xscreensaver-demo and OpenGL
+<rdar://problem/4408133> X11 & Terminal environmental variable settings
+
+LEOPARD_SUBMISSION_0_41 (stillborn)
+
+<rdar://problem/4075093> Seed: X11 windows not coming to front when switching
+<rdar://problem/4109092> REGR: Slow wheel scrolling lost in X11.app
+<rdar://problem/3721701> 64-bit libX11.a
+<rdar://problem/4127718> quartz-wm crashes on system wake
+<rdar://problem/4054128> X11 WM window resize limited to main display size
+<rdar://problem/3477131> xclock crashes in parse_fond
+<rdar://problem/4233910> clicking on X11 application without focus sends button press to application
+<rdar://problem/4312329> MANPATH in Apple's X11 set wrongly by default
+<rdar://problem/4222517> 9A29: X11 has no binary
+
+TIGER_SUBMISSION_0_40
+
+<rdar://problem/4015381> caps lock does not work in X11
+
+TIGER_SUBMISSION_0_39
+
+<rdar://problem/4022757> XPM security hole with negative image bitmap_unit
+<rdar://problem/4031381> CAN-2005-0605 another xpm related security hole
+
+TIGER_SUBMISSION_0_38
+
+<rdar://problem/3494176> X11 hangs on closing an OpenGL window
+<rdar://problem/3985081> Sluggish performance on X11
+
+TIGER_SUBMISSION_0_37
+
+<rdar://problem/3843367> Poor mouse tracking with Apple X11 when running Cadence Allegro on a remote host, locally displayed with with Apple X11
+<rdar://problem/3935743> glxgears kills x11
+<rdar://problem/3668769> X11.app Applications customization gets confused
+
+TIGER_SUBMISSION_0_36
+
+<rdar://problem/3851089> CI:Removing CFBundleShortVersionString and CFBundleGetInfoString keys from your localizable content
+<rdar://problem/3370401> libXplugin naming will create future binary compatibilty problems
+<rdar://problem/3273236> Xwindow behavior wrong
+<rdar://problem/3205836> tooltips from KDE kicker show behind the kicker
+<rdar://problem/3407146> KDE launched X11 Windows not receiving mouse events
+<rdar://problem/3879878> X11 crash when killed from Terminal
+<rdar://problem/3889638> Weird atom name in X11
+
+TIGER_SUBMISSION_0_35
+
+<rdar://problem/3833239> [X11] Two strings in Localizable.strings are not picked up in French
+<rdar://problem/3828153> TA8A241Plus:X11: X11 menu item 'Terminal', 'xman', 'xlogo'.
+
+TIGER_SUBMISSION_0_34
+
+<rdar://problem/3803120> xterm -ls is not the default any more, man page should be updated
+<rdar://problem/3768572> xterm needs to call grantpt() to set slave pty user/group and permissions
+<rdar://problem/3665943> repeatedly pressing cmd-1, cmd-m creates lots of artifacts in the dock
+<rdar://problem/3820725> Typo in X11 Output Prefs ('optino' vs. 'option')
+<rdar://problem/3778302> libXpm integer overflow flaws
+<rdar://problem/3744542> X11: A maliciously formed .xpm image can cause apps to crash
+<rdar://problem/3816789> Unable to specify arguments to commands in Application menu
+<rdar://problem/3837314> copy from (e.g. xemacs) "breaks" later copies
+
+TIGER_SUBMISSION_0_33
+
+<rdar://problem/3774967> Alt-backquote to compose accents will not work under X11
+<rdar://problem/3760042> FU-Tiger 8A214+ : X11 : unlocalised Alert when quiting
+<rdar://problem/3378253> X11 Apps Menu window doesn't have minimum size
+<rdar://problem/3316468> Seed: X11 security settings confusion
+<rdar://problem/3313133> X11 application HI text recommendations
+
+TIGER_SUBMISSION_0_32
+
+<rdar://problem/3404805> Remote and local vulnerabilities in XFree86 font libraries
+<rdar://problem/3405807> Apple X11 WWDC 2003 source missing xkbcomp/symbols/by and xkbcomp/symbols/pc/by
+<rdar://problem/3421699> Seed: X11 fc-cache: unknown crash: FcStrCopyFilename
+<rdar://problem/3516125> Focus management bugs in X11 application
+<rdar://problem/3524388> xterm doesn't inherit path or cwd
+<rdar://problem/3548675> SU: XFree86/X11R6 Font Information File Buffer Overflow
+<rdar://problem/3570235> X11: Merge with XFree86 4.4
+<rdar://problem/3571829> bad xauth entry->
+<rdar://problem/3572554> Cannot double click X11 executables with spaces in path
+<rdar://problem/3618201> BUILD FAILURE: X11 is failing to build in Tiger
+<rdar://problem/3621248> X11 should allow specifying a custom xinitrc
+<rdar://problem/3674992> X11 doesn't play well with home folders with spaces.
+
+MERLOT_SUBMISSION_0_31
+
+<rdar://problem/3205813> quartz-wm crashed, stripping title bar from windows
+<rdar://problem/3386185> X11 does not build
+<rdar://problem/3405320> X11 should use Command-? as shortcut for help
+<rdar://problem/3405321> X11 should use Command-Option-H for "Hide Others"
+<rdar://problem/3405322> X11 needs separator before Preferences… menu item
+<rdar://problem/3405323> X11’s Window menu should match HI Guidelines
+<rdar://problem/3413758> Title bar buttons are one pixel too high.
+<rdar://problem/3430888> X11: xterm window opens on secondary screen (12" PowerBook)
+<rdar://problem/3432342> SU Candidate: copy-and-paste from X11 regression
+<rdar://problem/3449284> xterm's -ls option does not work
+<rdar://problem/3470313> Threaded GLX Windows Error: "failed to bind surface"
+<rdar://problem/3500270> Seed: X11 man pages are not in manpath
+
+PANTHER_SUBMISSION_0_28:
+
+<rdar://problem/3340377>:	x11: resizing this GLX application crashes my powerbook
+<rdar://problem/3359753>:	Seed: x11 menu items disappear
+<rdar://problem/3361286>:	X11 README should be updated to remove Preview wording
+<rdar://problem/3363451>:	x11: entering fullscreen mode confuses windowvous
+<rdar://problem/3363492>:	x11: pressing and release mouse over menubar activates fullscreen mode
+<rdar://problem/3366845>:	Seed: X11.app won't start up in full-screen mode.
+
+PANTHER_SUBMISSION_0_27:
+
+<rdar://problem/3351489>:	x11: matlab hangs when offscreen rendering
+
+PANTHER_SUBMISSION_0_26:
+
+3126715		libGL requires window server connection
+3122756		Off-screen rendering not working with GLX
+3221162		x11: remove hotkey spi from X server?
+3270678		X server update can be delayed (indefinitely?) by heavy workloads
+3341360		bad interaction between 3 button mouse emulation and full screen mode in 7B21
+
+PANTHER_SUBMISSION_0_25:
+
+3267090		X11 - xp_configure_window: assertion failed: !w->locked
+3281002		X11 Help menu doesn't open a help page
+3290527		X11 SDK defaults to ppc/i386 build, but only supplies ppc libraries
+3291366		X11 full-screen mode has confusing WM behavior
+3302694		fullscreen mode background window can get stuck
+3303080		X11 full-screen mode has broken window-move behaviour
+3305886		VNMR program in X11 will not assign active window upon mouse click
+3316333		capslock, feature keystrokes sent through to X11 from Aqua; other Xmodmap woes
+
+PANTHER_SUBMISSION_0_24:
+
+3221150		x11: finalize rooted mode UI?
+
+PANTHER_SUBMISSION_0_23:
+
+3141699		6G30-X11.app Public Beta problem due to changing network settings
+3210884		quartz-wm not decorating some windows
+3246069		freetype: merge double-free patch
+3253136		default vim command in applications menu is incorrect
+3253158		mouse cannot enter menubar while in rooted (fullscreen) mode.
+3253935		X11.app not compatible with multiple logins
+3254976		XWarpPointer(3x) broken
+3260643		X11 copyright notice misspelling
+3267488		X11 Quartz-WM does not allow resizing of pop-up windows
+3268363		hack for WWDC
+3268796		7A154: X11 floating windows need to fade away
+
+PANTHER_SUBMISSION_0_22:
+
+3111189		Rooted mode would be nice
+3122175		Make native fonts available to fontconfig
+3132993		Allow a new xterm to be created by CMD-N
+3141354		Xfig not add-able to Application menu
+3141737		open-x11 should start X server if not already running
+3145038		X11 leaves orphans and zombies
+3156151		X11 dock menu should show applications
+3157501		X11.app presents quit warning even when all windows closed
+3159228		6G30 - X11.app wont recognize 2nd screen if already started
+3201071		X11 - request for preference to set option as meta key
+3205630		First click lost after hiding and then unhiding
+3209597		X11.app should launch X11 binaries
+3210250		Windows disappear permanently on changes to extended desktop
+3210884		quartz-wm not decorating some windows
+3211206		Single quotes in #warnings no longer work
+3212651		X11 and unusable windows
+3214516		grabbled special characters when pasting from OS X environment
+3227677		X11.app should be in Utilities
+3227682		X11.app needs better default Applications
+3228663		window geometry issues with the GIMP toolbox
+3231257		X11 default window position shouldn't be under the dock
+3231372		X11 did not launch
+3232717		7A125: X11 leaking at startup
+3233621		Incorrect handling of window titles by quartz-wm
+3233663		xterm segfaults during scrolling if "xterm*Utf8: 1" is in .Xdefaults
+
+PANTHER_SUBMISSION_0_21:
+
+3118126		Panther: X11 needs to build fat.
+3169083		6G30 Apple's Xquartz implementation has small SHAPES error
+3199523		XtPopdown() on iconified shell causes popup without window manager decoration
+3199867		Copy from NEdit's Edit menu confuses non-X11 apps
+3201233		X11 does not respect geometry specifications
+3202639		6I32 Minimized X11 windows do not get removed from dock when quitting X11.
+
+FENSTER_SUBMISSION_0_18:
+
+3149135		X11 quartz-wm looses ConfigureNotify events
+3146168		Pseudocolor (8-bit) visual plane support in Apple X11.app
+
+FENSTER_SUBMISSION_0_17:
+
+3118126		Fenster needs to build fat.
+3159914		programmatically resizing the draw widget vertically, fails
+3169643		Reopened X11 minimised windows don't get focus
+3169654		non-admin user can't start X11 after X11 started by admin user
+3170754		Xquartz crashes attempting Motif drag
+3172254		x11: quartz-wm doesn't allow dialog windows to be resized
+3172997		X11 0.2: dead keys with dvorak keymapping
+3174051		6I32-Linking X11-App with OpenGL gives errors and bad performance
+3174305		Horizontal scrolling disrupted by resize box using xload.
+3174622		Emulated middle-button-raise fails in X11.app when Alt/option is not Mode_Switch
+3174914		X11 Aberrant Jumping Cursor
+3177623		6g30 IDL Application crashes X Server
+3177851		apple-Q doesn't quit X11, why is it "special"?
+3177855		Use the dock to Quit and X11 puts a dialog behind the current app
+
+FENSTER_SUBMISSION_0_14:
+
+3148625		X11 crashes accessing a menu in an X11 application (16 bit)
+3159554		Apple X11 beta failure with openDX
+3144505		X11:XIM does not work
+3157972		6G30 quartz-wm crashes upon attempted conversion of non-ascii character
+3163066		quartz-wm man page should be updated to include proxy information
+
+FENSTER_SUBMISSION_0_13:
+
+3111209		WindowManager: support subset of gnome/kde/net hints
+3115053		X11: Should allow focused window to be checked in windows menu
+3115079		App window placement policy
+3123731		sending window to a upper corner with evilwm leaves the top of the window obscured by the menu bar
+3134034		Iconified windows get de-iconified when traversing with cmd-backtick.
+3135602		Clicking on X11.app icon in dock after hiding
+3140798		Installation missing courtesy symlinks
+3141074		Garbage pixels in resized GLX window
+3141085		glxgears is way faster with a partially obscured window
+3141272		hide/show menu options don't work with X11 windows
+3141368		X11 Does not honor keyboard selection
+3141565		6G30 Minimized X11 windows aren't removed from the dock on Quit
+3141897		X11 dock menu should show windows and/or applications
+3141907		X11: selection proxying should be available without running quartz-wm
+3142008		X11: quartz-wm ignores PPosition window positions
+3142186		X11 window colors are wrong
+3142774		No click to focus
+3142894		Minimizing xterm to dock can result in no genie effect and no icon in dock
+3143726		6G30-Application crashes on X11 when trying to use OpenGL
+3144995		Apple X11 server does not properly handle move events sent by CVD
+3145084		/System/Library/Keyboards/Espanol.keymapping is outdated and cannot be used with
+3145247		X11: Xnest fails with "Couldn't get keyboard"
+3146018		x11: moving large xeyes window crashes cg window server
+3146402		command-Q passed through to underlying X11 windows
+3147209		6g30 Xquartz crashes when clicking in a window
+3149135		X11 quartz-wm looses ConfigureNotify events
+3151351		x11: Command-Q while Dock Command-TAB is highlighting X11.app kills it
+3151979		"xterm -iconic" does not create iconic xterm in dock
+3154751		x11: quitting vis5d crashes X server
+3154869		x11: add UI items to control xauth usage
+3154871		x11: first time dialog
+3158641		X11 crash on menu selection in admintool in Solaris 2.6

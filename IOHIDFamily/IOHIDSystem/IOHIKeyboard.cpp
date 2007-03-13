@@ -158,25 +158,9 @@ bool IOHIKeyboard::start(IOService * provider)
    * life).  Register ourselves as a nub to kick off matching.
    */
 
-  registerService();
+  registerService(kIOServiceSynchronous);
 
   return true;
-}
-
-void IOHIKeyboard::stop(IOService * provider)
-{
-    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this);        
-    
-    if (tempReservedStruct && tempReservedStruct->keyboardNub) 
-    {
-        tempReservedStruct->keyboardNub->stop(this);
-        tempReservedStruct->keyboardNub->detach(this);
-        
-        tempReservedStruct->keyboardNub->release();
-        tempReservedStruct->keyboardNub = 0;
-    }
-
-    super::stop(provider);
 }
 
 void IOHIKeyboard::free()
@@ -201,7 +185,12 @@ void IOHIKeyboard::free()
     KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this);        
     
     if (tempReservedStruct) {
+        thread_call_cancel(tempReservedStruct->repeat_thread_call);
         thread_call_free(tempReservedStruct->repeat_thread_call);
+
+        if ( tempReservedStruct->keyboardNub )
+            tempReservedStruct->keyboardNub->release();
+        
         RemoveKeyboardReservedStructForService(this);
     }
     
@@ -865,13 +854,21 @@ bool IOHIKeyboard::open(
 void IOHIKeyboard::close(IOService * client, IOOptionBits)
 {
     // kill autorepeat task
+    // do this before we issue keyup for any other keys 
+    // that are down.
+    AbsoluteTime ts;
+    clock_get_uptime(&ts);
     if (_codeToRepeat != ((unsigned)-1))
-    {
-        AbsoluteTime ts;
-        clock_get_uptime(&ts);
         dispatchKeyboardEvent(_codeToRepeat, false, ts);
-    }
+    
+    // now get rid of any other keys that might be down
+    UInt32 i, maxKeys = maxKeyCodes();
+    for (i=0; i<maxKeys; i++)
+        if ( EVK_IS_KEYDOWN(i,_keyState) )
+            dispatchKeyboardEvent(i, false, ts);
 
+    // continue to issue zero'ed out flags changed events
+    // just in case any of the flag bits were manually set
     _updateEventFlags(this, 0);
 
     _keyboardSpecialEvent(  this, 

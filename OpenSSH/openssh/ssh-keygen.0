@@ -27,7 +27,9 @@ DESCRIPTION
      ssh-keygen generates, manages and converts authentication keys for
      ssh(1).  ssh-keygen can create RSA keys for use by SSH protocol version 1
      and RSA or DSA keys for use by SSH protocol version 2.  The type of key
-     to be generated is specified with the -t option.
+     to be generated is specified with the -t option.  If invoked without any
+     arguments, ssh-keygen will generate an RSA key for use in SSH protocol 2
+     connections.
 
      ssh-keygen is also used to generate groups for use in Diffie-Hellman
      group exchange (DH-GEX).  See the MODULI GENERATION section for details.
@@ -74,9 +76,10 @@ DESCRIPTION
              file.
 
      -b bits
-             Specifies the number of bits in the key to create.  Minimum is
-             512 bits.  Generally, 2048 bits is considered sufficient.  The
-             default is 2048 bits.
+             Specifies the number of bits in the key to create.  For RSA keys,
+             the minimum size is 768 bits and the default is 2048 bits.  Gen-
+             erally, 2048 bits is considered sufficient.  DSA keys must be ex-
+             actly 1024 bits as specified by FIPS 186-2.
 
      -C comment
              Provides a new comment.
@@ -282,4 +285,4 @@ AUTHORS
      created OpenSSH.  Markus Friedl contributed the support for SSH protocol
      versions 1.5 and 2.0.
 
-OpenBSD 3.8                   September 25, 1999                             5
+OpenBSD 4.0                   September 25, 1999                             5

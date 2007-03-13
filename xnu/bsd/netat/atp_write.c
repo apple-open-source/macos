@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  *	Copyright (c) 1996-1998 Apple Computer, Inc.
@@ -1474,6 +1472,13 @@ _ATPsndreq(fd, buf, len, nowait, err, proc)
 		return -1;
 	}
 
+	if (len < atpBDSsize + sizeof(struct atp_set_default) + TOTAL_ATP_HDR_SIZE ||
+		len > atpBDSsize + sizeof(struct atp_set_default) + TOTAL_ATP_HDR_SIZE + 
+		ATP_DATA_SIZE) {
+		file_drop(fd);
+		*err = EINVAL;
+		return -1;
+	}
 
 	while ((mioc = gbuf_alloc(sizeof(ioc_t), PRI_MED)) == 0) {
 		struct timespec ts;
@@ -1715,6 +1720,11 @@ _ATPsndrsp(fd, respbuff, resplen, datalen, err, proc)
 	/*
 	 * allocate buffer and copy in the response info
 	 */
+	if (resplen < 0 || resplen > TOTAL_ATP_HDR_SIZE + sizeof(struct atpBDS)*ATP_TRESP_MAX) {
+		file_drop(fd);
+		*err = EINVAL;
+		return -1;
+	}
 	if ((m = gbuf_alloc_wait(resplen, TRUE)) == 0) {
 	        *err = ENOMEM;
 		file_drop(fd);
@@ -1744,6 +1754,12 @@ _ATPsndrsp(fd, respbuff, resplen, datalen, err, proc)
 	}
 	
 	for (size = 0, count = 0; count < bds_cnt; count++) {
+		if (UAS_VALUE(bdsp[count].bdsBuffSz) > ATP_DATA_SIZE) {
+			gbuf_freem(m);
+			*err = EINVAL;
+			file_drop(fd);
+			return -1;
+		}
 		size += UAS_VALUE(bdsp[count].bdsBuffSz);
 	}
 	if (size > datalen) {				
@@ -1823,6 +1839,12 @@ _ATPgetreq(fd, buf, buflen, err, proc)
 			|| (atp->atp_flags & ATP_CLOSING)) {
 		dPrintf(D_M_ATP, D_L_ERROR, ("ATPgetreq: stale handle=0x%x, pid=%d\n",
 			(u_int) gref, gref->pid));
+		file_drop(fd);
+		*err = EINVAL;
+		return -1;
+	}
+
+	if (buflen < DDP_X_HDR_SIZE + ATP_HDR_SIZE) {
 		file_drop(fd);
 		*err = EINVAL;
 		return -1;

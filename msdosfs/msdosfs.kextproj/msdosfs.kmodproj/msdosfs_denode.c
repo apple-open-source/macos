@@ -428,6 +428,7 @@ deget(pmp, dirclust, diroffset, dvp, cnp, depp, context)
 	return 0;
 
 fail:
+	vnode_rele(new_dep->de_devvp);
 	if (bp)
 		buf_brelse(bp);
 

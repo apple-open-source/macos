@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  *	Copyright (c) 1988, 1989, 1997, 1998 Apple Computer, Inc. 
@@ -111,6 +109,39 @@ extern at_nvestr_t *getRTRLocalZone(zone_usage_t *);
 extern void	nbp_add_multicast( at_nvestr_t *, at_ifaddr_t *);
 
 static long nbp_id_count = 0;
+
+/*
+ * Copy src to string dst of size siz.  At most siz-1 characters
+ * will be copied.  Always NUL terminates (unless siz == 0).
+ * Returns strlen(src); if retval >= siz, truncation occurred.
+ */
+__private_extern__ size_t
+strlcpy(char *dst, const char *src, size_t siz)
+{
+        char *d = dst;
+        const char *s = src;
+        size_t n = siz;
+
+        /* Copy as many bytes as will fit */
+        if (n != 0 && --n != 0) {
+                do {
+                        if ((*d++ = *s++) == 0)
+                                break;
+                } while (--n != 0);
+        }
+
+        /* Not enough room in dst, add NUL and traverse rest of src */
+        if (n == 0) {
+                if (siz != 0)
+                        *d = '\0';              /* NUL-terminate dst */
+                while (*s++)
+                        ;
+        }
+
+        return(s - src - 1);    /* count does not include NUL */
+}
+
+
 
 void sethzonehash(elapp)
      at_ifaddr_t *elapp;
@@ -215,12 +246,9 @@ void nbp_input(m, ifID)
 #ifdef NBP_DEBUG
 	{
 		char zone[35],object[35],type[35];
-		strncpy(zone,nbp_req.nve.zone.str, nbp_req.nve.zone.len);
-		strncpy(object,nbp_req.nve.object.str, nbp_req.nve.object.len);
-		strncpy(type,nbp_req.nve.type.str, nbp_req.nve.type.len);
-		object[nbp_req.nve.object.len] = '\0';
-		zone[nbp_req.nve.zone.len] = '\0';
-		type[nbp_req.nve.type.len] = '\0';
+		strlcpy(zone,nbp_req.nve.zone.str, sizeof(zone));
+		strlcpy(object,nbp_req.nve.object.str, sizeof(object));
+		strlcpy(type,nbp_req.nve.type.str, sizeof(type));
 		if (ifID != ifID_home) 
 			dPrintf(D_M_NBP_LOW,D_L_USR2,
 				("nbp_LKUP for:%s:%s@%s", object, type, zone));
@@ -531,12 +559,9 @@ static	int	nbp_validate_n_hash (nbp_req, wild_ok, checkLocal)
 #ifdef NBP_DEBUG
 	{
 		char xzone[35],xobject[35],xtype[35];
-		strncpy(xzone,zone->str, zone->len);
-		strncpy(xobject,object->str, object->len);
-		strncpy(xtype,type->str, type->len);
-		xobject[object->len] = '\0';
-		xzone[zone->len] = '\0';
-		xtype[type->len] = '\0';
+		strlcpy(xzone,zone->str, sizeof(xzone));
+		strlcpy(xobject,object->str, sizeof(xobject));
+		strlcpy(xtype,type->str, sizeof(xtype));
 		dPrintf(D_M_NBP_LOW, D_L_USR4,
 			("nbp_validate: looking for %s:%s@%s\n",
 			xobject, xtype, xzone));
@@ -549,8 +574,7 @@ static	int	nbp_validate_n_hash (nbp_req, wild_ok, checkLocal)
 
 	if (checkLocal && !isZoneLocal(zone)) {
 		char str[35];
-		strncpy(str,zone->str,zone->len);
-		str[zone->len] = '\0';
+		strlcpy(str,zone->str,sizeof(str));
 		dPrintf(D_M_NBP_LOW,D_L_WARNING,
 			("nbp_val_n_hash bad zone: %s\n", str));
 		errno = EINVAL;
@@ -634,12 +658,9 @@ static	int	nbp_validate_n_hash (nbp_req, wild_ok, checkLocal)
 #ifdef NBP_DEBUG
 	{
 		char zone[35],object[35],type[35];
-		strncpy(zone,nbp_req->nve.zone.str, nbp_req->nve.zone.len);
-		strncpy(object,nbp_req->nve.object.str, nbp_req->nve.object.len);
-		strncpy(type,nbp_req->nve.type.str, nbp_req->nve.type.len);
-		object[nbp_req->nve.object.len] = '\0';
-		zone[nbp_req->nve.zone.len] = '\0';
-		type[nbp_req->nve.type.len] = '\0';
+		strlcpy(zone,nbp_req.nve.zone.str, sizeof(zone));
+		strlcpy(object,nbp_req.nve.object.str, sizeof(object));
+		strlcpy(type,nbp_req.nve.type.str, sizeof(type));
 		dPrintf(D_M_NBP_LOW,D_L_USR4,
 			("nbp_validate: after hash: %s:%s@%s\n",
 			object, type, zone));
@@ -711,12 +732,9 @@ static	nve_entry_t *nbp_search_nve (nbp_req, ifID)
 #ifdef NBP_DEBUG
 	{
 		char zone[35],object[35],type[35];
-		strncpy(zone,nbp_req->nve.zone.str, nbp_req->nve.zone.len);
-		strncpy(object,nbp_req->nve.object.str, nbp_req->nve.object.len);
-		strncpy(type,nbp_req->nve.type.str, nbp_req->nve.type.len);
-		object[nbp_req->nve.object.len] = '\0';
-		zone[nbp_req->nve.zone.len] = '\0';
-		type[nbp_req->nve.type.len] = '\0';
+		strlcpy(zone,nbp_req.nve.zone.str, sizeof(zone));
+		strlcpy(object,nbp_req.nve.object.str, sizeof(object));
+		strlcpy(type,nbp_req.nve.type.str, sizeof(type));
 		dPrintf(D_M_NBP_LOW, D_L_USR4,
 				("nbp_search: looking for %s:%s@%s resp:0x%x\n",object,type,zone,
 				(u_int) nbp_req->response));
@@ -794,12 +812,9 @@ static	nve_entry_t *nbp_search_nve (nbp_req, ifID)
 	{
 		char zone[35],object[35],type[35];
 
-		strncpy(zone,nbp_req->nve.zone.str, nbp_req->nve.zone.len);
-		strncpy(object,nbp_req->nve.object.str, nbp_req->nve.object.len);
-		strncpy(type,nbp_req->nve.type.str, nbp_req->nve.type.len);
-		object[nbp_req->nve.object.len] = '\0';
-		zone[nbp_req->nve.zone.len] = '\0';
-		type[nbp_req->nve.type.len] = '\0';
+		strlcpy(zone,nbp_req.nve.zone.str, sizeof(zone));
+		strlcpy(object,nbp_req.nve.object.str, sizeof(object));
+		strlcpy(type,nbp_req.nve.type.str, sizeof(type));
 		dPrintf(D_M_NBP_LOW, D_L_USR2,
 			("nbp_search: found  %s:%s@%s  net:%d\n",
 			object, type, zone, (int)nve_entry->address.net));
@@ -1030,8 +1045,7 @@ void nbp_add_multicast(zone, ifID)
 
 	{
 	  char str[35];
-	  strncpy(str,zone->str,zone->len);
-	  str[zone->len] = '\0';
+	  strlcpy(str,zone->str,sizeof(str));
 	  dPrintf(D_M_NBP_LOW, D_L_USR3,
 		  ("nbp_add_multi getting mc for %s\n", str));
 	}
@@ -1123,8 +1137,7 @@ int setLocalZones(newzones, size)
 	while (bytesread < size) {		/* for each new zone */
 		{
 			char str[35];
-			strncpy(str,pnew->str,pnew->len);
-			str[pnew->len] = '\0';
+			strlcpy(str,pnew->str,sizeof(str));
 		}
 		m = lzones;				
 		pnve = (at_nvestr_t*)gbuf_rptr(m);
@@ -1155,7 +1168,7 @@ int setLocalZones(newzones, size)
 				gbuf_wset(gbuf_cont(m),0);
 				pnve = (at_nvestr_t*)gbuf_rptr(gbuf_cont(m));
 			}
-			strncpy(pnve->str,pnew->str,pnew->len);
+			strlcpy(pnve->str,pnew->str,sizeof(pnve->str));
 			pnve->len = pnew->len;
 			lzonecnt++;
 		}
@@ -1178,8 +1191,7 @@ showLocalZones1()
 		if (!(pnve = getLocalZone(i))) {
 			break;
 		}
-		strncpy(str,pnve->str,pnve->len);
-		str[pnve->len] = '\0';
+		strlcpy(str,pnve->str,sizeof(str));
 	}
 }
 
@@ -1441,12 +1453,9 @@ int nbp_new_nve_entry(nve_entry, ifID)
 #ifdef NBP_DEBUG
 	{
 		char zone[35],object[35],type[35];
-		strncpy(zone,new_entry->zone.str, new_entry->zone.len);
-		strncpy(object,new_entry->object.str, new_entry->object.len);
-		strncpy(type,new_entry->type.str, new_entry->type.len);
-		object[new_entry->object.len] = '\0';
-		zone[new_entry->zone.len] = '\0';
-		type[new_entry->type.len] = '\0';
+		strlcpy(zone,nbp_req.nve.zone.str, sizeof(zone));
+		strlcpy(object,nbp_req.nve.object.str, sizeof(object));
+		strlcpy(type,nbp_req.nve.type.str, sizeof(type));
 		dPrintf(D_M_NBP_LOW, D_L_USR4,
 			("nbp_insert: adding %s:%s@%s addr:%d.%d ",
 			 object, type, zone, 

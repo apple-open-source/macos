@@ -473,10 +473,19 @@ char *secrets_fetch_machine_password(const char *domain,
 				     uint32 *channel)
 {
 	char *key = NULL;
-	char *ret;
+	char *ret = NULL;
 	asprintf(&key, "%s/%s", SECRETS_MACHINE_PASSWORD, domain);
 	strupper_m(key);
-	ret = (char *)secrets_fetch(key, NULL);
+	size_t secret_len;
+	char *secret = NULL;
+	ret = (char *)secrets_fetch(key, &secret_len);
+	
+	if (ret && secret_len) {
+		secret = calloc(1, secret_len + 1);
+		memcpy(secret, ret, secret_len);
+		free(ret);
+		ret = secret;
+	}
 	SAFE_FREE(key);
 	
 	if (pass_last_set_time) {

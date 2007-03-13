@@ -248,12 +248,14 @@ protected:
     @param owningTask The mach task requesting the connection.
     @param security_id A token representing the access level for the task.
     @param type A constant specifying the type of connection to be created.
+    @param properties A dictionary of additional properties for the connection.
     @param handler The IOUserClient object returned.
     @result The return from IOService::newUserClient() is returned. */
 
     virtual IOReturn newUserClient( task_t          owningTask,
                                     void *          security_id,
                                     UInt32          type,
+                                    OSDictionary *  properties,
                                     IOUserClient ** handler );
 
 /*! @function publishProperties
@@ -669,6 +671,19 @@ public:
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 29);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 30);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 31);
+
+#ifndef __ppc__
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 32);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 33);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 34);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 35);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 36);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 37);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 38);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 39);
+    OSMetaClassDeclareReservedUnused(IOHIDDevice, 40);
+#endif
+
 };
 
 #endif /* !_IOKIT_HID_IOHIDDEVICE_H */

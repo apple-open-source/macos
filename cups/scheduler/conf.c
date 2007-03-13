@@ -1,5 +1,5 @@
 /*
- * "$Id: conf.c,v 1.45 2005/02/16 17:58:01 jlovell Exp $"
+ * "$Id: conf.c,v 1.45.2.1 2006/12/05 22:11:09 jlovell Exp $"
  *
  *   Configuration routines for the Common UNIX Printing System (CUPS).
  *
@@ -556,6 +556,57 @@ ReadConfiguration(void)
     */
 
     conf_file_check(TempDir, NULL, 01770, RunUser, Group, 1, 1);
+
+   /*
+    * Clean out the temporary directory...
+    */
+
+    DIR			*dir;		/* Temporary directory */
+    struct dirent	*dent;		/* Directory entry */
+    char		tempfile[1024];	/* Temporary filename */
+    struct stat		fileinfo;	/* File information */
+
+    if ((dir = opendir(TempDir)) != NULL)
+    {
+      LogMessage(L_DEBUG, "Cleaning out old temporary files in \"%s\"...", 
+      			 TempDir);
+
+      while ((dent = readdir(dir)) != NULL)
+      {
+       /*
+	* Skip "." and ".."...
+	*/
+    
+	if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, ".."))
+	  continue;
+
+        snprintf(tempfile, sizeof(tempfile), "%s/%s", TempDir, dent->d_name);
+
+	if (lstat(tempfile, &fileinfo))
+	{
+	  LogMessage(L_WARN, "ReadConfiguration: Unable to stat \"%s\": %s",
+		     dent->d_name, strerror(errno));
+	  continue;
+	}
+
+	if (S_ISDIR(fileinfo.st_mode))
+	  continue;
+
+	if (unlink(tempfile))
+	  LogMessage(L_ERROR,
+	                  "Unable to remove temporary file \"%s\" - %s",
+	                  tempfile, strerror(errno));
+        else
+	  LogMessage(L_DEBUG, "Removed temporary file \"%s\"...",
+	                  tempfile);
+      }
+
+      closedir(dir);
+    }
+    else
+      LogMessage(L_ERROR,
+                      "Unable to open temporary directory \"%s\" - %s",
+                      TempDir, strerror(errno));
   }
 
  /*
@@ -2289,5 +2340,5 @@ conf_file_check(const char*filename, 	/* I - File or directory name to test */
 
 
 /*
- * End of "$Id: conf.c,v 1.45 2005/02/16 17:58:01 jlovell Exp $".
+ * End of "$Id: conf.c,v 1.45.2.1 2006/12/05 22:11:09 jlovell Exp $".
  */

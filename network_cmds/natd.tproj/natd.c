@@ -181,7 +181,6 @@ typedef struct  stdportmaprequest{
 		char			version;
 		unsigned char   opcode;
 		unsigned short  result;
-		unsigned int	epoch;
 		char			data[4];
 	}stdportmaprequest;
 
@@ -196,11 +195,19 @@ typedef struct  publicportreq{
 		char			version;
 		unsigned char   opcode;
 		unsigned short  result;
-		unsigned int	epoch;
 		unsigned short  privateport;
 		unsigned short  publicport;
 		int				lifetime;		/* in second */
 	}publicportreq;
+typedef struct  publicportreply{
+                char                    version;
+                unsigned char   opcode;
+                unsigned short  result;
+                unsigned int    epoch;
+                unsigned short  privateport;
+                unsigned short  publicport;
+                int             lifetime;               /* in second */
+        }publicportreply;
 typedef struct  stderrreply{
 		char			version;
 		unsigned char   opcode;
@@ -406,10 +413,10 @@ int main (int argc, char** argv)
 		portmapSock = socket( AF_INET, SOCK_DGRAM, 0);
 		if ( portmapSock != -1 )
 		{
-		    natPMPport = get_natportmap_port();
+		    natPMPport = htons(get_natportmap_port());
 			addr.sin_family         = AF_INET;
 			addr.sin_addr.s_addr    = INADDR_ANY;
-			addr.sin_port           = NATPMPORT;
+			addr.sin_port           = htons(NATPMPORT);
 
 			if (bind ( portmapSock,
 				  (struct sockaddr*) &addr,
@@ -928,25 +935,28 @@ static void SendPublicAddress( int fd, struct sockaddr_in *clientaddr, int clien
 /* SendPublicPortResponse */
 /* response for portmap request and portmap removal request */
 /* publicport <= 0 means error */
-static void SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *reply, int  publicport)
+static void SendPublicPortResponse( int fd, struct sockaddr_in *clientaddr, int clientaddrlen, publicportreq *req, int  publicport)
 {
 
 	int				bytes;
+	publicportreply                 reply;
 	
-	reply->version = NATPMVERSION;
-	reply->opcode = SERVERREPLYOP + reply->opcode;
+	reply.version = NATPMVERSION;
+	reply.opcode = SERVERREPLYOP + req->opcode;
 	if ( publicport <= 0)
 		/* error in port mapping */
-		reply->result = OUTOFRESOURCES;
+		reply.result = OUTOFRESOURCES;
 	else
-		reply->result = SUCCESS;
-        reply->epoch = getuptime();
+		reply.result = SUCCESS;
+        reply.epoch = getuptime();
 
-	if ( reply->lifetime )			/* not delete mapping */
-		reply->publicport = publicport;
-	bytes = sendto (fd, (void*)reply, sizeof(publicportreq), 0, (struct sockaddr*)clientaddr, clientaddrlen);
-	if ( bytes != sizeof(publicportreq) )
-		printf( "PORTMAP::problem sending portmap reply - opcode %d\n", reply->opcode );
+	if ( req->lifetime ){			/* not delete mapping */
+		reply.privateport = req->privateport;
+		reply.publicport = publicport;
+	}
+	bytes = sendto (fd, (void*)&reply, sizeof(publicportreply), 0, (struct sockaddr*)clientaddr, clientaddrlen);
+	if ( bytes != sizeof(publicportreply) )
+		printf( "PORTMAP::problem sending portmap reply - opcode %d\n", req->opcode );
 }
 
 /* SendPortMapMulti */

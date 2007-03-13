@@ -97,6 +97,7 @@ local void read_tree()
     int len;  /* bit length */
     int base; /* base offset for a sequence of leaves */
     int n;
+    int max_leaves;
 
     /* Read the original input size, MSB first */
     orig_len = 0;
@@ -109,11 +110,15 @@ local void read_tree()
 
     /* Get the number of leaves at each bit length */
     n = 0;
+    max_leaves = 1;
     for (len = 1; len <= max_len; len++) {
 	leaves[len] = (int)get_byte();
+	if (leaves[len] > max_leaves - (len == max_len))
+	    error("too many leaves in Huffman tree");
+	max_leaves = (max_leaves - leaves[len] + 1) * 2 - 1;
 	n += leaves[len];
     }
-    if (n > LITERALS) {
+    if (n >= LITERALS) {
 	error("too many leaves in Huffman tree");
     }
     Trace((stderr, "orig_len %lu, max_len %d, leaves %d\n",

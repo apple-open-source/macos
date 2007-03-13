@@ -53,13 +53,16 @@
 #include <IOKit/hidsystem/IOHIDevice.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
+#include <IOKit/usb/USB.h>
 #include "IOHIDSystem.h"
 #include "IOHIDEventService.h"
-#include "IOHIKeyboard.h"
 #include "IOHIDPointing.h"
+#include "IOHIDKeyboard.h"
+#include "IOHIDConsumer.h"
 #include "IOHITablet.h"
 #include "IOHIDPointingDevice.h"
 #include "IOHIDKeyboardDevice.h"
+#include "IOHIDKeys.h"
 
 #include <IOKit/hidsystem/ev_private.h>	/* Per-machine configuration info */ 
 #include "IOHIDUserClient.h"
@@ -88,6 +91,14 @@ MasterAudioFunctions *masterAudioFunctions = 0;
 #endif
 #ifndef kIOFBWaitCursorPeriodKey
 #define kIOFBWaitCursorPeriodKey	"IOFBWaitCursorPeriod"
+#endif
+
+#ifndef kIOUserClientCrossEndianKey
+#define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
+#endif
+
+#ifndef kIOUserClientCrossEndianCompatibleKey
+#define kIOUserClientCrossEndianCompatibleKey "IOUserClientCrossEndianCompatible"
 #endif
 
 #ifndef abs
@@ -317,8 +328,9 @@ static void AppendNewNXSystemInfoForService(OSArray *systemInfo, IOService *serv
 {    
     OSDictionary *  deviceInfo  = NULL;
     OSNumber *      deviceID    = NULL;
+    IOHIDevice *    hiDevice    = NULL;
     
-    if ( !systemInfo || !OSDynamicCast(IOHIDevice, service))
+    if ( !systemInfo || !(hiDevice = OSDynamicCast(IOHIDevice, service)))
         return;
         
     deviceInfo = OSDictionary::withCapacity(4);
@@ -326,17 +338,49 @@ static void AppendNewNXSystemInfoForService(OSArray *systemInfo, IOService *serv
     if ( !deviceInfo )
         return;
     
-    if (deviceID = OSNumber::withNumber((UInt32) service, 32))
+    if (deviceID = OSNumber::withNumber((UInt32) hiDevice, 32))
     {
         deviceInfo->setObject("serviceID", deviceID);
         deviceID->release();
     }
     
-    deviceInfo->setObject(kIOHIDKindKey, service->getProperty(kIOHIDKindKey));
-    deviceInfo->setObject(kIOHIDInterfaceIDKey, service->getProperty(kIOHIDInterfaceIDKey));
-    deviceInfo->setObject(kIOHIDSubinterfaceIDKey, service->getProperty(kIOHIDSubinterfaceIDKey));
+    deviceInfo->setObject(kIOHIDKindKey, hiDevice->getProperty(kIOHIDKindKey));
+    deviceInfo->setObject(kIOHIDInterfaceIDKey, hiDevice->getProperty(kIOHIDInterfaceIDKey));
+    deviceInfo->setObject(kIOHIDSubinterfaceIDKey, hiDevice->getProperty(kIOHIDSubinterfaceIDKey));
     
-    systemInfo->setObject(deviceInfo);
+    if ( hiDevice->metaCast("AppleADBKeyboard") || (hiDevice->getProvider() && hiDevice->getProvider()->metaCast("AppleEmbeddedKeyboard")) )
+        deviceInfo->setObject("built-in", kOSBooleanTrue);
+
+    // RY: Hack for rdar://4365935 Turning on NumLock causes Keyboard 
+    // Viewer to display the external keyboard
+    // Because keyboardType information is not passed in special key 
+    // events, CG infers that this event comes from the default keyboard,
+    // or first keyboard in NXSystemInfo. Unforunately, in some cases a 
+    // USB external keyboard will enumerate before a USB internal keyboard.
+    // If this is encountered, we should alway insert the internal keyboard
+    // at the beginning of the list.  This will cause CG to guess correctly.
+    // RY: Extension for rdar://4418444 Keyboard Viewer defaults to wrong 
+    // keyboard layout when launched.
+    // We should also insert keyboards to the front of the list, prefering
+    // Apple, if the front does not already contain a built-in keyboard.
+    OSDictionary * tempSystemInfo;
+    OSNumber * number;
+    
+    // If a keyboard
+    if ( ((hiDevice->hidKind() == kHIKeyboardDevice) && (hiDevice->deviceType() != 0))&& 
+            // And keyboard is built-in
+            ( (deviceInfo->getObject("built-in") == kOSBooleanTrue) ||
+            // Or, first item in the list is not a keyboard
+            !((tempSystemInfo = OSDynamicCast(OSDictionary, systemInfo->getObject(0))) && (number = OSDynamicCast(OSNumber,tempSystemInfo->getObject(kIOHIDKindKey))) && (number->unsigned32BitValue() == kHIKeyboardDevice)) ||
+            // Or, if the keyboard is Apple and the first item in the list is not built-in
+            ((number = OSDynamicCast(OSNumber, hiDevice->getProperty(kIOHIDVendorIDKey))) && (number->unsigned32BitValue() == kIOUSBVendorIDAppleComputer) && (tempSystemInfo->getObject("built-in") != kOSBooleanTrue)) ) )
+    {
+        systemInfo->setObject(0, deviceInfo);
+    }
+    else
+    {
+        systemInfo->setObject(deviceInfo);
+    }
     
     deviceInfo->release();
 }
@@ -617,30 +661,6 @@ bool IOHIDSystem::start(IOService * provider)
   return iWasStarted;
 }
 
-void IOHIDSystem::stop(IOService * provider)
-{
-    
-    if (_hidKeyboardDevice) 
-    {
-        _hidKeyboardDevice->stop(this);
-        _hidKeyboardDevice->detach(this);
-        
-        _hidKeyboardDevice->release();
-        _hidKeyboardDevice = 0;
-    }
-
-    if (_hidPointingDevice) 
-    {
-        _hidPointingDevice->stop(this);
-        _hidPointingDevice->detach(this);
-        
-        _hidPointingDevice->release();
-        _hidPointingDevice = 0;
-    }
-
-    super::stop(provider);
-}
-
 // powerStateDidChangeTo
 //
 // The display wrangler has changed state, so the displays have changed
@@ -856,6 +876,18 @@ void IOHIDSystem::free()
         gKeyboardEQLock = 0;
         IOLockUnlock(lock);
         IOLockFree(lock);
+    }
+
+    if (_hidKeyboardDevice) 
+    {
+        _hidKeyboardDevice->release();
+        _hidKeyboardDevice = 0;
+    }
+
+    if (_hidPointingDevice) 
+    {
+        _hidPointingDevice->release();
+        _hidPointingDevice = 0;
     }
 
     super::free();
@@ -2063,7 +2095,7 @@ void IOHIDSystem::_scaleLocationToCurrentScreen(Point *location, Point *fraction
     screenScale     = (cursorPin.maxx - cursorPin.minx + 1) << 16;
     deviceScale     = (bounds->maxx - bounds->minx)         << 16;
     
-    result = IOFixedDivide ( locationScale, deviceScale );
+    result = (deviceScale) ? IOFixedDivide ( locationScale, deviceScale ) : 0;
     result = IOFixedMultiply ( result, screenScale );
     
     location->x = (result >> 16);
@@ -2074,7 +2106,7 @@ void IOHIDSystem::_scaleLocationToCurrentScreen(Point *location, Point *fraction
     screenScale     = (cursorPin.maxy - cursorPin.miny + 1) << 16;
     deviceScale     = (bounds->maxy - bounds->miny)         << 16;
     
-    result = IOFixedDivide ( locationScale, deviceScale );
+    result = (deviceScale) ? IOFixedDivide ( locationScale, deviceScale ) : 0;
     result = IOFixedMultiply ( result, screenScale );
     
     location->y = (result >> 16);    
@@ -2146,9 +2178,6 @@ IOReturn IOHIDSystem::doRelativePointerEvent(IOHIDSystem *self, void * args)
 void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, AbsoluteTime ts, OSObject * sender)
 { 
     UnsignedWide nextVBL, vblDeltaTime, eventDeltaTime, moveDeltaTime;
-#if __i386__
-    static UnsignedWide postedVBLTime;
-#endif
     bool haveVBL;
         
     if( eventsOpen == false )
@@ -2220,11 +2249,7 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
 
 	haveVBL = (nextVBL.lo || nextVBL.hi);
 
-#if __i386__
-	if (haveVBL && (nextVBL.lo == postedVBLTime.lo) && (nextVBL.hi == postedVBLTime.hi))  {
-#else
 	if (haveVBL && (postDeltaX || postDeltaY))  {
-#endif
 	    accumDX += dx;
 	    accumDY += dy;
 	    
@@ -2242,19 +2267,15 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
 	     && vblDeltaTime.lo && moveDeltaTime.lo) {
             num = vblDeltaTime.lo;
             div = moveDeltaTime.lo;
-            dx = (num * dx) / div;
-            dy = (num * dy) / div;
+            dx = ((SInt64)num * dx) / div;
+            dy = ((SInt64)num * dy) / div;
 	    }
 
 	    KERNEL_DEBUG(0x0c000000 | DBG_FUNC_NONE, dx, dy, num, div, 0);
 
 	    accumDX = accumDY = 0;
-#if __i386__
-	    postedVBLTime = nextVBL;		// we have posted for this vbl
-#endif
 
 	    if( dx || dy ) {
-#if !__i386__
 		if( haveVBL ) {
 		    postDeltaX = dx;
 		    postDeltaY = dy;
@@ -2263,7 +2284,6 @@ void IOHIDSystem::relativePointerEventGated(int buttons, int dx, int dy, Absolut
 		    vblES->wakeAtTime(nextVBL);
 		}
 		else
-#endif
 		{
 		    pointerLoc.x += dx;
 		    pointerLoc.y += dy;
@@ -2478,7 +2498,7 @@ void IOHIDSystem::absolutePointerEventGated(int        buttons,
 		/* withData */ &outData,
         /* sender */   sender);
 	}
-	if ( proximity == true )
+	if ( proximityChange || proximity == true )
             _setButtonState(buttons, /* atTime */ ts, sender);
 	if ( proximityChange && proximity == false )
 	{
@@ -2842,28 +2862,27 @@ void IOHIDSystem::keyboardEvent(unsigned   eventType,
         
     if (consumeCause == kHIDConsumeCauseKeyLock)
         return;
-    else if(consumeCause == kHIDConsumeCauseDeadline)
-    {
-        if (consumedKeyCode != (unsigned)-1)
-        {
-            if ((consumedKeyCode != key) && (eventType != NX_KEYUP))
-            {
+    else if(consumeCause == kHIDConsumeCauseDeadline)  {
+        // deadline key consumption taking place
+        if (consumedKeyCode != (unsigned)-1) {
+            // a key was stored for later consumption
+            if ((consumedKeyCode != key) && (eventType != NX_KEYUP))  {
                 AbsoluteTime_to_scalar(&stateChangeDeadline) = 0;
                 displayState |= IOPMDeviceUsable;                
                 
                 goto KEYBOARD_EVENT_PROCESS;
-            }
-            else if ((consumedKeyCode == key) && (eventType == NX_KEYUP))
-            {
+            } else if ((consumedKeyCode == key) && (eventType == NX_KEYUP)) {
                 AbsoluteTime_to_scalar(&stateChangeDeadline) = 0;
                 displayState |= IOPMDeviceUsable;
                 consumedKeyCode = (unsigned)-1;
                 
                 return;            
             }
+        } else if ( eventType == NX_KEYDOWN ) {
+            // in theory this is the first key to be consumed
+            consumedKeyCode = key;
+            return;
         }
-        consumedKeyCode = key;
-        return;
     }
     consumedKeyCode = (unsigned)-1;
 
@@ -2872,9 +2891,10 @@ KEYBOARD_EVENT_PROCESS:
     if ( ! (displayState & IOPMDeviceUsable) ) {	// display is off, consume the keystroke
         if ( eventType == NX_KEYDOWN ) {
             return;
+        } else if ( eventType == NX_KEYUP ) {
+            TICKLE_DISPLAY;
+            return;
         }
-        TICKLE_DISPLAY;
-        return;
     }
 
     keyboardEQElement = (KeyboardEQElement *)IOMalloc(sizeof(KeyboardEQElement));
@@ -3312,9 +3332,7 @@ void IOHIDSystem::keyboardSpecialEventGated(
 	  else
 	  {
             outData.compound.subType   = NX_SUBTYPE_AUX_CONTROL_BUTTONS;
-            outData.compound.misc.S[0] = flavor;
-            outData.compound.misc.C[2] = eventType;
-            outData.compound.misc.C[3] = repeat;
+            outData.compound.misc.L[0] = (flavor << 16) | (eventType << 8) | repeat;
             outData.compound.misc.L[1] = guid & 0xffffffff;
             outData.compound.misc.L[2] = guid >> 32;
 
@@ -3722,33 +3740,41 @@ void IOHIDSystem::_postMouseMoveEvent(int          what,
 IOReturn IOHIDSystem::newUserClient(task_t         owningTask,
                     /* withToken */ void *         security_id,
                     /* ofType */    UInt32         type,
+                    /* withProps*/  OSDictionary *  properties,
                     /* client */    IOUserClient ** handler)
 {
-    
-    return cmdGate->runAction((IOCommandGate::Action)doNewUserClient, 
-                            &owningTask, security_id, &type, handler);
+    IOHIDCmdGateActionArgs args;
+
+    args.arg0 = &owningTask;
+    args.arg1 = security_id;
+    args.arg2 = &type;
+    args.arg3 = properties;
+    args.arg4 = handler;
+
+    return cmdGate->runAction((IOCommandGate::Action)doNewUserClient, &args);
 }
 
-IOReturn IOHIDSystem::doNewUserClient(IOHIDSystem *self, void * arg0, void * arg1, 
-                                        void * arg2, void * arg3)
+IOReturn IOHIDSystem::doNewUserClient(IOHIDSystem *self, void * args)
                         /* IOCommandGate::Action */
 {
-    task_t         owningTask	= *(task_t *) arg0;
-    void *         security_id	= arg1;
-    UInt32         type 	= *(UInt32 *) arg2;
-    IOUserClient ** handler 	= (IOUserClient **) arg3;
+    task_t         owningTask	= *(task_t *) ((IOHIDCmdGateActionArgs *)args)->arg0;
+    void *         security_id	= ((IOHIDCmdGateActionArgs *)args)->arg1;
+    UInt32         type         = *(UInt32 *) ((IOHIDCmdGateActionArgs *)args)->arg2;
+    OSDictionary * properties   = (OSDictionary *) ((IOHIDCmdGateActionArgs *)args)->arg3;
+    IOUserClient ** handler 	= (IOUserClient **) ((IOHIDCmdGateActionArgs *)args)->arg4;
     
-    return self->newUserClientGated(owningTask, security_id, type, handler);
+    return self->newUserClientGated(owningTask, security_id, type, properties, handler);
 }
 
 IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
                     /* withToken */ void *         security_id,
                     /* ofType */    UInt32         type,
+                    /* withProps*/  OSDictionary *  properties,
                     /* client */    IOUserClient ** handler)
 {
     IOUserClient *	newConnect = 0;
     IOReturn		err = kIOReturnNoMemory;
-    
+
     do {
        if( type == kIOHIDParamConnectType) {
             if( paramConnect) {
@@ -3758,13 +3784,13 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
                 newConnect = new IOHIDParamUserClient;
             } else {
                 err = kIOReturnNotOpen;
-		continue;
-	    }
+                continue;
+            }
 
         } else if( type == kIOHIDServerConnectType) {
             newConnect = new IOHIDUserClient;
-	} else
-	    err = kIOReturnUnsupported;
+        } else
+            err = kIOReturnUnsupported;
 
         if( !newConnect)
             continue;
@@ -3772,7 +3798,8 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
         // initialization is getting out of hand
 
         if( (newConnect != paramConnect) && (
-           (false == newConnect->init())
+           (false == newConnect->initWithTask(owningTask, security_id, type, properties))
+        || (false == newConnect->setProperty(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue))
         || (false == newConnect->attach( this ))
         || (false == newConnect->start( this ))
         || ((type == kIOHIDServerConnectType)
@@ -3785,8 +3812,9 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
         }
         if( type == kIOHIDParamConnectType)
             paramConnect = newConnect;
-	err = kIOReturnSuccess;
-
+        
+        err = kIOReturnSuccess;
+        
     } while( false );
 
     *handler = newConnect;
@@ -4353,7 +4381,10 @@ IOReturn IOHIDSystem::setParamPropertiesGated( OSDictionary * dict )
     if( iter) {
         while( (eventSrc = (IOService *) iter->getNextObject())) {
         
-            if ( OSDynamicCast( IOHIDevice, eventSrc ) )
+            if (OSDynamicCast(IOHIDevice, eventSrc) 
+                && !(  OSDynamicCast(IOHIDKeyboard, eventSrc) 
+                    || OSDynamicCast(IOHIDPointing, eventSrc) 
+                    || OSDynamicCast(IOHIDConsumer, eventSrc)))
             {
                 ret = ((IOHIDevice *)eventSrc)->setParamProperties( dict );
             }

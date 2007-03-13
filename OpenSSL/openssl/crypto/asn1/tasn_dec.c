@@ -629,6 +629,7 @@ static int asn1_d2i_ex_primitive(ASN1_VALUE **pval, unsigned char **in, long inl
 		ASN1err(ASN1_F_ASN1_D2I_EX_PRIMITIVE, ERR_R_NESTED_ASN1_ERROR);
 		return 0;
 	} else if(ret == -1) return -1;
+        ret = 0;
 	/* SEQUENCE, SET and "OTHER" are left in encoded form */
 	if((utype == V_ASN1_SEQUENCE) || (utype == V_ASN1_SET) || (utype == V_ASN1_OTHER)) {
 		/* Clear context cache for type OTHER because the auto clear when
@@ -662,7 +663,11 @@ static int asn1_d2i_ex_primitive(ASN1_VALUE **pval, unsigned char **in, long inl
 		 * internally irrespective of the type. So instead just check
 		 * for UNIVERSAL class and ignore the tag.
 		 */
-		if(!asn1_collect(&buf, &p, plen, inf, -1, V_ASN1_UNIVERSAL)) goto err;
+		if(!asn1_collect(&buf, &p, plen, inf, -1, V_ASN1_UNIVERSAL))
+			{
+			free_cont = 1;
+			goto err;
+			}
 		len = buf.length;
 		/* Append a final null to string */
 		if(!BUF_MEM_grow_clean(&buf, len + 1)) {
@@ -903,7 +908,7 @@ static int asn1_collect(BUF_MEM *buf, unsigned char **in, long len, char inf, in
 			return 0;
 #endif
 		} else {
-			if(!collect_data(buf, &p, plen)) return 0;
+			if(plen && !collect_data(buf, &p, plen)) return 0;
 		}
 		len -= p - q;
 	}

@@ -1,5 +1,5 @@
 /*
- * "$Id: client.c,v 1.24.2.3 2006/02/27 21:19:13 jlovell Exp $"
+ * "$Id: client.c,v 1.24.2.4 2006/12/07 19:23:03 jlovell Exp $"
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
@@ -43,8 +43,6 @@
  *   pipe_command()        - Pipe the output of a command to the remote client.
  *   CDSAGetServerCerts()  - Convert a keychain name into the CFArrayRef
  *                           required by SSLSetCertificate.
- *   CDSAReadFunc()        - Read function for CDSA decryption code.
- *   CDSAWriteFunc()       - Write function for CDSA encryption code.
  */
 
 /*
@@ -108,10 +106,6 @@ static int		pipe_command(client_t *con, int infile, int *outfile,
 
 #ifdef HAVE_CDSASSL
 static CFArrayRef CDSAGetServerCerts();
-static OSStatus		CDSAReadFunc(SSLConnectionRef connection, void *data,
-			             size_t *dataLength);
-static OSStatus		CDSAWriteFunc(SSLConnectionRef connection,
-			              const void *data, size_t *dataLength);
 #endif /* HAVE_CDSASSL */
 
 
@@ -729,13 +723,13 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
     error = (*SSLNewContextProc)(true, &conn);
 
   if (!error)
-    error = (*SSLSetIOFuncsProc)(conn, CDSAReadFunc, CDSAWriteFunc);
+    error = (*SSLSetIOFuncsProc)(conn, _httpReadCDSA, _httpWriteCDSA);
 
   if (!error)
     error = (*SSLSetProtocolVersionProc)(conn, kSSLProtocol3);
 
   if (!error)
-    error = (*SSLSetConnectionProc)(conn, (SSLConnectionRef)con->http.fd);
+    error = (*SSLSetConnectionProc)(conn, (SSLConnectionRef)&con->http);
 
   if (!error)
   {
@@ -3655,55 +3649,9 @@ CDSAGetServerCerts(void)
 
   return ca;
 }
-
-
-/*
- * 'CDSAReadFunc()' - Read function for CDSA decryption code.
- */
-
-static OSStatus					/* O  - -1 on error, 0 on success */
-CDSAReadFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
-             void             *data,		/* I  - Data buffer */
-	     size_t           *dataLength)	/* IO - Number of bytes */
-{
-  ssize_t	bytes;				/* Number of bytes read */
-
-
-  bytes = recv((int)connection, data, *dataLength, 0);
-  if (bytes >= 0)
-  {
-    *dataLength = bytes;
-    return (0);
-  }
-  else
-    return (-1);
-}
-
-
-/*
- * 'CDSAWriteFunc()' - Write function for CDSA encryption code.
- */
-
-static OSStatus					/* O  - -1 on error, 0 on success */
-CDSAWriteFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
-              const void       *data,		/* I  - Data buffer */
-	      size_t           *dataLength)	/* IO - Number of bytes */
-{
-  ssize_t bytes;
-
-
-  bytes = write((int)connection, data, *dataLength);
-  if (bytes >= 0)
-  {
-    *dataLength = bytes;
-    return (0);
-  }
-  else
-    return (-1);
-}
 #endif /* HAVE_CDSASSL */
 
 
 /*
- * End of "$Id: client.c,v 1.24.2.3 2006/02/27 21:19:13 jlovell Exp $".
+ * End of "$Id: client.c,v 1.24.2.4 2006/12/07 19:23:03 jlovell Exp $".
  */

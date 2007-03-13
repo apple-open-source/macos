@@ -39,12 +39,13 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.Serializable;
+import org.blojsom.util.BlojsomUtils;
 
 /**
  * Trackback
  *
  * @author David Czarnecki
- * @version $Id: Trackback.java,v 1.2.2.1 2005/07/21 14:11:02 johnan Exp $
+ * @version $Id: Trackback.java,v 1.2.2.2 2006/10/19 21:14:32 johnan Exp $
  */
 public class Trackback implements Serializable {
 
@@ -88,6 +89,15 @@ public class Trackback implements Serializable {
     }
 
     /**
+     * Get the HTML escaped title of the trackback
+     *
+     * @return Trackback title
+     */
+    public String getEscapedTitle() {
+        return BlojsomUtils.escapeString(_title);
+    }
+
+    /**
      * Set the title of the trackback
      *
      * @param title Trackback title
@@ -103,6 +113,15 @@ public class Trackback implements Serializable {
      */
     public String getExcerpt() {
         return _excerpt;
+    }
+
+    /**
+     * Get the HTML escaped excerpt of the trackback
+     *
+     * @return Trackback excerpt
+     */
+    public String getEscapedExcerpt() {
+        return BlojsomUtils.escapeString(_excerpt);
     }
 
     /**
@@ -139,6 +158,16 @@ public class Trackback implements Serializable {
      */
     public String getBlogName() {
         return _blogName;
+    }
+
+    /**
+     * Returns the HTML escaped name of the blog
+     * 
+     * @return Name of the blog that has been escaped
+     * @since blojsom 1.9.6
+     */
+    public String getEscapedBlogName() {
+        return BlojsomUtils.escapeString(_blogName);
     }
 
     /**

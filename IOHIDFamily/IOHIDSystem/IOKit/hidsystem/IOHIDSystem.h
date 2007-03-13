@@ -299,7 +299,6 @@ public:
   virtual IOHIDSystem * probe(IOService *    provider,
                               SInt32 * score);
   virtual bool start(IOService * provider);
-  virtual void stop(IOService * provider);
   virtual IOReturn message(UInt32 type, IOService * provider,
 				void * argument);
   virtual void free();
@@ -326,6 +325,7 @@ public:
   virtual IOReturn newUserClient(task_t         owningTask,
                  /* withToken */ void *         security_id,
                  /* ofType */    UInt32         type,
+                 /* withProps*/  OSDictionary *  properties,
                  /* client */    IOUserClient ** handler);
 
 /*
@@ -689,11 +689,11 @@ static	IOReturn	doKeyboardSpecialEvent (IOHIDSystem *self, void * args);
 static	IOReturn	doUpdateEventFlags (IOHIDSystem *self, void * args);        
         void		updateEventFlagsGated (unsigned flags, OSObject * sender);
 
-static	IOReturn	doNewUserClient (IOHIDSystem *self, void * arg0, void * arg1, 
-                                                    void * arg2, void * arg3);        
+static	IOReturn	doNewUserClient (IOHIDSystem *self, void * args);        
         IOReturn 	newUserClientGated (task_t owningTask,
                                             void * security_id,
                                             UInt32 type,
+                                            OSDictionary *  properties,
                                             IOUserClient ** handler);
 
 static	IOReturn	doSetCursorEnable (IOHIDSystem *self, void * arg0);        

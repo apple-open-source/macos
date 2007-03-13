@@ -45,7 +45,7 @@
 #include "globals.h"
 #include "dri.h"
 #define _APPLEWM_SERVER_
-#include "applewmstr.h"
+#include "applewm-impl.h"
 #include "X11Application.h"
 
 #include "scrnintstr.h"
@@ -56,6 +56,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/wait.h>
+
+#define DEFAULT_PATH "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R6/bin"
+#define DEFAULT_MANPATH "/usr/share/man:/usr/local/share/man:/usr/X11R6/man"
 
 /* Shared global variables for Quartz modes */
 int quartzEventWriteFD = -1;
@@ -425,14 +428,14 @@ do_exec (void (*callback) (void *data), void *data)
 	    if (tem != NULL && tem[0] != 0)
 		snprintf (buf, sizeof (buf), "%s:/usr/X11R6/bin", tem);
 	    else
-		snprintf (buf, sizeof (buf), "/bin:/usr/bin:/usr/X11R6/bin");
+		snprintf (buf, sizeof (buf), DEFAULT_PATH);
 	    setenv ("PATH", buf, TRUE);
 
 	    tem = getenv ("MANPATH");
 	    if (tem != NULL && tem[0] != 0)
 		snprintf (buf, sizeof (buf), "%s:/usr/X11R6/man", tem);
 	    else
-		snprintf (buf, sizeof (buf), "/usr/man:/usr/X11R6/man");
+		snprintf (buf, sizeof (buf), DEFAULT_MANPATH);
 	    setenv ("MANPATH", buf, TRUE);
 
 	    (*callback) (data);

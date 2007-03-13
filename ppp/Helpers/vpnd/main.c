@@ -271,7 +271,7 @@ static int spawn(struct vpn_params *params)
     
         switch (pidChild = fork ()) {
             case 0:		// in child
-                execv(PATH_VPND, args);		// launch it
+                execve(PATH_VPND, args, (char *)0);		// launch it
                 break;
             case -1:		// error
                 vpnlog(LOG_ERR, "Attempt to fork new vpnd failed\n") ;

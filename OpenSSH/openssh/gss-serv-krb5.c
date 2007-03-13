@@ -1,4 +1,4 @@
-/*	$OpenBSD: gss-serv-krb5.c,v 1.3 2004/07/21 10:36:23 djm Exp $	*/
+/* $OpenBSD: gss-serv-krb5.c,v 1.7 2006/08/03 03:34:42 deraadt Exp $ */
 
 /*
  * Copyright (c) 2001-2003 Simon Wilkinson. All rights reserved.
@@ -29,11 +29,19 @@
 #ifdef GSSAPI
 #ifdef KRB5
 
-#include "auth.h"
+#include <sys/types.h>
+
+#include <stdarg.h>
+#include <string.h>
+
 #include "xmalloc.h"
+#include "key.h"
+#include "hostfile.h"
+#include "auth.h"
 #include "log.h"
 #include "servconf.h"
 
+#include "buffer.h"
 #include "ssh-gss.h"
 
 extern ServerOptions options;
@@ -41,9 +49,9 @@ extern ServerOptions options;
 #ifdef HEIMDAL
 # include <krb5.h>
 #else
-# ifdef HAVE_GSSAPI_KRB5
+# ifdef HAVE_GSSAPI_KRB5_H
 #  include <gssapi_krb5.h>
-# elif HAVE_GSSAPI_GSSAPI_KRB5
+# elif HAVE_GSSAPI_GSSAPI_KRB5_H
 #  include <gssapi/gssapi_krb5.h>
 # endif
 #endif
@@ -160,11 +168,16 @@ ssh_gssapi_krb5_storecreds(ssh_gssapi_client *client)
 		return;
 	}
 
-	client->store.filename = xstrdup(krb5_cc_get_name(krb_context, ccache));
+	const char* new_ccname = krb5_cc_get_name(krb_context, ccache);
+
 	client->store.envvar = "KRB5CCNAME";
-	len = strlen(client->store.filename) + 6;
-	client->store.envval = xmalloc(len);
-	snprintf(client->store.envval, len, "FILE:%s", client->store.filename);
+#ifdef USE_CCAPI
+	xasprintf(&client->store.envval, "API:%s", new_ccname);
+	client->store.filename = NULL;
+#else
+	xasprintf(&client->store.envval, "FILE:%s", new_ccname);
+	client->store.filename = xstrdup(new_ccname);
+#endif
 
 #ifdef USE_PAM
 	if (options.use_pam)

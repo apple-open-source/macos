@@ -1,22 +1,22 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996,1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static const char rcsid[] = "$Id: nis_ho.c,v 1.1.1.1 2003/01/10 00:48:15 bbraun Exp $";
+static const char rcsid[] = "$Id: nis_ho.c,v 1.2.2.1.4.1 2004/03/09 08:33:38 marka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 /* Imports */
@@ -33,6 +33,9 @@ static int __bind_irs_nis_unneeded;
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
+#ifdef T_NULL
+#undef T_NULL			/* Silence re-definition warning of T_NULL. */
+#endif
 #include <rpc/rpc.h>
 #include <rpc/xdr.h>
 #include <rpcsvc/yp_prot.h>
@@ -87,6 +90,9 @@ static const u_char mapped[] = { 0,0, 0,0, 0,0, 0,0, 0,0, 0xff,0xff };
 static const u_char tunnelled[] = { 0,0, 0,0, 0,0, 0,0, 0,0, 0,0 };
 static /*const*/ char hosts_byname[] = "hosts.byname";
 static /*const*/ char hosts_byaddr[] = "hosts.byaddr";
+static /*const*/ char ipnode_byname[] = "ipnode.byname";
+static /*const*/ char ipnode_byaddr[] = "ipnode.byaddr";
+static /*const*/ char yp_multi[] = "YP_MULTI_";
 
 /* Forwards */
 
@@ -186,9 +192,32 @@ ho_byname2(struct irs_ho *this, const char *name, int af) {
 		return (NULL);
 
 	nisfree(pvt, do_val);
-	DE_CONST(name, tmp);
-	r = yp_match(pvt->nis_domain, hosts_byname, tmp,
+
+	strcpy(pvt->hostbuf, yp_multi);
+	strncat(pvt->hostbuf, name, sizeof(pvt->hostbuf) - sizeof(yp_multi));
+	pvt->hostbuf[sizeof(pvt->hostbuf) - 1] = '\0';
+	for (r = sizeof(yp_multi) - 1; pvt->hostbuf[r] != '\0'; r++)
+		if (isupper((unsigned char)pvt->hostbuf[r]))
+			tolower(pvt->hostbuf[r]);
+
+	tmp = pvt->hostbuf;
+	r = yp_match(pvt->nis_domain, ipnode_byname, tmp,
 		     strlen(tmp), &pvt->curval_data, &pvt->curval_len);
+	if (r != 0) {
+		tmp = pvt->hostbuf + sizeof(yp_multi) - 1;
+		r = yp_match(pvt->nis_domain, ipnode_byname, tmp,
+			     strlen(tmp), &pvt->curval_data, &pvt->curval_len);
+	}
+	if (r != 0) {
+		tmp = pvt->hostbuf;
+		r = yp_match(pvt->nis_domain, hosts_byname, tmp,
+			     strlen(tmp), &pvt->curval_data, &pvt->curval_len);
+	}
+	if (r != 0) {
+		tmp = pvt->hostbuf + sizeof(yp_multi) - 1;
+		r = yp_match(pvt->nis_domain, hosts_byname, tmp,
+			     strlen(tmp), &pvt->curval_data, &pvt->curval_len);
+	}
 	if (r != 0) {
 		RES_SET_H_ERRNO(pvt->res, HOST_NOT_FOUND);
 		return (NULL);
@@ -220,8 +249,11 @@ ho_byaddr(struct irs_ho *this, const void *addr, int len, int af) {
 		return (NULL);
 	}
 	nisfree(pvt, do_val);
-	r = yp_match(pvt->nis_domain, hosts_byaddr, tmp, strlen(tmp),
+	r = yp_match(pvt->nis_domain, ipnode_byaddr, tmp, strlen(tmp),
 		     &pvt->curval_data, &pvt->curval_len);
+	if (r != 0)
+		r = yp_match(pvt->nis_domain, hosts_byaddr, tmp, strlen(tmp),
+			     &pvt->curval_data, &pvt->curval_len);
 	if (r != 0) {
 		RES_SET_H_ERRNO(pvt->res, HOST_NOT_FOUND);
 		return (NULL);
@@ -382,12 +414,35 @@ ho_addrinfo(struct irs_ho *this, const char *name, const struct addrinfo *pai)
 
 /* Private */
 
+/*
+ipnodes:
+::1             localhost
+127.0.0.1       localhost
+1.2.3.4         FOO bar
+1.2.6.4         FOO bar
+1.2.6.5         host
+
+ipnodes.byname:
+YP_MULTI_localhost ::1,127.0.0.1        localhost
+YP_MULTI_foo 1.2.3.4,1.2.6.4    FOO bar
+YP_MULTI_bar 1.2.3.4,1.2.6.4    FOO bar
+host 1.2.6.5    host
+
+hosts.byname:
+localhost 127.0.0.1     localhost
+host 1.2.6.5    host
+YP_MULTI_foo 1.2.3.4,1.2.6.4    FOO bar
+YP_MULTI_bar 1.2.3.4,1.2.6.4    FOO bar
+*/
+
 static struct hostent *
 makehostent(struct irs_ho *this) {
 	struct pvt *pvt = (struct pvt *)this->private;
 	static const char spaces[] = " \t";
-	char *cp, **q, *p;
-	int af, len;
+	char *cp, **q, *p, *comma, *ap;
+	int af = 0, len = 0;
+	int multi = 0;
+	int addr = 0;
 
 	p = pvt->curval_data;
 	if ((cp = strpbrk(p, "#\n")) != NULL)
@@ -395,25 +450,40 @@ makehostent(struct irs_ho *this) {
 	if (!(cp = strpbrk(p, spaces)))
 		return (NULL);
 	*cp++ = '\0';
-	if ((pvt->res->options & RES_USE_INET6) &&
-	    inet_pton(AF_INET6, p, pvt->host_addr) > 0) {
-		af = AF_INET6;
-		len = IN6ADDRSZ;
-	} else if (inet_pton(AF_INET, p, pvt->host_addr) > 0) {
-		if (pvt->res->options & RES_USE_INET6) {
-			map_v4v6_address((char*)pvt->host_addr,
-					 (char*)pvt->host_addr);
+	ap = pvt->hostbuf;
+	do {
+		if ((comma = strchr(p, ',')) != NULL) {
+			*comma++ = '\0';
+			multi = 1;
+		}
+		if ((ap + IN6ADDRSZ) > (pvt->hostbuf + sizeof(pvt->hostbuf)))
+			break;
+		if ((pvt->res->options & RES_USE_INET6) &&
+		    inet_pton(AF_INET6, p, ap) > 0) {
 			af = AF_INET6;
 			len = IN6ADDRSZ;
+		} else if (inet_pton(AF_INET, p, pvt->host_addr) > 0) {
+			if (pvt->res->options & RES_USE_INET6) {
+				map_v4v6_address((char*)pvt->host_addr, ap);
+				af = AF_INET6;
+				len = IN6ADDRSZ;
+			} else {
+				af = AF_INET;
+				len = INADDRSZ;
+			}
 		} else {
-			af = AF_INET;
-			len = INADDRSZ;
+			if (!multi)
+				return (NULL);
+			continue;
 		}
-	} else {
+		if (addr < MAXADDRS) {
+			pvt->h_addr_ptrs[addr++] = ap;
+			pvt->h_addr_ptrs[addr] = NULL;
+			ap += len;
+		}
+	} while ((p = comma) != NULL);
+	if (ap == pvt->hostbuf)
 		return (NULL);
-	}
-	pvt->h_addr_ptrs[0] = (char *)pvt->host_addr;
-	pvt->h_addr_ptrs[1] = NULL;
 	pvt->host.h_addr_list = pvt->h_addr_ptrs;
 	pvt->host.h_length = len;
 	pvt->host.h_addrtype = af;

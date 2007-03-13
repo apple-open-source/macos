@@ -37,7 +37,7 @@ install:
 	cp $(SRC)/securityd.plist $(SRC)/securityd-installCD.plist $(DST)
 	mkdir -p $(AUTHORIZATION_LOCATION)
 	cp $(SRC)/authorization.plist $(AUTHORIZATION_PLIST)
-	chown root:admin $(AUTHORIZATION_PLIST)
+	chown root:wheel $(AUTHORIZATION_PLIST)
 	chmod 644 $(AUTHORIZATION_PLIST)
 	mkdir -p $(VARDB)
 	cp $(SRC)/CodeEquivalenceCandidates $(CANDIDATES)

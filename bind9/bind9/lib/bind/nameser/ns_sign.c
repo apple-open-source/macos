@@ -1,22 +1,22 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1999 by Internet Software Consortium, Inc.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef lint
-static const char rcsid[] = "$Id: ns_sign.c,v 1.1.1.2 2003/03/18 19:18:32 rbraun Exp $";
+static const char rcsid[] = "$Id: ns_sign.c,v 1.1.2.2.4.1 2004/03/09 08:33:45 marka Exp $";
 #endif
 
 /* Import. */
@@ -41,6 +41,7 @@ static const char rcsid[] = "$Id: ns_sign.c,v 1.1.1.2 2003/03/18 19:18:32 rbraun
 #include <unistd.h>
 
 #include <isc/dst.h>
+#include <isc/assertions.h>
 
 #include "port_after.h"
 
@@ -90,22 +91,30 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 	DST_KEY *key = (DST_KEY *)k;
 	u_char *cp = msg + *msglen, *eob = msg + msgsize;
 	u_char *lenp;
-	u_char *name, *alg;
+	u_char *alg;
 	int n;
 	time_t timesigned;
+        u_char name[NS_MAXCDNAME];
 
 	dst_init();
 	if (msg == NULL || msglen == NULL || sig == NULL || siglen == NULL)
 		return (-1);
 
 	/* Name. */
-	if (key != NULL && error != ns_r_badsig && error != ns_r_badkey)
-		n = dn_comp(key->dk_key_name, cp, eob - cp, dnptrs, lastdnptr);
-	else
-		n = dn_comp("", cp, eob - cp, NULL, NULL);
+	if (key != NULL && error != ns_r_badsig && error != ns_r_badkey) {
+		n = ns_name_pton(key->dk_key_name, name, sizeof name);
+		if (n != -1)
+			n = ns_name_pack(name, cp, eob - cp,
+					 (const u_char **)dnptrs,
+					 (const u_char **)lastdnptr);
+
+	} else {
+		n = ns_name_pton("", name, sizeof name);
+		if (n != -1)
+			n = ns_name_pack(name, cp, eob - cp, NULL, NULL);
+	}
 	if (n < 0)
 		return (NS_TSIG_ERROR_NO_SPACE);
-	name = cp;
 	cp += n;
 
 	/* Type, class, ttl, length (not filled in yet). */
@@ -142,7 +151,7 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 	/* Compute the signature. */
 	if (key != NULL && error != ns_r_badsig && error != ns_r_badkey) {
 		void *ctx;
-		u_char buf[MAXDNAME], *cp2;
+		u_char buf[NS_MAXCDNAME], *cp2;
 		int n;
 
 		dst_sign_data(SIG_MODE_INIT, key, &ctx, NULL, 0, NULL, 0);
@@ -162,6 +171,7 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 
 		/* Digest the key name. */
 		n = ns_name_ntol(name, buf, sizeof(buf));
+		INSIST(n > 0);
 		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, n, NULL, 0);
 
 		/* Digest the class and TTL. */
@@ -173,6 +183,7 @@ ns_sign2(u_char *msg, int *msglen, int msgsize, int error, void *k,
 
 		/* Digest the algorithm. */
 		n = ns_name_ntol(alg, buf, sizeof(buf));
+		INSIST(n > 0);
 		dst_sign_data(SIG_MODE_UPDATE, key, &ctx, buf, n, NULL, 0);
 
 		/* Digest the time signed, fudge, error, and other data */

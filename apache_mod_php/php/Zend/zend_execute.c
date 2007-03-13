@@ -6,7 +6,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -2381,7 +2381,7 @@ send_by_ref:
 					if (EX(opline)->extended_value) {
 						array_ptr_ptr = get_zval_ptr_ptr(&EX(opline)->op1, EX(Ts), BP_VAR_R);
 						if (array_ptr_ptr == NULL) {
-							MAKE_STD_ZVAL(array_ptr);
+							ALLOC_INIT_ZVAL(array_ptr);
 						} else {
 							SEPARATE_ZVAL_IF_NOT_REF(array_ptr_ptr);
 							array_ptr = *array_ptr_ptr;
@@ -2397,7 +2397,22 @@ send_by_ref:
 							INIT_PZVAL(tmp);
 							array_ptr = tmp;
 						} else {
-							array_ptr->refcount++;
+							if (EX(opline)->op1.op_type == IS_VAR &&
+							    !array_ptr->is_ref &&
+							    array_ptr->refcount > 1) {
+								/* non-separated return value from function */
+								zval *tmp;
+
+								ALLOC_ZVAL(tmp);
+								tmp->value = array_ptr->value;
+								tmp->type = array_ptr->type;
+								tmp->is_ref = 0;
+								tmp->refcount = 1;
+								zval_copy_ctor(tmp);
+								array_ptr = tmp;
+							} else {
+								array_ptr->refcount++;
+							}
 						}
 					}
 					PZVAL_LOCK(array_ptr);

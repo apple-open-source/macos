@@ -395,13 +395,63 @@ IOUSBCompositeDriver::ReConfigureDevice()
         //
         if ( !fDevice->open(this) )
         {
+			UInt8		currentConfig = 0;
+			
             // OK, since we can't open it, we give up.  Note that we will not attempt to
             // seize it -- that's too much.  If somebody has it open, then we shouldn't continue
             // with the reset.  Such is the case with Classic:  they open the device and do a DeviceReset
             // but they don't expect us to actually configure the device.
             //
             USBLog(3, "%s[%p]::ReConfigureDevice.  Can't open it, giving up",getName(), this);
+			// We have the device open, so now reconfigure it
+			
+			request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+			request.bRequest = kUSBRqGetConfig;
+			request.wValue = 0;
+			request.wIndex = 0;
+			request.wLength = sizeof(currentConfig);
+			request.pData = &currentConfig;
+			err = fDevice->DeviceRequest(&request, 5000, 0);
+			
+			if (err)
+			{
+				USBLog(3, "%s[%p]::ReConfigureDevice.  GET_CONFIG returned 0x%x",getName(), this, err);
+			}
+			
+			if ( currentConfig == 0 )
+			{
+				USBLog(5, "%s[%p]::ReConfigureDevice.  Sending a SET_CONFIG(%d)",getName(), this, fConfigValue);
+				// Send the SET_CONFIG request on the bus, using the fConfigValue we used in ConfigureDevice
+				//
+				request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
+				request.bRequest = kUSBRqSetConfig;
+				request.wValue = fConfigValue;
+				request.wIndex = 0;
+				request.wLength = 0;
+				request.pData = 0;
+				err = fDevice->DeviceRequest(&request, 5000, 0);
+				
+				if (err)
+				{
+					USBLog(3, "%s[%p]::ReConfigureDevice.  SET_CONFIG returned 0x%x",getName(), this, err);
+				}
+				
+				// Set the remote wakeup feature if it's supported
+				//
+				if (fConfigbmAttributes & kUSBAtrRemoteWakeup)
+				{
+					USBLog(3,"%s[%p]::ReConfigureDevice Setting kUSBFeatureDeviceRemoteWakeup for device: %s", getName(), this, fDevice->getName());
+					err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
+					if ( err != kIOReturnSuccess )
+					{
+						// Wait and retry
+						IOSleep(300);
+						err = fDevice->SetFeature(kUSBFeatureDeviceRemoteWakeup);
+					}
+				}
+			}
             err = kIOReturnExclusiveAccess;
+			
             goto ErrorExit;
         }
     }

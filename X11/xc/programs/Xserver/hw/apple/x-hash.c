@@ -1,5 +1,5 @@
 /* x-hash.c - basic hash tables
-   $Id: x-hash.c,v 1.7 2003/07/17 05:25:44 jharper Exp $
+   $Id: x-hash.c,v 1.9 2006/09/06 21:19:37 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -48,6 +48,8 @@ struct x_hash_table_struct {
 #define ITEM_FREE(i) X_PFX (list_free_1) (i)
 #define ITEM_KEY(i) ((void *) (i)->next)
 #define ITEM_VALUE(i) ((i)->data)
+#define ITEM_KEY_SET(i,k) ((i)->next = (void *) (k))
+#define ITEM_VALUE_SET(i,v) ((i)->data = (void *) (v))
 
 #define SPLIT_THRESHOLD_FACTOR 2
 
@@ -83,7 +85,7 @@ hash_table_hash_key (x_hash_table *h, void *k)
     if (h->hash_key != 0)
 	return (*h->hash_key) (k);
     else
-	return (unsigned int) k;
+	return (uintptr_t) k;
 }
 
 static inline int
@@ -222,13 +224,13 @@ hash_table_modify (x_hash_table *h, void *k, void *v, int replace)
 	    {
 		hash_table_destroy_item (h, ITEM_KEY (item),
 					 ITEM_VALUE (item));
-		ITEM_KEY (item) = k;
-		ITEM_VALUE (item) = v;
+		ITEM_KEY_SET (item, k);
+		ITEM_VALUE_SET (item, v);
 	    }
 	    else
 	    {
 		hash_table_destroy_item (h, k, ITEM_VALUE (item));
-		ITEM_VALUE (item) = v;
+		ITEM_VALUE_SET (item, v);
 	    }
 	    return;
 	}

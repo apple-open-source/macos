@@ -1,7 +1,7 @@
-diff -Naur /var/tmp/openssh4.2-testing/OpenSSH.roots/OpenSSH/openssh/servconf.c ./servconf.c
---- /var/tmp/openssh4.2-testing/OpenSSH.roots/OpenSSH/openssh/servconf.c	2005-09-27 12:33:06.000000000 -0700
-+++ ./servconf.c	2005-09-27 14:06:44.000000000 -0700
-@@ -112,7 +112,7 @@
+diff -Naur ../openssh-4.4p1.orig/servconf.c ./servconf.c
+--- ../openssh-4.4p1.orig/servconf.c	2006-08-18 07:23:15.000000000 -0700
++++ ./servconf.c	2006-10-19 17:12:43.000000000 -0700
+@@ -129,7 +129,7 @@
  {
  	/* Portable-specific options */
  	if (options->use_pam == -1)
@@ -10,15 +10,3 @@ diff -Naur /var/tmp/openssh4.2-testing/OpenSSH.roots/OpenSSH/openssh/servconf.c 
  
  	/* Standard Options */
  	if (options->protocol == SSH_PROTO_UNKNOWN)
-diff -Naurdp ../openssh/sshd_config ./sshd_config
---- ../openssh/sshd_config	2005-09-28 16:11:01.000000000 -0700
-+++ ./sshd_config	2005-09-28 17:23:55.000000000 -0700
-@@ -77,7 +77,7 @@
- # "PermitRootLogin without-password". If you just want the PAM account and 
- # session checks to run without PAM authentication, then enable this but set 
- # ChallengeResponseAuthentication=no
--#UsePAM no
-+#UsePAM yes 
- 
- #AllowTcpForwarding yes
- #GatewayPorts no

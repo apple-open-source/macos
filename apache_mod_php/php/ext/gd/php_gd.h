@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gd.h,v 1.44.2.5 2003/03/31 08:49:30 sniper Exp $ */
+/* $Id: php_gd.h,v 1.44.2.5.8.3 2006/01/01 13:46:52 sniper Exp $ */
 
 #ifndef PHP_GD_H
 #define PHP_GD_H
@@ -29,6 +29,15 @@
 #endif
 
 #if HAVE_LIBGD
+
+/* open_basedir and safe_mode checks */
+#define PHP_GD_CHECK_OPEN_BASEDIR(filename, errormsg)                                   \
+	if (!filename || filename == empty_string || php_check_open_basedir(filename TSRMLS_CC) || \
+		(PG(safe_mode) && !php_checkuid(filename, NULL, CHECKUID_CHECK_FILE_AND_DIR))   \
+	) {                                                                                 \
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, errormsg);                          \
+		RETURN_FALSE;                                                                   \
+	}
 
 #define PHP_GDIMG_TYPE_GIF      1
 #define PHP_GDIMG_TYPE_PNG      2

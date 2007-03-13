@@ -65,6 +65,7 @@
 #include <sys/malloc.h>
 #include <sys/lock.h>
 #include <sys/utfconv.h>
+#include <libkern/OSMalloc.h>
 #include <string.h>
 
 /* #define NTFS_DEBUG 1 */
@@ -79,7 +80,6 @@
 MALLOC_DEFINE(M_NTFSNTVATTR, "NTFS vattr", "NTFS file attribute information");
 MALLOC_DEFINE(M_NTFSRDATA, "NTFS res data", "NTFS resident data");
 MALLOC_DEFINE(M_NTFSRUN, "NTFS vrun", "NTFS vrun storage");
-MALLOC_DEFINE(M_NTFSDECOMP, "NTFS decomp", "NTFS decompression temporary");
 
 static int ntfs_ntlookupattr(struct ntfsmount *, const char *, int, int *, char **);
 static int ntfs_findvattr(struct ntfsmount *, struct ntnode *, struct ntvattr **, struct ntvattr **, u_int32_t, const char *, size_t, cn_t, proc_t);
@@ -336,17 +336,21 @@ ntfs_loadntnode(
 	      proc_t p)
 {
 	struct filerec  *mfrp;
+	size_t		bufsize;
 	daddr_t         bn;
 	int		error,off;
 	struct attr    *ap;
 	struct ntvattr *nvap;
+	uint32_t	reclen;
 
 	dprintf(("ntfs_loadntnode: loading ino: %d\n",ip->i_number));
 
         /* Allocate space for a single MFT record */
-	MALLOC(mfrp, struct filerec *, ntfs_bntob(ntmp->ntm_bpmftrec),
-	       M_TEMP, M_WAITOK);
-
+        bufsize = ntfs_bntob(ntmp->ntm_bpmftrec);
+	mfrp = OSMalloc(bufsize, ntfs_malloc_tag);
+	if (mfrp == NULL)
+		return ENOMEM;
+	
 	if (ip->i_number < NTFS_SYSNODESNUM) {
 		struct buf     *bp;
 
@@ -358,7 +362,7 @@ ntfs_loadntnode(
 
 		/* Read in ip's MFT record */
 		error = (int)buf_meta_bread(ntmp->ntm_devvp,
-				       bn, ntfs_bntob(ntmp->ntm_bpmftrec),
+				       bn, bufsize,
 				       NOCRED, &bp);	/*¥ NOCRED */
 		if (error) {
 			printf("ntfs_loadntnode: BREAD FAILED\n");
@@ -366,7 +370,7 @@ ntfs_loadntnode(
 			goto out;
 		}
 		/* Copy the MFT record (little endian) */
-		memcpy(mfrp, (char *)buf_dataptr(bp), ntfs_bntob(ntmp->ntm_bpmftrec));
+		memcpy(mfrp, (char *)buf_dataptr(bp), bufsize);
 		buf_brelse(bp);
 	} else {
 		vnode_t vp;
@@ -375,8 +379,8 @@ ntfs_loadntnode(
 		
 		/* Read the MFT record (little endian) */
 		error = ntfs_readattr(ntmp, VTONT(vp), NTFS_A_DATA, NULL,
-			       ip->i_number * ntfs_bntob(ntmp->ntm_bpmftrec),
-			       ntfs_bntob(ntmp->ntm_bpmftrec), mfrp, NULL, p);
+			       ip->i_number * bufsize,
+			       bufsize, mfrp, NULL, p);
 		if (error) {
 			printf("ntfs_loadntnode: ntfs_readattr failed\n");
 			goto out;
@@ -384,8 +388,7 @@ ntfs_loadntnode(
 	}
 
 	/* Check if magic and fixups are correct */
-	error = ntfs_procfixups(ntmp, NTFS_FILEMAGIC, (caddr_t)mfrp,
-				ntfs_bntob(ntmp->ntm_bpmftrec));
+	error = ntfs_procfixups(ntmp, NTFS_FILEMAGIC, (caddr_t)mfrp, bufsize);
 	if (error) {
 		printf("ntfs_loadntnode: BAD MFT RECORD %d\n",
 		       (u_int32_t) ip->i_number);
@@ -394,6 +397,12 @@ ntfs_loadntnode(
 
 	dprintf(("ntfs_loadntnode: load attrs for ino: %d\n",ip->i_number));
 	off = le16toh(mfrp->fr_attroff);
+	if (off > bufsize) {
+		printf("ntfs_loadntnode: offset of first attribute too big "
+			"(MFT record #%d, offset %d)\n", ip->i_number, off);
+		error = EIO;
+		goto out;
+	}
 	ap = (struct attr *) ((caddr_t)mfrp + off);
 
 	LIST_INIT(&ip->i_valist);
@@ -406,7 +415,15 @@ ntfs_loadntnode(
 
 		LIST_INSERT_HEAD(&ip->i_valist, nvap, va_list);
 
-		off += le32toh(ap->a_hdr.reclen);
+		reclen = le32toh(ap->a_hdr.reclen);
+		if (reclen > bufsize || off+reclen > bufsize) {
+			printf("ntfs_loadntnode: attribute too big "
+				"(MFT record #%d, offset %d, size %u)\n",
+				ip->i_number, off, reclen);
+			error = EIO;
+			goto out;
+		}
+		off += reclen;
 		ap = (struct attr *) ((caddr_t)mfrp + off);
 	}
 	if (error) {
@@ -422,7 +439,7 @@ ntfs_loadntnode(
 	ip->i_flag |= IN_LOADED;
 
 out:
-	FREE(mfrp, M_TEMP);
+	OSFree(mfrp, bufsize, ntfs_malloc_tag);
 	return (error);
 }
 		
@@ -469,7 +486,7 @@ ntfs_ntlookup(
 	 * can take advantage of the VFS-provided funnel instead of needing
 	 * a mutex to protect the hash.
 	 */
-	MALLOC(new_node, struct ntnode *, sizeof(struct ntnode), M_NTFSNTNODE, M_WAITOK);
+	new_node = OSMalloc(sizeof(struct ntnode), ntfs_malloc_tag);
 
 loop:
 	if ((ip = ntfs_nthashlookup(ntmp->ntm_dev, ino)) != NULL) {
@@ -483,7 +500,7 @@ loop:
 		dprintf(("ntfs_ntlookup: ntnode %d: %p, usecount: %d\n",
 			ino, ip, ip->i_usecount));
 		*ipp = ip;
-		FREE(new_node, M_NTFSNTNODE);
+		OSFree(new_node, sizeof(struct ntnode), ntfs_malloc_tag);
 		return (0);
 	}
 
@@ -565,7 +582,7 @@ ntfs_ntput(ip)
 	vnode_rele(ip->i_devvp);
 	lck_mtx_free(ip->i_lock, ntfs_lck_grp);
 	lck_attr_free(ip->i_lock_attr);
-	FREE(ip, M_NTFSNTNODE);
+	OSFree(ip, sizeof(struct ntnode), ntfs_malloc_tag);
 }
 
 /*
@@ -615,7 +632,7 @@ ntfs_freentvattr(vap)
 		if (vap->va_datap)
 			FREE(vap->va_datap, M_NTFSRDATA);
 	}
-	FREE(vap, M_NTFSNTVATTR);
+	OSFree(vap, sizeof(struct ntvattr), ntfs_malloc_tag);
 }
 
 /*
@@ -638,8 +655,7 @@ ntfs_attrtontvattr(
 	error = 0;
 	*rvapp = NULL;
 
-	MALLOC(vap, struct ntvattr *, sizeof(struct ntvattr),
-		M_NTFSNTVATTR, M_WAITOK);
+	vap = OSMalloc(sizeof(struct ntvattr), ntfs_malloc_tag);
 	bzero(vap, sizeof(struct ntvattr));
 	vap->va_ip = NULL;
 	vap->va_flag = rap->a_hdr.a_flag;	/* u_int_8: no endian conversion */
@@ -684,7 +700,7 @@ ntfs_attrtontvattr(
 	ddprintf((", len: %d", vap->va_datalen));
 
 	if (error)
-		FREE(vap, M_NTFSNTVATTR);
+		OSFree(vap, sizeof(struct ntvattr), ntfs_malloc_tag);
 	else
 		*rvapp = vap;
 
@@ -815,8 +831,7 @@ ntfs_fget(
 	if (*fpp)
 		return (0);
 
-	MALLOC(fp, struct fnode *, sizeof(struct fnode), M_NTFSFNODE,
-		M_WAITOK);
+	fp = OSMalloc(sizeof(struct fnode), ntfs_malloc_tag);
 	bzero(fp, sizeof(struct fnode));
 	dprintf(("ntfs_fget: allocating fnode: %p\n",fp));
 
@@ -856,9 +871,7 @@ ntfs_frele(
 	LIST_REMOVE(fp,f_fnlist);
 	if (fp->f_flag & FN_AATTRNAME)
 		FREE(fp->f_attrname, M_TEMP);
-	if (fp->f_dirblbuf)
-		FREE(fp->f_dirblbuf, M_NTFSDIR);
-	FREE(fp, M_NTFSFNODE);
+	OSFree(fp, sizeof(struct fnode), ntfs_malloc_tag);
 	ntfs_ntrele(ip);
 }
 
@@ -991,7 +1004,7 @@ ntfs_ntlookupfile(
 
 	dprintf(("ntfs_ntlookupfile: blksz: %d, rdsz: %d\n", blsize, rdsize));
 
-	MALLOC(rdbuf, caddr_t, blsize, M_TEMP, M_WAITOK);
+	rdbuf = OSMalloc(blsize, ntfs_malloc_tag);
 
 	error = ntfs_readattr(ntmp, ip, NTFS_A_INDXROOT, "$I30",
 			       0, rdsize, rdbuf, NULL, p);
@@ -1151,7 +1164,7 @@ ntfs_ntlookupfile(
 fail:
 	if (attrname) FREE(attrname, M_TEMP);
 	if (vap) ntfs_ntvattrrele(vap);
-	if (rdbuf) FREE(rdbuf, M_TEMP);
+	if (rdbuf) OSFree(rdbuf, blsize, ntfs_malloc_tag);
 	ntfs_ntput(ip);
 	return (error);
 }
@@ -1184,6 +1197,51 @@ ntfs_isnamepermitted(
 }
 
 /*
+ * Determine the appropriate buffer size to use when calling ntfs_ntreaddir.
+ * The buffer must be big enough to hold either the index root, or one
+ * index allocation entry (i.e. a B-tree node).
+ *
+ * If the file system were read/write, it would be up to the caller to
+ * guarantee that the directory didn't change for as long as it uses the
+ * buffer size returned by this routine (since the size could potentially
+ * change if the index root's size changes).
+ */
+__private_extern__
+int
+ntfs_ntreaddir_bufsize(
+	struct ntfsmount * ntmp,
+	struct fnode * fp,
+	proc_t p,
+	u_int32_t *bufsize)
+{
+	struct ntnode  *ip = FTONT(fp);
+	struct ntvattr *vap = NULL;	/* IndexRoot attribute */
+	int error = 0;
+	u_int32_t blsize;			/* Index allocation (B-tree node) size */
+
+	error = ntfs_ntget(ip);
+	if (error)
+		return (error);
+
+	/* Get the root of the directory's index B+ tree */
+	error = ntfs_ntvattrget(ntmp, ip, NTFS_A_INDXROOT, "$I30", 0, p, &vap);
+	if (error) {
+		error = ENOTDIR;
+	} else {
+		blsize = le32toh(vap->va_a_iroot->ir_size);
+		*bufsize = MAX(vap->va_datalen, blsize);
+	}
+	
+	if (vap)
+		ntfs_ntvattrrele(vap);
+	ntfs_ntput(ip);
+	
+	return error;	
+}
+
+
+
+/*
  * Read ntfs dir like stream of attr_indexentry, not like btree of them.
  * ¥ Does that mean we get entries out of order?
  * This is done by scaning $BITMAP:$I30 for busy clusters and reading them.
@@ -1198,6 +1256,7 @@ ntfs_ntreaddir(
 	       struct ntfsmount * ntmp,
 	       struct fnode * fp,
 	       u_int32_t num,
+	       caddr_t rdbuf,
 	       struct attr_indexentry ** riepp,
 	       proc_t p)
 {
@@ -1205,7 +1264,6 @@ ntfs_ntreaddir(
 	struct ntvattr *vap = NULL;	/* IndexRoot attribute */
 	struct ntvattr *bmvap = NULL;	/* BitMap attribute */
 	struct ntvattr *iavap = NULL;	/* IndexAllocation attribute */
-	caddr_t         rdbuf;		/* Buffer to read directory's blocks  */
 	u_char         *bmp = NULL;	/* Bitmap */
 	u_int32_t       blsize;		/* Index allocation size (2048) */
 	u_int32_t       rdsize;		/* Length of data to read */
@@ -1215,7 +1273,7 @@ ntfs_ntreaddir(
 	struct attr_indexentry *iep;
 	int             error = ENOENT;
 	u_int32_t       aoff, cnum;
-        u_int32_t	fileno;
+	u_int32_t       fileno;
 
 	dprintf(("ntfs_ntreaddir: read ino: %d, num: %d\n", ip->i_number, num));
 	error = ntfs_ntget(ip);
@@ -1224,20 +1282,12 @@ ntfs_ntreaddir(
 
         /* Get the root of the directory's index B+ tree */
 	error = ntfs_ntvattrget(ntmp, ip, NTFS_A_INDXROOT, "$I30", 0, p, &vap);
-	if (error)
-		return (ENOTDIR);
-
-        /* Get a buffer to hold a single index allocation, or the root */
-	if (fp->f_dirblbuf == NULL) {
-		fp->f_dirblsz = le32toh(vap->va_a_iroot->ir_size);
-		MALLOC(fp->f_dirblbuf, caddr_t,
-		       MAX(vap->va_datalen,fp->f_dirblsz), M_NTFSDIR, M_WAITOK);
+	if (error) {
+		error = ENOTDIR;
+		goto fail;
 	}
 
-	blsize = fp->f_dirblsz;
-	rdbuf = fp->f_dirblbuf;
-
-	dprintf(("ntfs_ntreaddir: rdbuf: 0x%p, blsize: %d\n", rdbuf, blsize));
+	blsize = le32toh(vap->va_a_iroot->ir_size);
 
         /* Get the index bitmap and external allocation, if any */
 	if (vap->va_a_iroot->ir_flag & NTFS_IRFLAG_INDXALLOC) {	/* little endian byte */
@@ -1890,11 +1940,11 @@ ntfs_readattr(
 		ddprintf(("ntfs_ntreadattr: compression: %d\n",
 			 vap->va_compressalg));
 
-		MALLOC(cup, u_int8_t *, comp_unit_size, M_NTFSDECOMP, M_WAITOK);
+		cup = OSMalloc(comp_unit_size, ntfs_malloc_tag);
 		if (rdata && rsize == comp_unit_size && (roff % comp_unit_size) == 0)
 			uup = rdata;		/* Decompress straight into caller's buffer */
 		else
-			MALLOC(uup, u_int8_t *, comp_unit_size, M_NTFSDECOMP, M_WAITOK);
+			uup = OSMalloc(comp_unit_size, ntfs_malloc_tag);
 
 		/*
 		 * Determine cluster number of start of compression unit,
@@ -1954,8 +2004,8 @@ ntfs_readattr(
 		}
 
 		if (rdata != uup)
-			FREE(uup, M_NTFSDECOMP);
-		FREE(cup, M_NTFSDECOMP);
+			OSFree(uup, comp_unit_size, ntfs_malloc_tag);
+		OSFree(cup, comp_unit_size, ntfs_malloc_tag);
 	} else
 		error = ntfs_readattr_plain(ntmp, ip, attrnum, attrname,
 					     roff, rsize, rdata, &init, uio, p);
@@ -2155,8 +2205,7 @@ ntfs_toupper_use(mp, ntmp, p)
 	 * XXX for now, just the first 256 entries are used anyway,
 	 * so don't bother reading more
 	 */
-	MALLOC(ntfs_toupper_tab, u_int16_t *, 65536 * sizeof(u_int16_t),
-		M_NTFSRDATA, M_WAITOK);
+	ntfs_toupper_tab = OSMalloc(65536 * sizeof(u_int16_t), ntfs_malloc_tag);
 		
 	error = ntfs_vgetex(mp, NTFS_UPCASEINO, NULLVP, NULL, VNON, NTFS_A_DATA, NULL, 0, p, &vp);
 	if (error)
@@ -2182,7 +2231,7 @@ ntfs_toupper_unuse()
 {
 	ntfs_toupper_usecount--;
 	if (ntfs_toupper_usecount == 0) {
-		FREE(ntfs_toupper_tab, M_NTFSRDATA);
+		OSFree(ntfs_toupper_tab, 65536 * sizeof(u_int16_t), ntfs_malloc_tag);
 		ntfs_toupper_tab = NULL;
 	}
 #ifdef DIAGNOSTIC

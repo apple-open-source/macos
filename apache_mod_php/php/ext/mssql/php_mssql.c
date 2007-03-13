@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mssql.c,v 1.86.2.44.2.1 2005/09/05 05:03:21 fmk Exp $ */
+/* $Id: php_mssql.c,v 1.86.2.44.2.11 2006/04/04 18:50:16 fmk Exp $ */
 
 #ifdef COMPILE_DL_MSSQL
 #define HAVE_MSSQL 1
@@ -138,7 +138,7 @@ PHP_INI_BEGIN()
 	STD_PHP_INI_ENTRY_EX("mssql.batchsize",   			"0",	PHP_INI_ALL,	OnUpdateInt,	batchsize,					zend_mssql_globals,		mssql_globals,	display_link_numbers)
 	STD_PHP_INI_BOOLEAN("mssql.datetimeconvert",  		"1",	PHP_INI_ALL,	OnUpdateBool,	datetimeconvert,			zend_mssql_globals,		mssql_globals)
 	STD_PHP_INI_BOOLEAN("mssql.secure_connection",		"0",	PHP_INI_SYSTEM, OnUpdateBool,	secure_connection,			zend_mssql_globals,		mssql_globals)
-	STD_PHP_INI_ENTRY_EX("mssql.max_procs",				"25",	PHP_INI_ALL,	OnUpdateInt,	max_procs,					zend_mssql_globals,		mssql_globals,	display_link_numbers)
+	STD_PHP_INI_ENTRY_EX("mssql.max_procs",				"-1",	PHP_INI_ALL,	OnUpdateInt,	max_procs,					zend_mssql_globals,		mssql_globals,	display_link_numbers)
 PHP_INI_END()
 
 /* error handler */
@@ -222,6 +222,7 @@ static void _free_mssql_result(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 	mssql_result *result = (mssql_result *)rsrc->ptr;
 
 	_free_result(result, 1);
+	dbcancel(result->mssql_ptr->link);
 	efree(result);
 }
 
@@ -337,7 +338,9 @@ PHP_RINIT_FUNCTION(mssql)
 	dbsetlogintime(MS_SQL_G(connect_timeout));
 	if (MS_SQL_G(timeout) < 0) MS_SQL_G(timeout) = 60;
 	dbsettime(MS_SQL_G(timeout));
-	dbsetmaxprocs((TDS_SHORT)MS_SQL_G(max_procs));
+	if (MS_SQL_G(max_procs) != -1) {
+		dbsetmaxprocs((TDS_SHORT)MS_SQL_G(max_procs));
+	}
 
 	return SUCCESS;
 }
@@ -853,13 +856,15 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 			break;
 #ifdef SQLUNIQUE
 		case SQLUNIQUE: {
+#else
+		case 36: {			/* FreeTDS hack */
+#endif
 			char *data = charcol(offset);
 
 			/* uniqueidentifier is a 16-byte binary number */
 			ZVAL_STRINGL(result, data, 16, 1);
 			}
 			break;
-#endif
 		case SQLVARBINARY:
 		case SQLBINARY:
 		case SQLIMAGE: {
@@ -886,11 +891,9 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 				if ((column_type != SQLDATETIME && column_type != SQLDATETIM4) || MS_SQL_G(datetimeconvert)) {
 
 					switch (column_type) {
-						case SQLDATETIM4 :
-							res_length += 14;
-							break;
 						case SQLDATETIME :
-							res_length += 10;
+						case SQLDATETIM4 :
+							res_length += 20;
 							break;
 						case SQLMONEY :
 						case SQLMONEY4 :
@@ -898,6 +901,8 @@ static void php_mssql_get_column_content_with_type(mssql_link *mssql_ptr,int off
 						case SQLDECIMAL :
 						case SQLNUMERIC :
 							res_length += 5;
+						case 127 :
+							res_length += 20;
 							break;
 					}
 			
@@ -960,11 +965,9 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 		if ((column_type != SQLDATETIME && column_type != SQLDATETIM4) || MS_SQL_G(datetimeconvert)) {
 
 			switch (column_type) {
-				case SQLDATETIM4 :
-					res_length += 14;
-					break;
 				case SQLDATETIME :
-					res_length += 10;
+				case SQLDATETIM4 :
+					res_length += 20;
 					break;
 				case SQLMONEY :
 				case SQLMONEY4 :
@@ -972,6 +975,8 @@ static void php_mssql_get_column_content_without_type(mssql_link *mssql_ptr,int 
 				case SQLDECIMAL :
 				case SQLNUMERIC :
 					res_length += 5;
+				case 127 :
+					res_length += 20;
 					break;
 			}
 			
@@ -1226,6 +1231,7 @@ PHP_FUNCTION(mssql_query)
 	}
 	if (dbsqlexec(mssql_ptr->link)==FAIL || (retvalue = dbresults(mssql_ptr->link))==FAIL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Query failed");
+		dbcancel(mssql_ptr->link);
 		RETURN_FALSE;
 	}
 	
@@ -1240,6 +1246,7 @@ PHP_FUNCTION(mssql_query)
 
 	retvalue=dbnextrow(mssql_ptr->link);	
 	if (retvalue==FAIL) {
+		dbcancel(mssql_ptr->link);
 		RETURN_FALSE;
 	}
 
@@ -1869,6 +1876,11 @@ PHP_FUNCTION(mssql_next_result)
 
 	mssql_ptr = result->mssql_ptr;
 	retvalue = dbresults(mssql_ptr->link);
+
+	while (dbnumcols(mssql_ptr->link) <= 0 && retvalue == SUCCEED) {
+		retvalue = dbresults(mssql_ptr->link);
+	}
+
 	if (retvalue == FAIL) {
 		RETURN_FALSE;
 	}
@@ -2047,7 +2059,9 @@ PHP_FUNCTION(mssql_bind)
 				type=Z_LVAL_PP(yytype);
 				is_output=Z_LVAL_PP(yyis_output);
 				is_null=Z_LVAL_PP(yyis_null);
-				maxlen=Z_LVAL_PP(yymaxlen);				
+				if (is_output) {
+					maxlen=Z_LVAL_PP(yymaxlen);
+				}
 			}
 			break;	
 		
@@ -2120,17 +2134,22 @@ PHP_FUNCTION(mssql_bind)
 		zend_hash_init(statement->binds, 13, NULL, _mssql_bind_hash_dtor, 0);
 	}
 
-	memset((void*)&bind,0,sizeof(mssql_bind));
-	zend_hash_add(statement->binds,Z_STRVAL_PP(param_name),Z_STRLEN_PP(param_name),&bind,sizeof(mssql_bind),(void **)&bindp);
-	if( NULL == bindp ) RETURN_FALSE;
-	bindp->zval=*var;
-	zval_add_ref(var);
-
-	/* no call to dbrpcparam if RETVAL */
-	if ( strcmp("RETVAL",Z_STRVAL_PP(param_name))!=0 ) {						
-		if (dbrpcparam(mssql_ptr->link, Z_STRVAL_PP(param_name), (BYTE)status, type, maxlen, datalen, (LPBYTE)value)==FAIL) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set parameter");
-			RETURN_FALSE;
+	if (zend_hash_exists(statement->binds, Z_STRVAL_PP(param_name), Z_STRLEN_PP(param_name))) {
+		RETURN_FALSE;
+	}
+	else {
+		memset((void*)&bind,0,sizeof(mssql_bind));
+		zend_hash_add(statement->binds, Z_STRVAL_PP(param_name), Z_STRLEN_PP(param_name), &bind, sizeof(mssql_bind), (void **)&bindp);
+		if( NULL == bindp ) RETURN_FALSE;
+		bindp->zval=*var;
+		zval_add_ref(var);
+	
+		/* no call to dbrpcparam if RETVAL */
+		if ( strcmp("RETVAL",Z_STRVAL_PP(param_name))!=0 ) {						
+			if (dbrpcparam(mssql_ptr->link, Z_STRVAL_PP(param_name), (BYTE)status, type, maxlen, datalen, (LPBYTE)value)==FAIL) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to set parameter");
+				RETURN_FALSE;
+			}
 		}
 	}
 
@@ -2166,6 +2185,7 @@ PHP_FUNCTION(mssql_execute)
 
 	if (dbrpcexec(mssql_ptr->link)==FAIL || dbsqlok(mssql_ptr->link)==FAIL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "stored procedure execution failed");
+		dbcancel(mssql_ptr->link);
 		RETURN_FALSE;
 	}
 
@@ -2173,6 +2193,7 @@ PHP_FUNCTION(mssql_execute)
 
 	if (retval_results==FAIL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "could not retrieve results");
+		dbcancel(mssql_ptr->link);
 		RETURN_FALSE;
 	}
 

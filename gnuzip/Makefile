@@ -41,7 +41,8 @@ AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = patch-Makefile.in patch-gzip.1 patch-gzip.c \
                  patch-zgrep.in version.diff \
-                 PR4406518.diff
+                 PR4406518.diff \
+                 suse_patch2_gzip.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

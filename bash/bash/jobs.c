@@ -75,7 +75,7 @@
 #include "shell.h"
 #include "jobs.h"
 #include "flags.h"
-
+#include "bashline.h"		/* avoid SIGWINCH before readline initialized */
 #include "builtins/builtext.h"
 #include "builtins/common.h"
 
@@ -3093,7 +3093,8 @@ sigwinch_sighandler (sig)
 #if defined (MUST_REINSTALL_SIGHANDLERS)
   set_signal_handler (SIGWINCH, sigwinch_sighandler);
 #endif /* MUST_REINSTALL_SIGHANDLERS */
-  get_new_window_size (1);
+  if (bash_readline_initialized)
+    get_new_window_size (1);
   SIGRETURN (0);
 }
 #else

@@ -104,8 +104,8 @@ public:
     virtual Boolean hasElement (IOHIDElementCookie elementCookie);
 
     /* start/stop data delivery to a queue */
-    virtual IOReturn start (bool deviceInitiated = false);
-    virtual IOReturn stop (bool deviceInitiated = false);
+    virtual IOReturn start ();
+    virtual IOReturn stop ();
     
     /* read next event from a queue */
     /* maxtime, if non-zero, limits read events to those that occured */

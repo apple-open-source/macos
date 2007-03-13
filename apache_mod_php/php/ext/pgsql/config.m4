@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.34.4.2.2.2 2005/07/24 23:11:45 yohgaki Exp $
+dnl $Id: config.m4,v 1.34.4.2.2.3 2006/01/05 21:53:30 sniper Exp $
 dnl
 
 AC_DEFUN([PHP_PGSQL_CHECK_FUNCTIONS],[
@@ -24,7 +24,9 @@ if test "$PHP_PGSQL" != "no"; then
     AC_MSG_RESULT([$PG_CONFIG])
     PGSQL_INCLUDE=`$PG_CONFIG --includedir`
     PGSQL_LIBDIR=`$PG_CONFIG --libdir`
-    AC_DEFINE(HAVE_PG_CONFIG_H,1,[Whether to have pg_config.h])
+    if test -r "$PGSQL_INCLUDE/pg_config.h"; then
+      AC_DEFINE(HAVE_PG_CONFIG_H,1,[Whether to have pg_config.h])
+    fi
   else
     AC_MSG_RESULT(not found)
     if test "$PHP_PGSQL" = "yes"; then

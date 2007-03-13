@@ -145,23 +145,30 @@ Token::ResetGeneration Token::resetGeneration() const
 
 void Token::resetAcls()
 {
-	StLock<Mutex> _(*this);
-	mResetLevel++;
-	secdebug("token", "%p reset (level=%d, propagating to %ld common(s)",
-		this, mResetLevel, mCommons.size());
-	for (CommonSet::const_iterator it = mCommons.begin(); it != mCommons.end(); it++)
+	CommonSet tmpCommons;
+	{
+		StLock<Mutex> _(*this);
+		mResetLevel++;
+		secdebug("token", "%p reset (level=%d, propagating to %ld common(s)",
+			this, mResetLevel, mCommons.size());
+		// Make a copy to avoid deadlock with TokenDbCommon lock
+		tmpCommons = mCommons;
+	}
+	for (CommonSet::const_iterator it = tmpCommons.begin(); it != tmpCommons.end(); it++)
 		RefPointer<TokenDbCommon>(*it)->resetAcls();
 }
 
 void Token::addCommon(TokenDbCommon &dbc)
 {
+	secdebug("token", "%p addCommon TokenDbCommon %p", this, &dbc);
 	mCommons.insert(&dbc);
 }
 
 void Token::removeCommon(TokenDbCommon &dbc)
 {
-	assert(mCommons.find(&dbc) != mCommons.end());
-	mCommons.erase(&dbc);
+	secdebug("token", "%p removeCommon TokenDbCommon %p", this, &dbc);
+	if (mCommons.find(&dbc) != mCommons.end())
+		mCommons.erase(&dbc);
 }
 
 
@@ -307,9 +314,11 @@ void Token::remove()
 		this, &reader(), reader().name().c_str());
 	if (mTokend)
 		mTokend->faultRelay(NULL);		// unregister (no more faults, please)
-	notify(kNotificationCDSARemoval);
 	mds().uninstall(mGuid.toString().c_str(), mSubservice);
+	secdebug("token", "%p mds uninstall complete", this);
 	this->kill();
+	secdebug("token", "%p kill complete", this);
+	notify(kNotificationCDSARemoval);
 	secdebug("token", "%p removal complete", this);
 }
 
@@ -357,18 +366,22 @@ void Token::relayFault(bool async)
 //
 void Token::kill()
 {
-	StLock<Mutex> _(*this);
-	if (mTokend)
+	// Avoid holding the lock across call to resetAcls
+	// This can cause deadlock on card removal
 	{
-		mTokend = NULL;					// cast loose our tokend (if any)
-		// Take us out of the map
-		StLock<Mutex> _(mSSIDLock);
-		SSIDMap::iterator it = mSubservices.find(mSubservice);
-		assert(it != mSubservices.end() && it->second == this);
-		if (it != mSubservices.end() && it->second == this)
-			mSubservices.erase(it);
+		StLock<Mutex> _(*this);
+		if (mTokend)
+		{
+			mTokend = NULL;					// cast loose our tokend (if any)
+			// Take us out of the map
+			StLock<Mutex> _(mSSIDLock);
+			SSIDMap::iterator it = mSubservices.find(mSubservice);
+			assert(it != mSubservices.end() && it->second == this);
+			if (it != mSubservices.end() && it->second == this)
+				mSubservices.erase(it);
+		}
 	}
-
+	
 	resetAcls();					// release our TokenDbCommons
 	PerGlobal::kill();				// generic action
 

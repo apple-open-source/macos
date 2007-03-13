@@ -78,6 +78,7 @@
 #include <sys/attr.h>
 #include <sys/ubc.h>
 #include <sys/utfconv.h>
+#include <libkern/OSMalloc.h>
 #include <vfs/vfs_support.h>
 #include <miscfs/specfs/specdev.h>
 
@@ -733,7 +734,9 @@ ntfs_readdir(ap)
 	struct dirent cde;
 	off_t off;
 	size_t namelen;
-
+	u_int32_t bufsize;
+	caddr_t buffer = NULL;
+	
 	if (ap->a_numdirent)
 		*ap->a_numdirent = 0;
 	
@@ -772,23 +775,32 @@ ntfs_readdir(ap)
 			++(*ap->a_numdirent);
 	}
 
+	/* Allocate a buffer for reading the directory content */
+	error = ntfs_ntreaddir_bufsize(ntmp, fp, vfs_context_proc(ap->a_context), &bufsize);
+	if (error) goto fail;
+	buffer = OSMalloc(bufsize, ntfs_malloc_tag);
+	if (buffer == NULL) {
+		error = ENOMEM;
+		goto fail;
+	}
+	
 	faked = (ip->i_number == NTFS_ROOTINO) ? 1 : 2;
 	num = uio_offset(uio) / sizeof(struct dirent) - faked;
 
 	while( uio_resid(uio) >= sizeof(struct dirent) ) {
 		struct attr_indexentry *iep;
 
-		error = ntfs_ntreaddir(ntmp, fp, num, &iep, vfs_context_proc(ap->a_context));
+		error = ntfs_ntreaddir(ntmp, fp, num, buffer, &iep, vfs_context_proc(ap->a_context));
 
 		if(error)
-			return (error);
+			goto fail;
 
 		if( NULL == iep )
 			break;
 
 		for(; !(le32toh(iep->ie_flag) & NTFS_IEFLAG_LAST) &&
-                            (uio_resid(uio) >= sizeof(struct dirent));
-                        iep = NTFS_NEXTREC(iep, struct attr_indexentry *))
+				(uio_resid(uio) >= sizeof(struct dirent));
+			iep = NTFS_NEXTREC(iep, struct attr_indexentry *))
 		{
 			cde.d_fileno = le32toh(iep->ie_number);
 
@@ -814,7 +826,7 @@ ntfs_readdir(ap)
 
 			error = uiomove((char *)&cde, sizeof(struct dirent), uio);
 			if(error)
-				return (error);
+				goto fail;
 			if (ap->a_numdirent)
 				++(*ap->a_numdirent);
 			num++;
@@ -827,6 +839,9 @@ ntfs_readdir(ap)
 	if (ap->a_eofflag)
 	    *ap->a_eofflag = fp->f_size <= uio_offset(uio);
 
+fail:
+	if (buffer != NULL)
+		OSFree(buffer, bufsize, ntfs_malloc_tag);
 	return (error);
 }
 

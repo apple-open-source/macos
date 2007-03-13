@@ -524,7 +524,7 @@ Boolean _CFNetDiagnosticIsLinkLocal (CFStringRef s)
 		if(addr == INADDR_NONE) {
 			retval = 0;
 		} else {
-			retval = IN_LINKLOCAL(addr);
+			retval = IN_LINKLOCAL(ntohl(addr));
 		} 
 	}
 
@@ -565,13 +565,22 @@ CFNetDiagnosticStatus _CFNetDiagnosticCopyNetworkStatusPassivelyInterfaceSpecifi
 	if(device) {
 		dict = _CFNetDiagnosticsGetDataFromSCDSAndThowAwayGarbage(NULL, store, SCDynamicStoreKeyCreateNetworkInterfaceEntity, 
 			kSCDynamicStoreDomainState, device, kSCEntNetLink);
-		CFRelease(device);
-		
+
 		if(dict) {
-			isLinkActive = CFEqual(kCFBooleanTrue, CFDictionaryGetValue(dict, kSCPropNetLinkActive)) ? 1 : 0;
+			CFBooleanRef linkActive = CFDictionaryGetValue(dict, kSCPropNetLinkActive);
+			CFBooleanRef linkDetaching = CFDictionaryGetValue(dict, kSCPropNetLinkDetaching);
+
+			if (linkActive) {
+				isLinkActive = CFBooleanGetValue(linkActive);
+			} else if (linkDetaching) {
+				isLinkActive = !CFBooleanGetValue(linkDetaching);
+			} else {
+				isLinkActive = true;
+			}
 
 			CFRelease( (CFDictionaryRef) dict );
 		}
+		CFRelease(device);
 	}
 	
 	//Now we find out if the link is connected

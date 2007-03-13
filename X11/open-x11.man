@@ -1,0 +1,21 @@
+.\""Copyright (c) 2001 Apple Computer, Inc. All Rights Reserved.
+.Dd July 20, 2004
+.Dt OPEN-X11 1  
+.Os Mac OS X       
+.Sh NAME
+.Nm open-x11
+.Nd run X11 programs
+.Sh SYNOPSIS
+.Nm
+.Ar
+.Pp
+.Sh DESCRIPTION
+The
+.Nm
+command runs a program within the environment of the X server running in the current user's session.
+.Pp
+You can specify one or more file names (or pathnames), which are interpreted relative to the search path of the current shell.
+.Sh EXAMPLES
+"open-x11 xeyes" runs the 'xeyes' program so that it is able to connect to the current X server.
+.Sh HISTORY
+First appeared in Mac OS X 10.3.

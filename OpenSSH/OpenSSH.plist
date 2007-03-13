@@ -1,24 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>OpenSourceProject</key>
-	<string>OpenSSH</string>
-	<key>OpenSourceVersion</key>
-	<string>3.8.1p1</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://openssh.org/</string>
-	<key>OpenSourceURL</key>
-	<string>http://gulus.usherbrooke.ca/pub/appl/ssh/OpenSSH/portable/openssh-3.8.1p1.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>1dbfd40ae683f822ae917eebf171ca42</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-08-03</string>
-	<key>OpenSourceModifications</key>
-	<array>
-		<string>BSM patches from http://bugzilla.mindrot.org/show_bug.cgi?id=125</string>
-	</array>
+	<string>2006-11-10</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>OpenSSH.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>kerberos patches from www.sxw.org.uk</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>OpenSSH</string>
+	<key>OpenSourceSHA1</key>
+	<string>2eefcbbeb9e4fa16fa4500dec107d1a09d3d02d7</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.openssh.org/</string>
+	<key>OpenSourceVersion</key>
+	<string>4.5p1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://openssh.org/</string>
 </dict>
 </plist>

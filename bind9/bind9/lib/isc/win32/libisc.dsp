@@ -141,10 +141,6 @@ SOURCE=.\net.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\ntfile.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\ntpaths.c
 # End Source File
 # Begin Source File
@@ -162,6 +158,10 @@ SOURCE=.\resource.c
 # Begin Source File
 
 SOURCE=.\socket.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\strerror.c
 # End Source File
 # Begin Source File
 
@@ -277,6 +277,10 @@ SOURCE=..\include\isc\fsaccess.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\include\isc\hash.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\include\isc\heap.h
 # End Source File
 # Begin Source File
@@ -365,11 +369,11 @@ SOURCE=..\include\isc\netaddr.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\include\isc\netdb.h
+SOURCE=..\include\isc\netscope.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\include\isc\ntfile.h
+SOURCE=.\include\isc\netdb.h
 # End Source File
 # Begin Source File
 
@@ -386,6 +390,10 @@ SOURCE=.\include\isc\once.h
 # Begin Source File
 
 SOURCE=..\include\isc\ondestroy.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\include\isc\parseint.h
 # End Source File
 # Begin Source File
 
@@ -457,6 +465,10 @@ SOURCE=..\include\isc\stdio.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\include\isc\strerror.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\include\isc\stdtime.h
 # End Source File
 # Begin Source File
@@ -494,6 +506,10 @@ SOURCE=.\include\isc\time.h
 # Begin Source File
 
 SOURCE=..\include\isc\timer.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\include\isc\win32os.h
 # End Source File
 # Begin Source File
 
@@ -550,6 +566,10 @@ SOURCE=..\error.c
 # Begin Source File
 
 SOURCE=..\event.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\hash.c
 # End Source File
 # Begin Source File
 
@@ -613,7 +633,15 @@ SOURCE=..\netaddr.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\netscope.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\ondestroy.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\parseint.c
 # End Source File
 # Begin Source File
 
@@ -626,6 +654,10 @@ SOURCE=..\random.c
 # Begin Source File
 
 SOURCE=..\ratelimiter.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\region.c
 # End Source File
 # Begin Source File
 
@@ -666,6 +698,10 @@ SOURCE=..\taskpool.c
 # Begin Source File
 
 SOURCE=..\timer.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\win32os.c
 # End Source File
 # End Group
 # Begin Source File

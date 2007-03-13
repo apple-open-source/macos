@@ -25,6 +25,11 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IODataQueueShared.h>
 #include "IOHIDEventQueue.h"
+
+enum {
+    kHIDQueueStarted    = 0x01,
+    kHIDQueueDisabled   = 0x02
+};
     
 #define super IODataQueue
 OSDefineMetaClassAndStructors( IOHIDEventQueue, IODataQueue )
@@ -42,11 +47,11 @@ IOHIDEventQueue * IOHIDEventQueue::withCapacity( UInt32 size )
         queue = 0;
     }
 
-    queue->_started             = false;
+    queue->_state               = 0;
     queue->_lock                = IOLockAlloc();
     queue->_numEntries          = size / DEFAULT_HID_ENTRY_SIZE;
-    queue->_currentEntrySize  = DEFAULT_HID_ENTRY_SIZE;
-    queue->_maxEntrySize      = DEFAULT_HID_ENTRY_SIZE;
+    queue->_currentEntrySize    = DEFAULT_HID_ENTRY_SIZE;
+    queue->_maxEntrySize        = DEFAULT_HID_ENTRY_SIZE;
     
     return queue;
 }
@@ -62,11 +67,11 @@ IOHIDEventQueue * IOHIDEventQueue::withEntries( UInt32 numEntries,
         queue = 0;
     }
 
-    queue->_started             = false;
+    queue->_state               = 0;
     queue->_lock                = IOLockAlloc();
     queue->_numEntries          = numEntries;
-    queue->_currentEntrySize  = DEFAULT_HID_ENTRY_SIZE;
-    queue->_maxEntrySize      = DEFAULT_HID_ENTRY_SIZE;
+    queue->_currentEntrySize    = DEFAULT_HID_ENTRY_SIZE;
+    queue->_maxEntrySize        = DEFAULT_HID_ENTRY_SIZE;
 
     return queue;
 }
@@ -104,7 +109,7 @@ Boolean IOHIDEventQueue::enqueue( void * data, UInt32 dataSize )
 
     // if we are not started, then dont enqueue
     // for now, return true, since we dont wish to push an error back
-    if (_started)
+    if ((_state & (kHIDQueueStarted | kHIDQueueDisabled)) == kHIDQueueStarted)
         ret = super::enqueue(data, dataSize);
 
     if ( _lock )
@@ -122,11 +127,13 @@ void IOHIDEventQueue::start()
     if ( _lock )
         IOLockLock(_lock);
 
-    if ( _started )
+    if ( _state & kHIDQueueStarted )
         goto START_END;
 
     if ( _currentEntrySize != _maxEntrySize )
     {
+        mach_port_t port = notifyMsg ? ((mach_msg_header_t *)notifyMsg)->msgh_remote_port : MACH_PORT_NULL;
+        
         // Free the existing queue data
         if (dataQueue) {
             IOFreeAligned(dataQueue, round_page_32(dataQueue->queueSize + DATA_QUEUE_MEMORY_HEADER_SIZE));
@@ -143,6 +150,10 @@ void IOHIDEventQueue::start()
         }
         
         _currentEntrySize = _maxEntrySize;
+        
+        // RY: since we are initing the queue, we should reset the port as well
+        if ( port ) 
+            setNotificationPort(port);
     }
     else if ( dataQueue )
     {
@@ -150,7 +161,7 @@ void IOHIDEventQueue::start()
         dataQueue->tail = 0;
     }
 
-    _started = true;
+    _state |= kHIDQueueStarted;
 
 START_END:
     if ( _lock )
@@ -163,7 +174,29 @@ void IOHIDEventQueue::stop()
     if ( _lock )
         IOLockLock(_lock);
 
-    _started = false;
+    _state &= ~kHIDQueueStarted;
+
+    if ( _lock )
+        IOLockUnlock(_lock);
+}
+
+void IOHIDEventQueue::enable() 
+{
+    if ( _lock )
+        IOLockLock(_lock);
+
+    _state &= ~kHIDQueueDisabled;
+
+    if ( _lock )
+        IOLockUnlock(_lock);
+}
+
+void IOHIDEventQueue::disable()
+{
+    if ( _lock )
+        IOLockLock(_lock);
+
+    _state |= kHIDQueueDisabled;
 
     if ( _lock )
         IOLockUnlock(_lock);
@@ -176,7 +209,7 @@ Boolean IOHIDEventQueue::isStarted()
     if ( _lock )
         IOLockLock(_lock);
 
-    ret = _started;
+    ret = (_state & kHIDQueueStarted) != 0;
 
     if ( _lock )
         IOLockUnlock(_lock);
@@ -253,9 +286,8 @@ UInt32 IOHIDEventQueue::getEntrySize( )
 
 IOMemoryDescriptor * IOHIDEventQueue::getMemoryDescriptor()
 {
-    if ((dataQueue != 0) && !_descriptor) {
-        _descriptor = IOMemoryDescriptor::withAddress(dataQueue, dataQueue->queueSize + DATA_QUEUE_MEMORY_HEADER_SIZE, kIODirectionOutIn);
-    }
+    if (!_descriptor)
+        _descriptor = super::getMemoryDescriptor();
 
     return _descriptor;
 }

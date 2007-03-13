@@ -278,25 +278,10 @@ bool IOHIPointing::start(IOService * provider)
    * life).  Register ourselves as a nub to kick off matching.
    */
 
-  registerService();
+  registerService(kIOServiceSynchronous);
 
   return true;
 }
-
-void IOHIPointing::stop(IOService * provider)
-{
-    if ( _hidPointingNub ) 
-    {
-        _hidPointingNub->stop(this);
-        _hidPointingNub->detach(this);
-        
-        _hidPointingNub->release();
-        _hidPointingNub = 0;
-    }
-
-    super::stop(provider);
-}
-
 
 void IOHIPointing::free()
 // Description:	Go Away. Be careful when freeing the lock.
@@ -334,6 +319,12 @@ void IOHIPointing::free()
 
         IOFree(_scrollPointerInfo, sizeof(ScrollAccelInfo));
         _scrollPointerInfo = 0;
+    }
+    
+    if ( _hidPointingNub )
+    {
+        _hidPointingNub->release();
+        _hidPointingNub = 0;
     }
     
     if (_reserved) {
@@ -522,8 +513,8 @@ static void AccelerateScrollAxis(   IOFixed *           axis1p,
 
     }
     
-    avgAxis         = IOFixedDivide(avgAxis, (avgCount<<16));
-    avgTimeDeltaMS  = IOFixedDivide(avgTimeDeltaMS, (avgCount<<16));
+    avgAxis         = (avgCount) ? IOFixedDivide(avgAxis, (avgCount<<16)) : 0;
+    avgTimeDeltaMS  = (avgCount) ? IOFixedDivide(avgTimeDeltaMS, (avgCount<<16)) : 0;
     avgTimeDeltaMS  = IOFixedMultiply(avgTimeDeltaMS, scaleInfo->rateMultiplier);
     avgTimeDeltaMS  = (avgTimeDeltaMS > SCROLL_EVENT_THRESHOLD_MS) ? SCROLL_EVENT_THRESHOLD_MS : avgTimeDeltaMS;
 
@@ -611,7 +602,7 @@ static SInt32 Interpolate(  SInt32 x1, SInt32 y1,
     SInt32 intercept;
     SInt32 resultY;
     
-    slope = IOFixedDivide( y2 - y1, x2 - x1 );
+    slope = (x2 == x1) ? 0 : IOFixedDivide( y2 - y1, x2 - x1 );
     intercept = y1 - IOFixedMultiply( slope, x1 );
     resultY = intercept + IOFixedMultiply( slope, x3 );
     if( lower)
@@ -915,11 +906,20 @@ void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
     // to include a scroll whell
     if (_hidPointingNub && !_hidPointingNub->isScrollPresent())
     {
-        _hidPointingNub->stop(this);
-        _hidPointingNub->detach(this);
+        IOHIDPointingDevice * nub = _hidPointingNub;
         
-        _hidPointingNub->release();
-        _hidPointingNub = IOHIDPointingDevice::newPointingDeviceAndStart(this, buttonCount(), resolution() >> 16, true);
+        _hidPointingNub = 0;
+        
+        DEVICE_UNLOCK;
+        
+        nub->terminate(kIOServiceSynchronous);
+        nub->release();
+        
+        nub = IOHIDPointingDevice::newPointingDeviceAndStart(this, buttonCount(), resolution() >> 16, true);
+        
+        DEVICE_LOCK;
+        
+        _hidPointingNub = nub;
     }
 
     // Post the raw event to IOHIDPointingDevice
@@ -1288,7 +1288,7 @@ IOFixed	IOHIPointing::scrollReportRate()
     OSNumber * 	number = OSDynamicCast( OSNumber,
                 getProperty( kIOHIDScrollReportRateKey ));
                         
-    return number ? number->unsigned32BitValue() : FRAME_RATE;
+    return number ? (number->unsigned32BitValue() ? number->unsigned32BitValue() : FRAME_RATE ) : FRAME_RATE;
 }
 
 

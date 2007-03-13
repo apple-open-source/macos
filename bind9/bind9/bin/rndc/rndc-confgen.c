@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2001  Internet Software Consortium.
+ * Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: rndc-confgen.c,v 1.1.1.1 2003/01/10 00:47:31 bbraun Exp $ */
+/* $Id: rndc-confgen.c,v 1.9.2.6.2.5 2004/09/28 07:14:57 marka Exp $ */
 
 #include <config.h>
 
@@ -90,31 +90,22 @@ write_key_file(const char *keyfile, const char *user,
 	FILE *fd;
 
 	fd = safe_create(keyfile);
-	if (fd == NULL) {
-		fprintf(stderr, "unable to create \"%s\"\n", keyfile);
-		return;
-	}
+	if (fd == NULL)
+		fatal( "unable to create \"%s\"\n", keyfile);
 	if (user != NULL) {
-		if (set_user(fd, user) == -1) {
-			fprintf(stderr, "unable to set file owner\n");
-			fclose(fd);
-			return;
-		}
+		if (set_user(fd, user) == -1)
+			fatal("unable to set file owner\n");
 	}
 	fprintf(fd, "key \"%s\" {\n\talgorithm hmac-md5;\n"
 		"\tsecret \"%.*s\";\n};\n", keyname,
 		(int)isc_buffer_usedlength(secret),
 		(char *)isc_buffer_base(secret));
 	fflush(fd);
-	if (ferror(fd)) {
-		fprintf(stderr, "write to %s failed\n", keyfile);
-		fclose(fd);
-		return;
-	}
-	if (fclose(fd)) {
-		fprintf(stderr, "fclose(%s) failed\n", keyfile);
-		return;
-	}
+	if (ferror(fd))
+		fatal("write to %s failed\n", keyfile);
+	if (fclose(fd))
+		fatal("fclose(%s) failed\n", keyfile);
+	fprintf(stderr, "wrote key file \"%s\"\n", keyfile);
 }
 
 int
@@ -181,7 +172,7 @@ main(int argc, char **argv) {
 			keyname = isc_commandline_argument;
 			break;
 		case 'M':
-			isc_mem_debugging = 1;
+			isc_mem_debugging = ISC_MEM_DEBUGTRACE;
 			break;
 
 		case 'm':
@@ -280,12 +271,10 @@ main(int argc, char **argv) {
 			char *buf;
 			len = strlen(chrootdir) + strlen(keyfile) + 2;
 			buf = isc_mem_get(mctx, len);
-			if (buf == NULL) {
-				fprintf(stderr, "isc_mem_get(%d) failed\n",
-					len);
-				goto cleanup;
-			}
-			snprintf(buf, len, "%s/%s", chrootdir, keyfile);
+			if (buf == NULL)
+				fatal("isc_mem_get(%d) failed\n", len);
+			snprintf(buf, len, "%s%s%s", chrootdir,
+				 (*keyfile != '/') ? "/" : "", keyfile);
 			
 			write_key_file(buf, user, keyname, &key_txtbuffer);
 			isc_mem_put(mctx, buf, len);
@@ -326,7 +315,6 @@ options {\n\
 		       serveraddr, port, serveraddr, keyname);
 	}
 
- cleanup:
 	if (show_final_mem)
 		isc_mem_stats(mctx, stderr);
 

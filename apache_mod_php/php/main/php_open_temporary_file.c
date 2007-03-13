@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_open_temporary_file.c,v 1.18.2.10.2.1 2005/07/23 11:45:28 hyanantha Exp $ */
+/* $Id: php_open_temporary_file.c,v 1.18.2.10.2.3 2006/05/23 23:23:39 iliaa Exp $ */
 
 #include "php.h"
 
@@ -115,17 +115,16 @@ static int php_do_open_temporary_file(const char *path, const char *pfx, char **
 
 	path_len = strlen(path);
 
-	if (!(opened_path = emalloc(MAXPATHLEN))) {
-		return -1;
-	}
-
 	if (!path_len || IS_SLASH(path[path_len - 1])) {
 		trailing_slash = "";
 	} else {
 		trailing_slash = "/";
 	}
 
-	(void)snprintf(opened_path, MAXPATHLEN, "%s%s%sXXXXXX", path, trailing_slash, pfx);
+	if (spprintf(&opened_path, 0, "%s%s%sXXXXXX", path, trailing_slash, pfx) >= MAXPATHLEN) {
+		efree(opened_path);
+		return -1;
+	}
 
 #ifdef PHP_WIN32
 	if (GetTempFileName(path, pfx, 0, opened_path)) {

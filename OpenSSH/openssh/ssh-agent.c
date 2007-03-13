@@ -1,3 +1,4 @@
+/* $OpenBSD: ssh-agent.c,v 1.153 2006/10/06 02:29:19 djm Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -34,18 +35,43 @@
  */
 
 #include "includes.h"
+
+#include <sys/types.h>
+#include <sys/param.h>
+#include <sys/resource.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+#ifdef HAVE_SYS_UN_H
+# include <sys/un.h>
+#endif
 #include "openbsd-compat/sys-queue.h"
-RCSID("$OpenBSD: ssh-agent.c,v 1.122 2004/10/29 22:53:56 djm Exp $");
 
 #include <openssl/evp.h>
 #include <openssl/md5.h>
 
+#include <errno.h>
+#include <fcntl.h>
+#ifdef HAVE_PATHS_H
+# include <paths.h>
+#endif
+#include <signal.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h>
+#include <unistd.h>
+#ifdef __APPLE_LAUNCHD__
+#include <launch.h>
+#endif
+
+#include "xmalloc.h"
 #include "ssh.h"
 #include "rsa.h"
 #include "buffer.h"
-#include "bufaux.h"
-#include "xmalloc.h"
-#include "getput.h"
 #include "key.h"
 #include "authfd.h"
 #include "compat.h"
@@ -99,8 +125,8 @@ int max_fd = 0;
 pid_t parent_pid = -1;
 
 /* pathname and directory for AUTH_SOCKET */
-char socket_name[1024];
-char socket_dir[1024];
+char socket_name[MAXPATHLEN];
+char socket_dir[MAXPATHLEN];
 
 /* locking */
 int locked = 0;
@@ -305,8 +331,8 @@ process_sign_request2(SocketEntry *e)
 		Identity *id = lookup_identity(key, 2);
 		if (id != NULL && (!id->confirm || confirm_key(id) == 0))
 			ok = key_sign(id->key, &signature, &slen, data, dlen);
+		key_free(key);
 	}
-	key_free(key);
 	buffer_init(&msg);
 	if (ok == 0) {
 		buffer_put_char(&msg, SSH2_AGENT_SIGN_RESPONSE);
@@ -355,7 +381,7 @@ process_remove_identity(SocketEntry *e, int version)
 		if (id != NULL) {
 			/*
 			 * We have this key.  Free the old key.  Since we
-			 * don\'t want to leave empty slots in the middle of
+			 * don't want to leave empty slots in the middle of
 			 * the array, we actually free the key there and move
 			 * all the entries between the empty slot and the end
 			 * of the array.
@@ -681,7 +707,7 @@ process_message(SocketEntry *e)
 	if (buffer_len(&e->input) < 5)
 		return;		/* Incomplete message. */
 	cp = buffer_ptr(&e->input);
-	msg_len = GET_32BIT(cp);
+	msg_len = get_u32(cp);
 	if (msg_len > 256 * 1024) {
 		close_socket(e);
 		return;
@@ -793,10 +819,7 @@ new_socket(sock_type type, int fd)
 		}
 	old_alloc = sockets_alloc;
 	new_alloc = sockets_alloc + 10;
-	if (sockets)
-		sockets = xrealloc(sockets, new_alloc * sizeof(sockets[0]));
-	else
-		sockets = xmalloc(new_alloc * sizeof(sockets[0]));
+	sockets = xrealloc(sockets, new_alloc, sizeof(sockets[0]));
 	for (i = old_alloc; i < new_alloc; i++)
 		sockets[i].type = AUTH_UNUSED;
 	sockets_alloc = new_alloc;
@@ -877,7 +900,7 @@ after_select(fd_set *readset, fd_set *writeset)
 			if (FD_ISSET(sockets[i].fd, readset)) {
 				slen = sizeof(sunaddr);
 				sock = accept(sockets[i].fd,
-				    (struct sockaddr *) &sunaddr, &slen);
+				    (struct sockaddr *)&sunaddr, &slen);
 				if (sock < 0) {
 					error("accept from AUTH_SOCKET: %s",
 					    strerror(errno));
@@ -954,6 +977,7 @@ cleanup_exit(int i)
 	_exit(i);
 }
 
+/*ARGSUSED*/
 static void
 cleanup_handler(int sig)
 {
@@ -961,6 +985,7 @@ cleanup_handler(int sig)
 	_exit(2);
 }
 
+/*ARGSUSED*/
 static void
 check_parent_exists(int sig)
 {
@@ -993,8 +1018,8 @@ usage(void)
 int
 main(int ac, char **av)
 {
-	int c_flag = 0, d_flag = 0, k_flag = 0, s_flag = 0;
-	int sock, fd,  ch;
+	int c_flag = 0, d_flag = 0, k_flag = 0, s_flag = 0, l_flag = 0;
+	int sock, fd, ch;
 	u_int nalloc;
 	char *shell, *format, *pidstr, *agentsocket = NULL;
 	fd_set *readsetp = NULL, *writesetp = NULL;
@@ -1007,6 +1032,9 @@ main(int ac, char **av)
 	extern char *optarg;
 	pid_t pid;
 	char pidstrbuf[1 + 3 * sizeof pid];
+
+	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
+	sanitise_stdfd();
 
 	/* drop */
 	setegid(getgid());
@@ -1023,7 +1051,7 @@ main(int ac, char **av)
 	init_rng();
 	seed_rng();
 
-	while ((ch = getopt(ac, av, "cdksa:t:")) != -1) {
+	while ((ch = getopt(ac, av, "cdklsa:t:")) != -1) {
 		switch (ch) {
 		case 'c':
 			if (s_flag)
@@ -1032,6 +1060,9 @@ main(int ac, char **av)
 			break;
 		case 'k':
 			k_flag++;
+			break;
+		case 'l':
+			l_flag++;
 			break;
 		case 's':
 			if (c_flag)
@@ -1059,25 +1090,29 @@ main(int ac, char **av)
 	ac -= optind;
 	av += optind;
 
-	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag))
+	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag || l_flag))
 		usage();
 
 	if (ac == 0 && !c_flag && !s_flag) {
 		shell = getenv("SHELL");
-		if (shell != NULL && strncmp(shell + strlen(shell) - 3, "csh", 3) == 0)
+		if (shell != NULL &&
+		    strncmp(shell + strlen(shell) - 3, "csh", 3) == 0)
 			c_flag = 1;
 	}
 	if (k_flag) {
+		const char *errstr = NULL;
+
 		pidstr = getenv(SSH_AGENTPID_ENV_NAME);
 		if (pidstr == NULL) {
 			fprintf(stderr, "%s not set, cannot kill agent\n",
 			    SSH_AGENTPID_ENV_NAME);
 			exit(1);
 		}
-		pid = atoi(pidstr);
-		if (pid < 1) {
-			fprintf(stderr, "%s=\"%s\", which is not a good PID\n",
-			    SSH_AGENTPID_ENV_NAME, pidstr);
+		pid = (int)strtonum(pidstr, 2, INT_MAX, &errstr);
+		if (errstr) {
+			fprintf(stderr,
+			    "%s=\"%s\", which is not a good PID: %s\n",
+			    SSH_AGENTPID_ENV_NAME, pidstr, errstr);
 			exit(1);
 		}
 		if (kill(pid, SIGTERM) == -1) {
@@ -1111,6 +1146,53 @@ main(int ac, char **av)
 	 * Create socket early so it will exist before command gets run from
 	 * the parent.
 	 */
+#ifdef __APPLE_LAUNCHD__
+	if (l_flag) {
+		launch_data_t resp, msg, tmp;
+		size_t listeners_i;
+
+		msg = launch_data_new_string(LAUNCH_KEY_CHECKIN);
+
+		resp = launch_msg(msg);
+
+		if (NULL == resp) {
+			perror("launch_msg");
+			exit(1);
+		}
+		launch_data_free(msg);
+		switch (launch_data_get_type(resp)) {
+		case LAUNCH_DATA_ERRNO:
+			errno = launch_data_get_errno(resp);
+			perror("launch_msg response");
+			exit(1);
+		case LAUNCH_DATA_DICTIONARY:
+			break;
+		default:
+			fprintf(stderr, "launch_msg unknown response");
+			exit(1);
+		}
+		tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SOCKETS);
+
+		if (NULL == tmp) {
+			fprintf(stderr, "no sockets\n");
+			exit(1);
+		}
+
+		tmp = launch_data_dict_lookup(tmp, "Listeners");
+
+		if (NULL == tmp) {
+			fprintf(stderr, "no known listeners\n");
+			exit(1);
+		}
+
+		for (listeners_i = 0; listeners_i < launch_data_array_get_count(tmp); listeners_i++) {
+			launch_data_t obj_at_ind = launch_data_array_get_index(tmp, listeners_i);
+			new_socket(AUTH_SOCKET, launch_data_get_fd(obj_at_ind));
+		}
+
+		launch_data_free(resp);
+	} else {
+#endif
 	sock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (sock < 0) {
 		perror("socket");
@@ -1121,7 +1203,7 @@ main(int ac, char **av)
 	sunaddr.sun_family = AF_UNIX;
 	strlcpy(sunaddr.sun_path, socket_name, sizeof(sunaddr.sun_path));
 	prev_mask = umask(0177);
-	if (bind(sock, (struct sockaddr *) & sunaddr, sizeof(sunaddr)) < 0) {
+	if (bind(sock, (struct sockaddr *) &sunaddr, sizeof(sunaddr)) < 0) {
 		perror("bind");
 		*socket_name = '\0'; /* Don't unlink any existing file */
 		umask(prev_mask);
@@ -1132,11 +1214,15 @@ main(int ac, char **av)
 		perror("listen");
 		cleanup_exit(1);
 	}
+#ifdef __APPLE_LAUNCHD__
+	}
+#endif
 
 	/*
 	 * Fork, and have the parent execute the command, if any, or present
 	 * the socket data.  The child continues as the authentication agent.
 	 */
+
 	if (d_flag) {
 		log_init(__progname, SYSLOG_LEVEL_DEBUG1, SYSLOG_FACILITY_AUTH, 1);
 		format = c_flag ? "setenv %s %s;\n" : "%s=%s; export %s;\n";
@@ -1145,11 +1231,16 @@ main(int ac, char **av)
 		printf("echo Agent pid %ld;\n", (long)parent_pid);
 		goto skip;
 	}
+
+	if (l_flag)
+	goto skip2;
+
 	pid = fork();
 	if (pid == -1) {
 		perror("fork");
 		cleanup_exit(1);
 	}
+
 	if (pid != 0) {		/* Parent - execute the given command. */
 		close(sock);
 		snprintf(pidstrbuf, sizeof pidstrbuf, "%ld", (long)pid);
@@ -1200,6 +1291,7 @@ main(int ac, char **av)
 
 skip:
 	new_socket(AUTH_SOCKET, sock);
+skip2:
 	if (ac > 0) {
 		mysignal(SIGALRM, check_parent_exists);
 		alarm(10);

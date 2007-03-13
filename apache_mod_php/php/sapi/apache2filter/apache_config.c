@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: apache_config.c,v 1.28.2.1 2002/12/31 16:27:00 sebastian Exp $ */
+/* $Id: apache_config.c,v 1.28.2.1.8.2 2006/06/09 16:29:55 mike Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -126,28 +126,31 @@ static const char *php_apache_phpini_set(cmd_parms *cmd, void *mconfig,
 
 void *merge_php_config(apr_pool_t *p, void *base_conf, void *new_conf)
 {
-	php_conf_rec *d = base_conf, *e = new_conf;
+	php_conf_rec *d = base_conf, *e = new_conf, *n = NULL;
 	php_dir_entry *pe;
 	php_dir_entry *data;
 	char *str;
 	uint str_len;
 	ulong num_index;
 
-	phpapdebug((stderr, "Merge dir (%p) (%p)\n", base_conf, new_conf));
+	n = create_php_config(p, "merge_php_config");
+	zend_hash_copy(&n->config, &e->config, NULL, NULL, sizeof(php_dir_entry));
+
+	phpapdebug((stderr, "Merge dir (%p)+(%p)=(%p)\n", base_conf, new_conf, n));
 	for (zend_hash_internal_pointer_reset(&d->config);
 			zend_hash_get_current_key_ex(&d->config, &str, &str_len, 
 				&num_index, 0, NULL) == HASH_KEY_IS_STRING;
 			zend_hash_move_forward(&d->config)) {
 		pe = NULL;
 		zend_hash_get_current_data(&d->config, (void **) &data);
-		if (zend_hash_find(&e->config, str, str_len, (void **) &pe) == SUCCESS) {
+		if (zend_hash_find(&n->config, str, str_len, (void **) &pe) == SUCCESS) {
 			if (pe->status >= data->status) continue;
 		}
-		zend_hash_update(&e->config, str, str_len, data, sizeof(*data), NULL);
-		phpapdebug((stderr, "ADDING/OVERWRITING %s (%d vs. %d)\n", str, 
-					data->status, pe?pe->status:-1));
+		zend_hash_update(&n->config, str, str_len, data, sizeof(*data), NULL);
+		phpapdebug((stderr, "ADDING/OVERWRITING %s (%d vs. %d)\n", str, data->status, pe?pe->status:-1));
 	}
-	return new_conf;
+
+	return n;
 }
 
 char *get_php_config(void *conf, char *name, size_t name_len)

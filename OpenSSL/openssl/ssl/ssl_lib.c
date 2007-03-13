@@ -1187,7 +1187,7 @@ char *SSL_get_shared_ciphers(const SSL *s,char *buf,int len)
 		c=sk_SSL_CIPHER_value(sk,i);
 		for (cp=c->name; *cp; )
 			{
-			if (len-- == 0)
+			if (len-- <= 0)
 				{
 				*p='\0';
 				return(buf);
@@ -1716,7 +1716,7 @@ void ssl_update_cache(SSL *s,int mode)
 			?s->ctx->stats.sess_connect_good
 			:s->ctx->stats.sess_accept_good) & 0xff) == 0xff)
 			{
-			SSL_CTX_flush_sessions(s->ctx,time(NULL));
+			SSL_CTX_flush_sessions(s->ctx,(unsigned long)time(NULL));
 			}
 		}
 	}

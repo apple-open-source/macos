@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /* 
  * Mach Operating System
@@ -439,6 +437,16 @@ tfpout:
 
 
 /*
+ * Try and cap the number of mappings the user might be trying to deal with,
+ * so that we don't end up allocating insane amounts of wired memory in the
+ * kernel based on bogus user arguments.
+ * There are 2 shared regions (TEXT and DATA). The size of each submap
+ * is SHARED_TEXT_REGION_SIZE and we can have at most 1 VM map entry per page,
+ * so the maximum number of mappings we could ever have to deal with is...
+ */
+#define SHARED_REGION_MAX_MAPPINGS ((2 *SHARED_TEXT_REGION_SIZE) >> PAGE_SHIFT)
+
+/*
  * shared_region_make_private_np:
  *
  * This system call is for "dyld" only.
@@ -477,6 +485,10 @@ shared_region_make_private_np(
 
 	/* allocate kernel space for the "ranges" */
 	if (range_count != 0) {
+		if (range_count > SHARED_REGION_MAX_MAPPINGS) {
+			error = EINVAL;
+			goto done;
+		}
 		if ((mach_vm_size_t) ranges_size !=
 		    (mach_vm_size_t) range_count * sizeof (ranges[0])) {
 			/* 32-bit integer overflow */
@@ -675,6 +687,10 @@ shared_region_map_file_np(
 	} else if (mapping_count <= SFM_MAX_STACK) {
 		mappings = &stack_mappings[0];
 	} else {
+		if (mapping_count > SHARED_REGION_MAX_MAPPINGS) {
+			error = EINVAL;
+			goto done;
+		}
 		if ((mach_vm_size_t) mappings_size !=
 		    (mach_vm_size_t) mapping_count * sizeof (mappings[0])) {
 			/* 32-bit integer overflow */

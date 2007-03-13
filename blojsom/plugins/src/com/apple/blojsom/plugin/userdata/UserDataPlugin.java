@@ -4,7 +4,7 @@
  * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: UserDataPlugin.java,v 1.1.2.2 2005/08/27 18:21:46 johnan Exp $
+ * $Id: UserDataPlugin.java,v 1.1.2.3 2006/10/19 21:14:32 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.userdata;
 
@@ -15,6 +15,7 @@ import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.util.BlojsomUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -27,7 +28,7 @@ import java.util.Map;
  * Convert Line Breaks plug-in
  *
  * @author John Anderson
- * @version $Id: UserDataPlugin.java,v 1.1.2.2 2005/08/27 18:21:46 johnan Exp $
+ * @version $Id: UserDataPlugin.java,v 1.1.2.3 2006/10/19 21:14:32 johnan Exp $
  */
 
 public class UserDataPlugin implements BlojsomPlugin {
@@ -89,6 +90,15 @@ public class UserDataPlugin implements BlojsomPlugin {
 		return ((fullName == null) ? username : fullName);
  	}
  	
+    /**
+     * Convert a short username to an HTML-escaped long one.
+     *
+     * @param username The short username.
+     */
+ 	public String getEscapedFullNameFromShortName(String username) {
+		return BlojsomUtils.escapeString(this.getFullNameFromShortName(username));
+	}
+	
     /**
      * Given a short username, return their email address.
      *

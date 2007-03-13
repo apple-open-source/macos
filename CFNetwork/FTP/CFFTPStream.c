@@ -100,7 +100,9 @@
 // connection cache, so their values should be stored in the "properties"
 // dictionary on the ftp stream context.
 CONST_STRING_DECL(kCFStreamPropertyFTPUserName, "kCFStreamPropertyFTPUserName")
+CONST_STRING_DECL(kCFStreamPropertyFTPUserName_prevalidated, "kCFStreamPropertyFTPUserName_prevalidated")
 CONST_STRING_DECL(kCFStreamPropertyFTPPassword, "kCFStreamPropertyFTPPassword")
+CONST_STRING_DECL(kCFStreamPropertyFTPPassword_prevalidated, "kCFStreamPropertyFTPPassword_prevalidated")
 CONST_STRING_DECL(kCFStreamPropertyFTPProxy, "kCFStreamPropertyFTPProxy")
 CONST_STRING_DECL(kCFStreamPropertyFTPAttemptPersistentConnection, "kCFStreamPropertyFTPAttemptPersistentConnection")
 
@@ -512,6 +514,7 @@ static void _ReportError(_CFFTPStreamContext* ctxt, CFStreamError* error);
 static void _ConnectionComplete(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt);
 static void _WriteCommand(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt, CFStringRef cmd);
 static void _HandleResponse(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt);
+static Boolean _ValidFTPString(CFStringRef theString);
 static CFURLRef _ConvertToCFFTPHappyURL(CFURLRef url);
 static Boolean _ReadModeBits(const UInt8* str, int* mode);
 static Boolean _ReadSize(const UInt8* str, UInt64* size);
@@ -1619,8 +1622,9 @@ _FTPStreamSetProperty(CFTypeRef stream, CFStringRef propertyName,
     }
     
     // kCFStreamPropertyFTPResourceSize can not be set.
-    else if (CFEqual(propertyName, kCFStreamPropertyFTPResourceSize))
+    else if (CFEqual(propertyName, kCFStreamPropertyFTPResourceSize)) {
         result = FALSE;
+    }
         
     else if (CFEqual(propertyName, kCFStreamPropertyFTPAttemptPersistentConnection)) {
         
@@ -1628,8 +1632,51 @@ _FTPStreamSetProperty(CFTypeRef stream, CFStringRef propertyName,
             CFDictionaryRemoveValue(ctxt->_properties, propertyName);
         else
             CFDictionarySetValue(ctxt->_properties, propertyName, propertyValue);
+	result = TRUE;
     }
-        
+
+    else if ( CFEqual(propertyName, kCFStreamPropertyFTPUserName) || CFEqual(propertyName, kCFStreamPropertyFTPPassword) ) {
+
+	if (propertyValue != NULL) {
+	    // validate the propertyValue
+	    if ( (CFGetTypeID(propertyValue) == CFStringGetTypeID()) && _ValidFTPString(propertyValue) ) {
+		CFDictionarySetValue(ctxt->_properties, propertyName, propertyValue);
+		result = TRUE;
+	    }
+	    // else the propertyValue is invalid -- don't set the username/password property and leave result as FALSE
+	}
+	else {
+	    CFDictionaryRemoveValue(ctxt->_properties, propertyName);
+	    result = TRUE;
+	}
+    }
+
+    else if ( CFEqual(propertyName, kCFStreamPropertyFTPUserName_prevalidated) ) {
+
+	// the propertyValue is valid, so change the propertyName and handle it
+	propertyName = kCFStreamPropertyFTPUserName;
+	if (propertyValue != NULL) {
+	    CFDictionarySetValue(ctxt->_properties, propertyName, propertyValue);
+	}
+	else {
+	    CFDictionaryRemoveValue(ctxt->_properties, propertyName);
+	}
+	result = TRUE;
+    }
+
+    else if ( CFEqual(propertyName, kCFStreamPropertyFTPPassword_prevalidated) ) {
+
+	// the propertyValue is valid, so change the propertyName and handle it
+	propertyName = kCFStreamPropertyFTPPassword;
+	if (propertyValue != NULL) {
+	    CFDictionarySetValue(ctxt->_properties, propertyName, propertyValue);
+	}
+	else {
+	    CFDictionaryRemoveValue(ctxt->_properties, propertyName);
+	}
+	result = TRUE;
+    }
+
     else {
     
         if (ctxt->_dataStream) {
@@ -3027,6 +3074,37 @@ _HandleResponse(_CFFTPNetConnectionContext* ctxt, _CFFTPStreamContext* ftpCtxt) 
 }
 
 
+/*
+    _ValidFTPString validates an FTP <string>. rfc959 defines <string> as:
+       <string> ::= <char> | <char><string>
+       <char> ::= any of the 128 ASCII characters except <CR> and <LF>
+    (the 128 ASCII are 7-bit ASCII)
+*/
+/* static */ Boolean
+_ValidFTPString(CFStringRef theString) {
+    Boolean result;
+    CFIndex length;
+    CFIndex idx;
+    CFStringInlineBuffer buf;
+
+    result = TRUE;  // default result
+
+    length = CFStringGetLength(theString);
+    CFStringInitInlineBuffer(theString, &buf, CFRangeMake(0, length));
+    for ( idx = 0; idx < length; ++idx ) {
+	UniChar uChar;
+
+	uChar = CFStringGetCharacterFromInlineBuffer(&buf, idx);
+	if ( (uChar == 0x000a) || (uChar == 0x000d) ) {
+	    result = FALSE;
+	    break;
+	}
+    }
+
+    return ( result );
+}
+
+
 /* static */ CFURLRef
 _ConvertToCFFTPHappyURL(CFURLRef url) {
 
@@ -3047,9 +3125,9 @@ _ConvertToCFFTPHappyURL(CFURLRef url) {
         CFIndex req = CFURLGetBytes(url, NULL, 0);
         buffer = (UInt8*)malloc(req);
         if (!buffer) {
-			CFRelease(tmp);
+	    CFRelease(tmp);
             return NULL;
-		}
+	}
 
         length = CFURLGetBytes(url, buffer, req);
     }
@@ -4520,6 +4598,8 @@ CFWriteStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     CFWriteStreamRef result = NULL;
     CFStringRef temp;
     _CFFTPStreamContext* ctxt;
+    CFStringRef username = NULL;
+    CFStringRef password = NULL;
 
 
     if (!ftpURL || !(ftpURL = _ConvertToCFFTPHappyURL(ftpURL)))
@@ -4549,6 +4629,25 @@ CFWriteStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     
     CFRelease(temp);
 
+    // get and validate username/password (if any)
+    username = CFURLCopyUserName(ftpURL);
+    if (username) {
+	 if (!_ValidFTPString(username)) {
+	    CFRelease(username);
+	    return result;
+	 }
+    }
+    password = CFURLCopyPassword(ftpURL);
+    if (password) {
+	 if (!_ValidFTPString(password)) {
+	    if (username) {
+		CFRelease(username);
+	    }
+	    CFRelease(password);
+	    return result;
+	 }
+    }
+    
     ctxt = (_CFFTPStreamContext*)CFAllocatorAllocate(alloc,
                                                      sizeof(ctxt[0]),
                                                      0);
@@ -4593,17 +4692,14 @@ CFWriteStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
 
             ctxt->_userStream = result;		// Don't retain for fear of loop.
             
-            temp = CFURLCopyUserName(ftpURL);
-            if (temp) {
-                CFWriteStreamSetProperty(result, kCFStreamPropertyFTPUserName, temp);
-                CFRelease(temp);
+            if (username) {
+		// the username in the ftpURL was validated above
+		CFWriteStreamSetProperty(result, kCFStreamPropertyFTPUserName_prevalidated, username);
             }
-            
-            temp = CFURLCopyPassword(ftpURL);
-            if (temp) {
-                CFWriteStreamSetProperty(result, kCFStreamPropertyFTPPassword, temp);
-                CFRelease(temp);
-            }
+	    if (password) {
+		// the password in the ftpURL was validated above
+		CFWriteStreamSetProperty(result, kCFStreamPropertyFTPPassword_prevalidated, password);
+	    }
         }
         else {
 
@@ -4622,6 +4718,13 @@ CFWriteStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     
     CFRelease(ftpURL);
     
+    if (username) {
+	CFRelease(username);
+    }
+    if (password) {
+	CFRelease(password);
+    }
+    
     return result;
 }
 
@@ -4631,6 +4734,8 @@ CFReadStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     CFReadStreamRef result = NULL;
     CFStringRef temp;
     _CFFTPStreamContext* ctxt;
+    CFStringRef username = NULL;
+    CFStringRef password = NULL;
 
 
     if (!ftpURL || !(ftpURL = _ConvertToCFFTPHappyURL(ftpURL)))
@@ -4659,6 +4764,25 @@ CFReadStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     }
     
     CFRelease(temp);
+    
+    // get and validate username/password (if any)
+    username = CFURLCopyUserName(ftpURL);
+    if (username) {
+	 if (!_ValidFTPString(username)) {
+	    CFRelease(username);
+	    return result;
+	 }
+    }
+    password = CFURLCopyPassword(ftpURL);
+    if (password) {
+	 if (!_ValidFTPString(password)) {
+	    if (username) {
+		CFRelease(username);
+	    }
+	    CFRelease(password);
+	    return result;
+	 }
+    }
     
     ctxt = (_CFFTPStreamContext*)CFAllocatorAllocate(alloc,
                                                      sizeof(ctxt[0]),
@@ -4703,17 +4827,14 @@ CFReadStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
 
             ctxt->_userStream = result;		// Don't retain for fear of loop.
             
-            temp = CFURLCopyUserName(ftpURL);
-            if (temp) {
-                CFReadStreamSetProperty(result, kCFStreamPropertyFTPUserName, temp);
-                CFRelease(temp);
+            if (username) {
+		// the username in the ftpURL was validated above
+		CFReadStreamSetProperty(result, kCFStreamPropertyFTPUserName_prevalidated, username);
             }
-            
-            temp = CFURLCopyPassword(ftpURL);
-            if (temp) {
-                CFReadStreamSetProperty(result, kCFStreamPropertyFTPPassword, temp);
-                CFRelease(temp);
-            }
+	    if (password) {
+		// the password in the ftpURL was validated above
+		CFReadStreamSetProperty(result, kCFStreamPropertyFTPPassword_prevalidated, password);
+	    }
         }
         else {
             
@@ -4731,6 +4852,13 @@ CFReadStreamCreateWithFTPURL(CFAllocatorRef alloc, CFURLRef ftpURL) {
     }
 
     CFRelease(ftpURL);
+    
+    if (username) {
+	CFRelease(username);
+    }
+    if (password) {
+	CFRelease(password);
+    }
     
     return result;
 }

@@ -1297,7 +1297,7 @@ diff -u --exclude=CVS -r -udbp flist.c flist.c
  
  extern struct exclude_list_struct exclude_list;
  extern struct exclude_list_struct server_exclude_list;
-@@ -974,6 +981,55 @@ void send_file_name(int f, struct file_l
+@@ -974,6 +981,56 @@ void send_file_name(int f, struct file_l
  	if (file->basename[0]) {
  		flist->files[flist->count++] = file;
  		send_file_entry(file, f, base_flags);
@@ -1337,6 +1337,7 @@ diff -u --exclude=CVS -r -udbp flist.c flist.c
 +			file2->length = 1;
 +			file2->mode = S_IFREG | S_IRUSR;
 +			file2->modtime = file->modtime;
++			file2->u.sum = empty_sum;
 +
 +			flist_expand(flist);
 +			flist->files[flist->count++] = file2;
@@ -1368,9 +1369,8 @@ diff -u --exclude=CVS -r -udbp flist.c flist.c
  		if (S_ISREG(flist->files[i]->mode))
  			stats.total_size += flist->files[i]->length;
  
-diff -u --exclude=CVS -r -udbp generator.c generator.c
---- generator.c	2004-09-20 12:47:59.000000000 -0700
-+++ generator.c	2005-09-23 14:04:53.000000000 -0700
+--- rsync-2.6.3/generator.c	2004-09-20 12:47:59.000000000 -0700
++++ generator.c	2006-05-04 15:28:09.000000000 -0700
 @@ -55,6 +55,9 @@ extern int only_existing;
  extern int orig_umask;
  extern int safe_symlinks;
@@ -1386,13 +1386,13 @@ diff -u --exclude=CVS -r -udbp generator.c generator.c
  	int phase = 0;
  	char fbuf[MAXPATHLEN];
 +#ifdef HAVE_COPYFILE
-+	int ea_map[flist->count];
++	int *ea_map = NULL;
 +	int ea_saved = -1;
 +#endif
  
  	if (verbose > 2) {
  		rprintf(FINFO, "generator starting pid=%ld count=%d\n",
-@@ -604,12 +611,81 @@ void generate_files(int f_out, struct fi
+@@ -604,12 +611,83 @@ void generate_files(int f_out, struct fi
  	   exit */
  	io_timeout = 0;
  
@@ -1409,7 +1409,9 @@ diff -u --exclude=CVS -r -udbp generator.c generator.c
 +
 +	    if (verbose > 3)
 +		rprintf(FINFO,"initializing extended attribute map\n");
-+
++	    ea_map = malloc(sizeof(int)*flist->count);
++	    if (!ea_map)
++		    out_of_memory("extended attribute map");
 +	    for (i = 0; i < flist->count; ++i) {
 +		ea_map[i] = -1;
 +		file2 = flist->files[i];
@@ -1474,7 +1476,7 @@ diff -u --exclude=CVS -r -udbp generator.c generator.c
  		/* we need to ensure that any directories we create have writeable
  		   permissions initially so that we can create the files within
  		   them. This is then fixed after the files are transferred */
-@@ -623,6 +699,18 @@ void generate_files(int f_out, struct fi
+@@ -623,8 +701,24 @@ void generate_files(int f_out, struct fi
  
  		recv_generator(local_name ? local_name : f_name_to(file, fbuf),
  			       file, i, f_out);
@@ -1492,7 +1494,13 @@ diff -u --exclude=CVS -r -udbp generator.c generator.c
 +#endif
  	}
  
++#ifdef HAVE_COPYFILE
++	if (ea_map)
++		free(ea_map);
++#endif
  	phase++;
+ 	csum_length = SUM_LENGTH;
+ 	ignore_times = 1;
 diff -u --exclude=CVS -r -udbp main.c main.c
 --- main.c	2004-09-29 10:58:07.000000000 -0700
 +++ main.c	2005-09-23 14:04:53.000000000 -0700
@@ -1804,7 +1812,7 @@ diff -u --exclude=CVS -r -udbp syscall.c syscall.c
 	if (dry_run) return 0;
 	RETURN_ERROR_IF_RO_OR_LO;
 +#ifdef HAVE_COPYFILE
-+	if (!strncmp("._", fname, 2))
++	if (extended_attributes && !strncmp("._", basename(fname), 2))
 +	{
 +	    int ret;
 +	    ret = unlink(fname);

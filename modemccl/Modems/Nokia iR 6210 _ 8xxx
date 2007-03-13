@@ -1,1 +1,440 @@
-!  Nokia GSM!!	Author:	Ross Barkman!!!	History:!		24 Jan 01	First release of base script!		26 Jan 01	Configured for standard GSM!		13 Feb 01	Configured for 14.4k!		10 Apr 01	Add +IFC=0,2 to overcome flow control problem!!  'mlts' resource info:!    byte 1 == 01 -> modem HAS built-in error correction protocols!    byte 2 == 01 -> modem HAS built-in data compression protocols!    byte 3 == 200 -> max number of chars in varstr 7!    byte 4 == 200 -> max number of chars in varstr 8!    byte 5 == 200 -> max number of chars in varstr 9!	@ORIGINATE@ANSWER!! ---- Modem setup ----!@LABEL 1!! Set serial port speed 115200, all interface signals off! serreset 115200, 0, 8, 1hsreset 0 0 0 0 0 0settries 0!! Check the phone is responding!matchclrmatchstr 1 2 "OK\13\10"write "AT\13"matchread 30jump 101!! Check the phone is a Nokia!@LABEL 2matchclrmatchstr 1 3  "Nokia"write "AT+CGMI\13"matchread 60jump 109!@LABEL 3!! Configure the phone!matchclrmatchstr 1 5   "OK\13\10"matchstr 2 101 "ERROR\13\10"write "AT&FE0V1&D2&S0&C1S0=0+IFC=0,2\13"matchread 30inctriesiftries 3 101jsr 7jump 3!@LABEL 5pause 20settries 0!@LABEL 6!! Set additional options!matchclrmatchstr 1 9   "OK\13\10"matchstr 2 108 "ERROR\13\10"write "AT+CBST=14,0,1\13"matchread 60inctriesiftries 3 101jsr 7jump 6!@LABEL 7!! Attempt to reset the phone!DTRClearpause 5DTRSetflushreturn!@LABEL 9!! Setup complete!ifANSWER 32!!! ---- Place a call ----!@LABEL 20!! Display the full dialstring (Varstring 1)!note "Dialling ^1" 3!! Varstrings 7, 8 and 9 may contain partial dialstrings!	if the number is longer than the phone's buffer!	(unlikely, but we allow for it)! ifstr 8 27 " "ifstr 9 24 " "!!  Write dialstring in varstrings 7, 8 & 9matchclrmatchstr 1 21 "OK\13\10"write "ATX5D^3^7;\13"matchread 400jump 101!@LABEL 21matchclrmatchstr 1 22 "OK\13\10"write "ATX5D^3^8;\13"matchread 400jump 101!@LABEL 22write "ATX5D^3^9\13"jump 32!!@LABEL 24!  Write dialstring in varstrings 7 & 8matchclrmatchstr 1 25 "OK\13\10"write "ATX5D^3^7;\13"matchread 400jump 101!@LABEL 25write "ATX5D^3^8\13"jump 32!@LABEL 27!  Write dialstring in varstring 7write "ATX5D^3^7\13"!!! ---- Connect response ----!! Parses successful connect responses in the following format:!   CARRIER!	+ER xxxx!	+DR yyyy!   CONNECT zzzzz!@LABEL 32matchclrmatchstr  1 81  "RING\13\10"matchstr  2 102 "NO DIALTONE\13\10"matchstr  3 103 "NO CARRIER"matchstr  4 103 "ERROR\13\10"matchstr  5 104 "BUSY\13\10"matchstr  6 105 "NO ANSWER\13\10"matchstr  7 33  "CARRIER"matchstr  8 34  "CONNECT"matchstr  9 61  "+ER"matchstr 10 66  "+DR"matchread 700ifANSWER 32jump 105!!  CARRIER parsing!@LABEL 33note "Network carrier detected" 2jump 32!!  CONNECT parsing!@LABEL 34!!    2400 and 4800 have two entries each!    to distinguish them from 24000 and 48000!matchclrmatchstr  1 40 "2400\13"matchstr  2 40 "2400/"matchstr  3 41 "4800\13"matchstr  4 41 "4800/"matchstr  5 42 "7200"matchstr  6 43 "9600"matchstr  7 44 "12000"matchstr  8 45 "14400"matchstr  9 46 "19200"matchstr 10 51 "28800"matchstr 11 52 "38400"matchstr 12 53 "43200"matchstr 13 54 "48000"matchstr 14 55 "56000"matchstr 15 56 "64000"matchread 10jump 59!! -- Connection rates --!! CommunicatingAt informs ARA of the link speed!@LABEL 40note "Communicating at 2400 bps." 2CommunicatingAt 2400jump 60!@LABEL 41note "Communicating at 4800 bps." 2CommunicatingAt 4800jump 60!@LABEL 42note "Communicating at 7200 bps." 2CommunicatingAt 7200jump 60!@LABEL 43note "Communicating at 9600 bps." 2CommunicatingAt 9600jump 60!@LABEL 44note "Communicating at 12400 bps." 2CommunicatingAt 12400jump 60!@LABEL 45note "Communicating at 14400 bps." 2CommunicatingAt 14400jump 60!@LABEL 46note "Communicating at 19200 bps." 2CommunicatingAt 19200jump 60!@LABEL 51note "Communicating at 28800 bps." 2CommunicatingAt 28800jump 60!@LABEL 52note "Communicating at 38400 bps." 2CommunicatingAt 38400jump 60!@LABEL 53note "Communicating at 43200 bps." 2CommunicatingAt 43200jump 60!@LABEL 54note "Communicating at 48000 bps." 2CommunicatingAt 48000jump 60!@LABEL 55note "Communicating at 56000 bps." 2CommunicatingAt 56000jump 60!@LABEL 56note "Communicating at 64000 bps." 2CommunicatingAt 64000jump 60!@LABEL 59note "Communicating at an unknown rate." 2!@LABEL 60jump 70!! -- +ER (error correction reporting) parsing --!! Userhook 2 informs ARA that a modem-to-modem error! correcting protocol has been negotiated!@LABEL 61matchclrmatchstr  1 63 "NONE"matchstr  2 62 "LAPM"matchstr  3 62 "ALT"matchstr  4 63 "\13"matchread 10jump 63!@LABEL 62note "Modem Reliable Link Established." 2userhook 2!@LABEL 63jump 32!! -- +DR (data compression reporting) parsing --!! Userhook 3 informs ARA that a modem-to-modem compression! protocol has been negotiated!@LABEL 66matchclrmatchstr  1 68 "NONE"matchstr  2 67 "V42B"matchstr  3 67 "MNP5"matchstr  4 68 "\13"matchread 10jump 68!@LABEL 67note "Modem Compression Established." 2userhook 3!@LABEL 68jump 32!!! -- Normal exit after "CONNECT" --!!@LABEL 70!! Turn CTS on, for hardware flow control!HSReset 0 1 0 0 0 0!ifANSWER 71pause 30!@LABEL 71exit 0!!! ---- Answer calls ----!!	A RING result from the modem and in ANSWERING mode!	claims the serial port and answering the phone!@LABEL 81ifORIGINATE 32userhook 1note "Answering phone..." 2write "ATA\13"jump 32!!! ---- Hang up and reset modem ----!@HANGUP@LABEL 90settries 0HSReset 0 0 0 0 0 0!@LABEL 92!!  Escape from data to command mode!matchclrmatchstr 1 94 "OK\13\10"pause 11write "+++"matchread 20!@LABEL 94!! Send hangup command!pause 10matchclrmatchstr 1 98 "NO CARRIER\13\10"matchstr 2 98 "OK\13\10"matchstr 3 98 "ERROR\13\10"matchstr 4 98 "0\13\10"write "AT+CHUP\13"matchread 30! ! If that fails, toggle DTR!DTRClearpause 5DTRSetflush!! Try this three times only!inctriesiftries 3 101jump 92!!@LABEL 98!! Reset phone to default settings!pause 10matchclrmatchstr 1 99 "OK\13\10"write "AT&F\13"matchread 30jump 101!@LABEL 99exit 0!! ---- Error messages -----!! Modem Not Responding@LABEL 101exit -6019!! No Dial Tone@LABEL 102exit -6020!! No Carrier or Error@LABEL 103exit -6021!! Busy@LABEL 104exit -6022!! No Answer@LABEL 105exit -6023!! User Cancellation@LABEL 107exit -6008!@LABEL 108exit -6002 "The phone or network does not seem to support the speed or encoding type (e.g. V.110 or V.120) required for this script"!@LABEL 109exit -6002 "This script is only suitable for Nokia mobile phones"
+!  Nokia GSM
+!
+!	Author:	Ross Barkman
+!
+!
+!	History:
+!		24 Jan 01	First release of base script
+!		26 Jan 01	Configured for standard GSM
+!		13 Feb 01	Configured for 14.4k
+!		10 Apr 01	Add +IFC=0,2 to overcome flow control problem
+!
+!  'mlts' resource info:
+!    byte 1 == 01 -> modem HAS built-in error correction protocols
+!    byte 2 == 01 -> modem HAS built-in data compression protocols
+!    byte 3 == 200 -> max number of chars in varstr 7
+!    byte 4 == 200 -> max number of chars in varstr 8
+!    byte 5 == 200 -> max number of chars in varstr 9
+!	
+@ORIGINATE
+@ANSWER
+!
+! ---- Modem setup ----
+!
+@LABEL 1
+!
+! Set serial port speed 115200, all interface signals off
+! 
+serreset 115200, 0, 8, 1
+hsreset 0 0 0 0 0 0
+settries 0
+!
+! Check the phone is responding
+!
+matchclr
+matchstr 1 2 "OK\13\10"
+write "AT\13"
+matchread 30
+jump 101
+!
+! Check the phone is a Nokia
+!
+@LABEL 2
+matchclr
+matchstr 1 3  "Nokia"
+write "AT+CGMI\13"
+matchread 60
+jump 109
+!
+@LABEL 3
+!
+! Configure the phone
+!
+matchclr
+matchstr 1 5   "OK\13\10"
+matchstr 2 101 "ERROR\13\10"
+write "AT&FE0V1&D2&S0&C1S0=0+IFC=0,2\13"
+matchread 30
+inctries
+iftries 3 101
+jsr 7
+jump 3
+!
+@LABEL 5
+pause 20
+settries 0
+!
+@LABEL 6
+!
+! Set additional options
+!
+matchclr
+matchstr 1 9   "OK\13\10"
+matchstr 2 108 "ERROR\13\10"
+write "AT+CBST=14,0,1\13"
+matchread 60
+inctries
+iftries 3 101
+jsr 7
+jump 6
+!
+@LABEL 7
+!
+! Attempt to reset the phone
+!
+DTRClear
+pause 5
+DTRSet
+flush
+return
+!
+@LABEL 9
+!
+! Setup complete
+!
+ifANSWER 32
+!
+!
+! ---- Place a call ----
+!
+@LABEL 20
+!
+! Display the full dialstring (Varstring 1)
+!
+note "Dialling ^1" 3
+!
+! Varstrings 7, 8 and 9 may contain partial dialstrings
+!	if the number is longer than the phone's buffer
+!	(unlikely, but we allow for it)
+! 
+ifstr 8 27 " "
+ifstr 9 24 " "
+!
+!  Write dialstring in varstrings 7, 8 & 9
+matchclr
+matchstr 1 21 "OK\13\10"
+write "ATX5D^3^7;\13"
+matchread 400
+jump 101
+!
+@LABEL 21
+matchclr
+matchstr 1 22 "OK\13\10"
+write "ATX5D^3^8;\13"
+matchread 400
+jump 101
+!
+@LABEL 22
+write "ATX5D^3^9\13"
+jump 32
+!
+!
+@LABEL 24
+!  Write dialstring in varstrings 7 & 8
+matchclr
+matchstr 1 25 "OK\13\10"
+write "ATX5D^3^7;\13"
+matchread 400
+jump 101
+!
+@LABEL 25
+write "ATX5D^3^8\13"
+jump 32
+!
+@LABEL 27
+!  Write dialstring in varstring 7
+write "ATX5D^3^7\13"
+!
+!
+! ---- Connect response ----
+!
+! Parses successful connect responses in the following format:
+!   CARRIER
+!	+ER xxxx
+!	+DR yyyy
+!   CONNECT zzzzz
+!
+@LABEL 32
+matchclr
+matchstr  1 81  "RING\13\10"
+matchstr  2 102 "NO DIALTONE\13\10"
+matchstr  3 103 "NO CARRIER"
+matchstr  4 103 "ERROR\13\10"
+matchstr  5 104 "BUSY\13\10"
+matchstr  6 105 "NO ANSWER\13\10"
+matchstr  7 33  "CARRIER"
+matchstr  8 34  "CONNECT"
+matchstr  9 61  "+ER"
+matchstr 10 66  "+DR"
+matchread 700
+ifANSWER 32
+jump 105
+!
+!  CARRIER parsing
+!
+@LABEL 33
+note "Network carrier detected" 2
+jump 32
+!
+!  CONNECT parsing
+!
+@LABEL 34
+!
+!    2400 and 4800 have two entries each
+!    to distinguish them from 24000 and 48000
+!
+matchclr
+matchstr  1 40 "2400\13"
+matchstr  2 40 "2400/"
+matchstr  3 41 "4800\13"
+matchstr  4 41 "4800/"
+matchstr  5 42 "7200"
+matchstr  6 43 "9600"
+matchstr  7 44 "12000"
+matchstr  8 45 "14400"
+matchstr  9 46 "19200"
+matchstr 10 51 "28800"
+matchstr 11 52 "38400"
+matchstr 12 53 "43200"
+matchstr 13 54 "48000"
+matchstr 14 55 "56000"
+matchstr 15 56 "64000"
+matchread 10
+jump 59
+!
+! -- Connection rates --
+!
+! CommunicatingAt informs ARA of the link speed
+!
+@LABEL 40
+note "Communicating at 2400 bps." 2
+CommunicatingAt 2400
+jump 60
+!
+@LABEL 41
+note "Communicating at 4800 bps." 2
+CommunicatingAt 4800
+jump 60
+!
+@LABEL 42
+note "Communicating at 7200 bps." 2
+CommunicatingAt 7200
+jump 60
+!
+@LABEL 43
+note "Communicating at 9600 bps." 2
+CommunicatingAt 9600
+jump 60
+!
+@LABEL 44
+note "Communicating at 12400 bps." 2
+CommunicatingAt 12400
+jump 60
+!
+@LABEL 45
+note "Communicating at 14400 bps." 2
+CommunicatingAt 14400
+jump 60
+!
+@LABEL 46
+note "Communicating at 19200 bps." 2
+CommunicatingAt 19200
+jump 60
+!
+@LABEL 51
+note "Communicating at 28800 bps." 2
+CommunicatingAt 28800
+jump 60
+!
+@LABEL 52
+note "Communicating at 38400 bps." 2
+CommunicatingAt 38400
+jump 60
+!
+@LABEL 53
+note "Communicating at 43200 bps." 2
+CommunicatingAt 43200
+jump 60
+!
+@LABEL 54
+note "Communicating at 48000 bps." 2
+CommunicatingAt 48000
+jump 60
+!
+@LABEL 55
+note "Communicating at 56000 bps." 2
+CommunicatingAt 56000
+jump 60
+!
+@LABEL 56
+note "Communicating at 64000 bps." 2
+CommunicatingAt 64000
+jump 60
+!
+@LABEL 59
+note "Communicating at an unknown rate." 2
+!
+@LABEL 60
+jump 70
+!
+! -- +ER (error correction reporting) parsing --
+!
+! Userhook 2 informs ARA that a modem-to-modem error
+! correcting protocol has been negotiated
+!
+@LABEL 61
+matchclr
+matchstr  1 63 "NONE"
+matchstr  2 62 "LAPM"
+matchstr  3 62 "ALT"
+matchstr  4 63 "\13"
+matchread 10
+jump 63
+!
+@LABEL 62
+note "Modem Reliable Link Established." 2
+userhook 2
+!
+@LABEL 63
+jump 32
+!
+! -- +DR (data compression reporting) parsing --
+!
+! Userhook 3 informs ARA that a modem-to-modem compression
+! protocol has been negotiated
+!
+@LABEL 66
+matchclr
+matchstr  1 68 "NONE"
+matchstr  2 67 "V42B"
+matchstr  3 67 "MNP5"
+matchstr  4 68 "\13"
+matchread 10
+jump 68
+!
+@LABEL 67
+note "Modem Compression Established." 2
+userhook 3
+!
+@LABEL 68
+jump 32
+!
+!
+! -- Normal exit after "CONNECT" --
+!
+!
+@LABEL 70
+!
+! Turn CTS on, for hardware flow control
+!
+HSReset 0 1 0 0 0 0
+!
+ifANSWER 71
+pause 30
+!
+@LABEL 71
+exit 0
+!
+!
+! ---- Answer calls ----
+!
+!	A RING result from the modem and in ANSWERING mode
+!	claims the serial port and answering the phone
+!
+@LABEL 81
+ifORIGINATE 32
+userhook 1
+note "Answering phone..." 2
+write "ATA\13"
+jump 32
+!
+!
+! ---- Hang up and reset modem ----
+!
+@HANGUP
+@LABEL 90
+settries 0
+HSReset 0 0 0 0 0 0
+!
+@LABEL 92
+!
+!  Escape from data to command mode
+!
+matchclr
+matchstr 1 94 "OK\13\10"
+pause 11
+write "+++"
+matchread 20
+!
+@LABEL 94
+!
+! Send hangup command
+!
+pause 10
+matchclr
+matchstr 1 98 "NO CARRIER\13\10"
+matchstr 2 98 "OK\13\10"
+matchstr 3 98 "ERROR\13\10"
+matchstr 4 98 "0\13\10"
+write "AT+CHUP\13"
+matchread 30
+! 
+! If that fails, toggle DTR
+!
+DTRClear
+pause 5
+DTRSet
+flush
+!
+! Try this three times only
+!
+inctries
+iftries 3 101
+jump 92
+!
+!
+@LABEL 98
+!
+! Reset phone to default settings
+!
+pause 10
+matchclr
+matchstr 1 99 "OK\13\10"
+write "AT&F\13"
+matchread 30
+jump 101
+!
+@LABEL 99
+exit 0
+!
+! ---- Error messages -----
+!
+! Modem Not Responding
+@LABEL 101
+exit -6019
+!
+! No Dial Tone
+@LABEL 102
+exit -6020
+!
+! No Carrier or Error
+@LABEL 103
+exit -6021
+!
+! Busy
+@LABEL 104
+exit -6022
+!
+! No Answer
+@LABEL 105
+exit -6023
+!
+! User Cancellation
+@LABEL 107
+exit -6008
+!
+@LABEL 108
+exit -6002 "The phone or network does not seem to support the speed or encoding type (e.g. V.110 or V.120) required for this script"
+!
+@LABEL 109
+exit -6002 "This script is only suitable for Nokia mobile phones"

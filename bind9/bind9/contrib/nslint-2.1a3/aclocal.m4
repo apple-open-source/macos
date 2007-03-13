@@ -1,4 +1,4 @@
-dnl @(#) $Header: /cvs/root/bind9/bind9/contrib/nslint-2.1a3/aclocal.m4,v 1.1.1.1 2003/01/10 00:48:02 bbraun Exp $ (LBL)
+dnl @(#) $Header: /proj/cvs/prod/bind9/contrib/nslint-2.1a3/aclocal.m4,v 1.1 2001/12/21 04:12:03 marka Exp $ (LBL)
 dnl
 dnl Copyright (c) 1995, 1996, 1997, 1998, 1999
 dnl	The Regents of the University of California.  All rights reserved.

@@ -1,1 +1,1 @@
-../../fips/rand/fips_rand.h
+../../fips-1.0/rand/fips_rand.h

@@ -34,6 +34,7 @@
 __BEGIN_DECLS
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
+#include <System/libkern/OSCrossEndian.h>
 __END_DECLS
 
 typedef struct IOHIDTransactionElement
@@ -69,8 +70,8 @@ enum {
 } while (0)
 
 #define seizeCheck() do {               \
-    if ((!fOwningDevice) ||		\
-         (fOwningDevice->fIsSeized))    \
+    if ((!fOwningDevice) ||             \
+         (!fOwningDevice->isValid()))    \
         return kIOReturnExclusiveAccess;\
 } while (0)
 
@@ -251,7 +252,7 @@ IOReturn IOHIDOutputTransactionClass::dispose()
         goto DISPOSE_RELEASE;
     }
     
-    for (int i=0; elementDataRefs[i] && i<numElements; i++)
+    for (int i=0;i<numElements && elementDataRefs[i]; i++)
     {
         element = (IOHIDTransactionElement *)CFDataGetBytePtr(elementDataRefs[i]);
         
@@ -639,7 +640,7 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
     int				numValidElements = 0;
     UInt32			transactionCookies[numElements];
     
-    for (int i=0; elementDataRefs[i] && i<numElements; i++)
+    for (int i=0;i<numElements && elementDataRefs[i]; i++)
     {
         element = (IOHIDTransactionElement *)CFDataGetBytePtr(elementDataRefs[i]);
         
@@ -671,6 +672,10 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
             continue;
             
         transactionCookies[numValidElements] = (UInt32)element->cookie;
+        ROSETTA_ONLY(
+            transactionCookies[numValidElements] = OSSwapInt32(transactionCookies[numValidElements]);
+        );
+
         numValidElements++;
     }
     
@@ -710,7 +715,7 @@ IOReturn IOHIDOutputTransactionClass::clear ()
     
     CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, (const void **)elementDataRefs);
     
-    for (int i=0; elementDataRefs[i] && i<numElements; i++)
+    for (int i=0;i<numElements && elementDataRefs[i]; i++)
     {
         element = (IOHIDTransactionElement *)CFDataGetBytePtr(elementDataRefs[i]);
         

@@ -1,0 +1,64 @@
+#!/bin/sh
+
+# usage: $0 INSTALLED-ROOT
+
+# four packages: x11-config, x11-plugin, x11-user, x11-devel
+
+pkg_init () {
+  exec > "pkg-$1.files"
+}
+
+pkg_add () {
+  for f in $*; do
+    echo $f
+  done
+}
+
+pkg_find () {
+  dir=$1; shift
+  ( cd $root && find $dir \( ! -type d \) $* )
+}
+
+root=.
+
+if [ x$1 != x ]; then
+  root=$1
+fi
+
+etc_binaries="/rstart/rstartd.real\|/xdm/chooser\|/xkb/xkbcomp"
+
+
+pkg_init x11-config
+
+pkg_find etc/X11 | grep -v $etc_binaries
+
+
+pkg_init x11-plugin
+
+pkg_find usr/X11R6/lib -name 'libapplexp*'
+pkg_find usr/X11R6/include -name x-plugin.h
+
+
+pkg_init x11-user
+
+pkg_find etc/X11 | grep $etc_binaries
+pkg_add Applications/X11.app
+pkg_add usr/bin/open-x11
+pkg_add usr/X11R6/bin
+pkg_add usr/X11R6/include/X11/bitmaps
+pkg_find usr/X11R6/lib -regex '.*/lib[a-zA-Z0-9]*\..*\.dylib' \
+    | grep -v libapplexp
+pkg_add usr/X11R6/lib/X11
+pkg_add usr/X11R6/man/man1 usr/X11R6/man/man7
+
+
+pkg_init x11-devel
+
+pkg_find usr/X11R6/include \
+    | grep -v 'x-plugin.h\|/include/X11/bitmaps'
+pkg_find usr/X11R6/lib -name 'lib*.a' \
+    | grep -v libapplexp
+pkg_find usr/X11R6/lib -regex '.*/lib[a-zA-Z0-9]*\.dylib' \
+    | grep -v libapplexp
+pkg_add usr/X11R6/man/man3
+

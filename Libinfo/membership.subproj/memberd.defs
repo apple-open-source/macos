@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,6 +26,7 @@ subsystem memberd 8000;
 serverprefix Server;
 
 #include <mach/std_types.defs>
+#include <mach/mach_types.defs>
 import "memberd_defines.h";
 
 type kauth_identity_extlookup = struct [50] of integer_t;
@@ -37,30 +38,53 @@ type GIDArray = array [16] of uint32_t;
 
 type string = c_string[*:256];
 
-routine _mbr_DoMembershipCall(
-				server: mach_port_t;
-		inout	request: kauth_identity_extlookup);
+routine _mbr_DoMembershipCall
+(
+	server: mach_port_t;
+	inout request: kauth_identity_extlookup;
+	UserSecToken token : security_token_t
+);
 
-routine _mbr_GetStats(
-				server: mach_port_t;
-		out		stats: StatBlock);
+routine _mbr_GetStats
+(
+	server: mach_port_t;
+	out stats: StatBlock;
+	UserSecToken token : security_token_t
+);
 
-routine _mbr_ClearStats( server: mach_port_t );
+routine _mbr_ClearStats
+(
+	server: mach_port_t;
+	UserSecToken token : security_token_t
+);
 
-routine _mbr_MapName(
-				server:		mach_port_t;
-		in		isUser:		uint8_t;
-		in		name:		string;
-		out		guid:		guid_t );
+routine _mbr_MapName
+(
+	server: mach_port_t;
+	in isUser: uint8_t;
+	in name: string;
+	out guid: guid_t;
+	UserSecToken token : security_token_t
+);
 
-routine _mbr_GetGroups(
-				server:		mach_port_t;
-		in		uid:		uint32_t;
-		out		numGroups:  uint32_t;
-		out		gids:		GIDArray );
-		
-routine _mbr_ClearCache( server: mach_port_t );
+routine _mbr_GetGroups
+(
+	server: mach_port_t;
+	in uid: uint32_t;
+	out numGroups: uint32_t;
+	out gids: GIDArray;
+	UserSecToken token : security_token_t
+);
+ 
+routine _mbr_ClearCache
+(
+	server: mach_port_t;
+	UserSecToken token : security_token_t
+);
 
-routine _mbr_DumpState(
-				server:		mach_port_t;
-		in		logOnly:	uint8_t );
+routine _mbr_DumpState
+(
+	server: mach_port_t;
+	in logOnly: uint8_t;
+	UserSecToken token : security_token_t
+);

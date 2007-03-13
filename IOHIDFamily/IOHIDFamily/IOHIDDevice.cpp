@@ -32,6 +32,7 @@
 #include "IOHIKeyboard.h"
 #include "IOHIPointing.h"
 #include "IOHIDPrivateKeys.h"
+#include "IOHIDFamilyPrivate.h"
 
 //===========================================================================
 // IOHIDDevice class
@@ -84,6 +85,14 @@ struct IOHIDReportHandler
 #define DLOG(fmt, args...)  IOLog(fmt, args)
 #else
 #define DLOG(fmt, args...)
+#endif
+
+#ifndef kIOUserClientCrossEndianKey
+#define kIOUserClientCrossEndianKey "IOUserClientCrossEndian"
+#endif
+
+#ifndef kIOUserClientCrossEndianCompatibleKey
+#define kIOUserClientCrossEndianCompatibleKey "IOUserClientCrossEndianCompatible"
 #endif
             
 // *** GAME DEVICE HACK ***
@@ -191,6 +200,12 @@ void IOHIDDevice::free()
     {
         _inputInterruptElementArray->release();
         _inputInterruptElementArray = 0;
+    }
+    
+    if (_interfaceNub)
+    {
+        _interfaceNub->release();
+        _interfaceNub = 0;
     }
     
     if ( _reserved )
@@ -331,12 +346,11 @@ bool IOHIDDevice::start( IOService * provider )
     
     if ( _interfaceNub->attach(this) )
     {
-        _interfaceNub->release();
-
         if (!_interfaceNub->start(this))
         {
             _interfaceNub->detach(this);
-            _interfaceNub = NULL;
+            _interfaceNub->release();
+            _interfaceNub = 0;
             return false;
         }
     }
@@ -379,179 +393,15 @@ void IOHIDDevice::stop(IOService * provider)
     super::stop(provider);
 }
 
-#define kHIDTransport1ScoreIncrement    1000
-#define kHIDTransport2ScoreIncrement    2000
-#define kHIDDeviceUsageScoreBase        1100
-#define kHIDDeviceUsageScoreIncrement   100
-#define kHIDVendor1ScoreIncrement       5000
-#define kHIDVendor2ScoreIncrement       1000
-#define kHIDVendor3ScoreIncrement       100
-
-//---------------------------------------------------------------------------
-// Compare the properties in the supplied table to this object's properties.
-static bool CompareProperty( IOService * owner, OSDictionary * matching, const char * key, SInt32 * score, SInt32 increment = 0)
-{
-    // We return success if we match the key in the dictionary with the key in
-    // the property table, or if the prop isn't present
-    //
-    OSObject 	* value;
-    OSObject    * property;
-    bool        matches = true;
-    
-    value = matching->getObject( key );
-
-    if( value)
-    {
-        property = owner->copyProperty( key );
-        
-        if ( property )
-        {
-            matches = value->isEqualTo( property );
-            
-            if (matches && score) 
-                *score += increment;
-            
-            property->release();
-        }
-        else
-            matches = false;
-    }
-
-    return matches;
-}
-
-static bool CompareDeviceUsage( IOService * owner, OSDictionary * matching, SInt32 * score, SInt32 increment = 0)
-{
-    // We return success if we match the key in the dictionary with the key in
-    // the property table, or if the prop isn't present
-    //
-    OSObject * 		usage;
-    OSObject *		usagePage;
-    OSArray *		functions;
-    OSDictionary * 	pair;
-    bool		matches = true;
-    int			count;
-    
-    usage = matching->getObject( kIOHIDDeviceUsageKey );
-    usagePage = matching->getObject( kIOHIDDeviceUsagePageKey );
-    functions = OSDynamicCast(OSArray, owner->copyProperty( kIOHIDDeviceUsagePairsKey ));
-    
-    if ( functions )
-    {
-        if ( usagePage || usage )
-        {
-            count = functions->getCount();
-            
-            for (int i=0; i<count; i++)
-            {
-                if ( !(pair = (OSDictionary *)functions->getObject(i)) )
-                    continue;
-            
-                if ( !usagePage || 
-                    !(matches = usagePage->isEqualTo(pair->getObject(kIOHIDDeviceUsagePageKey))) )
-                    continue;
-
-                if ( score && !usage ) 
-                {
-                    *score += increment / 2;
-                    break;
-                }
-                    
-                if ( !usage || 
-                    !(matches = usage->isEqualTo(pair->getObject(kIOHIDDeviceUsageKey))) )            
-                    continue;
-        
-                if ( score ) 
-                    *score += increment;
-                
-                break;
-            }
-        }
-        
-        functions->release();
-    }
-    
-    return matches;
-}
-
-static bool CompareDeviceUsagePairs( IOService * owner, OSDictionary * matching, SInt32 * score, SInt32 increment = 0)
-{
-    // We return success if we match the key in the dictionary with the key in
-    // the property table, or if the prop isn't present
-    //
-    OSArray *		pairArray;
-    OSDictionary * 	pair;
-    bool		matches = true;
-    int			count;
-    
-    pairArray = OSDynamicCast(OSArray, matching->getObject( kIOHIDDeviceUsagePairsKey ));
-    
-    if (pairArray)
-    {
-        count = pairArray->getCount();
-        
-        for (int i=0; i<count; i++)
-        {
-            if ( !(pair = OSDynamicCast(OSDictionary,pairArray->getObject(i))) )
-                continue;
-        
-            if ( !(matches = CompareDeviceUsage(owner, pair, score, increment)) )
-                continue;
-
-            break;
-        }
-    }
-    
-    return matches;
-}
 
 bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
 {
     bool    match       = true;
-    SInt32  pUScore     = 0;
-    SInt32  pUPScore    = 0;
-    SInt32  useScore    = 0;
-    SInt32  trans1Score = 0;
-    SInt32  trans2Score = 0;
-    SInt32  ven1Score   = 0;
-    SInt32  ven2Score   = 0;
-    SInt32  ven3Score   = 0;
 
     // Ask our superclass' opinion.
     if (super::matchPropertyTable(table, score) == false)  return false;
 
-    // Compare properties.        
-    if (!CompareProperty(this, table, kIOHIDTransportKey, &trans1Score, kHIDTransport1ScoreIncrement)   ||
-        !CompareProperty(this, table, kIOHIDLocationIDKey, &trans2Score, kHIDTransport2ScoreIncrement)  ||
-        !CompareProperty(this, table, kIOHIDVendorIDKey, &ven1Score, kHIDVendor1ScoreIncrement)         ||
-        !CompareProperty(this, table, kIOHIDProductIDKey, &ven2Score, kHIDVendor2ScoreIncrement)        ||
-        !CompareProperty(this, table, kIOHIDVersionNumberKey, &ven3Score, kHIDVendor3ScoreIncrement)    ||
-        !CompareProperty(this, table, kIOHIDManufacturerKey, &ven3Score, kHIDVendor3ScoreIncrement)     ||
-        !CompareProperty(this, table, kIOHIDSerialNumberKey, &ven3Score, kHIDVendor3ScoreIncrement)     ||
-        !CompareProperty(this, table, kIOHIDPrimaryUsagePageKey, &pUPScore, kHIDDeviceUsageScoreBase)   ||
-        !CompareProperty(this, table, kIOHIDPrimaryUsageKey, &pUScore, kHIDDeviceUsageScoreIncrement)   ||
-        !CompareDeviceUsagePairs(this, table, &useScore, kHIDDeviceUsageScoreIncrement)                 ||
-        !CompareDeviceUsage(this, table, &useScore, kHIDDeviceUsageScoreIncrement)                      ||
-        !CompareProperty(this, table, "BootProtocol", score)                                            ||
-		(table->getObject("HIDDefaultBehavior") && !getProperty("HIDDefaultBehavior")))
-    {
-        if (score) 
-            *score = 0;
-        match = false;
-    }
-    else if ( score )
-    {
-        if ( trans1Score > 0 )
-            *score += trans1Score + trans2Score;
-
-        if ( ven1Score > 0 )
-            *score += ven1Score + ven2Score + ven3Score;
-            
-        if ( useScore > 0 )
-            *score += useScore + kHIDDeviceUsageScoreBase;
-        else if ( pUPScore > 0 )
-            *score += pUPScore + pUScore;
-    }
+    match = MatchPropertyTable(this, table, score);
     		
     // *** HACK ***
     // RY: For games that are accidentaly matching on the keys
@@ -773,9 +623,13 @@ bool IOHIDDevice::handleIsOpen(const IOService * client) const
 IOReturn IOHIDDevice::newUserClient( task_t          owningTask,
                                      void *          security_id,
                                      UInt32          type,
+                                     OSDictionary *  properties,
                                      IOUserClient ** handler )
 {
-    return super::newUserClient(owningTask, security_id, type, handler);
+    if ( properties )
+        properties->setObject(kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue);
+        
+    return super::newUserClient(owningTask, security_id, type, properties, handler);
 }
 
 //---------------------------------------------------------------------------
@@ -1681,24 +1535,21 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
     UInt32			index;
     IOReturn			ret = kIOReturnError;
     
-    ELEMENT_LOCK;
-    
-    SetCookiesTransactionState(element, cookies, 
-            cookieCount, kIOHIDTransactionStatePending, index, 0);
-                
     maxReportLength = max(_maxOutputReportSize, 
                             max(_maxFeatureReportSize, _maxInputReportSize));
     
     // Allocate a mem descriptor with the maxReportLength.
     // This way, we only have to allocate one mem discriptor
-    report = IOBufferMemoryDescriptor::withCapacity(
-                            maxReportLength, kIODirectionNone);
+    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionNone);
         
-    if (report == NULL) {
-        ret = kIOReturnNoMemory;
-        goto UPDATE_ELEMENT_CLEANUP;
-    }
+    if (report == NULL)
+        return kIOReturnNoMemory;
 
+    ELEMENT_LOCK;
+    
+    SetCookiesTransactionState(element, cookies, 
+            cookieCount, kIOHIDTransactionStatePending, index, 0);
+                
     // Iterate though all the elements in the 
     // transaction.  Generate reports if needed.
     for (index = 0; index < cookieCount; index++) {
@@ -1716,7 +1567,13 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
 
         reportID = element->getReportID();
         
+
+        // calling down into our subclass, so lets unlock
+        ELEMENT_UNLOCK;
+
         ret = getReport(report, reportType, reportID);
+
+        ELEMENT_LOCK;
     
         if (ret != kIOReturnSuccess)
             break;
@@ -1731,8 +1588,6 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
     // release the report
     report->release();
 
-UPDATE_ELEMENT_CLEANUP:
-
     // If needed, set the transaction state for the 
     // remaining elements to idle.
     SetCookiesTransactionState(element, cookies, 
@@ -1746,9 +1601,8 @@ UPDATE_ELEMENT_CLEANUP:
 // Post the value of the given element, by sending a report to
 // the device.  Assume that the cookieCount > 0
 OSMetaClassDefineReservedUsed(IOHIDDevice,  1);
-IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount) {
-    
-    OSArray			*pendingReports = NULL;
+IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 cookieCount)
+{
     IOBufferMemoryDescriptor	*report = NULL;
     IOHIDElementPrivate 		*element = NULL;
     IOHIDElementPrivate 		*cookieElement = NULL;
@@ -1764,23 +1618,25 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
     if (cookieCount == 0)
         return ret;
         
+    // Get the max report size
+    maxReportLength = max(_maxOutputReportSize, _maxFeatureReportSize);
+
+    // Allocate a buffer mem descriptor with the maxReportLength.
+    // This way, we only have to allocate one mem buffer.
+    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionNone);
+
+    if ( report == NULL )
+        return kIOReturnNoMemory;
+
     ELEMENT_LOCK;
     
     // Set the transaction state on the specified cookies
     SetCookiesTransactionState(cookieElement, cookies, 
             cookieCount, kIOHIDTransactionStatePending, index, 0);
-    
-    // Most times transaction will consist of items in one report
-    pendingReports = OSArray::withCapacity(1);
-    
-    if ( pendingReports == NULL ) {
-        ret = kIOReturnNoMemory;
-        goto POST_ELEMENT_CLEANUP;
-    }
         
-    // Get the max report size
-    maxReportLength = max(_maxOutputReportSize, _maxFeatureReportSize);
- 
+    // Obtain the buffer
+    reportData = (UInt8 *)report->getBytesNoCopy();
+        
     // Iterate though all the elements in the 
     // transaction.  Generate reports if needed. 
     for (index = 0; index < cookieCount; index ++) {
@@ -1799,19 +1655,6 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
         if ( !cookieElement->getReportType(&reportType) )
             continue;
 
-        
-        // Allocate a contiguous mem descriptor with the maxReportLength.
-        // This way, we only have to allocate one mem buffer.
-        report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionNone, true);
-        
-        if ( report == NULL ) {
-            ret = kIOReturnNoMemory;
-            goto POST_ELEMENT_CLEANUP;
-        }
-            
-        // Obtain the buffer
-        reportData = (UInt8 *)report->getBytesNoCopy();
-                
         reportID = cookieElement->getReportID();
 
         // Start at the head element and iterate through
@@ -1835,15 +1678,16 @@ IOReturn IOHIDDevice::postElementValues(IOHIDElementCookie * cookies, UInt32 coo
         if ( _reportCount > 1 ) 
             reportData[0] = reportID;
                   
-          
-        // Add the new report to the array of pending reports
-        // It will be sent to the device after the elementLock
-        // has been released
-        pendingReports->setObject(report);
-        report->release();
+        ELEMENT_UNLOCK;
+        
+        ret = setReport( report, reportType, reportID);
+        
+        ELEMENT_LOCK;
+
+        if ( ret != kIOReturnSuccess )
+            break;                          
     }
 
-POST_ELEMENT_CLEANUP:
     // If needed, set the transaction state for the 
     // remaining elements to idle.
     SetCookiesTransactionState(cookieElement, cookies, 
@@ -1851,23 +1695,6 @@ POST_ELEMENT_CLEANUP:
     
     ELEMENT_UNLOCK;
     
-    // Now that we have formulated all the reports for this transaction,
-    // let's go ahead and post them to the device.
-    for (index = 0; index < pendingReports->getCount(); index++) {
-        report = (IOBufferMemoryDescriptor *)(pendingReports->getObject(index));
-        
-        if (report == NULL)
-            continue;
-        
-        // Send the report to the device
-        ret = setReport( report, reportType, reportID);
-        
-        if ( ret != kIOReturnSuccess )
-            break;
-    }
-
-    pendingReports->release();
-
     return ret;
 }
 
@@ -2085,3 +1912,16 @@ OSMetaClassDefineReservedUnused(IOHIDDevice, 28);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 29);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 30);
 OSMetaClassDefineReservedUnused(IOHIDDevice, 31);
+
+#ifndef __ppc__
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 32);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 33);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 34);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 35);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 36);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 37);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 38);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 39);
+    OSMetaClassDefineReservedUnused(IOHIDDevice, 40);
+#endif
+

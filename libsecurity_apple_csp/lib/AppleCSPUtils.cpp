@@ -27,7 +27,7 @@
 #include <string.h>
 #include <FEECSPUtils.h>
 #include <SHA1_MD5_Object.h>
-#include "RSA_DSA_Keys.h"
+#include "RSA_DSA_keys.h"
 
 /*
  * Validate key attribute bits per specified key type.

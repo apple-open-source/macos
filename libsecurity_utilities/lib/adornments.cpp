@@ -45,12 +45,7 @@ Adornment::~Adornment()
 //
 Adornable::~Adornable()
 {
-	if (mAdornments) {
-		for (AdornmentMap::const_iterator it = mAdornments->begin();
-				it != mAdornments->end(); ++it)
-			delete it->second;
-		delete mAdornments;
-	}
+	clearAdornments();
 }
 
 

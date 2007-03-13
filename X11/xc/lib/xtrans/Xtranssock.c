@@ -90,7 +90,7 @@ from the copyright holders.
 #if defined(__osf__) || defined(linux)
 #include <sys/param.h>
 #endif /* osf */
-#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__FreeBSD__) 
+#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__FreeBSD__)  || defined(__DARWIN__)
 #include <sys/param.h>
 #include <machine/endian.h>
 #endif /* __NetBSD__ || __OpenBSD__ || __FreeBSD__ */

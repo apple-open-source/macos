@@ -52,25 +52,25 @@
  */
 
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Portions Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_comp.c	8.1 (Berkeley) 6/4/93";
-static const char rcsid[] = "$Id: res_comp.c,v 1.1.1.1 2003/01/10 00:48:32 bbraun Exp $";
+static const char rcsid[] = "$Id: res_comp.c,v 1.1.2.1.4.2 2005/07/28 07:43:22 marka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include "port_before.h"
@@ -86,10 +86,10 @@ static const char rcsid[] = "$Id: res_comp.c,v 1.1.1.1 2003/01/10 00:48:32 bbrau
 #include "port_after.h"
 
 /*
- * Expand compressed domain name 'comp_dn' to full domain name.
+ * Expand compressed domain name 'src' to full domain name.
  * 'msg' is a pointer to the begining of the message,
- * 'eomorig' points to the first location after the message,
- * 'exp_dn' is a pointer to a buffer of size 'length' for the result.
+ * 'eom' points to the first location after the message,
+ * 'dst' is a pointer to a buffer of size 'dstsiz' for the result.
  * Return size of compressed name or -1 if there was an error.
  */
 int
@@ -154,7 +154,7 @@ dn_skipname(const u_char *ptr, const u_char *eom) {
 
 int
 res_hnok(const char *dn) {
-	int ppch = '\0', pch = PERIOD, ch = *dn++;
+	int pch = PERIOD, ch = *dn++;
 
 	while (ch != '\0') {
 		int nch = *dn++;
@@ -171,7 +171,7 @@ res_hnok(const char *dn) {
 			if (!middlechar(ch))
 				return (0);
 		}
-		ppch = pch, pch = ch, ch = nch;
+		pch = ch, ch = nch;
 	}
 	return (1);
 }
@@ -242,6 +242,18 @@ res_dnok(const char *dn) {
  *	__getshort
  * Note that one _ comes from C and the others come from us.
  */
+
+#ifdef SOLARIS2
+#ifdef  __putlong
+#undef  __putlong
+#endif
+#ifdef  __putshort
+#undef  __putshort
+#endif
+#pragma weak    putlong         =       __putlong
+#pragma weak    putshort        =       __putshort
+#endif /* SOLARIS2 */
+
 void __putlong(u_int32_t src, u_char *dst) { ns_put32(src, dst); }
 void __putshort(u_int16_t src, u_char *dst) { ns_put16(src, dst); }
 #ifndef __ultrix__

@@ -268,6 +268,9 @@ public:
 
 protected:
 	PCSC::Session mSession;
+	char mPrintName[PATH_MAX];
+	
+	virtual void name(const char *printName);
 };
 
 

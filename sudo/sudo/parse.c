@@ -85,6 +85,10 @@
 static const char rcsid[] = "$Sudo: parse.c,v 1.161 2004/08/24 18:01:13 millert Exp $";
 #endif /* lint */
 
+#ifdef __APPLE_MEMBERD__
+#include <membership.h>
+#endif
+
 /*
  * Globals
  */
@@ -456,6 +460,10 @@ usergr_matches(group, user, pw)
     struct group *grp;
     gid_t pw_gid;
     char **cur;
+	#ifdef __APPLE_MEMBERD__
+	uuid_t uu, gu;
+	int ismember = 0;
+	#endif
 
     /* make sure we have a valid usergroup, sudo style */
     if (*group++ != '%')
@@ -473,11 +481,17 @@ usergr_matches(group, user, pw)
     if (grp->gr_gid == pw_gid)
 	return(TRUE);
 
+	#ifdef __APPLE_MEMBERD__
+	if ( 0 == mbr_uid_to_uuid(pw->pw_uid,uu) && 0 == mbr_gid_to_uuid(grp->gr_gid,gu) && 0 == mbr_check_membership(uu,gu,&ismember) ) {
+		if (1 == ismember) return(TRUE);
+	}
+	#else
     /* check to see if user is explicitly listed in the group */
     for (cur = grp->gr_mem; *cur; cur++) {
 	if (strcmp(*cur, user) == 0)
 	    return(TRUE);
     }
+	#endif
 
     return(FALSE);
 }

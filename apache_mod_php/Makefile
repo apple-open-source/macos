@@ -10,9 +10,9 @@ ToolType              = Services
 # --with-xmlrpc --with-expat-dir=/usr --with-cyrus=/usr --with-gd
 Extra_LD_Flags	      = -lresolv
 Extra_Configure_Flags = --with-apxs --with-ldap=/usr --with-kerberos=/usr --enable-cli --with-zlib-dir=/usr --enable-trans-sid --with-xml --enable-exif --enable-ftp --enable-mbstring --enable-mbregex --enable-dbx --enable-sockets --with-iodbc=/usr --with-curl=/usr --with-config-file-path=/etc --sysconfdir=$(ETCDIR) \
-                        --with-mysql=/usr --with-mysql-sock=/var/mysql/mysql.sock
+                        --with-mysql=/usr --with-mysql-sock=/var/mysql/mysql.sock --without-pear
 Extra_CC_Flags        = -no-cpp-precomp
-GnuAfterInstall       = strip mode install-ini install-plist
+GnuAfterInstall       = strip mode install-ini install-plist 
 
 Framework = $(NSFRAMEWORKDIR)/php.framework/Versions/4
 
@@ -22,17 +22,10 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 Install_Target = install
 Install_Flags  = INSTALL_ROOT=$(DSTROOT)
 
-build:: makehttpdconf
-
-makehttpdconf:
-	$(MKDIR) $(DSTROOT)/private/etc/httpd
-	$(CP) /etc/httpd/httpd.conf $(DSTROOT)/private/etc/httpd/httpd.conf
-
 strip:
 	$(_v) $(STRIP) -S "$(DSTROOT)`apxs -q LIBEXECDIR`/"*.so
 	$(_v) $(STRIP) $(DSTROOT)/usr/bin/php
 	$(_v) $(RM) $(DSTROOT)/usr/lib/php/.lock
-	$(RMDIR) $(DSTROOT)/private/etc/httpd
 
 mode:
 	$(_v) $(CHMOD) -R ugo-w "$(DSTROOT)"
@@ -53,17 +46,17 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 4.4.1
+AEP_Version    = 4.4.4
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = TSRM__build.mk.diff TSRM__buildconf.diff \
-                 Zend__build.mk.diff Zend__buildconf.diff \
-                 ext__mbstring__libmbfl__buildconf.diff \
-                 ext__mbstring__libmbfl__config.h.diff \
+		 Zend__build.mk.diff Zend__buildconf.diff \
+		 ext__mbstring__libmbfl__buildconf.diff \
+		 ext__mbstring__libmbfl__config.h.diff \
 		 NLS_remove_BIND8.patch \
-                 Makefile.diff \
-                 squirrelmail.diff
+		 ext__standard__html.c.diff \
+		 Makefile.diff 
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -80,4 +73,5 @@ ifeq ($(AEP),YES)
 	for patchfile in $(AEP_Patches); do \
 		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
 	done
+	perl -i -pe 's|-i -a -n php4|-i -n php4|g' $(SRCROOT)/$(Project)/configure
 endif

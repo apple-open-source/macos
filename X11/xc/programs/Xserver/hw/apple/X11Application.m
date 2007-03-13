@@ -1,5 +1,5 @@
 /* X11Application.m -- subclass of NSApplication to multiplex events
-   $Id: X11Application.m,v 1.55.2.1 2005/08/10 18:12:46 jharper Exp $
+   $Id: X11Application.m,v 1.59 2006/09/06 21:19:32 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -38,7 +38,7 @@
 #define Cursor X_Cursor
 # include "quartz.h"
 # define _APPLEWM_SERVER_
-# include "applewm.h"
+# include "applewm-impl.h"
 # include "X.h"
 #undef Cursor
 #undef WindowPtr
@@ -699,6 +699,7 @@ cfarray_to_nsarray (CFArrayRef in)
 - (void) read_defaults
 {
     extern int darwinFakeButtons;
+	extern Bool enable_stereo;
     const char *tem;
 
     quartzUseSysBeep = [self prefs_get_boolean:@PREFS_SYSBEEP
@@ -737,6 +738,9 @@ cfarray_to_nsarray (CFArrayRef in)
 
     quartzDesiredDepth = [self prefs_get_integer:@PREFS_DEPTH
 			  default:quartzDesiredDepth];
+
+    enable_stereo = [self prefs_get_boolean:@PREFS_ENABLE_STEREO
+		             default:false];   
 }
 
 /* This will end up at the end of the responder chain. */

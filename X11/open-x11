@@ -1,0 +1,53 @@
+#!/bin/bash
+
+# usage: open-x11 PROGRAM-1 PROGRAM-2 ... PROGRAM-N
+
+
+# this will often work (always, if X11 is already running)
+
+x11_app=X11
+
+# but try to find the real location just in case..
+
+if [ -d /Applications/Utilities/X11.app ]; then
+  x11_app=/Applications/Utilities/X11.app
+elif [ -d /Applications/X11.app ]; then
+  x11_app=/Applications/X11.app
+fi
+
+
+# fix $PATH to include X directories
+
+for d in /usr/X11R6/bin /usr/bin/X11 /usr/local/bin/X11; do
+  if [ -d $d ]; then
+    case $PATH in
+      '')
+	PATH=$d
+	;;
+      $d|$d:*|*:$d|*:$d:*)
+	: do nothing
+	;;
+      *)
+	PATH=$PATH:$d
+	;;
+    esac
+  fi
+done
+
+
+# try to launch each app
+
+while [ $# -ge 1 ]; do
+  app="$1"; shift
+
+  if [ ! -f "$app" ]; then
+    # preserve previous behaviour of searching likely locations
+    real_app=`type -p "$app"`
+    if [ -z "$real_app" ]; then
+      echo "$1: unknown application: $app"; exit 1
+    fi
+    app="$real_app"
+  fi
+
+  /usr/bin/open -a "$x11_app" "$app"
+done

@@ -128,6 +128,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -140,6 +142,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -156,6 +160,8 @@
             debug="${debug}"
             deprecation="${deprecation}"
             excludes="**/Test*"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -222,6 +228,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -229,6 +237,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -236,6 +246,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -243,6 +255,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -259,6 +273,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>
@@ -272,6 +288,8 @@
             destdir="${compile.dir}"
             debug="${debug}"
             deprecation="${deprecation}"
+            source="1.4"
+            target="1.4"
             optimize="${optimize}">
             <classpath refid="build.classpath"/>
         </javac>

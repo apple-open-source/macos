@@ -4,10 +4,10 @@
 <head>
 	<!-- $appleBlojsomRevision -->
 	<title>
-		$BLOJSOM_BLOG.getBlogName()
+		$BLOJSOM_BLOG.getEscapedBlogName()
 		#if ($BLOJSOM_PERMALINK)
 			#foreach ($entry in $BLOJSOM_ENTRIES )
-				#set ( $pagetitle = $entry.getTitle() )
+				#set ( $pagetitle = $entry.getEscapedTitle() )
 			#end
 			- $pagetitle
 		#end
@@ -50,7 +50,7 @@
 		#if ($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT.startsWith(" "))
 <div id="blojsom_system_message"> $locStrings.getProperty($opResultString)</div>
 		#else
-<div id="blojsom_system_message">$BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT</div>
+<div id="blojsom_system_message">$ESCAPE_TAGS_PLUGIN.escapeTagsInText($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT)</div>
 		#end
 	#end
 #end
@@ -60,8 +60,8 @@
 	<table id="header_table">
 		<tr>
 			<td id="header_description_cell">
-				<h2 id="title"><a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getBlogName()</a></h2>
-				<p id="subtitle">$BLOJSOM_BLOG.getBlogDescription()</p>
+				<h2 id="title"><a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getEscapedBlogName()</a></h2>
+				<p id="subtitle">$BLOJSOM_BLOG.getEscapedBlogDescription()</p>
 				#set( $totalEntries = 0)
 			</td>
 			<td id="header_logo_cell"><a href="${BLOJSOM_SITE_URL}"><div id="header_logo_img"></div></a></td>
@@ -113,12 +113,13 @@
 							#else
 								#set ($blogCategoryName = $entry.getBlogCategory().getCategory().replaceAll("^/*(.+)/$", "$1"))
 							#end
-							#set ($blogCategoryLabel = $blogCategoryName.replaceAll("^(.{22}).+(.{22})$", "$1...$2"))
+							#set ($blogCategoryName = $ESCAPE_TAGS_PLUGIN.escapeTagsInText($blogCategoryName).replaceAll("\"", "&quot;"))
+							#set ($blogCategoryLabel = $ESCAPE_TAGS_PLUGIN.escapeTagsInText($blogCategoryName.replaceAll("^(.{22}).+(.{22})$", "$1...$2")))
 							#if ($BLOJSOM_PERMALINK)
 								<table class="comment_meta_info">
 									<tr>
 										<th>$locStrings.getProperty("newentry.title")</th>
-										<td>$entry.getTitle()</td>
+										<td>$entry.getEscapedTitle()</td>
 									</tr>
 								#if ($blogCategoryName.equals("/"))
 								#else
@@ -130,7 +131,7 @@
 								#if ($entry.getMetaData() && $entry.getMetaData().get("blog-entry-author"))
 									<tr>
 										<th>$locStrings.getProperty("postedby")</th>
-										<td><a class="entry_author_name" href="${BLOJSOM_SITE_URL}weblog/$entry.getMetaData().get("blog-entry-author")/">$USER_DATA_PLUGIN.getFullNameFromShortName($entry.getMetaData().get("blog-entry-author"))</a></td>
+										<td><a class="entry_author_name" href="${BLOJSOM_SITE_URL}weblog/$entry.getMetaData().get("blog-entry-author")/">$USER_DATA_PLUGIN.getEscapedFullNameFromShortName($entry.getMetaData().get("blog-entry-author"))</a></td>
 									</tr>
 								#end
 								#if ($entry.getMetaData() && $entry.getMetaData().get("rss-enclosure"))
@@ -155,7 +156,7 @@
 							#else
 								<div class="entrylink">
 									<a href="$entryLink" title="$locStrings.getProperty("tooltips.permalink")">#</a>
-									$entry.getTitle()
+									$entry.getEscapedTitle()
 								</div>
 								#if ($blogCategoryName.equals("/"))
 								#else
@@ -176,15 +177,15 @@
 								<tr>
 									<th>$locStrings.getProperty("comments.commentby")</th>
 									<td>
-										#if ($entryComment.getAuthorEmail() && $entryComment.getAuthorEmail().length() > 0) <a href="mailto:$entryComment.getAuthorEmail()">$entryComment.getAuthor()</a> #else $entryComment.getAuthor() #end - 
-										<a href="$entryComment.getAuthorURL()">$entryComment.getAuthorURL()</a>
+										#if ($entryComment.getAuthorEmail() && $entryComment.getAuthorEmail().length() > 0) <a href="mailto:$ESCAPE_TAGS_PLUGIN.escapeString($entryComment.getAuthorEmail())">$ESCAPE_TAGS_PLUGIN.escapeTagsInText($entryComment.getAuthor())</a> #else $ESCAPE_TAGS_PLUGIN.escapeTagsInText($entryComment.getAuthor()) #end - 
+										<a href="$ESCAPE_TAGS_PLUGIN.escapeString($entryComment.getAuthorURL())">$ESCAPE_TAGS_PLUGIN.escapeTagsInText($entryComment.getAuthorURL())</a>
 									</td>
 								<tr>
 									<th>$locStrings.getProperty("comments.lefton")</th>
 									<td>$entryComment.getCommentDate()</div></td>
 								</tr>
 							</table>
-							$entryComment.getComment()
+							$ESCAPE_TAGS_PLUGIN.escapeTagsInText($entryComment.getComment())
 						</div>
 					#end
 					#set( $totalEntries = $totalEntries + 1)
@@ -217,7 +218,7 @@
 					#end
 					#if ($BLOJSOM_PERMALINK)
 					  <!-- Trackback Auto Discovery -->
-					  #set( $blogDescription = $entry.getEscapedDescription() )
+					  #set( $blogDescription = $entry.getDescription() )
 					  #if ($blogDescription.length() > 255 )
 						  #set( $ellipses = "..." )
 						  #set( $blogDescription = "$blogDescription.substring(0,252)$ellipses" )
@@ -369,11 +370,11 @@
 							<a href="$blogCategory.getCategoryURL()" title="$locStrings.getProperty("tooltips.all_entries")">$locStrings.getProperty("sidebar.all_entries")</a><br />
 						#else
 							#if ($blogCategory.getName())
-								#set ($blogCategoryName = $blogCategory.getName().replaceAll("^/*(.+)/*$", "$1"))
+								#set ($blogCategoryName = $blogCategory.getEscapedName().replaceAll("^/*(.+)/*$", "$1"))
 							#else
 								#set ($blogCategoryName = $blogCategory.getCategory().replaceAll("^/*(.+)/$", "$1"))
 							#end
-							#set ($blogCategoryLabel = $blogCategoryName.replaceAll("^(.{11}).+(.{11})$", "$1...$2"))
+							#set ($blogCategoryLabel = $ESCAPE_TAGS_PLUGIN.escapeTagsInText($blogCategoryName.replaceAll("^(.{11}).+(.{11})$", "$1...$2")))
 							#if ($BLOJSOM_REQUESTED_CATEGORY == $blogCategory)
 								<a href="$blogCategory.getCategoryURL()" class="selected_category" title="$locStrings.getProperty("tooltips.category.format").replaceAll("\"", "&quot;").replaceAll("%@", $blogCategoryName)">
 							#else
@@ -395,6 +396,8 @@
 							#set ($blogCategoryName = $BLOJSOM_REQUESTED_CATEGORY.getCategory().replaceAll("\"", "&quot;"))
 							#set ($blogCategoryDescription = $blogCategoryName.replaceAll("^/*(.+)/$", "$1"))
 						#end
+						#set ($blogCategoryName = $ESCAPE_TAGS_PLUGIN.escapeTagsInText($!blogCategoryName))
+						#set ($blogCategoryDescription = $ESCAPE_TAGS_PLUGIN.escapeTagsInText($!blogCategoryDescription))
 					<a href="#" title="$locStrings.getProperty("tooltips.new_category")" onclick="hideOrShowNewCategoryDialog(true);return false">$locStrings.getProperty("sidebar.new_category")</a><br />
 					#if ($BLOJSOM_REQUESTED_CATEGORY.getCategory().equals("/"))
 					#else
@@ -465,19 +468,19 @@
 						<table class="form_table">
 							<tr>
 								<th>$locStrings.getProperty("settings.weblogname")</th>
-								<td><input size="40" type="text" name="blog-name" value="$BLOJSOM_BLOG.getBlogName()" id="blog-name" /></td>
+								<td><input size="40" type="text" name="blog-name" value="$BLOJSOM_BLOG.getEscapedBlogName()" id="blog-name" /></td>
 							</tr>
 							<tr>
 								<th>$locStrings.getProperty("settings.weblogdesc")</th>
-								<td><input size="40" type="text" name="blog-description" value="$BLOJSOM_BLOG.getBlogDescription()" id="blog-description" /></td>
+								<td><input size="40" type="text" name="blog-description" value="$BLOJSOM_BLOG.getEscapedBlogDescription()" id="blog-description" /></td>
 							</tr>
 							<tr>
 								<th>$locStrings.getProperty("settings.ownername")</th>
-								<td><input size="40" type="text" name="blog-owner" value="$BLOJSOM_BLOG.getBlogOwner()" id="blog-owner" /></td>
+								<td><input size="40" type="text" name="blog-owner" value="$BLOJSOM_BLOG.getEscapedBlogOwner()" id="blog-owner" /></td>
 							</tr>
 							<tr>
 								<th>$locStrings.getProperty("settings.owneremail")</th>
-								<td><input size="40" type="text" name="blog-owner-email" value="$BLOJSOM_BLOG.getBlogOwnerEmail()" id="blog-owner-email" /></td>
+								<td><input size="40" type="text" name="blog-owner-email" value="$BLOJSOM_BLOG.getEscapedBlogOwnerEmail()" id="blog-owner-email" /></td>
 							</tr>
 							<tr>
 								<th>$locStrings.getProperty("settings.theme")</th>
@@ -530,11 +533,11 @@
 									<select id="adding_category_name" name="adding_category_name">
 										#foreach ($blogCategory in $BLOJSOM_ALL_CATEGORIES)
 											#if ($blogCategory.getName())
-												#set ($blogCategoryName = $blogCategory.getName())
+												#set ($blogCategoryName = $blogCategory.getEscapedName())
 											#else
 												#set ($blogCategoryName = $blogCategory.getCategory())
 											#end
-											#set ($blogCategoryLabel = $blogCategoryName.replaceAll("^(.{22}).+(.{22})$", "$1...$2"))
+											#set ($blogCategoryLabel = $ESCAPE_TAGS_PLUGIN.escapeTagsInText($blogCategoryName.replaceAll("^(.{22}).+(.{22})$", "$1...$2")))
 											<option value="$blogCategory" #if ($BLOJSOM_REQUESTED_CATEGORY == $blogCategory)selected="selected"#end>$blogCategoryLabel</option>
 										#end
 										#if ($HAS_ADDITIONAL_CATEGORY.equals("true"))
@@ -551,7 +554,7 @@
 								<td colspan="2" id="entry_dialog_description_cell"><textarea id="adding_entry_desc" rows="12" cols="61" name="adding_entry_desc"></textarea></td>
 							</tr>
 							<tr id="entry_dialog_buttons">
-								<td><input name="new_entry_advanced_button" type="button" value="Advanced" onclick="clickedAdvancedSettingsButton(this)" /></td>
+								<td><input name="new_entry_advanced_button" type="button" value="$locStrings.getProperty("buttons.advanced")" onclick="clickedAdvancedSettingsButton(this)" /></td>
 								<th class="form_buttons">
 									<input type="hidden" id="new_entry_advanced_text" name="new_entry_advanced_text" value="$locStrings.getProperty("buttons.advanced")" />
 									<input type="hidden" id="new_entry_simple_text" name="new_entry_simple_text" value="$locStrings.getProperty("buttons.simple")" />
@@ -587,7 +590,7 @@
 											#else
 												#set ($blogCategoryName = $blogCategory.getCategory())
 											#end
-											#set ($blogCategoryLabel = $blogCategoryName.replaceAll("^(.{22}).+(.{22})$", "$1...$2"))
+											#set ($blogCategoryLabel = $ESCAPE_TAGS_PLUGIN.escapeTagsInText($blogCategoryName.replaceAll("^(.{22}).+(.{22})$", "$1...$2")))
 											<option value="$blogCategory" #if ($BLOJSOM_REQUESTED_CATEGORY == $blogCategory)selected="selected"#end>$blogCategoryLabel</option>
 										#end
 										#if ($HAS_ADDITIONAL_CATEGORY.equals("true"))

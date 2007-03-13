@@ -4,7 +4,7 @@
  * Copyright:  © 2004-2005 Apple Computer, Inc., all rights reserved.
  * Note:       When editing this file set PB to "Editor uses tabs/width=4".
  *
- * $Id: EscapeTagsPlugin.java,v 1.3.2.2 2005/07/21 04:30:23 johnan Exp $
+ * $Id: EscapeTagsPlugin.java,v 1.3.2.5 2007/02/05 18:21:14 johnan Exp $
  */ 
 package com.apple.blojsom.plugin.escapetags;
 
@@ -14,6 +14,7 @@ import org.blojsom.blog.BlogUser;
 import org.blojsom.blog.BlojsomConfiguration;
 import org.blojsom.plugin.BlojsomPlugin;
 import org.blojsom.plugin.BlojsomPluginException;
+import org.blojsom.util.BlojsomUtils;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.HttpServletRequest;
@@ -24,7 +25,7 @@ import java.util.Map;
  * Escape Tags plug-in
  *
  * @author John Anderson
- * @version $Id: EscapeTagsPlugin.java,v 1.3.2.2 2005/07/21 04:30:23 johnan Exp $
+ * @version $Id: EscapeTagsPlugin.java,v 1.3.2.5 2007/02/05 18:21:14 johnan Exp $
  */
 
 public class EscapeTagsPlugin implements BlojsomPlugin {
@@ -49,6 +50,10 @@ public class EscapeTagsPlugin implements BlojsomPlugin {
 	protected static final String LEFT_CHEVRON_REPLACE = "<";
 	protected static final String RIGHT_CHEVRON_SEARCH = "»";
 	protected static final String RIGHT_CHEVRON_REPLACE = ">";
+	protected static final String JAVASCRIPT_PROTOCOL_SEARCH = "<[^>\\s]+\\s+[^>]+=\\s*\"*\\s*[Jj][Aa][Vv][Aa][Ss][Cc][Rr][Ii][Pp][Tt]:[^\">]+\"*>";
+	protected static final String JAVASCRIPT_PROTOCOL_REPLACE = "<a href=\"#\">";
+	protected static final String ONHANDLER_SEARCH = "<([^\\s/]+)[^>]*[\\s\"]+[Oo][Nn][^>=]+=[^>]+>";
+	protected static final String ONHANDLER_REPLACE = "<$1>";
 	
     /**
      * Default constructor.
@@ -88,8 +93,22 @@ public class EscapeTagsPlugin implements BlojsomPlugin {
 		escapedText = escapedText.replaceAll(LEFT_CHEVRON_SEARCH, LEFT_CHEVRON_REPLACE);
 		escapedText = escapedText.replaceAll(RIGHT_CHEVRON_SEARCH, RIGHT_CHEVRON_REPLACE);
 		
+		// remove any link hrefs with the javascript protocol
+		escapedText = escapedText.replaceAll(JAVASCRIPT_PROTOCOL_SEARCH, JAVASCRIPT_PROTOCOL_REPLACE);
+		
+		// remove any onXXX handlers
+		escapedText = escapedText.replaceAll(ONHANDLER_SEARCH, ONHANDLER_REPLACE);
+		
 		return escapedText;
    }
+   
+	/**
+	 * Return an escaped string where &amp;, &lt;, &gt;, &quot;, and &apos; are converted to their HTML equivalents
+     *
+     */
+	public String escapeString(String input) {
+		return BlojsomUtils.escapeString(input);
+	}
    
     /**
      * Process the blog entries

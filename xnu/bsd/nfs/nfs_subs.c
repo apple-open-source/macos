@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /* Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved */
 /*
@@ -2963,46 +2961,6 @@ nfs_invaldir(vp)
 	np->n_cookieverf.nfsuquad[1] = 0;
 	if (np->n_cookies.lh_first)
 		np->n_cookies.lh_first->ndm_eocookie = 0;
-}
-
-/*
- * The write verifier has changed (probably due to a server reboot), so all
- * NB_NEEDCOMMIT blocks will have to be written again. Since they are on the
- * dirty block list as NB_DELWRI, all this takes is clearing the NB_NEEDCOMMIT
- * flag. Once done the new write verifier can be set for the mount point.
- */
-static int
-nfs_clearcommit_callout(vnode_t vp, __unused void *arg)
-{
-	struct nfsnode *np = VTONFS(vp);
-	struct nfsbuflists blist;
-	struct nfsbuf *bp;
-
-	lck_mtx_lock(nfs_buf_mutex);
-	if (nfs_buf_iterprepare(np, &blist, NBI_DIRTY)) {
-		lck_mtx_unlock(nfs_buf_mutex);
-		return (VNODE_RETURNED);
-	}
-	LIST_FOREACH(bp, &blist, nb_vnbufs) {
-		if (nfs_buf_acquire(bp, NBAC_NOWAIT, 0, 0))
-			continue;
-		if ((bp->nb_flags & (NB_DELWRI | NB_NEEDCOMMIT))
-			== (NB_DELWRI | NB_NEEDCOMMIT)) {
-			bp->nb_flags &= ~NB_NEEDCOMMIT;
-			np->n_needcommitcnt--;
-		}
-		nfs_buf_drop(bp);
-	}
-	CHECK_NEEDCOMMITCNT(np);
-	nfs_buf_itercomplete(np, &blist, NBI_DIRTY);
-	lck_mtx_unlock(nfs_buf_mutex);
-	return (VNODE_RETURNED);
-}
-
-void
-nfs_clearcommit(mount_t mp)
-{
-	vnode_iterate(mp, VNODE_NOLOCK_INTERNAL, nfs_clearcommit_callout, NULL);
 }
 
 #ifndef NFS_NOSERVER

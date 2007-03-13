@@ -59,6 +59,7 @@
 #include <sys/mount.h>
 #include <sys/file.h>
 #include <sys/systm.h>
+#include <libkern/OSMalloc.h>
 #include <string.h>
 #include "ntfs.h"
 #include "ntfs_compr.h"

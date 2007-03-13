@@ -1,0 +1,387 @@
+!************************************************************
+! I-O DATA PCSDAH-ADP (AH-S101S)
+! 08-OCT-2002   
+!
+! Copyright (C) 2002 I-O DATA DEVICE,INC. All rights reserved.
+!
+!  'mlts' resource info for this modem:
+!    byte 1 == 01 -> modem HAS built-in error correction protocols
+!    byte 2 == 01 -> modem HAS built-in data compression protocols
+!    byte 3 == 20 -> max number of chars in varstr 7 (32dec)
+!    byte 4 == 20 -> max number of chars in varstr 8
+!    byte 5 == 20 -> max number of chars in varstr 9
+!	
+!************************************************************
+@ORIGINATE
+@ANSWER
+!
+! ---- Initial modem setup ----
+!
+! Set serial port speed depending upon the compression flag
+!	A higher rate with compression on to handle expanded data from the modem
+!	A lower rate closer to the DCE when compression is off
+! 
+ifstr 5 1 "0"
+serreset 115200, 0, 8, 1
+!serreset 57600, 0, 8, 1
+!serreset 38400, 0, 8, 1
+jump 2
+!
+@LABEL 1
+serreset 115200, 0, 8, 1
+!serreset 57600, 0, 8, 1
+!serreset 38400, 0, 8, 1
+@LABEL 2
+hsreset 0 0 0 0 0 0
+settries 0
+!
+! Get the modem's attention
+!
+matchclr
+matchstr 1 3 "OK\13\10"
+write "AT\13"
+matchread 30
+!
+@LABEL 3
+!
+! Setup the modem for the following:
+!   Reset to factory settings
+!   Standard compression/reliablity
+!   Lock serial port speed
+!   Serial port hardware handshaking, turn off software handshaking
+!   Verbose responces and compresion/protocol results
+!   CONNECT returns DCE speed
+!   Turn off answering
+!   Reset or return to command mode on DTR toggle (optional)
+!
+pause 5
+matchclr
+matchstr 1 4 "OK\13\10"
+matchstr 2 101 "ERROR\13\10"
+write "AT&FE0\13"
+matchread 30
+inctries
+iftries 3 101
+!
+! Reset the Modem on setup failure
+!
+DTRClear
+pause 5
+DTRSet
+flush
+jump 3
+!
+!
+@LABEL 4
+! Varstring 4 , reliable link protocol:
+!    = 0, handled by computer (ARAP)
+!    = 1, handled by modem (PPP)
+!    = 2, MNP10 protocol (Cellular protocol, no longer supported)
+ifstr 4 5 "1"
+ifstr 4 5 "2"
+!
+! Varstring 4 == 0, turn off reliable link protocol in modem (ARAP)
+matchclr
+matchstr 1 9 "OK\13\10"
+write "AT\13"
+matchread 30
+jump 101
+!
+!
+@LABEL 5
+! Varstring 5, compression protocol:
+!    = 0, handled by computer 
+!    = 1, handled by modem
+ifstr 5 9 "0"
+!
+! Varstring 5 == 1, turn on compression protocol in modem.
+matchclr
+matchstr 1 9 "OK\13\10"
+write "AT\13"
+matchread 30
+jump 101
+!
+!
+@LABEL 9
+! Varstring 2, modem speaker:
+!    = 0, speaker off
+!    = 1, speaker on
+ifstr 2 13 "1"
+pause 5
+matchclr
+matchstr 1 13 "OK\13\10"
+write "AT\13"
+matchread 30
+jump 101
+!
+! Modem ready, wait for a call or originate a call
+!
+@LABEL 13
+ifANSWER 32
+!
+!
+! ---- Originating a call ----
+!
+! Varstring 6, dialing mode:
+!    = 0, normal dialing
+!    = 1, blind dialing
+!    = 2, manual dialing
+ifstr 6 17 "1"
+ifstr 6 15 "2"
+jump 19
+!
+@LABEL 15
+note "Manual dialing initiated" 3
+! Display ASK dialog with message.  Goto label 107 if dialog canceled.
+ASK 0 "Pick up the phone & dial ^1.  Hit OK when the phone rings, then hangup." 107
+! X1 to ignore dialtone & busy, D to dial, \^ generates data tone
+write "ATD\13"
+jump 32
+!
+@LABEL 17
+note "Dialing without tone" 3
+matchclr
+matchstr 1 19 "OK\13\10"
+! X1 to ignore dialtone & busy
+write "AT\13"
+matchread 30
+jump 101
+!
+!
+@LABEL 19
+! Display the full dialstring contained in Varstring 1
+note "Dialing ^1" 3
+!
+! Varstrings 7, 8 and 9, contain dialstring fragments
+!    Long phone numbers may need to be split into smaller groups
+!    for the modem to use
+!
+! Varstring 3:  "p" for pulse & "t" for tone dialing
+! Varstring 8 == blank (dialstring in varstring 7)
+! Varstring 9 == blank (dialstring in varstrings 7 & 8)
+! Otherwise (dialstring in varstrings 7, 8 & 9)
+! \^ is added to the dialstring to force the modem to generate a data tone
+ifstr 8 27 " "
+ifstr 9 24 " "
+!
+!  Write dialstring in varstrings 7, 8 & 9
+write "ATD^3^7^8^9\13"
+jump 32
+!
+!
+@LABEL 24
+!  Write dialstring in varstrings 7 & 8
+write "ATD^3^7^8\13"
+jump 32
+!
+@LABEL 27
+!  Write dialstring in varstring 7
+write "ATD^3^7\13"
+!
+!
+!    ---- Connection responce ----
+!
+! The following section will parse modem responces of two types:
+!   1) PROTOCOL: xxx, COMPRESSION: xxx, CONNECT xxx
+!   2) CONNECT xxx/ARQ/V42
+!
+@LABEL 32
+matchclr
+!matchstr  1 59  "CONNECT\13\10"
+matchstr  1 59  "CONNECT\13"
+matchstr  2 81  "RING\13\10"
+matchstr  3 103 "NO CARRIER"
+matchstr  4 103 "ERROR\13\10"
+matchstr  5 102 "NO DIALTONE\13\10"
+matchstr  6 104 "BUSY\13\10"
+matchstr  7 105 "NO ANSWER\13\10"
+matchstr  8 33  "CONNECT "
+matchstr  9 32  "CARRIER"
+matchread 700
+ifANSWER 32
+jump 101
+!
+!  Parse the speed of connect result codes
+!  2400 and 4800 have two entries each
+!  to distinguish them from 24000 and 48000
+!
+@LABEL 33
+matchclr
+matchstr  1 50 "32000"
+matchstr  2 51 "64000"
+matchread 30
+jump 59
+!
+! -- Connection rates --
+! CommunicatingAt informs ARA of the raw modem to modem
+! connection speed.
+!
+@LABEL 50
+note "Communicating at 32000 bps." 2
+CommunicatingAt 32000
+jump 60
+!
+@LABEL 51
+note "Communicating at 64000 bps." 2
+CommunicatingAt 64000
+jump 60
+!
+@LABEL 59
+note "Communicating at an unknown rate." 2
+jump 60
+!
+! Look for reliablilty and compression results 
+! at the end of the connect result.
+!
+@LABEL 60
+matchclr
+matchstr  1 70 "\13\10"
+matchstr  2 70 "\10"
+matchstr  3 63 " / 32kPIAFS"
+matchstr  4 63 " / 64kPIAFS BE"
+matchstr  5 63 " / 64kPIAFS GR"
+matchstr  6 63 " / 32kPACKET"
+matchread 30
+jump 70
+
+! -- Modem error correction link negotiation --
+! Userhook 2 informs ARA that a modem-to-modem error
+! correcting protocol has been negotiated
+!
+!
+@LABEL 62
+note "Modem Reliable Link Established." 2
+userhook 2
+jump 32
+!
+@LABEL 63
+note "Modem Reliable Link Established." 2
+userhook 2
+jump 60
+!
+! -- Compression negotiation --
+! Userhook 3 informs ARA that a modem-to-modem compression
+! protocol has been negotiated
+!
+@LABEL 67
+note "Modem Compression Established." 2
+userhook 3
+jump 32
+!
+@LABEL 68
+note "Modem Compression Established." 2
+userhook 3
+jump 60
+!
+!
+! -- Normal exit after "CONNECT" --
+!
+!  This modem has been setup to do CTS handshaking,
+!  and we assume that a CTS handshaking cable is being used.
+!
+@LABEL 70
+! Turn on CTS handshaking.
+HSReset 0 1 0 0 0 0
+!
+ifANSWER 71
+pause 30
+@LABEL 71
+exit 0
+!
+!
+! ---- Answer calls ----
+!
+!	A RING result from the modem and in ANSWERING mode
+!	claims the serial port and answering the phone
+!
+@LABEL 81
+ifORIGINATE 32
+userhook 1
+note "Answering phone..." 2
+write "ATA\13"
+jump 32
+!
+!
+! ---- Hang up and reset modem ----
+!
+@HANGUP
+@LABEL 90
+settries 0
+HSReset 0 0 0 0 0 0
+!
+@LABEL 92
+!  Escape from data to command mode
+matchclr
+matchstr 1 96 "OK\13\10"
+write "+++"
+matchread 20
+!
+@LABEL 94
+! Force a hangup
+matchclr
+matchstr 1 98 "NO CARRIER\13\10"
+matchstr 2 98 "OK\13\10"
+matchstr 3 98 "ERROR\13\10"
+matchstr 4 98 "0\13\10"
+write "ATH\13"
+matchread 30
+! 
+! Try to get control of the modem by toggling DTR
+DTRClear
+pause 5
+DTRSet
+flush
+!
+! Try the hangup sequence three times otherwise declare and error
+inctries
+iftries 3 101
+jump 92
+!
+@LABEL 96
+! Pause between data and command mode
+pause 50
+jump 94
+!
+!
+@LABEL 98
+! Recall the factory settings
+pause 15
+matchclr
+matchstr 1 99 "OK\13\10"
+write "AT&F\13"
+matchread 30
+jump 101
+!
+@LABEL 99
+exit 0
+!
+! ---- Error messages -----
+!
+! Modem Not Responding
+@LABEL 101
+exit -6019
+!
+! No Dial Tone
+@LABEL 102
+exit -6020
+!
+! No Carrier or Error
+@LABEL 103
+exit -6021
+!
+! Busy
+@LABEL 104
+exit -6022
+!
+! No Answer
+@LABEL 105
+exit -6023
+!
+! User Cancellation
+@LABEL 107
+exit -6002 "User cancelled the connection attempt."
+!
+! DELAYED
+@LABEL 108
+exit -6022
+!

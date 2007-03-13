@@ -1,22 +1,22 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #if !defined(LINT) && !defined(CODECENTER)
-static const char rcsid[] = "$Id: logging.c,v 1.1.1.1 2003/01/10 00:48:15 bbraun Exp $";
+static const char rcsid[] = "$Id: logging.c,v 1.3.2.1.4.2 2004/03/17 01:49:42 marka Exp $";
 #endif /* not lint */
 
 #include "port_before.h"
@@ -75,7 +75,7 @@ version_rename(log_channel chan) {
 	/*
 	 * Need to have room for '.nn' (XXX assumes LOG_MAX_VERSIONS < 100)
 	 */
-	if (strlen(chan->out.file.name) > (PATH_MAX-3))
+	if (strlen(chan->out.file.name) > (size_t)(PATH_MAX-3))
 		return;
 	for (ver--; ver > 0; ver--) {
 		sprintf(old_name, "%s.%d", chan->out.file.name, ver-1);
@@ -282,6 +282,10 @@ log_vwrite(log_context lc, int category, int level, const char *format,
 	log_channel chan;
 	struct timeval tv;
 	struct tm *local_tm;
+#ifdef HAVE_TIME_R
+	struct tm tm_tmp;
+#endif
+	time_t tt;
 	const char *category_name;
 	const char *level_str;
 	char time_buf[256];
@@ -313,10 +317,11 @@ log_vwrite(log_context lc, int category, int level, const char *format,
 	if (gettimeofday(&tv, NULL) < 0) {
 		syslog(LOG_INFO, "gettimeofday failed in log_vwrite()");
 	} else {
+		tt = tv.tv_sec;
 #ifdef HAVE_TIME_R
-		localtime_r((time_t *)&tv.tv_sec, &local_tm);
+		local_tm = localtime_r(&tt, &tm_tmp);
 #else
-		local_tm = localtime((time_t *)&tv.tv_sec);
+		local_tm = localtime(&tt);
 #endif
 		if (local_tm != NULL) {
 			sprintf(time_buf, "%02d-%s-%4d %02d:%02d:%02d.%03ld ",
@@ -359,7 +364,7 @@ log_vwrite(log_context lc, int category, int level, const char *format,
 
 		if (!did_vsprintf) {
 			if (VSPRINTF((lc->buffer, format, args)) >
-			    LOG_BUFFER_SIZE) {
+			    (size_t)LOG_BUFFER_SIZE) {
 				syslog(LOG_CRIT,
 				       "memory overrun in log_vwrite()");
 				exit(1);

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: curlstreams.c,v 1.2.2.3 2004/08/31 20:12:56 pollita Exp $ */
+/* $Id: curlstreams.c,v 1.2.2.3.2.2 2006/08/10 17:27:11 iliaa Exp $ */
 
 /* This file implements cURL based wrappers.
  * NOTE: If you are implementing your own streams that are intended to
@@ -297,7 +297,11 @@ PHPAPI php_stream *php_curl_stream_opener(php_stream_wrapper *wrapper, char *fil
 	curl_easy_setopt(curlstream->curl, CURLOPT_WRITEHEADER, stream);
 
 	/* currently buggy (bug is in curl) */
-	curl_easy_setopt(curlstream->curl, CURLOPT_FOLLOWLOCATION, 1);
+	if ((PG(open_basedir) && *PG(open_basedir)) || PG(safe_mode)) {
+		curl_easy_setopt(curlstream->curl, CURLOPT_FOLLOWLOCATION, 0);
+	} else {
+		curl_easy_setopt(curlstream->curl, CURLOPT_FOLLOWLOCATION, 1);
+	}
 	
 	curl_easy_setopt(curlstream->curl, CURLOPT_ERRORBUFFER, curlstream->errstr);
 	curl_easy_setopt(curlstream->curl, CURLOPT_VERBOSE, 0);

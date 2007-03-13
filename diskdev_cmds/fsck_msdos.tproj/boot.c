@@ -117,6 +117,33 @@ readboot(dosfs, boot)
 	boot->HugeSectors = block[32] + (block[33] << 8) + (block[34] << 16) + (block[35] << 24);
 
 	boot->FATsecs = boot->FATsmall;
+        boot->ClusterSize = boot->BytesPerSec * boot->SecPerClust;
+ 
+	/*
+	 * Make sure the sector size is a power of two, and in the range
+	 * 512..MAX_SECTOR_SIZE.
+	 */
+	if (boot->BytesPerSec < DOSBOOTBLOCKSIZE || boot->BytesPerSec > MAX_SECTOR_SIZE ||
+	    (boot->BytesPerSec & (boot->BytesPerSec - 1)) != 0)
+	{
+		pfatal("Invalid sector size: %u\n", boot->BytesPerSec);
+		return FSFATAL;
+	}
+ 
+	/*
+	 * Make sure the sectors per cluster is reasonable.  It must be a
+	 * non-zero power of two.
+	 *
+	 * The FAT specification warns that the bytes per cluster shouldn't be
+	 * allowed to be greater than 32KB (with 64KB supported on some systems),
+	 * but we don't actually enforce that here.
+	 */
+	if (boot->SecPerClust == 0 ||
+	    (boot->SecPerClust & (boot->SecPerClust - 1)) != 0)
+	{
+		pfatal("Invalid sectors per cluster: %u\n", boot->SecPerClust);
+		return FSFATAL;
+	}
 
 	if (!boot->RootDirEnts)
 		boot->flags |= FAT32;
@@ -211,8 +238,14 @@ readboot(dosfs, boot)
 	boot->NumClusters = (boot->NumSectors - boot->ClusterOffset) / boot->SecPerClust;
 
         /* Since NumClusters is off by two, use constants that are off by two also. */
-	if (boot->flags&FAT32)
+	if (boot->flags&FAT32) {
 		boot->ClustMask = CLUST32_MASK;
+		if (boot->NumClusters >= (CLUST_RSRVD & CLUST32_MASK)) {
+			pfatal("Filesystem too big (%u clusters) for FAT32\n",
+				boot->NumClusters-2);
+			return FSFATAL;
+		}
+	}
 	else if (boot->NumClusters < (4085+2))
 		boot->ClustMask = CLUST12_MASK;
 	else if (boot->NumClusters < (65526+2))		/* Windows allows 65525 clusters, so we should, too */

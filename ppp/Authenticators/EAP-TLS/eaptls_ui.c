@@ -175,7 +175,7 @@ eaptls_ui_dialog(CFDictionaryRef trust_info, CFStringRef caller_label)
 
 		setuid(uid);
 		eaptls_ui_setup_child(fdp);
-        err = execl(EAPTLSTRUST_PATH, EAPTLSTRUST_PATH, (char *)0);
+        err = execle(EAPTLSTRUST_PATH, EAPTLSTRUST_PATH, (char *)0, (char *)0);
         exit(errno);
 	}
 

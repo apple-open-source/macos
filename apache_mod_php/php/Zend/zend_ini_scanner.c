@@ -473,7 +473,7 @@ char *yytext;
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -483,7 +483,7 @@ char *yytext;
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend_ini_scanner.l,v 1.26.2.10 2005/02/06 23:50:47 zeev Exp $ */
+/* $Id: zend_ini_scanner.l,v 1.26.2.10.2.1 2006/01/01 13:46:49 sniper Exp $ */
 
 #define yyleng SCNG(yy_leng)
 #define yytext SCNG(yy_text)

@@ -1,22 +1,22 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996,1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef lint
-static const char rcsid[] = "$Id: ns_name.c,v 1.1.1.2 2003/03/18 19:18:32 rbraun Exp $";
+static const char rcsid[] = "$Id: ns_name.c,v 1.3.2.4.4.2 2004/05/04 03:27:47 marka Exp $";
 #endif
 
 #include "port_before.h"
@@ -75,9 +75,11 @@ static int		dn_find(const u_char *, const u_char *,
 				const u_char * const *,
 				const u_char * const *);
 static int		encode_bitsring(const char **, const char *,
-					char **, char **, const char *);
+					unsigned char **, unsigned char **,
+					unsigned const char *);
 static int		labellen(const u_char *);
-static int		decode_bitstring(const char **, char *, const char *);
+static int		decode_bitstring(const unsigned char **,
+					 char *, const char *);
 
 /* Public. */
 
@@ -132,7 +134,7 @@ ns_name_ntop(const u_char *src, char *dst, size_t dstsiz)
 				errno = EINVAL;
 				return(-1);
 			}
-			if ((m = decode_bitstring((const char **)&cp, dn, eom)) < 0)
+			if ((m = decode_bitstring(&cp, dn, eom)) < 0)
 			{
 				errno = EMSGSIZE;
 				return(-1);
@@ -212,11 +214,8 @@ ns_name_pton(const char *src, u_char *dst, size_t dstsiz)
 					errno = EINVAL; /* ??? */
 					return(-1);
 				}
-				if ((e = encode_bitsring(&src,
-							 cp + 2,
-							 (char **)&label,
-							 (char **)&bp,
-							 (const char *)eom))
+				if ((e = encode_bitsring(&src, cp + 2,
+							 &label, &bp, eom))
 				    != 0) {
 					errno = e;
 					return(-1);
@@ -341,6 +340,10 @@ ns_name_ntol(const u_char *src, u_char *dst, size_t dstsiz)
 	dn = dst;
 	eom = dst + dstsiz;
 
+	if (dn >= eom) {
+		errno = EMSGSIZE;
+		return (-1);
+	}
 	while ((n = *cp++) != 0) {
 		if ((n & NS_CMPRSFLGS) == NS_CMPRSFLGS) {
 			/* Some kind of compression pointer. */
@@ -784,11 +787,11 @@ dn_find(const u_char *domain, const u_char *msg,
 }
 
 static int
-decode_bitstring(const char **cpp, char *dn, const char *eom)
+decode_bitstring(const unsigned char **cpp, char *dn, const char *eom)
 {
-	const char *cp = *cpp;
+	const unsigned char *cp = *cpp;
 	char *beg = dn, tc;
-	int b, blen, plen;
+	int b, blen, plen, i;
 
 	if ((blen = (*cp & 0xff)) == 0)
 		blen = 256;
@@ -798,30 +801,47 @@ decode_bitstring(const char **cpp, char *dn, const char *eom)
 		return(-1);
 
 	cp++;
-	dn += SPRINTF((dn, "\\[x"));
-	for (b = blen; b > 7; b -= 8, cp++)
-		dn += SPRINTF((dn, "%02x", *cp & 0xff));
+	i = SPRINTF((dn, "\\[x"));
+	if (i < 0)
+		return (-1);
+	dn += i;
+	for (b = blen; b > 7; b -= 8, cp++) {
+		i = SPRINTF((dn, "%02x", *cp & 0xff));
+		if (i < 0)
+			return (-1);
+		dn += i;
+	}
 	if (b > 4) {
 		tc = *cp++;
-		dn += SPRINTF((dn, "%02x", tc & (0xff << (8 - b))));
+		i = SPRINTF((dn, "%02x", tc & (0xff << (8 - b))));
+		if (i < 0)
+			return (-1);
+		dn += i;
 	} else if (b > 0) {
 		tc = *cp++;
-		dn += SPRINTF((dn, "%1x",
+		i = SPRINTF((dn, "%1x",
 			       ((tc >> 4) & 0x0f) & (0x0f << (4 - b)))); 
+		if (i < 0)
+			return (-1);
+		dn += i;
 	}
-	dn += SPRINTF((dn, "/%d]", blen));
+	i = SPRINTF((dn, "/%d]", blen));
+	if (i < 0)
+		return (-1);
+	dn += i;
 
 	*cpp = cp;
 	return(dn - beg);
 }
 
 static int
-encode_bitsring(const char **bp, const char *end, char **labelp,
-	        char ** dst, const char *eom)
+encode_bitsring(const char **bp, const char *end, unsigned char **labelp,
+	        unsigned char ** dst, unsigned const char *eom)
 {
 	int afterslash = 0;
 	const char *cp = *bp;
-	char *tp, c;
+	unsigned char *tp;
+	char c;
 	const char *beg_blen;
 	char *end_blen = NULL;
 	int value = 0, count = 0, tbcount = 0, blen = 0;

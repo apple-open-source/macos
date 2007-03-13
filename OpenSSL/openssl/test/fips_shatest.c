@@ -1,1 +1,1 @@
-../fips/sha/fips_shatest.c
+../fips-1.0/sha/fips_shatest.c

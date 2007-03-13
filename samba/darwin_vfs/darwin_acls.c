@@ -59,6 +59,69 @@ BOOL acl_support_enabled(char *path)
 	return False;				
 }
 
+
+/****************************************************************************
+ Tools for dealing with SEC_ACE arrays.
+****************************************************************************/
+
+/* Number of entries to grow the list be each time. */
+#define ACE_LIST_CHUNK 40
+
+struct sec_ace_list {
+	SEC_ACE *   	ace_list;
+	unsigned    	ace_length;
+	unsigned    	ace_count;
+};
+
+static void ace_list_free(struct sec_ace_list * acelist)
+{
+
+	if (acelist->ace_list) {
+		SAFE_FREE(acelist->ace_list);
+	}
+
+	ZERO_STRUCTP(acelist);
+}
+
+static BOOL ace_list_grow(struct sec_ace_list *acelist)
+{
+	SEC_ACE * newlist;
+
+	newlist = SMB_REALLOC_ARRAY(acelist->ace_list,
+			SEC_ACE, acelist->ace_length + ACE_LIST_CHUNK);
+	if (newlist == NULL) {
+		ace_list_free(acelist);
+		return False;
+	}
+
+	acelist->ace_list = newlist;
+	acelist->ace_length += ACE_LIST_CHUNK;
+	return True;
+}
+
+static BOOL ace_list_new(struct sec_ace_list * acelist)
+{
+	ZERO_STRUCTP(acelist);
+	return ace_list_grow(acelist);
+}
+
+static BOOL ace_list_append_ace(struct sec_ace_list * acelist,
+		const DOM_SID *sid, uint8 type, SEC_ACCESS mask, uint8 flag)
+{
+
+	/* Make room for a new SEC_ACE if necessary. */
+	if (acelist->ace_count == acelist->ace_length) {
+		if (!ace_list_grow(acelist)) {
+			return False;
+		}
+	}
+
+	init_sec_ace(&acelist->ace_list[acelist->ace_count],
+			sid, type, mask, flag);
+	acelist->ace_count++;
+	return True;
+}
+
 /****************************************************************************
  Unpack a SEC_DESC into a UNIX owner and group.
 ****************************************************************************/
@@ -340,7 +403,7 @@ static int unix_perms_to_acl_perms(mode_t mode, int r_mask, int w_mask, int x_ma
 	return ret;
 }
 
-int map_darwinacl_to_ntacl(filesec_t fsect, SEC_ACE *nt_ace_list, BOOL acl_support)
+int map_darwinacl_to_ntacl(filesec_t fsect, struct sec_ace_list *acelist, BOOL acl_support)
 {
 	acl_t darwin_acl = NULL;
 	acl_entry_t  entry = NULL;
@@ -356,16 +419,15 @@ int map_darwinacl_to_ntacl(filesec_t fsect, SEC_ACE *nt_ace_list, BOOL acl_suppo
 	gid_t gid = 99;
 	mode_t mode = 0;
 	int acl_perms = 0;
-	SEC_ACCESS acc = {};
-	
-	int num_aces = 0;
+	SEC_ACCESS acc = {0};
+	BOOL ret;
 	
 	if (acl_support) {
 		if (filesec_get_property(fsect, FILESEC_ACL, &darwin_acl) == -1) {
 			DEBUG(3,("map_darwinacl_to_ntacl: filesec_get_property - FILESEC_ACL: errno(%d) - (%s)\n",errno, strerror(errno)));
 		}
 				
-		for (num_aces = 0; (darwin_acl != NULL) && (acl_get_entry(darwin_acl, entry == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &entry) == 0); num_aces++)
+		while ((darwin_acl != NULL) && (acl_get_entry(darwin_acl, entry == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &entry) == 0))
 		{
 			if ((qualifier = acl_get_qualifier(entry)) == NULL)
 				continue;
@@ -388,7 +450,12 @@ int map_darwinacl_to_ntacl(filesec_t fsect, SEC_ACE *nt_ace_list, BOOL acl_suppo
 	
 			DEBUG(4,("map_darwinacl_to_ntacl: acc.mask(%X) tag_type(%x), flags(%X)\n", acc.mask, tag_type, flags ));
 			
-			init_sec_ace(&nt_ace_list[num_aces], &sid, map_darwinace_to_ntace(tag_type), acc, map_darwinaclflags_to_ntaclflags(flags));
+			ret = ace_list_append_ace(acelist, &sid,
+				map_darwinace_to_ntace(tag_type), acc,
+				map_darwinaclflags_to_ntaclflags(flags));
+			if (!ret) {
+				return 0;
+			}
 	
 		} 
 	}
@@ -417,25 +484,34 @@ int map_darwinacl_to_ntacl(filesec_t fsect, SEC_ACE *nt_ace_list, BOOL acl_suppo
 	acl_perms = unix_perms_to_acl_perms(mode, S_IRUSR, S_IWUSR, S_IXUSR);
 	if (acl_perms) {
 		init_sec_access(&acc, acl_perms);
-		init_sec_ace(&nt_ace_list[num_aces++], &owner_sid, SEC_ACE_TYPE_ACCESS_ALLOWED, acc, acl_support ? SEC_ACE_FLAG_INHERITED_ACE | SEC_ACE_FLAG_NO_PROPAGATE_INHERIT: 0);
+		ret = ace_list_append_ace(acelist, &owner_sid, SEC_ACE_TYPE_ACCESS_ALLOWED, acc, acl_support ? SEC_ACE_FLAG_INHERITED_ACE | SEC_ACE_FLAG_NO_PROPAGATE_INHERIT: 0);
+		if (!ret) {
+			return 0;
+		}
 	}
 	// group
 	acl_perms = unix_perms_to_acl_perms(mode, S_IRGRP, S_IWGRP, S_IXGRP);
 	if (acl_perms) {
 		init_sec_access(&acc, acl_perms);
-		init_sec_ace(&nt_ace_list[num_aces++], &group_sid, SEC_ACE_TYPE_ACCESS_ALLOWED, acc, acl_support ? SEC_ACE_FLAG_INHERITED_ACE | SEC_ACE_FLAG_NO_PROPAGATE_INHERIT: 0);
+		ret = ace_list_append_ace(acelist, &group_sid, SEC_ACE_TYPE_ACCESS_ALLOWED, acc, acl_support ? SEC_ACE_FLAG_INHERITED_ACE | SEC_ACE_FLAG_NO_PROPAGATE_INHERIT: 0);
+		if (!ret) {
+			return 0;
+		}
 	}
 	// everyone
 	acl_perms = unix_perms_to_acl_perms(mode, S_IROTH, S_IWOTH, S_IXOTH);
 	if (acl_perms) {
 		init_sec_access(&acc, acl_perms);
-		init_sec_ace(&nt_ace_list[num_aces++], &global_sid_World, SEC_ACE_TYPE_ACCESS_ALLOWED, acc, acl_support ? SEC_ACE_FLAG_INHERITED_ACE : 0);
+		ret = ace_list_append_ace(acelist, &global_sid_World, SEC_ACE_TYPE_ACCESS_ALLOWED, acc, acl_support ? SEC_ACE_FLAG_INHERITED_ACE : 0);
+		if (!ret) {
+			return 0;
+		}
 	}
 
 
-	DEBUG(4,("map_darwinacl_to_ntacl: num_aces(%d)\n", num_aces ));
+	DEBUG(4,("map_darwinacl_to_ntacl: num_aces(%d)\n", acelist->ace_count ));
 	
-	return num_aces;
+	return acelist->ace_count;
 }
 
 static size_t darwin_get_nt_acl_internals(vfs_handle_struct *handle, files_struct *fsp, uint32 security_info, SEC_DESC **ppdesc)
@@ -443,7 +519,6 @@ static size_t darwin_get_nt_acl_internals(vfs_handle_struct *handle, files_struc
 	SMB_STRUCT_STAT sbuf;
 	DOM_SID owner_sid;
 	DOM_SID group_sid;
-	SEC_ACE nt_ace_list[40] = {};
 	int num_nt_aces = 0;
 	SEC_ACL *psa = NULL;
 	SEC_DESC *psd = NULL;
@@ -465,18 +540,25 @@ static size_t darwin_get_nt_acl_internals(vfs_handle_struct *handle, files_struc
 	gid_to_sid( &group_sid, sbuf.st_gid );
 
 	if ((security_info & DACL_SECURITY_INFORMATION) && !(security_info & PROTECTED_DACL_SECURITY_INFORMATION)) {
-		memset(nt_ace_list, '\0', (40) * sizeof(SEC_ACE) );
-		num_nt_aces =  map_darwinacl_to_ntacl(fsect, nt_ace_list, acl_support );
+		struct sec_ace_list acelist;
 
-		if (num_nt_aces) {
-			if((psa = make_sec_acl( main_loop_talloc_get(), ACL_REVISION, num_nt_aces, nt_ace_list)) == NULL) {
-				DEBUG(0,("darwin_get_nt_acl_internals: Unable to malloc space for acl.\n"));
-				goto cleanup;
-			}
-		} else {
-			DEBUG(4,("darwin_get_nt_acl_internals : No ACLs on file (%s) !\n", fsp->fsp_name ));
+		if (!ace_list_new(&acelist)) {
 			goto cleanup;
 		}
+
+		num_nt_aces = map_darwinacl_to_ntacl(fsect, &acelist, acl_support );
+
+		if (num_nt_aces) {
+			if((psa = make_sec_acl( main_loop_talloc_get(),
+					ACL_REVISION, num_nt_aces,
+					acelist.ace_list)) == NULL) {
+				DEBUG(0,("darwin_get_nt_acl_internals: Unable to malloc space for acl.\n"));
+				ace_list_free(&acelist);
+				goto cleanup;
+			}
+		}
+
+		ace_list_free(&acelist);
 	} /* security_info & DACL_SECURITY_INFORMATION */
 
 	psd = make_standard_sec_desc( main_loop_talloc_get(),

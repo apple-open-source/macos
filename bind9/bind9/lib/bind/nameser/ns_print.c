@@ -1,22 +1,22 @@
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 #ifndef lint
-static const char rcsid[] = "$Id: ns_print.c,v 1.1.1.1 2003/01/10 00:48:16 bbraun Exp $";
+static const char rcsid[] = "$Id: ns_print.c,v 1.3.2.1.4.7 2004/09/16 07:01:12 marka Exp $";
 #endif
 
 /* Import. */
@@ -31,6 +31,7 @@ static const char rcsid[] = "$Id: ns_print.c,v 1.1.1.1 2003/01/10 00:48:16 bbrau
 #include <arpa/inet.h>
 
 #include <isc/assertions.h>
+#include <isc/dst.h>
 #include <errno.h>
 #include <resolv.h>
 #include <string.h>
@@ -57,10 +58,6 @@ static int	addstr(const char *src, size_t len,
 		       char **buf, size_t *buflen);
 static int	addtab(size_t len, size_t target, int spaced,
 		       char **buf, size_t *buflen);
-
-/* Proto. */
-
-u_int16_t       dst_s_dns_key_id(const u_char *, const int);
 
 /* Macros. */
 
@@ -148,8 +145,6 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	addlen(x, &buf, &buflen);
 	len = SPRINTF((tmp, " %s %s", p_class(class), p_type(type)));
 	T(addstr(tmp, len, &buf, &buflen));
-	if (rdlen == 0)
-		return (buf - obuf);
 	T(spaced = addtab(x + len, 16, spaced, &buf, &buflen));
 
 	/*
@@ -157,7 +152,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	 */
 	switch (type) {
 	case ns_t_a:
-		if (rdlen != NS_INADDRSZ)
+		if (rdlen != (size_t)NS_INADDRSZ)
 			goto formerr;
 		(void) inet_ntop(AF_INET, rdata, buf, buflen);
 		addlen(strlen(buf), &buf, &buflen);
@@ -261,7 +256,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	case ns_t_rt: {
 		u_int t;
 
-		if (rdlen < NS_INT16SZ)
+		if (rdlen < (size_t)NS_INT16SZ)
 			goto formerr;
 
 		/* Priority. */
@@ -279,7 +274,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	case ns_t_px: {
 		u_int t;
 
-		if (rdlen < NS_INT16SZ)
+		if (rdlen < (size_t)NS_INT16SZ)
 			goto formerr;
 
 		/* Priority. */
@@ -325,7 +320,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	    }
 
 	case ns_t_aaaa:
-		if (rdlen != NS_IN6ADDRSZ)
+		if (rdlen != (size_t)NS_IN6ADDRSZ)
 			goto formerr;
 		(void) inet_ntop(AF_INET6, rdata, buf, buflen);
 		addlen(strlen(buf), &buf, &buflen);
@@ -344,7 +339,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 		u_int order, preference;
 		char t[50];
 
-		if (rdlen < 2*NS_INT16SZ)
+		if (rdlen < 2U*NS_INT16SZ)
 			goto formerr;
 
 		/* Order, Precedence. */
@@ -385,7 +380,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 		u_int priority, weight, port;
 		char t[50];
 
-		if (rdlen < NS_INT16SZ*3)
+		if (rdlen < 3U*NS_INT16SZ)
 			goto formerr;
 
 		/* Priority, Weight, Port. */
@@ -414,7 +409,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	case ns_t_wks: {
 		int n, lcnt;
 
-		if (rdlen < NS_INT32SZ + 1)
+		if (rdlen < 1U + NS_INT32SZ)
 			goto formerr;
 
 		/* Address. */
@@ -458,7 +453,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 		const char *leader;
 		int n;
 
-		if (rdlen < NS_INT16SZ + NS_INT8SZ + NS_INT8SZ)
+		if (rdlen < 0U + NS_INT16SZ + NS_INT8SZ + NS_INT8SZ)
 			goto formerr;
 
 		/* Key flags, Protocol, Algorithm. */
@@ -501,7 +496,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 		u_long t;
 		int n;
 
-		if (rdlen < 22)
+		if (rdlen < 22U)
 			goto formerr;
 
 		/* Type covered, Algorithm, Label count, Original TTL. */
@@ -640,9 +635,10 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 		len = SPRINTF((tmp, "%u %u %u ", mode, err, keysize));
 		T(addstr(tmp, len, &buf, &buflen));
 
-        /* needs to dump key, print otherdata length & other data */
+		/* XXX need to dump key, print otherdata length & other data */
 		break;
 	    }
+
 	case ns_t_tsig: {
 		/* BEW - need to complete this */
 		int n;
@@ -664,7 +660,7 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 		int pbyte, pbit;
 
 		/* prefix length */
-		if (rdlen == 0) goto formerr;
+		if (rdlen == 0U) goto formerr;
 		len = SPRINTF((tmp, "%d ", *rdata));
 		T(addstr(tmp, len, &buf, &buflen));
 		pbit = *rdata;
@@ -690,13 +686,13 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 		T(addname(msg, msglen, &rdata, origin, &buf, &buflen));
 		
 		break;
-	}
+	    }
 
 	case ns_t_opt: {
 		len = SPRINTF((tmp, "%u bytes", class));
 		T(addstr(tmp, len, &buf, &buflen));
 		break;
-	}
+	    }
 
 	default:
 		comment = "unknown RR type";
@@ -709,7 +705,8 @@ ns_sprintrrf(const u_char *msg, size_t msglen,
 	int n, m;
 	char *p;
 
-	len = SPRINTF((tmp, "\\# %u (\t; %s", edata - rdata, comment));
+	len = SPRINTF((tmp, "\\# %u%s\t; %s", (unsigned)(edata - rdata),
+		       rdlen != 0U ? " (" : "", comment));
 	T(addstr(tmp, len, &buf, &buflen));
 	while (rdata < edata) {
 		p = tmp;
@@ -831,7 +828,7 @@ addname(const u_char *msg, size_t msglen,
 	newlen = prune_origin(*buf, origin);
 	if (**buf == '\0') {
 		goto root;
-	} else if (newlen == 0) {
+	} else if (newlen == 0U) {
 		/* Use "@" instead of name. */
 		if (newlen + 2 > *buflen)
 			goto enospc;        /* No room for "@\0". */

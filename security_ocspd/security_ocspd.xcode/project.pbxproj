@@ -83,6 +83,7 @@
 				05BCD7E4069F322C00A79292,
 				05E6693A070B38730079A61A,
 				05DB0AA6070B560000D9000A,
+				05F7EA1E0AC9E9F900883836,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -96,8 +97,8 @@
 			buildRules = (
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 25421;
-				DYLIB_CURRENT_VERSION = 25421;
+				CURRENT_PROJECT_VERSION = 29770;
+				DYLIB_CURRENT_VERSION = 29770;
 				FRAMEWORK_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)\" /usr/local/SecurityPieces/Frameworks/ /usr/local/SecurityPieces/Frameworks";
 				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
 				INSTALL_PATH = /usr/sbin;
@@ -260,6 +261,7 @@
 		};
 		056FCEE7069B566900F710C4 = {
 			children = (
+				05F7EA1D0AC9E9F900883836,
 				05E66939070B38730079A61A,
 				05BCD7E3069F322C00A79292,
 				056980F3069B76AE00E1A3BB,
@@ -466,6 +468,20 @@
 		};
 		05E669A9070B4C6A0079A61A = {
 			fileRef = 05E669A7070B4C6A0079A61A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05F7EA1D0AC9E9F900883836 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		05F7EA1E0AC9E9F900883836 = {
+			fileRef = 05F7EA1D0AC9E9F900883836;
 			isa = PBXBuildFile;
 			settings = {
 			};

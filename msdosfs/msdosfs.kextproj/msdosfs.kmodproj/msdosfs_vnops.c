@@ -149,53 +149,6 @@ static int msdosfs_advlock(struct vnop_advlock_args *ap);
 
 
 /*
-		Symbolic Links for FAT
-
-FAT does not have native support for symbolic links (symlinks).  We
-implement them using ordinary files with a particular format.  Our
-symlink file format is modeled after the SMB for Mac OS X implementation.
-
-Symlink files are ordinary text files that look like:
-
-XSym
-1234
-00112233445566778899AABBCCDDEEFF
-/the/sym/link/path
-
-The lines of the file are separated by ASCII newline (0x0A).  The first
-line is a "magic" value to help identify the file.  The second line is
-the length of the symlink itself; it is four decimal digits, with leading
-zeroes.  The third line is the MD5 checksum of the symlink as 16
-hexadecimal bytes.  The fourth line is the symlink, up to 1024 bytes long.
-If the symlink is less than 1024 bytes, then it is padded with a single
-newline character and as many spaces as needed to occupy 1024 bytes.
-
-The file size is exactly 1067 (= 4 + 1 + 4 + 1 + 32 + 1 + 1024) bytes.
-When we encounter an ordinary file whose length is 1067, we must read
-it to verify that the header (including length and MD5 checksum) is
-correct.
-
-Since the file size is constant, we use the de_FileSize field in the
-denode to store the actual length of the symlink.  That way, we only
-check and parse the header once at vnode creation time.
-
-*/
-
-static const char symlink_magic[5] = "XSym\n";
-
-#define SYMLINK_LINK_MAX 1024
-
-struct symlink {
-	char magic[5];		/* == symlink_magic */
-	char length[4];		/* four decimal digits */
-	char newline1;		/* '\n' */
-	char md5[32];		/* MD5 hex digest of "length" bytes of "link" field */
-	char newline2;		/* '\n' */
-	char link[SYMLINK_LINK_MAX]; /* "length" bytes, padded by '\n' and spaces */
-};
-
-
-/*
  * Return the owning user ID for a given volume.  If the volume was mounted
  * with "unknown permissions", then the user ID making the request is the
  * owner.  This is the "everyone is an owner" model.
@@ -2084,6 +2037,7 @@ __private_extern__ enum vtype msdosfs_check_link(struct denode *dep, vfs_context
 	/* It passed all the checks; must be a symlink */
 	result = VLNK;
 	dep->de_FileSize = length;
+	dep->de_flag |= DE_SYMLINK;
 
 exit:
     if (bp)

@@ -55,7 +55,8 @@ class TokenDaemon;
 class TokenDbCommon : public DbCommon, public Adornable {
 public:
 	TokenDbCommon(Session &ssn, Token &tk, const char *name);
-	
+	~TokenDbCommon();
+
 	Token &token() const;
 	
 	uint32 subservice() const { return token().subservice(); }
@@ -65,7 +66,7 @@ public:
 	void resetAcls();
 	
 	void lockProcessing();
-	
+
 	typedef Token::ResetGeneration ResetGeneration;
 
 private:

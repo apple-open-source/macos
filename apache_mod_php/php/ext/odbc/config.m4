@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.55.2.12 2005/04/21 23:02:23 sniper Exp $
+dnl $Id: config.m4,v 1.55.2.12.2.2 2006/01/10 14:17:26 tony2001 Exp $
 dnl
 
 dnl
@@ -336,9 +336,9 @@ AC_ARG_WITH(birdstep,
     ODBC_LFLAGS=-L$ODBC_LIBDIR
     ODBC_LIBS="-lCadm -lCdict -lCenc -lCrdm -lCrpc -lCrdbc -lCrm -lCuapi -lutil"
     
-    if test -e "$ODBC_LIBDIR/libCrdbc32.$SHLIB_SUFFIX_NAME"; then
+    if test -f "$ODBC_LIBDIR/libCrdbc32.$SHLIB_SUFFIX_NAME"; then
       ODBC_LIBS="-lCrdbc32 -lCadm32 -lCncp32 -lCrm32 -lCsql32 -lCdict32 -lCrdm32 -lCrpc32 -lutil"
-    elif test -e "$ODBC_LIBDIR/libCrdbc.$SHLIB_SUFFIX_NAME"; then
+    elif test -f "$ODBC_LIBDIR/libCrdbc.$SHLIB_SUFFIX_NAME"; then
       ODBC_LIBS="-lCrdbc -lCadm -lCncp -lCrm -lCsql -lCdict -lCrdm -lCrpc -lutil"
     fi
 
@@ -539,7 +539,7 @@ if test -n "$ODBC_TYPE"; then
   if test "$ODBC_TYPE" != "dbmaker"; then
     ext_shared=$shared
     PHP_EVAL_LIBLINE([$ODBC_LFLAGS $ODBC_LIBS], ODBC_SHARED_LIBADD)
-    if test "$ODBC_TYPE" != "birdstep"; then
+    if test "$ODBC_TYPE" != "birdstep" && test "$ODBC_TYPE" != "solid"; then
       AC_DEFINE(HAVE_SQLDATASOURCES,1,[ ])
     fi
   fi

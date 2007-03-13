@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: info.c,v 1.218.2.18.2.4 2005/08/16 00:26:02 iliaa Exp $ */
+/* $Id: info.c,v 1.218.2.18.2.7 2006/06/28 13:12:09 derick Exp $ */
 
 #include "php.h"
 #include "php_ini.h"
@@ -58,6 +58,23 @@ ZEND_EXTERN_MODULE_GLOBALS(iconv)
 
 PHPAPI extern char *php_ini_opened_path;
 PHPAPI extern char *php_ini_scanned_files;
+	
+static int php_info_write_wrapper(const char *str, uint str_length)
+{
+	int new_len, written;
+	char *elem_esc;
+
+	TSRMLS_FETCH();
+
+	elem_esc = php_escape_html_entities((char *)str, str_length, &new_len, 0, ENT_QUOTES, NULL TSRMLS_CC);
+
+	written = php_body_write(elem_esc, new_len TSRMLS_CC);
+
+	efree(elem_esc);
+
+	return written;
+}
+
 
 /* {{{ _display_module_info
  */
@@ -133,23 +150,12 @@ static void php_print_gpcse_array(char *name, uint name_length TSRMLS_DC)
 				PUTS(" => ");
 			}
 			if (Z_TYPE_PP(tmp) == IS_ARRAY) {
-				zval *tmp3;
-				MAKE_STD_ZVAL(tmp3);
 				if (!sapi_module.phpinfo_as_text) {
 					PUTS("<pre>");
-				}
-				php_start_ob_buffer(NULL, 4096, 1 TSRMLS_CC);
-				zend_print_zval_r(*tmp, 0);
-				php_ob_get_buffer(tmp3 TSRMLS_CC);
-				php_end_ob_buffer(0, 0 TSRMLS_CC);
-				
-				elem_esc = php_info_html_esc(Z_STRVAL_P(tmp3) TSRMLS_CC);
-				PUTS(elem_esc);
-				efree(elem_esc);
-				zval_ptr_dtor(&tmp3);
-
-				if (!sapi_module.phpinfo_as_text) {
+					zend_print_zval_r_ex((zend_write_func_t) php_info_write_wrapper, *tmp, 0);
 					PUTS("</pre>");
+				} else {
+					zend_print_zval_r(*tmp, 0);
 				}
 			} else if (Z_TYPE_PP(tmp) != IS_STRING) {
 				tmp2 = **tmp;
@@ -195,9 +201,9 @@ static void php_print_gpcse_array(char *name, uint name_length TSRMLS_DC)
  */
 void php_info_print_style()
 {
-	php_printf("<style type=\"text/css\"><!--\n");
+	php_printf("<style type=\"text/css\">\n");
 	php_info_print_css();
-	php_printf("//--></style>\n");
+	php_printf("</style>\n");
 }
 /* }}} */
 

@@ -491,26 +491,11 @@ IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
 {
     bool			res = true;
     IOReturn		error = kIOReturnSuccess;
-    bool			useGate = false;
-    OSObject *		propertyObj = NULL;
-	OSBoolean *		boolObj = NULL;
 	
     // Check to see if we need to open the driver while holding the gate.  The USB Device Nub should
     // have the kCallInterfaceOpenWithGate property set.
     //
-	if ( _device )
-	{
-		propertyObj = _device->copyProperty(kCallInterfaceOpenWithGate);
-		boolObj = OSDynamicCast( OSBoolean, propertyObj);
-		if ( boolObj && boolObj->isTrue() )
-		{
-			useGate = true;
-		}
-		if (propertyObj)
-			propertyObj->release();
-	}
-    
-    if ( _gate && useGate )
+    if ( _gate )
     {
         USBLog(6,"%s[%p]::open calling super::open with gate", getName(), this);
         error = _gate->runAction( CallSuperOpen, (void *)forClient, (void *)options, (void *)arg );
@@ -581,26 +566,8 @@ void
 IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 {
     IOReturn		error = kIOReturnSuccess;
-    bool			useGate = false;
-    OSObject *		propertyObj = NULL;
-	OSBoolean *		boolObj = NULL;
     
-    // Check to see if we need to open the driver while holding the gate.  The USB Device Nub should
-    // have the kCallInterfaceOpenWithGate property set.
-    //
-	if ( _device )
-	{
-		propertyObj = _device->copyProperty(kCallInterfaceOpenWithGate);
-		boolObj = OSDynamicCast( OSBoolean, propertyObj);
-		if ( boolObj && boolObj->isTrue() )
-		{
-			useGate = true;
-		}
-		if (propertyObj)
-			propertyObj->release();
-	}
-
-    if ( _gate && useGate )
+    if ( _gate )
     {
         USBLog(6,"%s[%p]::close calling super::close with gate", getName(), this);
         (void) _gate->runAction( CallSuperClose, (void *)forClient, (void *)options);

@@ -198,6 +198,7 @@ struct denode {
 /*
  * Values for the de_flag field of the denode.
  */
+#define DE_SYMLINK	0x0002	/* This node is a symlink */
 #define	DE_UPDATE	0x0004	/* Modification time update request */
 #define	DE_CREATE	0x0008	/* Creation time update */
 #define	DE_ACCESS	0x0010	/* Access time update */

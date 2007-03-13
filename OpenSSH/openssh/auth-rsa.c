@@ -1,3 +1,4 @@
+/* $OpenBSD: auth-rsa.c,v 1.72 2006/11/06 21:25:27 markus Exp $ */
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
  * Copyright (c) 1995 Tatu Ylonen <ylo@cs.hut.fi>, Espoo, Finland
@@ -14,23 +15,35 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth-rsa.c,v 1.63 2005/06/17 02:44:32 djm Exp $");
+
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <openssl/rsa.h>
 #include <openssl/md5.h>
 
+#include <pwd.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+
+#include "xmalloc.h"
 #include "rsa.h"
 #include "packet.h"
-#include "xmalloc.h"
 #include "ssh1.h"
 #include "uidswap.h"
 #include "match.h"
+#include "buffer.h"
 #include "auth-options.h"
 #include "pathnames.h"
 #include "log.h"
 #include "servconf.h"
-#include "auth.h"
+#include "key.h"
 #include "hostfile.h"
+#include "auth.h"
+#ifdef GSSAPI
+#include "ssh-gss.h"
+#endif
 #include "monitor_wrap.h"
 #include "ssh.h"
 #include "misc.h"
@@ -63,10 +76,12 @@ auth_rsa_generate_challenge(Key *key)
 	if ((challenge = BN_new()) == NULL)
 		fatal("auth_rsa_generate_challenge: BN_new() failed");
 	/* Generate a random challenge. */
-	BN_rand(challenge, 256, 0, 0);
+	if (BN_rand(challenge, 256, 0, 0) == 0)
+		fatal("auth_rsa_generate_challenge: BN_rand failed");
 	if ((ctx = BN_CTX_new()) == NULL)
-		fatal("auth_rsa_generate_challenge: BN_CTX_new() failed");
-	BN_mod(challenge, challenge, key->rsa->n, ctx);
+		fatal("auth_rsa_generate_challenge: BN_CTX_new failed");
+	if (BN_mod(challenge, challenge, key->rsa->n, ctx) == 0)
+		fatal("auth_rsa_generate_challenge: BN_mod failed");
 	BN_CTX_free(ctx);
 
 	return challenge;
@@ -137,7 +152,7 @@ auth_rsa_challenge_dialog(Key *key)
 	/* Wait for a response. */
 	packet_read_expect(SSH_CMSG_AUTH_RSA_RESPONSE);
 	for (i = 0; i < 16; i++)
-		response[i] = packet_get_char();
+		response[i] = (u_char)packet_get_char();
 	packet_check_eom();
 
 	success = PRIVSEP(auth_rsa_verify_response(key, challenge, response));

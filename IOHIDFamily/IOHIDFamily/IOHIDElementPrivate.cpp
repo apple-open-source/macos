@@ -720,10 +720,8 @@ OSDictionary * IOHIDElementPrivate::createProperties() const
 
         if ( entry->init() == false ) break;
 
-        usage = (_usageMax != _usageMin) ?
-                 _usageMin + _rangeIndex  :
-                 _usageMin;
-
+        usage = (_usageMax != _usageMin) ? _usageMin + _rangeIndex  : _usageMin;
+        
         entry->setProperty( kIOHIDElementKey, _childArray );
         entry->setProperty( kIOHIDElementCookieKey, (UInt32) _cookie, 32 );
         entry->setProperty( kIOHIDElementTypeKey, _type, 32 );
@@ -737,62 +735,40 @@ OSDictionary * IOHIDElementPrivate::createProperties() const
             break;
         }
 
-        entry->setProperty( kIOHIDElementSizeKey, (_reportBits * _reportCount), 32 );
-
-        if (_reportCount > 1)
-        {
-            entry->setProperty( kIOHIDElementReportSizeKey, _reportBits, 32 );
-            entry->setProperty( kIOHIDElementReportCountKey, _reportCount, 32 );
-        }
-
-        entry->setProperty( kIOHIDElementValueLocationKey,
-                            (UInt32) _elementValueLocation, 32 );
+		entry->setProperty( kIOHIDElementSizeKey, (_reportBits * _reportCount), 32 );
+		entry->setProperty( kIOHIDElementReportSizeKey, _reportBits, 32 );
+		entry->setProperty( kIOHIDElementReportCountKey, _reportCount, 32 );
+		entry->setProperty( kIOHIDElementValueLocationKey, (UInt32) _elementValueLocation, 32 );
                             
-        if ( _isInterruptReportHandler )
-        {
-            break;
-        }
+        if ( _isInterruptReportHandler ) break;
 
-        entry->setProperty( kIOHIDElementHasNullStateKey,
-                            _flags & kHIDDataNullState );
-        entry->setProperty( kIOHIDElementHasPreferredStateKey,
-                            !(_flags & kHIDDataNoPreferred) );
-        entry->setProperty( kIOHIDElementIsNonLinearKey,
-                            _flags & kHIDDataNonlinear );
-        entry->setProperty( kIOHIDElementIsRelativeKey,
-                            _flags & kHIDDataRelative );
-        entry->setProperty( kIOHIDElementIsWrappingKey,
-                            _flags & kHIDDataWrap );
-        entry->setProperty( kIOHIDElementIsArrayKey, 
-                            IsArrayElement(this) );
+        entry->setProperty( kIOHIDElementHasNullStateKey, _flags & kHIDDataNullState );
+        entry->setProperty( kIOHIDElementHasPreferredStateKey, !(_flags & kHIDDataNoPreferred) );
+        entry->setProperty( kIOHIDElementIsNonLinearKey, _flags & kHIDDataNonlinear );
+        entry->setProperty( kIOHIDElementIsRelativeKey, _flags & kHIDDataRelative );
+        entry->setProperty( kIOHIDElementIsWrappingKey, _flags & kHIDDataWrap );
+        entry->setProperty( kIOHIDElementIsArrayKey, IsArrayElement(this) );
         entry->setProperty( kIOHIDElementMaxKey, _logicalMax, 32 );
         entry->setProperty( kIOHIDElementMinKey, _logicalMin, 32 );
         entry->setProperty( kIOHIDElementScaledMaxKey, _physicalMax, 32 );
         entry->setProperty( kIOHIDElementScaledMinKey, _physicalMin, 32 );
+        entry->setProperty( kIOHIDElementUnitKey, _units, 32 );
+        entry->setProperty( kIOHIDElementUnitExponentKey, _unitExponent, 32 );
                 
-        if (IsDuplicateElement(this))
+        if ( !IsDuplicateElement(this) ) break;
+
+        if (IsDuplicateReportHandler(this))
         {
-            if (IsDuplicateReportHandler(this))
+            IOHIDElementPrivate * dupElement;
+            if (_duplicateElements && ( dupElement = (IOHIDElementPrivate *)_duplicateElements->getObject(0)))
             {
-                IOHIDElementPrivate * dupElement;
-                if (_duplicateElements && ( dupElement = (IOHIDElementPrivate *)_duplicateElements->getObject(0)))
-                {
-                    entry->setProperty( kIOHIDElementDuplicateValueSizeKey, dupElement->getElementValueSize(), 32);
-                }
-            }
-            else
-            {
-                entry->setProperty( kIOHIDElementDuplicateIndexKey, _rangeIndex, 32);
+                entry->setProperty( kIOHIDElementDuplicateValueSizeKey, dupElement->getElementValueSize(), 32);
             }
         }
-        
-        // RY: No reason to publish the unit and unit exponent
-        // for array elements.
-        if ( !IsArrayElement(this) )
+        else
         {
-            entry->setProperty( kIOHIDElementUnitKey, _units, 32 );
-            entry->setProperty( kIOHIDElementUnitExponentKey, _unitExponent, 32 );
-        }        
+            entry->setProperty( kIOHIDElementDuplicateIndexKey, _rangeIndex, 32);
+        }
     }
     while ( false );
 
@@ -1105,7 +1081,7 @@ bool IOHIDElementPrivate::processReport(
             {
                 _elementValue->timestamp = *timestamp;
             }
-
+                
             if (IsArrayElement(this))
             {
                 if (IsArrayReportHandler(this))
@@ -1753,9 +1729,10 @@ AbsoluteTime IOHIDElementPrivate::getTimeStamp()
 IOByteCount IOHIDElementPrivate::getByteSize()
 {
 	IOByteCount byteSize;
+	UInt32		bitCount = (_reportBits * _reportCount);
 	
-	byteSize = (_reportBits * _reportCount) / (sizeof(UInt8 *) * 8);
-	byteSize += ((_reportBits * _reportCount) % (sizeof(UInt8 *) * 8)) ? 1 : 0;
+	byteSize = bitCount >> 3;
+	byteSize += (bitCount % 8) ? 1 : 0;
 	
 	return byteSize;
 }

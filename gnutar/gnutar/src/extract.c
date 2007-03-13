@@ -1164,7 +1164,7 @@ extract_archive (void)
       break;
 
     case GNUTYPE_NAMES:
-      extract_mangle ();
+      FATAL_ERROR((0, 0, _("GNUTYPE_NAMES support withdrawn CVE-2006-6097")));
       break;
 
     case GNUTYPE_MULTIVOL:

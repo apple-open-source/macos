@@ -149,6 +149,51 @@ typedef volatile struct _evOffsets {
     contained here.
 ******************************************************************************/
 
+#ifndef __ppc__
+typedef volatile struct _evGlobals {
+    ev_lock_data_t cursorSema; 	/* set to disable periodic code */
+    int eNum;			/* Unique id for mouse events */
+    int buttons;		/* State of the mouse buttons 1==down, 0==up */
+    int eventFlags;		/* The current value of event.flags */
+    int VertRetraceClock;	/* The current value of event.time */
+    IOGPoint cursorLoc;		/* The current location of the cursor */
+    int frame;			/* current cursor frame */
+    IOGBounds workBounds;	/* bounding box of all screens */
+    IOGBounds mouseRect;	/* Rect for mouse-exited events */
+    int version;		/* for run time checks */
+    int	structSize;		/* for run time checks */
+    int lastFrame;
+    unsigned int reservedA[31];
+
+    unsigned reserved:27;
+    unsigned wantPressure:1;	/* pressure in current mouseRect? */
+    unsigned wantPrecision:1;	/* precise coordinates in current mouseRect? */
+    unsigned dontWantCoalesce:1;/* coalesce within the current mouseRect? */
+    unsigned dontCoalesce:1;	/* actual flag which determines coalescing */
+    unsigned mouseRectValid:1;	/* If nonzero, post a mouse-exited
+				   whenever mouse outside mouseRect. */
+    int movedMask;		/* This contains an event mask for the
+				   three events MOUSEMOVED,
+				   LMOUSEDRAGGED,  and RMOUSEDRAGGED.
+				   It says whether driver should
+				   generate those events. */
+    ev_lock_data_t waitCursorSema; /* protects wait cursor fields */
+    int AALastEventSent;	/* timestamp for wait cursor */
+    int AALastEventConsumed;	/* timestamp for wait cursor */	
+    int waitCursorUp;		/* Is wait cursor up? */
+    char ctxtTimedOut;		/* Has wait cursor timer expired? */
+    char waitCursorEnabled;	/* Play wait cursor game (per ctxt)? */
+    char globalWaitCursorEnabled; /* Play wait cursor game (global)? */
+    int waitThreshold;		/* time before wait cursor appears */
+
+    int LLEHead;		/* The next event to be read */
+    int LLETail;		/* Where the next event will go */
+    int LLELast;		/* The last event entered */
+    NXEQElement lleq[LLEQSIZE];	/* The event queue itself */
+} EvGlobals;
+
+#else
+
 typedef volatile struct _evGlobals {
     ev_lock_data_t cursorSema; 	/* set to disable periodic code */
     int LLEHead;		/* The next event to be read */
@@ -189,7 +234,7 @@ typedef volatile struct _evGlobals {
     int waitThreshold;		/* time before wait cursor appears */
     NXEQElement lleq[LLEQSIZE];	/* The event queue itself */
 } EvGlobals;
-
+#endif
 
 /* These evio structs are used in various calls supported by the ev driver. */
 

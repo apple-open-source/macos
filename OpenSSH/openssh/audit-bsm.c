@@ -1,4 +1,4 @@
-/* $Id: audit-bsm.c,v 1.1 2005/02/20 10:08:00 dtucker Exp $ */
+/* $Id: audit-bsm.c,v 1.5 2006/09/30 22:09:50 dtucker Exp $ */
 
 /*
  * TODO
@@ -37,8 +37,16 @@
 #include "includes.h"
 #if defined(USE_BSM_AUDIT)
 
+#include <sys/types.h>
+
+#include <errno.h>
+#include <stdarg.h>
+#include <unistd.h>
+
 #include "ssh.h"
 #include "log.h"
+#include "key.h"
+#include "hostfile.h"
 #include "auth.h"
 #include "xmalloc.h"
 
@@ -50,6 +58,9 @@
 #include <bsm/audit_uevents.h>
 #include <bsm/audit_record.h>
 #include <locale.h>
+#if defined(__APPLE__)
+#include <errno.h>
+#endif
 
 #if defined(HAVE_GETAUDIT_ADDR)
 #define	AuditInfoStruct		auditinfo_addr

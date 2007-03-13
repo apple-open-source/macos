@@ -1,0 +1,60 @@
+
+20060910
+  - [ gss-genr.c kexgssc.c kexgsss.c kex.h monitor.c sshconnect2.c sshd.c
+      ssh-gss.h ]
+    add support for gss-group14-sha1 key exchange mechanisms
+  - [ gss-serv.c servconf.c servconf.h sshd_config sshd_config.5 ]
+    Add GSSAPIStrictAcceptorCheck option to allow the disabling of
+    acceptor principal checking on multi-homed machines.
+    <Bugzilla #928>
+  - [ sshd_config ssh_config ]
+    Add settings for GSSAPIKeyExchange and GSSAPITrustDNS to the sample
+    configuration files
+  - [ kexgss.c kegsss.c sshconnect2.c sshd.c ]
+    Code cleanup. Replace strlen/xmalloc/snprintf sequences with xasprintf()
+    Limit length of error messages displayed by client
+
+20060909
+  - [ gss-genr.c gss-serv.c ]
+    move ssh_gssapi_acquire_cred() and ssh_gssapi_server_ctx to be server
+    only, where they belong 
+    <Bugzilla #1225>
+
+20060829
+  - [ gss-serv-krb5.c ]
+    Fix CCAPI credentials cache name when creating KRB5CCNAME environment 
+    variable
+
+20060828
+  - [ gss-genr.c ]
+    Avoid Heimdal context freeing problem
+    <Fixed upstream 20060829>
+
+20060818
+  - [ gss-genr.c ssh-gss.h sshconnect2.c ]
+    Make sure that SPENGO is disabled 
+    <Bugzilla #1218 - Fixed upstream 20060818>
+
+20060421
+  - [ gssgenr.c, sshconnect2.c ]
+    a few type changes (signed versus unsigned, int versus size_t) to
+    fix compiler errors/warnings 
+    (from jbasney AT ncsa.uiuc.edu)
+  - [ kexgssc.c, sshconnect2.c ]
+    fix uninitialized variable warnings
+    (from jbasney AT ncsa.uiuc.edu)
+  - [ gssgenr.c ]
+    pass oid to gss_display_status (helpful when using GSSAPI mechglue)
+    (from jbasney AT ncsa.uiuc.edu)
+    <Bugzilla #1220 >
+  - [ gss-serv-krb5.c ]
+    #ifdef HAVE_GSSAPI_KRB5 should be #ifdef HAVE_GSSAPI_KRB5_H
+    (from jbasney AT ncsa.uiuc.edu)
+    <Fixed upstream 20060304>
+  - [ readconf.c, readconf.h, ssh_config.5, sshconnect2.c 
+    add client-side GssapiKeyExchange option
+    (from jbasney AT ncsa.uiuc.edu)
+  - [ sshconnect2.c ]
+    add support for GssapiTrustDns option for gssapi-with-mic
+    (from jbasney AT ncsa.uiuc.edu)
+    <gssapi-with-mic support is Bugzilla #1008>

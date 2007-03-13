@@ -1,22 +1,22 @@
 #if !defined(lint) && !defined(SABER)
-static const char rcsid[] = "$Id: res_update.c,v 1.1.1.2 2003/03/18 19:18:35 rbraun Exp $";
+static const char rcsid[] = "$Id: res_update.c,v 1.6.2.4.4.2 2004/03/16 12:34:20 marka Exp $";
 #endif /* not lint */
 
 /*
+ * Copyright (c) 2004 by Internet Systems Consortium, Inc. ("ISC")
  * Copyright (c) 1996-1999 by Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM DISCLAIMS
- * ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL INTERNET SOFTWARE
- * CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL
- * DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR
- * PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
- * SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT
+ * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
 /*
@@ -77,13 +77,13 @@ struct zonegrp {
 
 /* Forward. */
 
-static void	res_dprintf(const char *, ...);
+static void	res_dprintf(const char *, ...) ISC_FORMAT_PRINTF(1, 2);
 
 /* Macros. */
 
 #define DPRINTF(x) do {\
 		int save_errno = errno; \
-		if ((statp->options & RES_DEBUG) != 0) res_dprintf x; \
+		if ((statp->options & RES_DEBUG) != 0U) res_dprintf x; \
 		errno = save_errno; \
 	} while (0)
 
@@ -92,12 +92,18 @@ static void	res_dprintf(const char *, ...);
 int
 res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 	ns_updrec *rrecp;
-	u_char answer[PACKETSZ], packet[2*PACKETSZ];
+	u_char answer[PACKETSZ];
+	u_char *packet;
 	struct zonegrp *zptr, tgrp;
 	LIST(struct zonegrp) zgrps;
 	int nzones = 0, nscount = 0, n;
 	union res_sockaddr_union nsaddrs[MAXNS];
 
+	packet = malloc(NS_MAXMSG);
+	if (packet == NULL) {
+		DPRINTF(("malloc failed"));
+		return (0);
+	}
 	/* Thread all of the updates onto a list of groups. */
 	INIT_LIST(zgrps);
 	memset(&tgrp, 0, sizeof (tgrp));
@@ -150,7 +156,7 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 
 		/* Marshall the update message. */
 		n = res_nmkupdate(statp, HEAD(zptr->z_rrlist),
-				  packet, sizeof packet);
+				  packet, NS_MAXMSG);
 		DPRINTF(("res_mkupdate -> %d", n));
 		if (n < 0)
 			goto done;
@@ -188,6 +194,7 @@ res_nupdate(res_state statp, ns_updrec *rrecp_in, ns_tsig_key *key) {
 	if (nscount != 0)
 		res_setservers(statp, nsaddrs, nscount);
 
+	free(packet);
 	return (nzones);
 }
 

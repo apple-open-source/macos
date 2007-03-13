@@ -2,9 +2,9 @@
    +----------------------------------------------------------------------+
    | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2004 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 3.0 of the PHP license,       |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
    | http://www.php.net/license/3_0.txt.                                  |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: globals.c,v 1.2.4.2 2004/07/30 16:49:38 fmk Exp $ */
+/* $Id: globals.c,v 1.2.4.2.2.2 2006/01/01 13:51:23 sniper Exp $ */
 
 #include "php.h"
 #include "php_win32_globals.h"

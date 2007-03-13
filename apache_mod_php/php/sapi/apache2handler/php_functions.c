@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_functions.c,v 1.1.2.12 2005/01/24 11:48:35 jorton Exp $ */
+/* $Id: php_functions.c,v 1.1.2.12.2.4 2006/01/02 22:22:07 iliaa Exp $ */
 
 #include "php.h"
 #include "ext/standard/php_smart_str.h"
@@ -56,13 +56,11 @@ php_apache2_info_struct php_apache2_info;
 
 static request_rec *php_apache_lookup_uri(char *filename TSRMLS_DC)
 {
-	php_struct *ctx;
+	php_struct *ctx = SG(server_context);
 	
-	if (!filename) {
+	if (!filename || !ctx || !ctx->r) {
 		return NULL;
 	}
-	
-	ctx = SG(server_context);
 
 	return ap_sub_req_lookup_uri(filename, ctx->r, ctx->r->output_filters);
 }
@@ -257,7 +255,7 @@ PHP_FUNCTION(apache_setenv)
 	int arg_count = ZEND_NUM_ARGS();
 	request_rec *r;
 
-	if (arg_count<1 || arg_count>3 ||
+	if (arg_count < 2 || arg_count > 3 ||
 		zend_get_parameters_ex(arg_count, &variable, &string_val, &walk_to_top) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -265,10 +263,13 @@ PHP_FUNCTION(apache_setenv)
 	ctx = SG(server_context);
 
 	r = ctx->r;
-	if (arg_count == 3 && Z_STRVAL_PP(walk_to_top)) {
-		while(r->prev) {
-			r = r->prev;
-		}	
+	if (arg_count == 3) {
+		convert_to_boolean_ex(walk_to_top);
+		if (Z_LVAL_PP(walk_to_top)) {
+			while(r->prev) {
+				r = r->prev;
+			}
+		}
 	}
 
 	convert_to_string_ex(variable);
@@ -301,10 +302,13 @@ PHP_FUNCTION(apache_getenv)
 	ctx = SG(server_context);
 
 	r = ctx->r;
-	if (arg_count == 2 && Z_STRVAL_PP(walk_to_top)) {
-		while(r->prev) {
-			r = r->prev;
-		}	
+	if (arg_count == 2) {
+		convert_to_boolean_ex(walk_to_top);
+		if (Z_LVAL_PP(walk_to_top)) {
+			while(r->prev) {
+				r = r->prev;
+			}
+		}
 	}
 
 	convert_to_string_ex(variable);

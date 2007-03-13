@@ -6,7 +6,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.h,v 1.164.2.27.2.1 2005/07/23 11:58:40 hyanantha Exp $ */
+/* $Id: zend.h,v 1.164.2.27.2.2 2006/01/01 13:46:49 sniper Exp $ */
 
 #ifndef ZEND_H
 #define ZEND_H

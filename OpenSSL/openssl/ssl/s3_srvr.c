@@ -173,7 +173,7 @@ SSL_METHOD *SSLv3_server_method(void)
 int ssl3_accept(SSL *s)
 	{
 	BUF_MEM *buf;
-	unsigned long l,Time=time(NULL);
+	unsigned long l,Time=(unsigned long)time(NULL);
 	void (*cb)(const SSL *ssl,int type,int val)=NULL;
 	long num1;
 	int ret= -1;
@@ -954,7 +954,7 @@ static int ssl3_send_server_hello(SSL *s)
 		{
 		buf=(unsigned char *)s->init_buf->data;
 		p=s->s3->server_random;
-		Time=time(NULL);			/* Time */
+		Time=(unsigned long)time(NULL);			/* Time */
 		l2n(Time,p);
 		if(RAND_pseudo_bytes(p,SSL3_RANDOM_SIZE-4) <= 0)
 			return -1;
@@ -1727,7 +1727,7 @@ static int ssl3_get_client_key_exchange(SSL *s)
 
                 if (kssl_ctx->client_princ)
                         {
-                        int len = strlen(kssl_ctx->client_princ);
+                        size_t len = strlen(kssl_ctx->client_princ);
                         if ( len < SSL_MAX_KRB5_PRINCIPAL_LENGTH ) 
                                 {
                                 s->session->krb5_client_princ_len = len;

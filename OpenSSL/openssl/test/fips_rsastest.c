@@ -1,1 +1,1 @@
-../fips/rsa/fips_rsastest.c
+../fips-1.0/rsa/fips_rsastest.c

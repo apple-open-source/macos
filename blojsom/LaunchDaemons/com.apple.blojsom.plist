@@ -2,14 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>Label</key>
-	<string>com.apple.blojsom</string>
 	<key>Disabled</key>
 	<true/>
+	<key>Label</key>
+	<string>com.apple.blojsom</string>
 	<key>OnDemand</key>
 	<false/>
 	<key>Program</key>
-	<string>/Library/Java/Home/bin/java</string>
+	<string>/System/Library/Frameworks/JavaVM.framework/Versions/1.5/Commands/java</string>
 	<key>ProgramArguments</key>
 	<array>
 		<string>java</string>

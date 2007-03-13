@@ -1,1 +1,1 @@
-../fips/dsa/fips_dssvs.c
+../fips-1.0/dsa/fips_dssvs.c

@@ -323,40 +323,24 @@ struct ntfsmount {
 
 #define	ntfs_bpbl	(daddr_t)((ntmp)->ntm_bps)
 
+extern OSMallocTag ntfs_malloc_tag;
+
 #ifdef MALLOC_DECLARE
 MALLOC_DECLARE(M_NTFSMNT);
-MALLOC_DECLARE(M_NTFSNTNODE);
-MALLOC_DECLARE(M_NTFSFNODE);
 MALLOC_DECLARE(M_NTFSDIR);
-MALLOC_DECLARE(M_NTFSNTHASH);
 #endif
 
 #ifndef M_NTFSMNT
 #define M_NTFSMNT M_TEMP
 #endif
-#ifndef M_NTFSNTNODE
-#define M_NTFSNTNODE M_TEMP
-#endif
-#ifndef M_NTFSFNODE
-#define M_NTFSFNODE M_TEMP
-#endif
 #ifndef M_NTFSDIR
 #define M_NTFSDIR M_TEMP
-#endif
-#ifndef M_NTFSNTHASH
-#define M_NTFSNTHASH M_TEMP
 #endif
 #ifndef M_NTFSRUN
 #define M_NTFSRUN M_TEMP
 #endif
 #ifndef M_NTFSRDATA
 #define M_NTFSRDATA M_TEMP
-#endif
-#ifndef M_NTFSNTVATTR
-#define M_NTFSNTVATTR M_TEMP
-#endif
-#ifndef M_NTFSDECOMP
-#define M_NTFSDECOMP M_TEMP
 #endif
 #define VT_NTFS VT_OTHER
 

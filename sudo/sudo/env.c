@@ -124,6 +124,12 @@ static const char *initial_badenv_table[] = {
     "TERMCAP",			/* XXX - only if it starts with '/' */
     "ENV",
     "BASH_ENV",
+    "PS4",
+    "SHELLOPTS",
+    "JAVA_TOOL_OPTIONS",
+    "PERLLIB",
+    "PERL5LIB",
+    "PERL5OPT",
     NULL
 };
 

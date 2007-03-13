@@ -271,12 +271,12 @@
     if ( assoc->fontSize == 0 )
     {
       *have_sfnt = 1;
-      *sfnt_id   = assoc->fontID;
+      *sfnt_id   = OSSwapBigToHostInt16 (assoc->fontID);
     }
     else if ( base_assoc->fontSize == 0 )
     {
       *have_sfnt = 1;
-      *sfnt_id   = base_assoc->fontID;
+      *sfnt_id   = OSSwapBigToHostInt16 (base_assoc->fontID);
     }
 
     if ( fond->ffStylOff )
@@ -289,10 +289,10 @@
       int             i;
 
 
-      p += fond->ffStylOff;
+      p += OSSwapBigToHostInt32 (fond->ffStylOff);
       style = (StyleTable*)p;
       p += sizeof ( StyleTable );
-      string_count = *(unsigned short*)(p);
+      string_count = OSSwapBigToHostInt16 (*(unsigned short*)(p));
       p += sizeof ( short );
 
       for ( i = 0 ; i < string_count && i < 64; i++ )

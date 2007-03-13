@@ -120,13 +120,18 @@ __BEGIN_DECLS
 #define kIOHIDElementIsNonLinearKey         "IsNonLinear"
 #define kIOHIDElementHasPreferredStateKey   "HasPreferredState"
 #define kIOHIDElementHasNullStateKey        "HasNullState"
-#define kIOHIDElementVendorSpecificKey      "VendorSpecifc"
 #define kIOHIDElementUnitKey                "Unit"
 #define kIOHIDElementUnitExponentKey        "UnitExponent"
 #define kIOHIDElementNameKey                "Name"
 #define kIOHIDElementValueLocationKey       "ValueLocation"
 #define kIOHIDElementDuplicateIndexKey      "DuplicateIndex"
 #define kIOHIDElementParentCollectionKey    "ParentCollection"
+
+#ifndef __ppc__
+    #define kIOHIDElementVendorSpecificKey      "VendorSpecific"
+#else
+    #define kIOHIDElementVendorSpecificKey      "VendorSpecifc"
+#endif
 
 /*!
     @typedef IOHIDElementCookie

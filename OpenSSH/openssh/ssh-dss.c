@@ -1,3 +1,4 @@
+/* $OpenBSD: ssh-dss.c,v 1.24 2006/11/06 21:25:28 markus Exp $ */
 /*
  * Copyright (c) 2000 Markus Friedl.  All rights reserved.
  *
@@ -23,14 +24,17 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh-dss.c,v 1.19 2003/11/10 16:23:41 jakob Exp $");
+
+#include <sys/types.h>
 
 #include <openssl/bn.h>
 #include <openssl/evp.h>
 
+#include <stdarg.h>
+#include <string.h>
+
 #include "xmalloc.h"
 #include "buffer.h"
-#include "bufaux.h"
 #include "compat.h"
 #include "log.h"
 #include "key.h"
@@ -157,8 +161,9 @@ ssh_dss_verify(const Key *key, const u_char *signature, u_int signaturelen,
 		fatal("ssh_dss_verify: BN_new failed");
 	if ((sig->s = BN_new()) == NULL)
 		fatal("ssh_dss_verify: BN_new failed");
-	BN_bin2bn(sigblob, INTBLOB_LEN, sig->r);
-	BN_bin2bn(sigblob+ INTBLOB_LEN, INTBLOB_LEN, sig->s);
+	if ((BN_bin2bn(sigblob, INTBLOB_LEN, sig->r) == NULL) ||
+	    (BN_bin2bn(sigblob+ INTBLOB_LEN, INTBLOB_LEN, sig->s) == NULL))
+		fatal("ssh_dss_verify: BN_bin2bn failed");
 
 	/* clean up */
 	memset(sigblob, 0, len);

@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/bind9/bind9/contrib/nslint-2.1a3/lbl/os-sunos4.h,v 1.1.1.1 2003/01/10 00:48:04 bbraun Exp $ (LBL)
+ * @(#) $Header: /proj/cvs/prod/bind9/contrib/nslint-2.1a3/lbl/os-sunos4.h,v 1.1 2001/12/21 04:12:05 marka Exp $ (LBL)
  */
 
 /* Prototypes missing in SunOS 4 */

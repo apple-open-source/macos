@@ -25,8 +25,8 @@ DESCRIPTION
      The third usage format allows sftp to start in a remote directory.
 
      The final usage format allows for automated sessions using the -b option.
-     In such cases, it is usually necessary to configure public key authenti-
-     cation to obviate the need to enter a password at connection time (see
+     In such cases, it is necessary to configure non-interactive authentica-
+     tion to obviate the need to enter a password at connection time (see
      sshd(8) and ssh-keygen(1) for details).  The options are as follows:
 
      -1      Specify the use of protocol version 1.
@@ -96,6 +96,7 @@ DESCRIPTION
                    Protocol
                    ProxyCommand
                    PubkeyAuthentication
+                   RekeyLimit
                    RhostsRSAAuthentication
                    RSAAuthentication
                    SendEnv
@@ -262,4 +263,4 @@ SEE ALSO
      T. Ylonen and S. Lehtinen, SSH File Transfer Protocol, draft-ietf-secsh-
      filexfer-00.txt, January 2001, work in progress material.
 
-OpenBSD 3.8                    February 4, 2001                              4
+OpenBSD 4.0                    February 4, 2001                              4

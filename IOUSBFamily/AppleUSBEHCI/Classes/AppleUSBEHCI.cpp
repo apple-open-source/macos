@@ -64,17 +64,17 @@ AppleUSBEHCI::init(OSDictionary * propTable)
 	
     _intLock = IOLockAlloc();
     if (!_intLock)
-        return(false);
+		goto ErrorExit;
 	
     _controllerSpeed = kUSBDeviceSpeedHigh;	// This needs to be set before start.
 											// super uses it during start method
     _wdhLock = IOSimpleLockAlloc();
     if (!_wdhLock)
-        return(false);
+		goto ErrorExit;
 
 	_isochScheduleLock = IOSimpleLockAlloc();
     if (!_isochScheduleLock)
-        return(false);
+		goto ErrorExit;
 
     _uimInitialized = false;
     
@@ -83,7 +83,26 @@ AppleUSBEHCI::init(OSDictionary * propTable)
     _producerCount = 1;
     _consumerCount = 1;
     
-    return (true);
+	// Allocate a thread call to process change detect interrutps
+	_portDetectInterruptThread = thread_call_allocate((thread_call_func_t)PortDetectInterruptThreadEntry, (thread_call_param_t)this);
+	
+	if ( !_portDetectInterruptThread)
+		goto ErrorExit;
+	
+    return true;
+	
+ErrorExit:
+		
+	if (_intLock)
+		IOLockFree(_intLock);
+	
+	if ( _wdhLock )
+		IOSimpleLockFree(_wdhLock);
+	
+	if (_isochScheduleLock)
+		IOSimpleLockFree(_isochScheduleLock);
+	
+	return false;
 }
 
 
@@ -97,6 +116,12 @@ AppleUSBEHCI::free()
     IOSimpleLockFree( _wdhLock );
     IOSimpleLockFree( _isochScheduleLock );
 
+	if (_portDetectInterruptThread)
+    {
+        thread_call_cancel(_portDetectInterruptThread);
+        thread_call_free(_portDetectInterruptThread);
+    }
+	
     super::free();
 }
 
@@ -586,7 +611,7 @@ AppleUSBEHCI::GetFrameNumber32()
 	// If the controller is halted, then we should just bail out
 	if ( USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber32 called but controller is halted",  this);
+		USBLog(6, "AppleUSBEHCI[%p]::GetFrameNumber32 called but controller is halted",  this);
 		return 0;
 	}
 	
@@ -620,7 +645,7 @@ AppleUSBEHCI::GetFrameNumber()
 	// If the controller is halted, then we should just bail out
 	if ( USBToHostLong(_pEHCIRegisters->USBSTS) & kEHCIHCHaltedBit)
 	{
-		USBLog(1, "AppleUSBEHCI[%p]::GetFrameNumber called but controller is halted",  this);
+		USBLog(6, "AppleUSBEHCI[%p]::GetFrameNumber called but controller is halted",  this);
 		return 0;
 	}
 	

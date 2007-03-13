@@ -68,6 +68,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <AvailabilityMacros.h>
 
+#define SURFACE_DRAWING 0
+
 static int DRIScreenPrivIndex = -1;
 static int DRIWindowPrivIndex = -1;
 static int DRIPixmapPrivIndex = -1;
@@ -275,8 +277,8 @@ DRICreateSurface (ScreenPtr pScreen, Drawable id,
 {
     DRIScreenPrivPtr	pDRIPriv = DRI_SCREEN_PRIV(pScreen);
     DRIDrawablePrivPtr	pDRIDrawablePriv;
-    WindowPtr		pWin;
-    PixmapPtr		pPix;
+    WindowPtr		pWin = 0;
+    PixmapPtr		pPix = 0;
     xp_window_id	wid = 0;
 
     if (pDrawable->type == DRAWABLE_WINDOW) {
@@ -325,9 +327,6 @@ DRICreateSurface (ScreenPtr pScreen, Drawable id,
 		xfree (pDRIDrawablePriv);
 		return FALSE;
 	    }
-
-	    /* save private off of preallocated index */
-	    pWin->devPrivates[DRIWindowPrivIndex].ptr = (pointer)pDRIDrawablePriv;
 	}
     }
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
@@ -357,8 +356,6 @@ DRICreateSurface (ScreenPtr pScreen, Drawable id,
 		return FALSE;
 	    }
 
-	    /* save private off of preallocated index */
-	    pPix->devPrivates[DRIPixmapPrivIndex].ptr = (pointer)pDRIDrawablePriv;
 	}
     }
 #endif
@@ -402,6 +399,15 @@ DRICreateSurface (ScreenPtr pScreen, Drawable id,
 	/* Initialize shape */
 	DRIUpdateSurface (pDRIDrawablePriv, pDrawable);
     }
+
+    /* save private off of preallocated index */
+
+    if (pDrawable->type == DRAWABLE_WINDOW)
+	pWin->devPrivates[DRIWindowPrivIndex].ptr = (pointer)pDRIDrawablePriv;
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+    else if (pDrawable->type == DRAWABLE_PIXMAP)
+	pPix->devPrivates[DRIPixmapPrivIndex].ptr = (pointer)pDRIDrawablePriv;
+#endif
 
     pDRIDrawablePriv->refCount++;
 
@@ -671,7 +677,7 @@ DRISurfaceNotify (xp_surface_id id, int kind)
 Bool
 DRIStartDrawing (DrawablePtr pDraw)
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED < 1030
+#if MAC_OS_X_VERSION_MAX_ALLOWED < 1030 || !SURFACE_DRAWING
     return FALSE;
 #else
     DRIDrawablePrivPtr priv = NULL;
@@ -734,7 +740,7 @@ DRIStartDrawing (DrawablePtr pDraw)
 Bool
 DRIStopDrawing (DrawablePtr pDraw, Bool flush)
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED < 1030
+#if MAC_OS_X_VERSION_MAX_ALLOWED < 1030 || !SURFACE_DRAWING
     return FALSE;
 #else
     DRIDrawablePrivPtr priv = NULL;
@@ -789,7 +795,7 @@ DRIStopDrawing (DrawablePtr pDraw, Bool flush)
 Bool
 DRIDamageRegion (DrawablePtr pDraw, RegionPtr pRegion)
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED < 1030
+#if MAC_OS_X_VERSION_MAX_ALLOWED < 1030 || !SURFACE_DRAWING
     return FALSE;
 #else
     DRIDrawablePrivPtr priv = NULL;
@@ -866,7 +872,7 @@ out:
 void
 DRISynchronizeDrawable (DrawablePtr pDraw, Bool flush)
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 && SURFACE_DRAWING
     ScreenPtr pScreen;
     DRIScreenPrivPtr pDRIPriv;
     DRIDrawablePrivPtr priv;
@@ -910,7 +916,7 @@ DRISynchronizeDrawable (DrawablePtr pDraw, Bool flush)
 void
 DRISynchronize (Bool flush)
 {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 && SURFACE_DRAWING
     int i;
     ScreenPtr pScreen;
     DRIScreenPrivPtr pDRIPriv;

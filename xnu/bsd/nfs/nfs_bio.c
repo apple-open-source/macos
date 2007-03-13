@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /* Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved */
 /*
@@ -588,6 +586,8 @@ nfs_buf_delwri_push(int locked)
 			nfs_buf_drop(bp);
 			continue;
 		}
+		if (ISSET(bp->nb_flags, NB_NEEDCOMMIT))
+			nfs_buf_check_write_verifier(np, bp);
 		if (ISSET(bp->nb_flags, NB_NEEDCOMMIT)) {
 			/* put buffer at end of delwri list */
 			TAILQ_INSERT_TAIL(&nfsbufdelwri, bp, nb_free);
@@ -811,6 +811,7 @@ loop:
 		bp->nb_dirtyoff = bp->nb_dirtyend = 0;
 		bp->nb_valid = 0;
 		bp->nb_dirty = 0;
+		bp->nb_verf = 0;
 	} else {
 		/* no buffer to reuse */
 		if ((nfsbufcnt < nfsbufmax) &&
@@ -1235,6 +1236,29 @@ nfs_buf_write_delayed(struct nfsbuf *bp, proc_t p)
 	nfs_buf_release(bp, 1);
 	FSDBG_BOT(551, bp, NBOFF(bp), bp->nb_flags, 0);
 	return;
+}
+
+/*
+ * Check that a "needcommit" buffer can still be committed.
+ * If the write verifier has changed, we need to clear the
+ * the needcommit flag.
+ */
+void
+nfs_buf_check_write_verifier(struct nfsnode *np, struct nfsbuf *bp)
+{
+	struct nfsmount *nmp;
+
+	if (!ISSET(bp->nb_flags, NB_NEEDCOMMIT))
+		return;
+
+	nmp = VFSTONFS(vnode_mount(NFSTOV(np)));
+	if (!nmp || (bp->nb_verf == nmp->nm_verf))
+		return;
+
+	/* write verifier changed, clear commit flag */
+	bp->nb_flags &= ~NB_NEEDCOMMIT;
+	np->n_needcommitcnt--;
+	CHECK_NEEDCOMMITCNT(np);
 }
 
 /*
@@ -2855,7 +2879,7 @@ nfs_doio(struct nfsbuf *bp, kauth_cred_t cr, proc_t p)
 	vnode_t vp;
 	struct nfsnode *np;
 	struct nfsmount *nmp;
-	int error = 0, diff, len, iomode, must_commit = 0, invalidate = 0;
+	int error = 0, diff, len, iomode, invalidate = 0;
 	struct uio uio;
 	struct iovec_32 io;
 	enum vtype vtype;
@@ -3011,6 +3035,8 @@ nfs_doio(struct nfsbuf *bp, kauth_cred_t cr, proc_t p)
 	     * an actual write will have to be done.
 	     * If NB_WRITEINPROG is already set, then push it with a write anyhow.
 	     */
+	    if (ISSET(bp->nb_flags, NB_NEEDCOMMIT))
+	    	nfs_buf_check_write_verifier(np, bp);
 	    if ((bp->nb_flags & (NB_NEEDCOMMIT | NB_WRITEINPROG)) == NB_NEEDCOMMIT) {
 		doff = NBOFF(bp) + bp->nb_dirtyoff;
 		SET(bp->nb_flags, NB_WRITEINPROG);
@@ -3022,8 +3048,7 @@ nfs_doio(struct nfsbuf *bp, kauth_cred_t cr, proc_t p)
 		    CLR(bp->nb_flags, NB_NEEDCOMMIT);
 		    np->n_needcommitcnt--;
 		    CHECK_NEEDCOMMITCNT(np);
-		} else if (error == NFSERR_STALEWRITEVERF)
-		    nfs_clearcommit(vnode_mount(vp));
+		}
 	    }
 
 	    if (!error && bp->nb_dirtyend > 0) {
@@ -3082,9 +3107,7 @@ nfs_doio(struct nfsbuf *bp, kauth_cred_t cr, proc_t p)
 		OSAddAtomic(1, (SInt32*)&nfsstats.write_bios);
 
 		SET(bp->nb_flags, NB_WRITEINPROG);
-		error = nfs_writerpc(vp, uiop, cr, p, &iomode, &must_commit);
-		if (must_commit)
-		    nfs_clearcommit(vnode_mount(vp));
+		error = nfs_writerpc(vp, uiop, cr, p, &iomode, &bp->nb_verf);
 		/* clear dirty bits for pages we've written */
 		if (!error)
 		    bp->nb_dirty &= ~pagemask;
@@ -3220,9 +3243,7 @@ nfs_doio(struct nfsbuf *bp, kauth_cred_t cr, proc_t p)
 			uio_uio_resid_set(uiop, io.iov_len);
 			uiop->uio_offset = NBOFF(bp) + off;
 			io.iov_base = (uintptr_t) bp->nb_data + off;
-			error = nfs_writerpc(vp, uiop, cr, p, &iomode, &must_commit);
-			if (must_commit)
-			    nfs_clearcommit(vnode_mount(vp));
+			error = nfs_writerpc(vp, uiop, cr, p, &iomode, &bp->nb_verf);
 			if (error)
 			    break;
 		    }

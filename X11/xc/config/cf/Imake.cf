@@ -24,6 +24,11 @@ XCOMM $XFree86: xc/config/cf/Imake.cf,v 3.89 2004/01/25 01:12:20 dawes Exp $
 # define MacroIncludeFile <darwin.cf>
 # define MacroFile darwin.cf
 # define DarwinArchitecture
+# ifdef Ppc64DarwinArchitecture
+#  undef __ppc64__
+#  undef __ppc__
+#  undef __i386__
+# endif
 # ifdef __ppc__
 #  define PpcDarwinArchitecture
 #  undef __ppc__

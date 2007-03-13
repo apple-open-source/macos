@@ -183,7 +183,7 @@ typedef union
     uint32_t ptr64[2];
     } client_context_t;
 
-typedef struct ipc_msg_hdr_struct
+typedef struct __attribute__((__packed__)) ipc_msg_hdr_struct
     {
     uint32_t version;
     uint32_t datalen;

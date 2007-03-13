@@ -1,21 +1,21 @@
 /*
+ * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: db_test.c,v 1.1.1.1 2003/01/10 00:47:32 bbraun Exp $ */
+/* $Id: db_test.c,v 1.56.12.6 2005/03/17 03:58:27 marka Exp $ */
 
 /*
  * Principal Author: Bob Halley
@@ -76,8 +76,8 @@ print_result(const char *message, isc_result_t result) {
 		message = "";
 	}
 	len = strlen(message);
-	printf("%s%sresult %08x: %s\n", message, (len == 0) ? "" : " ", result,
-	       isc_result_totext(result));
+	printf("%s%sresult %08x: %s\n", message, (len == 0U) ? "" : " ",
+	       result, isc_result_totext(result));
 }
 
 static void
@@ -248,7 +248,7 @@ load(const char *filename, const char *origintext, isc_boolean_t cache) {
 	dbinfo *dbi;
 	unsigned int i;
 
-	dbi = isc_mem_get(mctx, sizeof *dbi);
+	dbi = isc_mem_get(mctx, sizeof(*dbi));
 	if (dbi == NULL)
 		return (ISC_R_NOMEMORY);
 
@@ -281,7 +281,7 @@ load(const char *filename, const char *origintext, isc_boolean_t cache) {
 			       dns_rdataclass_in,
 			       0, NULL, &dbi->db);
 	if (result != ISC_R_SUCCESS) {
-		isc_mem_put(mctx, dbi, sizeof *dbi);
+		isc_mem_put(mctx, dbi, sizeof(*dbi));
 		return (result);
 	}
 
@@ -289,7 +289,7 @@ load(const char *filename, const char *origintext, isc_boolean_t cache) {
 	result = dns_db_load(dbi->db, filename);
 	if (result != ISC_R_SUCCESS && result != DNS_R_SEENINCLUDE) {
 		dns_db_detach(&dbi->db);
-		isc_mem_put(mctx, dbi, sizeof *dbi);
+		isc_mem_put(mctx, dbi, sizeof(*dbi));
 		return (result);
 	}
 	printf("loaded\n");
@@ -301,7 +301,7 @@ load(const char *filename, const char *origintext, isc_boolean_t cache) {
 	} else {
 		if (dns_dbtable_add(dbtable, dbi->db) != ISC_R_SUCCESS) {
 			dns_db_detach(&dbi->db);
-			isc_mem_put(mctx, dbi, sizeof *dbi);
+			isc_mem_put(mctx, dbi, sizeof(*dbi));
 			return (result);
 		}
 	}
@@ -325,7 +325,7 @@ unload_all(void) {
 		}
 		dns_db_detach(&dbi->db);
 		ISC_LIST_UNLINK(dbs, dbi, link);
-		isc_mem_put(mctx, dbi, sizeof *dbi);
+		isc_mem_put(mctx, dbi, sizeof(*dbi));
 	}
 }
 
@@ -466,18 +466,18 @@ main(int argc, char *argv[]) {
 	version = NULL;
 
 	if (time_lookups) {
-		(void)isc_time_now(&start);
+		TIME_NOW(&start);
 	}
 
 	while (!done) {
 		if (!quiet)
 			printf("\n");
-		if (fgets(s, sizeof s, stdin) == NULL) {
+		if (fgets(s, sizeof(s), stdin) == NULL) {
 			done = ISC_TRUE;
 			continue;
 		}
 		len = strlen(s);
-		if (len > 0 && s[len - 1] == '\n') {
+		if (len > 0U && s[len - 1] == '\n') {
 			s[len - 1] = '\0';
 			len--;
 		}
@@ -923,7 +923,7 @@ main(int argc, char *argv[]) {
 	if (time_lookups) {
 		isc_uint64_t usec;
 
-		(void)isc_time_now(&finish);
+		TIME_NOW(&finish);
 
 		usec = isc_time_microdiff(&finish, &start);
 

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_domxml.c,v 1.218.2.50 2005/03/17 13:11:47 rrichards Exp $ */
+/* $Id: php_domxml.c,v 1.218.2.50.2.2 2006/03/18 10:46:27 rrichards Exp $ */
 
 /* TODO
  * - Support Notation Nodes
@@ -649,6 +649,7 @@ static inline void node_list_wrapper_dtor(xmlNodePtr node, int destroyref TSRMLS
 			/* Skip property freeing for the following types */
 			case XML_ATTRIBUTE_DECL:
 			case XML_DTD_NODE:
+			case XML_ELEMENT_DECL:
 			case XML_ENTITY_DECL:
 			case XML_ATTRIBUTE_NODE:
 				break;
@@ -689,6 +690,7 @@ static inline void node_list_unlink(xmlNodePtr node)
 				case XML_ATTRIBUTE_DECL:
 				case XML_DTD_NODE:
 				case XML_ENTITY_DECL:
+				case XML_ELEMENT_DECL:
 				case XML_ATTRIBUTE_NODE:
 					break;
 				default:

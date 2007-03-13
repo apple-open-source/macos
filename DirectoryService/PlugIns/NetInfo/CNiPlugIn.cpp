@@ -41,12 +41,14 @@
 #include <openssl/evp.h>
 #include <mach/mach_time.h>
 #include <sasl.h>
+#include <membership.h>
 
 #include <Security/Authorization.h>
 #include <PasswordServer/AuthFile.h>
 #include <PasswordServer/CAuthFileBase.h>
 #include <PasswordServer/CPolicyGlobalXML.h>
 #include <PasswordServer/CPolicyXML.h>
+#include <DirectoryService/DirServicesUtilsPriv.h>
 
 #include "CNiPlugIn.h"
 #include "CNetInfoPlugin.h"
@@ -6763,7 +6765,9 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 	uInt32				uiAuthMethod			= 0;
 	sNIContextData	   *pContext				= NULL;
 	sNIContinueData	   *pContinueData			= NULL;
-	char*				userName				= NULL;
+	char				*authenticatorName		= NULL;
+	char				*authenticatorPassword	= NULL;
+	char				*userName				= NULL;
 	ni_id				niDirID;
 	ni_namelist			niValues;
 	ni_namelist			niValuesGUID;
@@ -6838,16 +6842,16 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 			{
 					// For user policy, we need the GUID
 				if ( uiAuthMethod == kAuthGetPolicy || uiAuthMethod == kAuthSetPolicy )
+				{
+					siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &userName );
+					if ( siResult != eDSNoErr ) throw( siResult );
+					
+					if ( RecordHasAuthAuthority( userName, (const char *)pNIRecType, pContext, kDSTagAuthAuthorityShadowHash, &niDirID ) == eDSNoErr )
 					{
-						siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &userName );
-						if ( siResult != eDSNoErr ) throw( siResult );
-						
-						if ( RecordHasAuthAuthority( userName, (const char *)pNIRecType, pContext, kDSTagAuthAuthorityShadowHash, &niDirID ) == eDSNoErr )
-						{
 						UserGUIDString = GetGUIDForRecord( pContext, &niDirID );
 							
 						if ( uiAuthMethod == kAuthGetPolicy )
-							{
+						{
 							// no permissions required, just do it.
 							siResult = DoShadowHashAuth(inData->fInNodeRef, inData->fInAuthMethod, pContext, 
 														&pContinueData, 
@@ -6859,9 +6863,9 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 							// we're done
 							throw( siResult );
 						}
-								}
-							}
-							
+					}
+				}
+				
 				// For SetPolicy operations, check the permissions
 				if ( uiAuthMethod == kAuthSetGlobalPolicy || uiAuthMethod == kAuthSetPolicy )
 				{
@@ -6913,10 +6917,10 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 				if ( uiAuthMethod == kAuthSetPasswd )
 				{
 					// verify the administrator
-					siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &userName );
+					siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 3, &authenticatorName );
 					if ( siResult != eDSNoErr ) throw( siResult );
 					
-					if ( RecordHasAuthAuthority( userName, (const char *)pNIRecType, pContext, kDSTagAuthAuthorityShadowHash, &niDirID ) == eDSNoErr )
+					if ( RecordHasAuthAuthority( authenticatorName, (const char *)pNIRecType, pContext, kDSTagAuthAuthorityShadowHash, &niDirID ) == eDSNoErr )
 					{
 						// get the GUID
 						GUIDString = GetGUIDForRecord( pContext, &niDirID );
@@ -6930,7 +6934,7 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 														&pContinueData, 
 														inData->fInAuthStepData, 
 														inData->fOutAuthStepDataResponse,
-														true,
+														false,	// inAuthOnly
 														false, NULL, GUIDString, (const char *)pNIRecType);
 						
 						if ( siResult != eDSNoErr && siResult != eDSAuthNewPasswordRequired )
@@ -6941,7 +6945,60 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 						//switch to set passwd as root
 						inData->fInAuthMethod = dsDataNodeAllocateString( 0, kDSStdAuthSetPasswdAsRoot );
 					}
-					DSFreeString(userName);
+					else
+					{
+						// Need to call out to another node
+						siResult = GetUserNameFromAuthBuffer( inData->fInAuthStepData, 4, &authenticatorPassword );
+						if ( siResult != eDSNoErr )
+							throw( siResult );
+						
+						bool adminPasswordFail = true;
+						tDataListPtr authenticatorNode = NULL;
+						authenticatorNode = FindNodeForSearchPolicyAuthUser( authenticatorName );
+						if ( authenticatorNode != NULL )
+						{
+							tDirReference		aDirRef		= 0;
+							sInt32				aResult		= eDSNoErr;
+							tDirNodeReference	aNodeRef	= 0;
+							tContextData		tContinue	= nil;
+							size_t				authenticatorNameLen = strlen( authenticatorName );
+							size_t				authenticatorPasswordLen = strlen( authenticatorPassword );
+							tDataNodePtr		authMethod	= dsDataNodeAllocateString( 0, kDSStdAuthNodeNativeClearTextOK );
+							tDataBufferPtr		authBuffer	= dsDataBufferAllocate( 0, sizeof(tDataBuffer) + authenticatorNameLen + authenticatorPasswordLen + 16 );
+							
+							if ( authMethod == NULL || authBuffer == NULL )
+								throw( (sInt32)eMemoryError );
+							
+							aResult = dsOpenDirService( &aDirRef );
+							if ( aResult == eDSNoErr )
+							{
+								aResult = dsOpenDirNode( aDirRef, authenticatorNode, &aNodeRef );
+								dsDataListDeallocatePriv( authenticatorNode );
+								free( authenticatorNode );
+								authenticatorNode = NULL;
+								if ( aResult == eDSNoErr )
+								{
+									siResult = dsFillAuthBuffer( authBuffer, 2,
+										authenticatorNameLen, authenticatorName,
+										authenticatorPasswordLen, authenticatorPassword );
+									if ( siResult != eDSNoErr )
+										throw( siResult );
+									
+									aResult = dsDoDirNodeAuth( aNodeRef, authMethod, true, authBuffer, inData->fOutAuthStepDataResponse, &tContinue );
+									adminPasswordFail = (aResult != eDSNoErr);
+									dsCloseDirNode( aNodeRef );
+									aNodeRef = 0;
+								}
+								dsCloseDirService( aDirRef );
+							}
+							dsDataNodeDeAllocate( 0, authMethod );
+							authMethod = NULL;
+							dsDataBufferDeallocatePriv( authBuffer );
+							authBuffer = NULL;
+						}
+						if ( adminPasswordFail )
+							throw( (sInt32)eDSPermissionError );
+					}
 				}
 				
 				switch( uiAuthMethod )
@@ -7018,6 +7075,32 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 							if ( inData->fInAuthStepData->fBufferLength > inData->fInAuthStepData->fBufferSize ) throw( (sInt32)eDSInvalidBuffFormat );
 							userName = (char*)calloc( inData->fInAuthStepData->fBufferLength + 1, 1 );
 							strncpy( userName, inData->fInAuthStepData->fBufferData, inData->fInAuthStepData->fBufferLength );
+						}
+						
+						// for kAuthSetPasswd, need to check the authenticator is either self or an admin
+						if ( authenticatorName != NULL && strcasecmp(authenticatorName, userName) != 0 )
+						{
+							struct passwd space, *pp = NULL;
+							char buf[1024];
+							uuid_t authenUUID;
+							uuid_t adminGroupUUID;
+							int ismember = 0;
+							
+							// root is special
+							if ( strcasecmp(userName, "root") == 0 )
+								throw( (sInt32)eDSPermissionError );
+							
+							if ( getpwnam_r(authenticatorName, &space, buf, sizeof buf, &pp) != 0 || pp == NULL )
+								throw( (sInt32)eDSPermissionError );
+							
+							if ( mbr_uid_to_uuid(pp->pw_uid, authenUUID) != 0 )
+								throw( (sInt32)eDSPermissionError );
+							
+							if ( mbr_gid_to_uuid(80, adminGroupUUID) != 0 )
+								throw( (sInt32)eDSPermissionError );
+							
+							if ( mbr_check_membership(authenUUID, adminGroupUUID, &ismember) != 0 || ismember == 0 )
+								throw( (sInt32)eDSPermissionError );
 						}
 						
 						gNetInfoMutex->Wait();
@@ -7314,7 +7397,9 @@ sInt32 CNiPlugIn::DoAuthenticationOnRecordType ( sDoDirNodeAuthOnRecordType *inD
 	}
 	
 	DSFreeString( userName );
-
+	DSFreeString( authenticatorName );
+	DSFreePassword( authenticatorPassword );
+	
 	inData->fResult = siResult;
 	inData->fIOContinueData = pContinueData;
 
@@ -10114,15 +10199,11 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 				// set password operations
 				case kAuthSetPasswd:
 					GetShadowHashGlobalPolicies( inContext, &globalAccess );
-					siResult = eDSNoErr;
-					if ( ! UserIsAdmin(pUserName, inContext) )
-					{
-						if (! (inContext->fAuthenticatedUserName && pUserName && (::strcmp(inContext->fAuthenticatedUserName, pUserName) == 0)) )
-						{
-							// non-admins can only change their own passwords
-							siResult = eDSPermissionError;
-						}
-						else
+					siResult = GetUserNameFromAuthBuffer( inAuthData, 3, &pAdminUser );
+					if ( siResult != eDSNoErr )
+						throw( siResult );
+					
+					if ( !UserIsAdmin(pAdminUser, inContext) )
 						{
 							siResult = NIPasswordOkForPolicies( policyStr, &globalAccess, pUserName, pNewPassword );
 							if ( siResult == eDSAuthPasswordTooShort &&
@@ -10135,7 +10216,6 @@ sInt32 CNiPlugIn::DoShadowHashAuth (	tDirNodeReference inNodeRef, tDataNodePtr i
 								siResult = eDSNoErr;
 							}
 						}
-					}
 					if ( siResult == eDSNoErr )
 					{
 						bzero(generatedHashes, kHashTotalLength);

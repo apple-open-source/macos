@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
- * 
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
+ * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
  *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /* Copyright 1998 Apple Computer, Inc.
  *
@@ -75,7 +73,7 @@ byte_swap_shorts(short *array, int count)
 		byte_swap_short(array[i]);
 }
 
-void
+int
 byte_swap_sbin(struct fs *sb)
 {
 	u_int16_t *usptr;
@@ -95,11 +93,27 @@ byte_swap_sbin(struct fs *sb)
 	byte_swap_ints((int32_t *)&sb->fs_state, 6);
 
 	/* Got these magic numbers from mkfs.c in newfs */
+	if (sb->fs_cpc < 0 || sb->fs_nrpos < 0)
+		return EINVAL;	/* Those are not legal values */
 	if (sb->fs_nrpos != 8 || sb->fs_cpc > 16) {
 		usptr = (u_int16_t *)((u_int8_t *)(sb) + (sb)->fs_postbloff);
 		size = sb->fs_cpc * sb->fs_nrpos;
+		
+		if (sb->fs_nrpos > (INT_MAX / sb->fs_cpc))
+			return EINVAL;	/* overflow again */
+		if (size > INT_MAX / sizeof(short))
+			return EINVAL;	/* size overflows */
+		if (sb->fs_postbloff < 0)
+			return EINVAL;	/* Invalid block list */
+		if ((sb->fs_postbloff + size * sizeof(short)) >= SBSIZE)
+			return EINVAL;	/* Otherwise a buffer overflow */
+		if ((sb->fs_postbloff + size * sizeof(short)) < sb->fs_postbloff)
+			return EINVAL;	/* Otherwise, a buffer underflow */
+
 		byte_swap_shorts(usptr,size);	/* fs_postbloff */
 	}
+
+	return 0;
 }
 
 void

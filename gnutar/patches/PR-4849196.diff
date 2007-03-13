@@ -1,0 +1,26 @@
+Index: src/extract.c
+===================================================================
+--- src/extract.c	(revision 25714)
++++ src/extract.c	(working copy)
+@@ -1199,7 +1199,7 @@
+       break;
+ 
+     case GNUTYPE_NAMES:
+-      extract_mangle ();
++      FATAL_ERROR((0, 0, _("GNUTYPE_NAMES support withdrawn CVE-2006-6097")));
+       break;
+ 
+     case GNUTYPE_MULTIVOL:
+Index: src/tar.c
+===================================================================
+--- src/tar.c	(revision 25714)
++++ src/tar.c	(working copy)
+@@ -1295,7 +1295,7 @@ decode_options (int argc, char **argv)
+ 
+   if (show_version)
+     {
+-      printf ("tar (%s) %s\n%s\n", PACKAGE_NAME, PACKAGE_VERSION,
++      printf ("tar (%s) %s +CVE-2006-6097\n%s\n", PACKAGE_NAME, PACKAGE_VERSION,
+ 	      "Copyright (C) 2004 Free Software Foundation, Inc.");
+       puts (_("\
+ This program comes with NO WARRANTY, to the extent permitted by law.\n\

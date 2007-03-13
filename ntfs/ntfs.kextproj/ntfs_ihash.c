@@ -67,11 +67,11 @@
 #include <sys/vnode.h>
 #include <sys/malloc.h>
 #include <sys/mount.h>
+#include <libkern/OSMalloc.h>
 #include "ntfs.h"
 #include "ntfs_inode.h"
 #include "ntfs_ihash.h"
 
-MALLOC_DEFINE(M_NTFSNTHASH, "NTFS nthash", "NTFS ntnode hash tables");
 
 /*
  * Structures associated with inode cacheing.
@@ -93,7 +93,7 @@ __private_extern__
 void
 ntfs_nthashinit()
 {
-	ntfs_nthashtbl = hashinit(desiredvnodes, M_NTFSNTHASH, &ntfs_nthash);
+	ntfs_nthashtbl = hashinit(desiredvnodes, M_TEMP, &ntfs_nthash);
 }
 
 /*

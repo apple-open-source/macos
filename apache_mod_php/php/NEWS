@@ -1,9 +1,124 @@
 PHP 4                                                                      NEWS
 |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+17 Aug 2006, Version 4.4.4
+- Fixed memory_limit on 64bit systems. (Stefan E.)
+- Fixed overflow on 64bit systems in str_repeat() and wordwrap(). (Stefan E.)
+- Disabled CURLOPT_FOLLOWLOCATION in curl when open_basedir or safe_mode are
+  enabled. (Stefan E.)
+- Fixed a memory corruption error with an invalid foreach() call. (Stefan E.,
+  Dmitry, Derick)
+- Fixed bug #38431 (xmlrpc_get_type() crashes PHP on objects). (Tony)
+- Fixed bug #38377 (session_destroy() gives warning after
+  session_regenerate_id()). (Ilia)
+- Fixed bug #38322 (reading past array in sscanf() leads to arbitary code 
+  execution). (Tony)
+- Fixed bug #38278 (session_cache_expire()'s value does not match phpinfo's 
+  session.cache_expire). (Tony)
+- Fixed bug #38251 (socket_select() and invalid arguments). (Tony)
+- Fixed bug #38183 (disable_classes=Foobar causes disabled class to be
+  called Foo). (Jani)
+- Fixed bug #38112 (corrupted gif segfaults) (Pierre)
+- Fixed bug #37265 (Added missing safe_mode & open_basedir checks to
+  imap_body()). (Ilia)
+- Fixed bug #29538 (number_format and problem with 0). (Matthew Wilmas)
+
+03 Aug 2006, Version 4.4.3
+- Added control character checks for cURL extension's open_basedir/safe_mode
+  checks. (Ilia)
+- Added overflow checks to wordwrap() function. (Ilia)
+- Added a check for special characters in the session name. (Ilia)
+- Improved safe_mode check for the error_log() function. (Ilia)
+- Updated PCRE to version 6.6. (Andrei)
+- Fixed handling of extremely long paths inside tempnam() function. (Ilia)
+- Fixed XSS inside phpinfo() with long inputs. (Ilia)
+- Fixed a possible buffer overflow inside create_named_pipe() for Win32 systems
+  in libmysql.c. (Ilia)
+- Fixed bug #37720 (merge_php_config scrambles values). (Mike,
+  pumuckel at metropolis dot de)
+- Fixed bug #37569 (WDDX incorrectly encodes high-ascii characters). (Ilia)
+- Fixed bug #37510 (session_regenerate_id changes session_id() even on failure).
+  (Hannes)
+- Fixed bug #37360 (Memory errors with a corrupt GIF file) (Pierre)
+- Fixed bug #37348 (Make PEAR install ignore open_basedir). (Ilia)
+- Fixed bug #37346 (Crashes when using an invalid colormap format). (Pierre)
+- Fixed bug #37162 (wddx does not build as a shared extension).  
+  (jdolecek at NetBSD dot org, Ilia)
+- Fixed bug #37046 (foreach breaks static scope). (Dmitry)
+- Fixed bug #37045 (Fixed check for special chars for http redirects). (Ilia)
+- Fixed bug #36857 (Added support for partial content fetching to the HTTP
+  streams wrapper). (Ilia)
+- Fixed bug #36776 (node_list_wrapper_dtor segfault). (Rob)
+- Fixed bug #36459 (Incorrect adding PHPSESSID to links, which contains \r\n).
+  (Ilia)
+- Fixed bug #36458 (sleep() accepts negative values). (Ilia)
+- Fixed bug #36242 (Possible memory corruption in stream_select()). (Tony)
+- Fixed bug #36223 (curl bypasses open_basedir restrictions). (Tony)
+- Fixed bug #36205 (Memory leaks on duplicate cookies). (Dmitry)
+- Fixed bug #36148 (unpack("H*hex", $data) is adding an extra character to the 
+  end of the string). (Ilia)
+- Fixed bug #36017 (fopen() crashes PHP when opening a URL). (Tony)
+
+13 Jan 2006, Version 4.4.2
+- Added missing safe_mode/open_basedir checks into cURL extension. (Ilia)
+- Backported missing imap_mailcompose() fixes from PHP 5.x. (Ilia)
+- Prevent header injection by limiting each header to a single line. (Ilia)
+- Fixed possible XSS inside error reporting functionality. (Ilia)
+- Fixed Apache 2 regression with sub-request handling on non-linux systems.
+  (Ilia, Tony)
+- Fixed bug #35817 (unpack() does not decode odd number of hexadecimal values).
+  (Ilia)
+- Fixed bug #35735 ($EGREP not defined in configure). (Jani)
+- Fixed bug #35669 (imap_mail_compose() crashes with 
+  multipart-multiboundary-email).  (Ilia)
+- Fixed bug #35655 (whitespace following end of heredoc is lost). (Ilia)
+- Fixed bug #35646 (%{mod_php_memory_usage}n is not reset after exit). 
+  (vovik at getart dot ru, Tony)
+- Fixed bug #35594 (Multiple calls to getopt() may result in a crash).
+  (rabbitt at gmail dot com, Ilia)
+- Fixed bug #35571 (Fixed crash in Apache 2 SAPI when more then one php 
+  script is loaded via SSI include). (Ilia)
+- Fixed bug #35536 (mysql_field_type() doesn't handle NEWDECIMAL). (Tony)
+- Fixed bug #35410 (wddx_deserialize() doesn't handle large ints as keys 
+  properly). (Ilia)
+- Fixed bug #35341 (Fix for bug #33760 breaks build with older curl). (Tony)
+- Fixed bug #35278 (Multiple virtual() calls crash Apache 2 php module). (Ilia)
+- Fixed bug #35257 (Calling ob_flush after creating an ob callback causes 
+  segfault). (Tony)
+- Fixed bug #35079 (stream_set_blocking(true) toggles, not enables 
+  blocking). (askalski at gmail dot com, Tony)
+- Fixed bug #35078 (configure does not find ldap_start_tls_s). (Jani)
+- Fixed bug #35071 (Wrong fopen mode used in GD safe-mode checks). (Jani)
+- Fixed bug #35067, #35063 (key(),current() need to work by reference). (Ilia)
+- Fixed bug #35062 (socket_read() produces warnings on non blocking sockets).
+  (Nuno, Ilia)
+- Fixed bug #35059 (Apache2 crash with mod_rewrite). (Ilia)
+- Fixed bug #35009 (ZTS: Persistent resource destruct crashes when extension
+  is compiled as shared). (Dmitry)
+- Fixed bug #34996 (ImageTrueColorToPalette() crashes when ncolors is zero).
+  (Tony)
+- Fixed bug #34851 (SO_RECVTIMEO and SO_SNDTIMEO socket options expect integer
+  parameter on Windows). (Mike)
+- Fixed bug #34830 (the 5th argument of mb_send_mail does not work). (Rui)
+- Fixed bug #34359 (Possible crash inside fopen http wrapper). (Ilia,Nuno,Sara)
+- Fixed bug #33963 (mssql_bind() fails on input parameters). (Frank)
+- Fixed bug #33760 (cURL needs CRYPTO_callback functions to prevent locking).
+  (Mike)
+- Fixed bug #33720 (mb_encode_mimeheader does not work for multibyte chars).
+  (Rui)
+- Fixed bug #33523 (Memory leak in xmlrpc_encode_request()). (Ilia)
+- Fixed bug #33201 (Crash when fetching some data types). (Frank)
+  (frantisek at augusztin dot com)
+- Fixed bug #33153 (crash in mssql_next result). (Frank)
+- Fixed bug #32009 (crash when mssql_bind() is called more than once). (Frank)
+- Fixed bug #31971 (ftp_login fails on some SSL servers).
+- Fixed bug #30760 (Remove MessageBox on win32 for E_CORE errors if 
+  display_startup_error is off). (Ilia)
+- Fixed bug #27678 (number_format() crashes with large numbers). (Marcus)
+
 31 Oct 2005, Version 4.4.1
-	
 - Added missing safe_mode checks for image* functions and cURL. (Ilia)
 - Added missing safe_mode/open_basedir checks for file uploads. (Ilia)
+- Added "new_link" parameter to mssql_connect(). Bug #34369. (Frank)
 - Fixed a memory corruption bug regarding included files. (Derick)
 - Fixed possible INI setting leak via virtual() in Apache 2 sapi. (Ilia)
 - Fixed possible crash and/or memory corruption in import_request_variables().
@@ -12,7 +127,6 @@ PHP 4                                                                      NEWS
 - Fixed possible GLOBALS variable override when register_globals are ON.
   (Ilia, Stefan)
 - Fixed possible register_globals toggle via parse_str(). (Ilia, Stefan)
-- Added "new_link" parameter to mssql_connect(). Bug #34369. (Frank)
 - Fixed bug #34850 (--program-suffix and --program-prefix not included in 
   man page names). (Jani)
 - Fixed bug #34790 (preg_match_all(), named capturing groups, variable

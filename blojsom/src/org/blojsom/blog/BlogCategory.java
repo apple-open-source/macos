@@ -48,7 +48,7 @@ import java.io.Serializable;
  *
  * @author David Czarnecki
  * @author Mark Lussier
- * @version $Id: BlogCategory.java,v 1.2.2.1 2005/07/21 14:11:02 johnan Exp $
+ * @version $Id: BlogCategory.java,v 1.2.2.2 2006/10/19 21:14:32 johnan Exp $
  */
 public abstract class BlogCategory implements Comparable, Serializable {
 
@@ -213,6 +213,15 @@ public abstract class BlogCategory implements Comparable, Serializable {
      */
     public String getName() {
         return _name;
+    }
+
+    /**
+     * Retrieves the HTML escaped name of this category
+     *
+     * @return The name of the category
+     */
+    public String getEscapedName() {
+        return BlojsomUtils.escapeString(_name);
     }
 
     /**

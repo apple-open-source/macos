@@ -1808,6 +1808,7 @@ eapfast_compute_master_secret(SSLContextRef ctx, const void * arg,
 	       *secret_length < MASTER_SECRET_LENGTH);
 	goto failed;
     }
+    random_size = sizeof(random);
     status = ssl_get_server_client_random(context->ssl_context,
 					  random, &random_size);
     if (status != noErr) {

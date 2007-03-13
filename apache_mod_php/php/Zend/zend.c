@@ -6,7 +6,7 @@
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
+   | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: zend.c,v 1.162.2.26.2.1 2005/06/09 10:14:25 dmitry Exp $ */
+/* $Id: zend.c,v 1.162.2.26.2.3 2006/01/01 13:46:49 sniper Exp $ */
 
 #include "zend.h"
 #include "zend_extensions.h"
@@ -564,9 +564,7 @@ void zend_shutdown(TSRMLS_D)
 #ifdef ZEND_WIN32
 	zend_shutdown_timeout_thread();
 #endif
-#ifndef ZTS
 	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
-#endif	
 	zend_hash_graceful_reverse_destroy(&module_registry);
 
 	zend_shutdown_extensions(TSRMLS_C);
@@ -584,8 +582,6 @@ void zend_shutdown(TSRMLS_D)
 	zend_shutdown_constants(TSRMLS_C);
 
 #ifdef ZTS
-	zend_destroy_rsrc_list(&EG(persistent_list) TSRMLS_CC);
-
 	zend_hash_destroy(GLOBAL_CONSTANTS_TABLE);
 	free(GLOBAL_CONSTANTS_TABLE);
 

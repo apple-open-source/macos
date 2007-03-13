@@ -199,8 +199,12 @@ exit:
 
     filesec_free(original_fsec);
 
-    if (state == NULL)
-	ret -= copyfile_free(s);
+    if (state == NULL) {
+	if (copyfile_free(s) < 0) {
+		ret = -1;
+	}
+    }
+
     return ret;
 }
 
@@ -241,10 +245,10 @@ int copyfile_free(copyfile_state_t s)
 
 static int copyfile_close(copyfile_state_t s)
 {
-    if (s->src_fd != -2)
+    if (s->src_fd >= 0)
 	close(s->src_fd);
 
-    if (s->dst_fd != -2 && close(s->dst_fd))
+    if (s->dst_fd >= 0 && close(s->dst_fd))
     {
 	copyfile_warn("close on %s", s->dst);
 	return -1;
@@ -261,7 +265,7 @@ static int copyfile_fix_perms(copyfile_state_t s, filesec_t *fsec, int on)
 
     if (on)
     {
-	if(statx_np(s->dst, &sb, *fsec))
+	if(fstatx_np(s->dst_fd, &sb, *fsec))
 	    goto error;
 
 	tmp_fsec = filesec_dup(*fsec);
@@ -391,12 +395,33 @@ static int copyfile_open(copyfile_state_t s)
 	    return -1;
 	}
 
-	while((s->dst_fd = openx_np(s->dst, oflags, s->fsec)) < 0)
+	while((s->dst_fd = open(s->dst, oflags, s->sb.st_mode | S_IWUSR)) < 0)
 	{
-	    if (EEXIST == errno)
+	    /*
+	     * We set S_IWUSR because fsetxattr does not -- at the time this comment
+	     * was written -- allow one to set an extended attribute on a file descriptor
+	     * for a read-only file, even if the file descriptor is opened for writing.
+	     * This will only matter if the file does not already exist.
+	     */
+	    switch(errno)
 	    {
-		oflags = oflags & ~O_CREAT;
-		continue;
+		case EEXIST:
+		    copyfile_debug(3, "open failed, retrying (%s)", s->dst);
+		    if (s->flags & COPYFILE_EXCL)
+			break;
+		    oflags = oflags & ~O_CREAT;
+		    if (s->flags & (COPYFILE_PACK | COPYFILE_DATA))
+		    {
+			copyfile_debug(4, "truncating existing file (%s)", s->dst);
+			oflags |= O_TRUNC;
+		    }
+		    continue;
+		case EACCES:
+		    if(chmod(s->dst, (s->sb.st_mode | S_IWUSR) & ~S_IFMT) == 0)
+			continue;
+		    else {
+			break;
+		    }
 	    }
 	    copyfile_warn("open on %s", s->dst);
 	    return -1;
@@ -533,14 +558,17 @@ static int copyfile_security(copyfile_state_t s)
 	    }
 	}
 
-	if (!filesec_set_property(s->fsec, FILESEC_ACL, &acl_dst))
+	if (!filesec_set_property(fsec_dst, FILESEC_ACL, &acl_dst))
 	{
 	    copyfile_debug(1, "altered acl");
 	}
     }
 no_acl:
-    if (fchmodx_np(s->dst_fd, s->fsec) < 0 && errno != ENOTSUP)
+    if (fchmodx_np(s->dst_fd, fsec_dst) < 0 && errno != ENOTSUP)
+    {
 	copyfile_warn("setting security information: %s", s->dst);
+	ret = -1;
+    }
 
 cleanup:
     filesec_free(fsec_dst);
@@ -1089,8 +1117,17 @@ static int copyfile_unpack(copyfile_state_t s)
 		goto exit;
 	    }
 
-	    if (entry->namelen > ATTR_MAX_NAME_LEN) {
-		entry->namelen = ATTR_MAX_NAME_LEN;
+	    if (entry->namelen < 2) {
+		if (COPYFILE_VERBOSE & s->flags)
+		    copyfile_warn("Corrupt attribute entry (only %d bytes)", entry->namelen);
+		error = -1;
+		goto exit;
+	    }
+	    if (entry->namelen > ATTR_MAX_NAME_LEN + 1) {
+		if (COPYFILE_VERBOSE & s->flags)
+		    copyfile_warn("Corrupt attribute entry (name length is %d bytes)", entry->namelen);
+		error = -1;
+		goto exit;
 	    }
 	    if ((void*)(entry->name + entry->namelen) >= endptr) {
 		if (COPYFILE_VERBOSE & s->flags)
@@ -1099,8 +1136,12 @@ static int copyfile_unpack(copyfile_state_t s)
 		goto exit;
 	    }
 
-	    if (entry->name[entry->namelen] != 0) {
-		entry->name[entry->namelen] = 0;
+	    /* Because namelen includes the NUL, we check one byte back */
+	    if (entry->name[entry->namelen-1] != 0) {
+		if (COPYFILE_VERBOSE & s->flags)
+		    copyfile_warn("Corrupt attribute entry (name is not NUL-terminated)");
+		error = -1;
+		goto exit;
 	    }
 
 	    copyfile_debug(3, "extracting \"%s\" (%d bytes) at offset %u",
@@ -1132,30 +1173,33 @@ static int copyfile_unpack(copyfile_state_t s)
 	    if (COPYFILE_ACL & s->flags && strncmp(entry->name, XATTR_SECURITY_NAME, strlen(XATTR_SECURITY_NAME)) == 0)
 	    {
 		acl_t acl;
-		if ((acl = acl_from_text(dataptr)) != NULL)
+		char *tacl = strdup(dataptr);
+		if (tacl)
 		{
-		    if (filesec_set_property(s->fsec, FILESEC_ACL, &acl) < 0)
+		    tacl[entry->length] = 0;	/* Ensure it is NUL-terminated */
+		    if (acl = acl_from_text(tacl))
 		    {
-			    acl_t acl;
-			    if ((acl = acl_from_text(dataptr)) != NULL)
+			filesec_t tfsec = filesec_init();
+			if (tfsec)
+			{
+			    if (filesec_set_property(tfsec, FILESEC_ACL, &acl) < 0)
 			    {
-				if (filesec_set_property(s->fsec, FILESEC_ACL, &acl) < 0)
-				{
-				    copyfile_debug(1, "setting acl");
-				}
-				else if (fchmodx_np(s->dst_fd, s->fsec) < 0 && errno != ENOTSUP)
-					copyfile_warn("setting security information");
-				acl_free(acl);
+				copyfile_debug(1, "setting acl");
+				error = -1;
 			    }
-		    } else if (COPYFILE_XATTR & s->flags && (fsetxattr(s->dst_fd, entry->name, dataptr, entry->length, 0, 0))) {
-			    if (COPYFILE_VERBOSE & s->flags)
-				    copyfile_warn("error %d setting attribute %s", error, entry->name);
-			    goto exit;
+			    else if (fchmodx_np(s->dst_fd, tfsec) < 0 && errno != ENOTSUP)
+			    {
+				error = -1;
+				copyfile_debug(1, "applying acl to file");
+			    }
+			    filesec_free(tfsec);
+			}
+			acl_free(acl);
 		    }
-		    else if (fchmodx_np(s->dst_fd, s->fsec) < 0 && errno != ENOTSUP)
-			    copyfile_warn("setting security information");
-		    acl_free(acl);
+		    free(tacl);
 		}
+		if (error)
+		    goto exit;
 	    } else
 	    if (COPYFILE_XATTR & s->flags && (fsetxattr(s->dst_fd, entry->name, dataptr, entry->length, 0, 0))) {
 		if (COPYFILE_VERBOSE & s->flags)
@@ -1191,6 +1235,8 @@ static int copyfile_unpack(copyfile_state_t s)
 	void * rsrcforkdata = NULL;
 	size_t length;
 	off_t offset;
+	struct stat sb;
+	struct timeval tval[2];
 
 	length = adhdr->entries[1].length;
 	offset = adhdr->entries[1].offset;
@@ -1201,6 +1247,13 @@ static int copyfile_unpack(copyfile_state_t s)
 			       length);
 		error = -1;
 		goto bad;
+	}
+
+	if (fstat(s->dst_fd, &sb) < 0)
+	{
+	  copyfile_debug(1, "couldn't stat destination file");
+	  error = -1;
+	  goto exit;
 	}
 
 	bytes = pread(s->src_fd, rsrcforkdata, length, offset);
@@ -1226,8 +1279,18 @@ static int copyfile_unpack(copyfile_state_t s)
 	    error = -1;
 	    goto bad;
 	}
-	    copyfile_debug(1, "extracting \"%s\" (%d bytes)",
+	copyfile_debug(1, "extracting \"%s\" (%d bytes)",
 		    XATTR_RESOURCEFORK_NAME, (int)length);
+
+	tval[0].tv_sec = sb.st_atime;
+	tval[1].tv_sec = sb.st_mtime;
+	tval[0].tv_usec = tval[1].tv_usec = 0;
+
+	if (futimes(s->dst_fd, tval))
+	{
+	    copyfile_warn("cannot set time on destination file %s", s->dst ? s->dst : "<no filename>");
+	}
+
 bad:
 	if (rsrcforkdata)
 	    free(rsrcforkdata);

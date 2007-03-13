@@ -1,0 +1,94 @@
+
+Pasteboard
+==========
+
+The quartz-wm window manager now handles all proxying between the OS X
+pasteboard and the X11 server's selections. It does this entirely
+lazily, i.e. nothing gets copied anywhere until the text is actually
+required for pasting. For X11 applications that support it, the UTF8
+encoding is used.
+
+The scheme is something like this:
+
+  NSPasteboard -> X11
+  -------------------
+
+  When X11 becomes active (i.e. has key focus) the window manager
+  checks if text data is on the pasteboard (and that it didn't
+  originate from X11). If so, it claims ownership of the PRIMARY and
+  CLIPBOARD X11 server selections.
+
+  Any subsequent requests from X11 clients for either of these
+  selections will be directed to the window manager (until someone else
+  claims them). It then fetches the data from the NSPasteboard,
+  converts it to whatever format was requested, and sends it to the
+  client in the normal manner.
+
+  X11 CLIPBOARD -> NSPasteboard
+  -----------------------------
+
+  When X11 goes inactive (i.e. another app, or an appkit window has
+  focus), the wm queries the owner of the X server CLIPBOARD selection.
+  If it's not owned by the window manager (i.e. already proxied), the
+  wm declares to the pasteboard that it has text available for pasting.
+
+  Native clients wanting to paste will then result in AppKit calling
+  back to the window manager's selection controller asking for the
+  data. It then attempts to fetch it from the X11 client owning the
+  CLIPBOARD selection, converts it to an NSString and writes it onto
+  the pasteboard.
+
+  X11 PRIMARY -> NSPasteboard
+  ---------------------------
+
+  Finally, when an X11 window is active, selecting the "Copy" item from
+  the "Edit" menu on the main menubar tells the window manager to proxy
+  the PRIMARY selection onto the NSPasteboard.
+
+I think this covers the largest set of use-cases, without having any
+undesirable behaviour. Since it proxies both CLIPBOARD and PRIMARY,
+almost all X clients will be able to both copy and paste to native
+applications (except for those which solely use CUT_BUFFER's, which
+should be extremely rare.)
+
+The code to do all this is almost entirely self-contained, and uses no
+private APIs. So for people who don't want to use our window manager,
+it would be possible to provide a standalone proxying daemon.
+
+
+Native Fonts
+============
+
+XFree 4.2 seems to use Xft1, so we're not using the fontconfig stuff
+yet, but the old Xft font configuration system (should be ok for now,
+since it's transparent to applications)
+
+The changes I needed to make were:
+
+1. patch freetype sources in X distribution to turn on ftmac.c, which
+handles loading mac-style font files (I had to fix the code that
+converts input paths to FSSpec's)
+
+I had to turn off the bytecode interpreter, since the copy of freetype
+that XFree ship has it enabled. (I also turned off all hinting by Xft,
+just to see if it would be acceptable, I think it is, though the Xft
+lcd rendering code seems to cause much more color fringing on some
+fonts when hinting is disabled)
+
+2. patch X configuration to build libfreetype as a static library and
+link it directly into the dynamic libXft (to avoid symbol conflicts
+with the other libfreetype I have installed)
+
+3. edited /etc/X11/XftConfig adding:
+
+	dir "/System/Library/Fonts"
+	dir "/Library/Fonts"
+
+to the top of the file.
+
+4. ran xftcache as root to generate the XftCache files in each font
+directory
+
+5. added the entry "Xft.rgba = rgb" to my X resource database to turn
+on subpixel rendering
+

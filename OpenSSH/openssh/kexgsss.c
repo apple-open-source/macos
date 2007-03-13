@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2006 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,20 @@
 
 #ifdef GSSAPI
 
+#include <string.h>
+
 #include <openssl/crypto.h>
 #include <openssl/bn.h>
 
 #include "xmalloc.h"
 #include "buffer.h"
-#include "bufaux.h"
+#include "ssh2.h"
+#include "key.h"
+#include "cipher.h"
 #include "kex.h"
 #include "log.h"
 #include "packet.h"
 #include "dh.h"
-#include "ssh2.h"
 #include "ssh-gss.h"
 #include "monitor_wrap.h"
 
@@ -56,37 +59,42 @@ kexgss_server(Kex *kex)
 	gss_buffer_desc gssbuf, recv_tok, msg_tok;
 	gss_buffer_desc send_tok = GSS_C_EMPTY_BUFFER;
 	Gssctxt *ctxt = NULL;
-	unsigned int klen, kout;
-	unsigned char *kbuf, *hash;
+	u_int slen, klen, kout, hashlen;
+	u_char *kbuf, *hash;
 	DH *dh;
 	int min = -1, max = -1, nbits = -1;
 	BIGNUM *shared_secret = NULL;
 	BIGNUM *dh_client_pub = NULL;
 	int type = 0;
-	int gex;
-	u_int slen;
 	gss_OID oid;
-	
+
 	/* Initialise GSSAPI */
 
 	/* If we're rekeying, privsep means that some of the private structures
 	 * in the GSSAPI code are no longer available. This kludges them back
-         * into life
+	 * into life
 	 */
 	if (!ssh_gssapi_oid_table_ok()) 
 		ssh_gssapi_server_mechanisms();
 
 	debug2("%s: Identifying %s", __func__, kex->name);
-	oid = ssh_gssapi_id_kex(NULL, kex->name, &gex);
-	if (oid == NULL)
+	oid = ssh_gssapi_id_kex(NULL, kex->name, kex->kex_type);
+	if (oid == GSS_C_NO_OID)
 	   fatal("Unknown gssapi mechanism");
 
 	debug2("%s: Acquiring credentials", __func__);
 
 	if (GSS_ERROR(PRIVSEP(ssh_gssapi_server_ctx(&ctxt, oid))))
-        	fatal("Unable to acquire credentials for the server");
+		fatal("Unable to acquire credentials for the server");
 
-	if (gex) {
+	switch (kex->kex_type) {
+	case KEX_GSS_GRP1_SHA1:
+		dh = dh_new_group1();
+		break;
+	case KEX_GSS_GRP14_SHA1:
+		dh = dh_new_group14();
+		break;
+	case KEX_GSS_GEX_SHA1:
 		debug("Doing group exchange");
 		packet_read_expect(SSH2_MSG_KEXGSS_GROUPREQ);
 		min = packet_get_int();
@@ -108,10 +116,11 @@ kexgss_server(Kex *kex)
 		packet_send();
 
 		packet_write_wait();
-		
-	} else {
-        	dh = dh_new_group1();
+		break;
+	default:
+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
 	}
+
 	dh_gen_key(dh, kex->we_need * 8);
 
 	do {
@@ -188,8 +197,21 @@ kexgss_server(Kex *kex)
 	memset(kbuf, 0, klen);
 	xfree(kbuf);
 
-	if (gex) {
-		hash = kexgex_hash(
+	switch (kex->kex_type) {
+	case KEX_GSS_GRP1_SHA1:
+	case KEX_GSS_GRP14_SHA1:
+		kex_dh_hash(
+		    kex->client_version_string, kex->server_version_string,
+		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
+		    buffer_ptr(&kex->my), buffer_len(&kex->my),
+		    NULL, 0, /* Change this if we start sending host keys */
+		    dh_client_pub, dh->pub_key, shared_secret,
+		    &hash, &hashlen
+		);
+		break;
+	case KEX_GSS_GEX_SHA1:
+		kexgex_hash(
+		    kex->evp_md,
 		    kex->client_version_string, kex->server_version_string,
 		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
 		    buffer_ptr(&kex->my), buffer_len(&kex->my),
@@ -198,40 +220,35 @@ kexgss_server(Kex *kex)
 		    dh->p, dh->g,
 		    dh_client_pub,
 		    dh->pub_key,
-		    shared_secret
+		    shared_secret,
+		    &hash, &hashlen
 		);
+		break;
+	default:
+		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
 	}
-	else {	
-		/* The GSSAPI hash is identical to the Diffie Helman one */
-		hash = kex_dh_hash(
-		    kex->client_version_string, kex->server_version_string,
-		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
-		    buffer_ptr(&kex->my), buffer_len(&kex->my),
-		    NULL, 0, /* Change this if we start sending host keys */
-		    dh_client_pub, dh->pub_key, shared_secret
-		);
-	}
+
 	BN_free(dh_client_pub);
 
 	if (kex->session_id == NULL) {
-		kex->session_id_len = 20;
+		kex->session_id_len = hashlen;
 		kex->session_id = xmalloc(kex->session_id_len);
 		memcpy(kex->session_id, hash, kex->session_id_len);
 	}
 
 	gssbuf.value = hash;
-	gssbuf.length = 20; /* Hashlen appears to always be 20 */
+	gssbuf.length = hashlen;
 
 	if (GSS_ERROR(PRIVSEP(ssh_gssapi_sign(ctxt,&gssbuf,&msg_tok))))
 		fatal("Couldn't get MIC");
 
 	packet_start(SSH2_MSG_KEXGSS_COMPLETE);
 	packet_put_bignum2(dh->pub_key);
-	packet_put_string((char *)msg_tok.value,msg_tok.length);
+	packet_put_string(msg_tok.value,msg_tok.length);
 
 	if (send_tok.length != 0) {
 		packet_put_char(1); /* true */
-		packet_put_string((char *)send_tok.value, send_tok.length);
+		packet_put_string(send_tok.value, send_tok.length);
 	} else {
 		packet_put_char(0); /* false */
 	}
@@ -247,7 +264,7 @@ kexgss_server(Kex *kex)
 
 	DH_free(dh);
 
-	kex_derive_keys(kex, hash, shared_secret);
+	kex_derive_keys(kex, hash, hashlen, shared_secret);
 	BN_clear_free(shared_secret);
 	kex_finish(kex);
 }

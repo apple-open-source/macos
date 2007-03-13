@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -18,7 +18,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: sapi_apache2.c,v 1.1.2.40.2.5 2005/10/12 21:41:36 tony2001 Exp $ */
+/* $Id: sapi_apache2.c,v 1.1.2.40.2.10 2006/01/01 13:47:01 sniper Exp $ */
 
 #include <fcntl.h>
 
@@ -443,6 +443,18 @@ static void php_apache_request_dtor(request_rec *r TSRMLS_DC)
 	php_request_shutdown(NULL);
 }
 
+static void php_apache_ini_dtor(request_rec *r, request_rec *p TSRMLS_DC)
+{
+	if (strcmp(r->protocol, "INCLUDED")) {
+		zend_try { zend_ini_deactivate(TSRMLS_C); } zend_end_try();
+	}
+	if (p) {
+		((php_struct *)SG(server_context))->r = p;
+	} else {
+		apr_pool_cleanup_run(r->pool, (void *)&SG(server_context), php_server_context_cleanup);
+	}
+}
+
 static int php_handler(request_rec *r)
 {
 	php_struct *ctx;
@@ -453,16 +465,13 @@ static int php_handler(request_rec *r)
 	request_rec *parent_req = NULL;
 	TSRMLS_FETCH();
 
-#define PHPAP_INI_OFF \
-	if (strcmp(r->protocol, "INCLUDED")) { \
-		zend_try { zend_ini_deactivate(TSRMLS_C); } zend_end_try(); \
-	} \
+#define PHPAP_INI_OFF php_apache_ini_dtor(r, parent_req TSRMLS_CC);
 
 	conf = ap_get_module_config(r->per_dir_config, &php4_module);
 
 	/* apply_config() needs r in some cases, so allocate server_context early */
 	ctx = SG(server_context);
-	if (ctx == NULL) {
+	if (ctx == NULL || (ctx && ctx->request_processed && !strcmp(r->protocol, "INCLUDED"))) {
 		ctx = SG(server_context) = apr_pcalloc(r->pool, sizeof(*ctx));
 		/* register a cleanup so we clear out the SG(server_context)
 		 * after each request. Note: We pass in the pointer to the
@@ -535,7 +544,7 @@ normal:
 		if (!parent_req) {
 			parent_req = ctx->r;
 		}
-		if (parent_req && strcmp(parent_req->handler, PHP_MAGIC_TYPE) && strcmp(parent_req->handler, PHP_SOURCE_MAGIC_TYPE) && strcmp(parent_req->handler, PHP_SCRIPT)) {
+		if (parent_req && parent_req->handler && strcmp(parent_req->handler, PHP_MAGIC_TYPE) && strcmp(parent_req->handler, PHP_SOURCE_MAGIC_TYPE) && strcmp(parent_req->handler, PHP_SCRIPT)) {
 			if (php_apache_request_ctor(r, ctx TSRMLS_CC)!=SUCCESS) {
 				zend_bailout();
 			}

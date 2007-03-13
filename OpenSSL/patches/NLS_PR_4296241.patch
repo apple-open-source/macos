@@ -1,0 +1,17 @@
+diff -Naur /var/tmp/OpenSSL.roots/OpenSSL/openssl/crypto/rsa/rsa_ssl.c ./crypto/rsa/rsa_ssl.c
+--- /var/tmp/OpenSSL.roots/OpenSSL/openssl/crypto/rsa/rsa_ssl.c	2000-11-06 14:34:16.000000000 -0800
++++ ./crypto/rsa/rsa_ssl.c	2006-10-11 16:40:48.000000000 -0700
+@@ -130,11 +130,11 @@
+ 		RSAerr(RSA_F_RSA_PADDING_CHECK_SSLV23,RSA_R_NULL_BEFORE_BLOCK_MISSING);
+ 		return(-1);
+ 		}
+-	for (k= -8; k<0; k++)
++	for (k= -9; k<-1; k++)
+ 		{
+ 		if (p[k] !=  0x03) break;
+ 		}
+-	if (k == -1)
++	if (k != -1)
+ 		{
+ 		RSAerr(RSA_F_RSA_PADDING_CHECK_SSLV23,RSA_R_SSLV3_ROLLBACK_ATTACK);
+ 		return(-1);

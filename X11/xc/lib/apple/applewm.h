@@ -93,15 +93,15 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define AppleWMFrameRectGrowBox		3
 
 /* Window frame classes */
-#define AppleWMFrameClassDocument	1 << 0
-#define AppleWMFrameClassDialog		1 << 1
-#define AppleWMFrameClassModalDialog	1 << 2
-#define AppleWMFrameClassSystemModalDialog 1 << 3
-#define AppleWMFrameClassUtility	1 << 4
-#define AppleWMFrameClassToolbar	1 << 5
-#define AppleWMFrameClassMenu		1 << 6
-#define AppleWMFrameClassSplash		1 << 7
-#define AppleWMFrameClassBorderless	1 << 8
+#define AppleWMFrameClassDocument	(1 << 0)
+#define AppleWMFrameClassDialog		(1 << 1)
+#define AppleWMFrameClassModalDialog	(1 << 2)
+#define AppleWMFrameClassSystemModalDialog (1 << 3)
+#define AppleWMFrameClassUtility	(1 << 4)
+#define AppleWMFrameClassToolbar	(1 << 5)
+#define AppleWMFrameClassMenu		(1 << 6)
+#define AppleWMFrameClassSplash		(1 << 7)
+#define AppleWMFrameClassBorderless	(1 << 8)
 
 /* Window frame attributes */
 #define AppleWMFrameActive		0x0001

@@ -570,20 +570,6 @@ trans_mkdir(char *path, int mode)
 		}
 	    }
 #endif
-	    if (updateOwner && !updatedOwner) {
-	  	PRMSG(1, "mkdir: Owner of %s should be set to root\n",
-		      path, 0, 0);
-#if !defined(__CYGWIN__) && !defined(__DARWIN__)
-		sleep(5);
-#endif
-	    }
-	    if (updateMode && !updatedMode) {
-	  	PRMSG(1, "mkdir: Mode of %s should be set to %04o\n",
-		      path, mode, 0);
-#if !defined(__CYGWIN__) && !defined(__DARWIN__)
-		sleep(5);
-#endif
-	    }
 	    return 0;
 	}
     }

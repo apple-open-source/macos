@@ -1,5 +1,7 @@
 --TEST--
 Bug #26463 (token_get_all() does not correctly handle semicolons after T_END_HEREDOC)
+--SKIPIF--
+<?php if (!extension_loaded("tokenizer")) print "skip"; ?>
 --FILE--
 <?php
 $str = '<?php
@@ -14,11 +16,11 @@ DDDD;
 var_dump(token_get_all($str));
 ?>
 --EXPECTF--
-array(17) {
+array(19) {
   [0]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(354)
     [1]=>
     string(6) "<?php
 "
@@ -26,7 +28,7 @@ array(17) {
   [1]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(307)
     [1]=>
     string(2) "$x"
   }
@@ -35,7 +37,7 @@ array(17) {
   [3]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(358)
     [1]=>
     string(6) "<<<DD
 "
@@ -43,7 +45,7 @@ array(17) {
   [4]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(305)
     [1]=>
     string(13) "jhdsjkfhjdsh
 "
@@ -51,67 +53,83 @@ array(17) {
   [5]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(359)
     [1]=>
     string(2) "DD"
   }
   [6]=>
-  string(1) "."
-  [7]=>
   array(2) {
     [0]=>
-    int(%d)
-    [1]=>
-    string(2) """"
-  }
-  [8]=>
-  string(1) ";"
-  [9]=>
-  array(2) {
-    [0]=>
-    int(%d)
+    int(357)
     [1]=>
     string(1) "
 "
   }
+  [7]=>
+  string(1) "."
+  [8]=>
+  array(2) {
+    [0]=>
+    int(313)
+    [1]=>
+    string(2) """"
+  }
+  [9]=>
+  string(1) ";"
   [10]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(357)
+    [1]=>
+    string(1) "
+"
+  }
+  [11]=>
+  array(2) {
+    [0]=>
+    int(307)
     [1]=>
     string(2) "$a"
   }
-  [11]=>
-  string(1) "="
   [12]=>
-  array(2) {
-    [0]=>
-    int(%d)
-    [1]=>
-    string(8) "<<<DDDD
-"
-  }
+  string(1) "="
   [13]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(358)
     [1]=>
-    string(13) "jhdsjkfhjdsh
+    string(8) "<<<DDDD
 "
   }
   [14]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(305)
+    [1]=>
+    string(13) "jhdsjkfhjdsh
+"
+  }
+  [15]=>
+  array(2) {
+    [0]=>
+    int(359)
     [1]=>
     string(4) "DDDD"
   }
-  [15]=>
-  string(1) ";"
   [16]=>
+  string(1) ";"
+  [17]=>
   array(2) {
     [0]=>
-    int(%d)
+    int(357)
+    [1]=>
+    string(1) "
+"
+  }
+  [18]=>
+  array(2) {
+    [0]=>
+    int(356)
     [1]=>
     string(2) "?>"
   }

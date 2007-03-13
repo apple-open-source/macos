@@ -51,21 +51,31 @@ bool IOHIDevice::start(IOService * provider)
    
     // RY: If the kIOHIDVirtualHIDevice property isn't
     // set scan the up provider chain to determine if
-    // this is a resource.
+    // this is a resource or if the provider is another
+    // IOHIDevice.  Also propegate value is property
+    // was already set in provider.
     if (!getProperty(kIOHIDVirtualHIDevice))
     {
+        OSObject * prop;
+
         while (provider)
         {
-            if ( provider == getResourceService() )
+            if ( prop = OSDynamicCast(OSBoolean, provider->getProperty(kIOHIDVirtualHIDevice)) )
+            {
+                setProperty(kIOHIDVirtualHIDevice, prop);
+                break;
+            }
+            else if ( provider == getResourceService() || OSDynamicCast(IOHIDevice, provider) )
             {
                 setProperty(kIOHIDVirtualHIDevice, kOSBooleanTrue);
-                return true;
+                break;
             }
-            
+
             provider = provider->getProvider();
         }
         
-        setProperty(kIOHIDVirtualHIDevice, kOSBooleanFalse);
+        if ( !provider )
+            setProperty(kIOHIDVirtualHIDevice, kOSBooleanFalse);
     }
     
     updateProperties();

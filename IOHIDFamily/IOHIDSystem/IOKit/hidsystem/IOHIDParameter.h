@@ -140,11 +140,13 @@
 #define kIOHIDUseKeyswitchKey                "HIDUseKeyswitch"
 
 
-// the following are misspelled keys present in the system
-// they are being kept around, but will eventually be deprecated
-#define kIOHIDSickyKeysDisabledKey		"HIDStickyKeysDisabled"
-#define kIOHIDSickyKeysOnKey			"HIDStickyKeysOn"
-#define kIOHIDSickyKeysShiftTogglesKey	"HIDStickyKeysShiftToggles"
+#ifdef __ppc__
+    // the following are misspelled keys present in the system
+    // they are being kept around, but will eventually be deprecated
+    #define kIOHIDSickyKeysDisabledKey		kIOHIDStickyKeysDisabledKey
+    #define kIOHIDSickyKeysOnKey			kIOHIDStickyKeysOnKey
+    #define kIOHIDSickyKeysShiftTogglesKey	kIOHIDStickyKeysShiftTogglesKey
+#endif
 
 // the following values are used in kIOHIDPointerButtonMode
 typedef enum {

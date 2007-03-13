@@ -646,6 +646,9 @@
 /* Define if you have the <floatingpoint.h> header file.  */
 #undef HAVE_FLOATINGPOINT_H
 
+/* Define if you have the <gcrypt.h> header file.  */
+#undef HAVE_GCRYPT_H
+
 /* Define if you have the <grp.h> header file.  */
 #undef HAVE_GRP_H
 
@@ -687,6 +690,9 @@
 
 /* Define if you have the <netinet/tcp.h> header file.  */
 #undef HAVE_NETINET_TCP_H
+
+/* Define if you have the <openssl/crypto.h> header file.  */
+#undef HAVE_OPENSSL_CRYPTO_H
 
 /* Define if you have the <pwd.h> header file.  */
 #undef HAVE_PWD_H
@@ -1211,6 +1217,18 @@
 /*   */
 #undef HAVE_OPENSSL_EXT
 
+/* Whether to build pcre as dynamic module */
+#undef COMPILE_DL_PCRE
+
+/*   */
+#undef HAVE_BUNDLED_PCRE
+
+/*   */
+#undef HAVE_PCRE
+
+/* Whether to build pcre as dynamic module */
+#undef COMPILE_DL_PCRE
+
 /* Whether to build zlib as dynamic module */
 #undef COMPILE_DL_ZLIB
 
@@ -1252,6 +1270,15 @@
 
 /* Whether to build ctype as dynamic module */
 #undef COMPILE_DL_CTYPE
+
+/* Have cURL with  SSL support */
+#undef HAVE_CURL_SSL
+
+/* Have cURL with OpenSSL support */
+#undef HAVE_CURL_OPENSSL
+
+/* Have cURL with GnuTLS support */
+#undef HAVE_CURL_GNUTLS
 
 /*   */
 #undef HAVE_CURL
@@ -2198,18 +2225,6 @@
 /* Whether to build pcntl as dynamic module */
 #undef COMPILE_DL_PCNTL
 
-/* Whether to build pcre as dynamic module */
-#undef COMPILE_DL_PCRE
-
-/*   */
-#undef HAVE_BUNDLED_PCRE
-
-/*   */
-#undef HAVE_PCRE
-
-/* Whether to build pcre as dynamic module */
-#undef COMPILE_DL_PCRE
-
 /* Whether to build pdf as dynamic module */
 #undef COMPILE_DL_PDF
 
@@ -2320,6 +2335,9 @@
 
 /* Whether you have qtdom */
 #undef HAVE_QTDOM
+
+/*   */
+#undef HAVE_RL_CALLBACK_READ_CHAR
 
 /* Whether to build readline as dynamic module */
 #undef COMPILE_DL_READLINE

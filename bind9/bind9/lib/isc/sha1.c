@@ -1,21 +1,21 @@
 /*
- * Copyright (C) 2000, 2001  Internet Software Consortium.
+ * Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2000, 2001, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
- * THE SOFTWARE IS PROVIDED "AS IS" AND INTERNET SOFTWARE CONSORTIUM
- * DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL
- * INTERNET SOFTWARE CONSORTIUM BE LIABLE FOR ANY SPECIAL, DIRECT,
- * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
- * FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
- * NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION
- * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND ISC DISCLAIMS ALL WARRANTIES WITH
+ * REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS.  IN NO EVENT SHALL ISC BE LIABLE FOR ANY SPECIAL, DIRECT,
+ * INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+ * LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE
+ * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: sha1.c,v 1.1.1.1 2003/01/10 00:48:39 bbraun Exp $ */
+/* $Id: sha1.c,v 1.10.2.2.2.3 2004/03/06 08:14:35 marka Exp $ */
 
 /*	$NetBSD: sha1.c,v 1.5 2000/01/22 22:19:14 mycroft Exp $	*/
 /*	$OpenBSD: sha1.c,v 1.9 1997/07/23 21:12:32 kstailey Exp $	*/
@@ -85,6 +85,75 @@ typedef union {
 	unsigned int l[16];
 } CHAR64LONG16;
 
+#ifdef __sparc_v9__
+static void do_R01(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c,
+		   isc_uint32_t *d, isc_uint32_t *e, CHAR64LONG16 *);
+static void do_R2(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c,
+		  isc_uint32_t *d, isc_uint32_t *e, CHAR64LONG16 *);
+static void do_R3(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c,
+		  isc_uint32_t *d, isc_uint32_t *e, CHAR64LONG16 *);
+static void do_R4(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c,
+		  isc_uint32_t *d, isc_uint32_t *e, CHAR64LONG16 *);
+
+#define nR0(v,w,x,y,z,i) R0(*v,*w,*x,*y,*z,i)
+#define nR1(v,w,x,y,z,i) R1(*v,*w,*x,*y,*z,i)
+#define nR2(v,w,x,y,z,i) R2(*v,*w,*x,*y,*z,i)
+#define nR3(v,w,x,y,z,i) R3(*v,*w,*x,*y,*z,i)
+#define nR4(v,w,x,y,z,i) R4(*v,*w,*x,*y,*z,i)
+
+static void
+do_R01(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c, isc_uint32_t *d,
+       isc_uint32_t *e, CHAR64LONG16 *block)
+{
+	nR0(a,b,c,d,e, 0); nR0(e,a,b,c,d, 1); nR0(d,e,a,b,c, 2);
+	nR0(c,d,e,a,b, 3); nR0(b,c,d,e,a, 4); nR0(a,b,c,d,e, 5);
+	nR0(e,a,b,c,d, 6); nR0(d,e,a,b,c, 7); nR0(c,d,e,a,b, 8);
+	nR0(b,c,d,e,a, 9); nR0(a,b,c,d,e,10); nR0(e,a,b,c,d,11);
+	nR0(d,e,a,b,c,12); nR0(c,d,e,a,b,13); nR0(b,c,d,e,a,14);
+	nR0(a,b,c,d,e,15); nR1(e,a,b,c,d,16); nR1(d,e,a,b,c,17);
+	nR1(c,d,e,a,b,18); nR1(b,c,d,e,a,19);
+}
+
+static void
+do_R2(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c, isc_uint32_t *d,
+      isc_uint32_t *e, CHAR64LONG16 *block)
+{
+	nR2(a,b,c,d,e,20); nR2(e,a,b,c,d,21); nR2(d,e,a,b,c,22);
+	nR2(c,d,e,a,b,23); nR2(b,c,d,e,a,24); nR2(a,b,c,d,e,25);
+	nR2(e,a,b,c,d,26); nR2(d,e,a,b,c,27); nR2(c,d,e,a,b,28);
+	nR2(b,c,d,e,a,29); nR2(a,b,c,d,e,30); nR2(e,a,b,c,d,31);
+	nR2(d,e,a,b,c,32); nR2(c,d,e,a,b,33); nR2(b,c,d,e,a,34);
+	nR2(a,b,c,d,e,35); nR2(e,a,b,c,d,36); nR2(d,e,a,b,c,37);
+	nR2(c,d,e,a,b,38); nR2(b,c,d,e,a,39);
+}
+
+static void
+do_R3(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c, isc_uint32_t *d,
+      isc_uint32_t *e, CHAR64LONG16 *block)
+{
+	nR3(a,b,c,d,e,40); nR3(e,a,b,c,d,41); nR3(d,e,a,b,c,42);
+	nR3(c,d,e,a,b,43); nR3(b,c,d,e,a,44); nR3(a,b,c,d,e,45);
+	nR3(e,a,b,c,d,46); nR3(d,e,a,b,c,47); nR3(c,d,e,a,b,48);
+	nR3(b,c,d,e,a,49); nR3(a,b,c,d,e,50); nR3(e,a,b,c,d,51);
+	nR3(d,e,a,b,c,52); nR3(c,d,e,a,b,53); nR3(b,c,d,e,a,54);
+	nR3(a,b,c,d,e,55); nR3(e,a,b,c,d,56); nR3(d,e,a,b,c,57);
+	nR3(c,d,e,a,b,58); nR3(b,c,d,e,a,59);
+}
+
+static void
+do_R4(isc_uint32_t *a, isc_uint32_t *b, isc_uint32_t *c, isc_uint32_t *d,
+      isc_uint32_t *e, CHAR64LONG16 *block)
+{
+	nR4(a,b,c,d,e,60); nR4(e,a,b,c,d,61); nR4(d,e,a,b,c,62);
+	nR4(c,d,e,a,b,63); nR4(b,c,d,e,a,64); nR4(a,b,c,d,e,65);
+	nR4(e,a,b,c,d,66); nR4(d,e,a,b,c,67); nR4(c,d,e,a,b,68);
+	nR4(b,c,d,e,a,69); nR4(a,b,c,d,e,70); nR4(e,a,b,c,d,71);
+	nR4(d,e,a,b,c,72); nR4(c,d,e,a,b,73); nR4(b,c,d,e,a,74);
+	nR4(a,b,c,d,e,75); nR4(e,a,b,c,d,76); nR4(d,e,a,b,c,77);
+	nR4(c,d,e,a,b,78); nR4(b,c,d,e,a,79);
+}
+#endif
+
 /*
  * Hash a single 512-bit block. This is the core of the algorithm.
  */
@@ -92,12 +161,12 @@ static void
 transform(isc_uint32_t state[5], const unsigned char buffer[64]) {
 	isc_uint32_t a, b, c, d, e;
 	CHAR64LONG16 *block;
-	unsigned char workspace[64];
+	CHAR64LONG16 workspace;
 
 	INSIST(buffer != NULL);
 	INSIST(state != NULL);
 
-	block = (CHAR64LONG16 *)(void *)workspace;
+	block = &workspace;
 	(void)memcpy(block, buffer, 64);
 
 	/* Copy context->state[] to working vars */
@@ -107,6 +176,12 @@ transform(isc_uint32_t state[5], const unsigned char buffer[64]) {
 	d = state[3];
 	e = state[4];
 
+#ifdef __sparc_v9__
+	do_R01(&a, &b, &c, &d, &e, block);
+	do_R2(&a, &b, &c, &d, &e, block);
+	do_R3(&a, &b, &c, &d, &e, block);
+	do_R4(&a, &b, &c, &d, &e, block);
+#else
 	/* 4 rounds of 20 operations each. Loop unrolled. */
 	R0(a,b,c,d,e, 0); R0(e,a,b,c,d, 1); R0(d,e,a,b,c, 2); R0(c,d,e,a,b, 3);
 	R0(b,c,d,e,a, 4); R0(a,b,c,d,e, 5); R0(e,a,b,c,d, 6); R0(d,e,a,b,c, 7);
@@ -128,6 +203,7 @@ transform(isc_uint32_t state[5], const unsigned char buffer[64]) {
 	R4(c,d,e,a,b,68); R4(b,c,d,e,a,69); R4(a,b,c,d,e,70); R4(e,a,b,c,d,71);
 	R4(d,e,a,b,c,72); R4(c,d,e,a,b,73); R4(b,c,d,e,a,74); R4(a,b,c,d,e,75);
 	R4(e,a,b,c,d,76); R4(d,e,a,b,c,77); R4(c,d,e,a,b,78); R4(b,c,d,e,a,79);
+#endif
 
 	/* Add the working vars back into context.state[] */
 	state[0] += a;
@@ -183,7 +259,7 @@ isc_sha1_update(isc_sha1_t *context, const unsigned char *data,
 	if ((j + len) > 63) {
 		(void)memcpy(&context->buffer[j], data, (i = 64 - j));
 		transform(context->state, context->buffer);
-		for ( ; i + 63 < len; i += 64)
+		for (; i + 63 < len; i += 64)
 			transform(context->state, &data[i]);
 		j = 0;
 	} else {

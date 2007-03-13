@@ -202,6 +202,8 @@ static const uint8
 	OID_KP_EmailProtection[]			= { OID_KP, 4 },
 	OID_KP_TimeStamping[]				= { OID_KP, 8 },
 	OID_KP_OCSPSigning[]				= { OID_KP, 9 },
+	/* IPSec */
+	OID_EKU_IPSec[]						= { 0x2B, 0x06, 0x01, 0x05, 0x05, 0x08, 0x02, 0x02 },
 	/* .mac Certificate Extended Key Use values */
 	OID_DOTMAC_CERT_EXTENSION[]		= { APPLE_DOTMAC_CERT_EXTEN_OID },
 	OID_DOTMAC_CERT_IDENTITY[]		= { APPLE_DOTMAC_CERT_EXTEN_OID, 1 },
@@ -253,6 +255,7 @@ CSSMOID_ExtendedUseCodeSigning	= { OID_KP_LENGTH+1, (uint8 *)OID_KP_ExtendedUseC
 CSSMOID_EmailProtection			= { OID_KP_LENGTH+1, (uint8 *)OID_KP_EmailProtection},
 CSSMOID_TimeStamping			= { OID_KP_LENGTH+1, (uint8 *)OID_KP_TimeStamping},
 CSSMOID_OCSPSigning				= { OID_KP_LENGTH+1, (uint8 *)OID_KP_OCSPSigning},
+CSSMOID_EKU_IPSec				= { 8, (uint8 *)OID_EKU_IPSec },
 CSSMOID_DOTMAC_CERT_EXTENSION		= { APPLE_DOTMAC_CERT_EXTEN_OID_LENGTH,
 										(uint8 *)OID_DOTMAC_CERT_EXTENSION },
 CSSMOID_DOTMAC_CERT_IDENTITY		= { APPLE_DOTMAC_CERT_EXTEN_OID_LENGTH + 1,

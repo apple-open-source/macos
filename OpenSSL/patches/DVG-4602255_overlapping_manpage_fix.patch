@@ -1,0 +1,28 @@
+diff -uNr ../openssl-0.9.7i.orig/Makefile ./Makefile
+--- ../openssl-0.9.7i.orig/Makefile	2005-10-14 15:27:49.000000000 -0700
++++ ./Makefile	2006-10-04 19:40:33.000000000 -0700
+@@ -905,7 +905,9 @@
+ 			(grep -v "[	]"; true) | \
+ 			(cd $(INSTALL_PREFIX)$(MANDIR)/man$$sec/; \
+ 			 while read n; do \
+-				$$here/util/point.sh $$fn.$${sec}$(MANSUFFIX) "$$n".$${sec}$(MANSUFFIX); \
++			 	if [ "$$fn" != "bn_internal" ]; then \ 
++					$$here/util/point.sh $$fn.$${sec}$(MANSUFFIX) "$$n".$${sec}$(MANSUFFIX); \
++				fi; \
+ 			 done); \
+ 	done
+ 
+diff -uNr ../openssl-0.9.7i.orig/Makefile.org ./Makefile.org
+--- ../openssl-0.9.7i.orig/Makefile.org	2005-10-11 13:20:55.000000000 -0700
++++ ./Makefile.org	2006-10-04 19:40:15.000000000 -0700
+@@ -903,7 +903,9 @@
+ 			(grep -v "[	]"; true) | \
+ 			(cd $(INSTALL_PREFIX)$(MANDIR)/man$$sec/; \
+ 			 while read n; do \
+-				$$here/util/point.sh $$fn.$${sec}$(MANSUFFIX) "$$n".$${sec}$(MANSUFFIX); \
++			 	if [ "$$fn" != "bn_internal" ]; then \
++					$$here/util/point.sh $$fn.$${sec}$(MANSUFFIX) "$$n".$${sec}$(MANSUFFIX); \
++				fi; \
+ 			 done); \
+ 	done
+ 

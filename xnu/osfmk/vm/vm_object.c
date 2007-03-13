@@ -1,31 +1,29 @@
 /*
  * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code 
- * as defined in and that are subject to the Apple Public Source License 
- * Version 2.0 (the 'License'). You may not use this file except in 
- * compliance with the License.  The rights granted to you under the 
- * License may not be used to create, or enable the creation or 
- * redistribution of, unlawful or unlicensed copies of an Apple operating 
- * system, or to circumvent, violate, or enable the circumvention or 
- * violation of, any terms of an Apple operating system software license 
- * agreement.
- *
- * Please obtain a copy of the License at 
- * http://www.opensource.apple.com/apsl/ and read it before using this 
- * file.
- *
- * The Original Code and all software distributed under the License are 
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER 
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, 
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, 
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. 
- * Please see the License for the specific language governing rights and 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_LICENSE_OSREFERENCE_HEADER_END@
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  * @OSF_COPYRIGHT@
@@ -289,6 +287,13 @@ typedef struct vm_object_hash_entry	*vm_object_hash_entry_t;
 void vm_object_hash_entry_free(
 	vm_object_hash_entry_t	entry);
 
+static void vm_object_reap(vm_object_t object);
+static void vm_object_reap_async(vm_object_t object);
+static void vm_object_reaper_thread(void);
+static queue_head_t vm_object_reaper_queue; /* protected by vm_object_cache_lock() */
+unsigned int vm_object_reap_count = 0;
+unsigned int vm_object_reap_count_async = 0;
+
 /*
  *	vm_object_hash_lookup looks up a pager in the hashtable
  *	and returns the corresponding entry, with optional removal.
@@ -532,6 +537,24 @@ vm_object_bootstrap(void)
 #if	MACH_PAGEMAP
 	vm_external_module_initialize();
 #endif	/* MACH_PAGEMAP */
+}
+
+void
+vm_object_reaper_init(void)
+{
+	kern_return_t	kr;
+	thread_t	thread;
+
+	queue_init(&vm_object_reaper_queue);
+	kr = kernel_thread_start_priority(
+		(thread_continue_t) vm_object_reaper_thread,
+		NULL,
+		BASEPRI_PREEMPT - 1,
+		&thread);
+	if (kr != KERN_SUCCESS) {
+		panic("failed to launch vm_object_reaper_thread kr=0x%x", kr);
+	}
+	thread_deallocate(thread);
 }
 
 __private_extern__ void
@@ -924,7 +947,6 @@ static kern_return_t
 vm_object_terminate(
 	register vm_object_t	object)
 {
-	memory_object_t		pager;
 	register vm_page_t	p;
 	vm_object_t		shadow_object;
 
@@ -1040,12 +1062,71 @@ vm_object_terminate(
 		vm_object_unlock(shadow_object);
 	}
 
+	if (FALSE && object->paging_in_progress != 0) {
+		/*
+		 * There are still some paging_in_progress references
+		 * on this object, meaning that there are some paging
+		 * or other I/O operations in progress for this VM object.
+		 * Such operations take some paging_in_progress references
+		 * up front to ensure that the object doesn't go away, but
+		 * they may also need to acquire a reference on the VM object,
+		 * to map it in kernel space, for example.  That means that
+		 * they may end up releasing the last reference on the VM
+		 * object, triggering its termination, while still holding
+		 * paging_in_progress references.  Waiting for these
+		 * pending paging_in_progress references to go away here would
+		 * deadlock.
+		 *
+		 * To avoid deadlocking, we'll let the vm_object_reaper_thread
+		 * complete the VM object termination if it still holds
+		 * paging_in_progress references at this point.
+		 *
+		 * No new paging_in_progress should appear now that the
+		 * VM object is "terminating" and not "alive".
+		 */
+		vm_object_reap_async(object);
+		vm_object_cache_unlock();
+		vm_object_unlock(object);
+		return KERN_SUCCESS;
+	}
+	/* complete the VM object termination */
+	vm_object_reap(object);
+	object = VM_OBJECT_NULL;
+	/* cache lock and object lock were released by vm_object_reap() */
+
+	return KERN_SUCCESS;
+}
+
+/*
+ * vm_object_reap():
+ *
+ * Complete the termination of a VM object after it's been marked
+ * as "terminating" and "!alive" by vm_object_terminate().
+ *
+ * The VM object cache and the VM object must be locked by caller.
+ * The locks will be released on return and the VM object is no longer valid.
+ */
+void
+vm_object_reap(
+	vm_object_t object)
+{
+	memory_object_t		pager;
+	vm_page_t		p;
+
+#if DEBUG
+	mutex_assert(&vm_object_cached_lock_data, MA_OWNED);
+	mutex_assert(&object->Lock, MA_OWNED);
+#endif /* DEBUG */
+
+	vm_object_reap_count++;
+
 	/*
-	 *	The pageout daemon might be playing with our pages.
-	 *	Now that the object is dead, it won't touch any more
-	 *	pages, but some pages might already be on their way out.
-	 *	Hence, we wait until the active paging activities have ceased
-	 *	before we break the association with the pager itself.
+	 * The pageout daemon might be playing with our pages.
+	 * Now that the object is dead, it won't touch any more
+	 * pages, but some pages might already be on their way out.
+	 * Hence, we wait until the active paging activities have
+	 * ceased before we break the association with the pager
+	 * itself.
 	 */
 	while (object->paging_in_progress != 0) {
 		vm_object_cache_unlock();
@@ -1056,6 +1137,7 @@ vm_object_terminate(
 		vm_object_lock(object);
 	}
 
+	assert(object->paging_in_progress == 0);
 	pager = object->pager;
 	object->pager = MEMORY_OBJECT_NULL;
 
@@ -1076,8 +1158,7 @@ vm_object_terminate(
 	 *	if some faults on this object were aborted.
 	 */
 	if (object->pageout) {
-		assert(shadow_object != VM_OBJECT_NULL);
-		assert(shadow_object == object->shadow);
+		assert(object->shadow != VM_OBJECT_NULL);
 
 		vm_pageout_object_terminate(object);
 
@@ -1090,7 +1171,7 @@ vm_object_terminate(
 			VM_PAGE_FREE(p);
 		}
 	} else if (!queue_empty(&object->memq)) {
-		panic("vm_object_terminate: queue just emptied isn't");
+		panic("vm_object_reap: queue just emptied isn't");
 	}
 
 	assert(object->paging_in_progress == 0);
@@ -1121,7 +1202,55 @@ vm_object_terminate(
 	 *	Free the space for the object.
 	 */
 	zfree(vm_object_zone, object);
-	return KERN_SUCCESS;
+	object = VM_OBJECT_NULL;
+}
+
+void
+vm_object_reap_async(
+	vm_object_t	object)
+{
+#if DEBUG
+	mutex_assert(&vm_object_cached_lock_data, MA_OWNED);
+	mutex_assert(&object->Lock, MA_OWNED);
+#endif /* DEBUG */
+
+	vm_object_reap_count_async++;
+
+	/* enqueue the VM object... */
+	queue_enter(&vm_object_reaper_queue, object,
+		    vm_object_t, cached_list);
+	/* ... and wake up the reaper thread */
+	thread_wakeup((event_t) &vm_object_reaper_queue);
+}
+
+void
+vm_object_reaper_thread(void)
+{
+	vm_object_t	object;
+
+	vm_object_cache_lock();
+
+	while (!queue_empty(&vm_object_reaper_queue)) {
+		queue_remove_first(&vm_object_reaper_queue,
+				   object,
+				   vm_object_t,
+				   cached_list);
+		vm_object_lock(object);
+		assert(object->terminating);
+		assert(!object->alive);
+		
+		vm_object_reap(object);
+		/* cache is unlocked and object is no longer valid */
+		object = VM_OBJECT_NULL;
+
+		vm_object_cache_lock();
+	}
+
+	/* wait for more work... */
+	assert_wait((event_t) &vm_object_reaper_queue, THREAD_UNINT);
+	vm_object_cache_unlock();
+	thread_block((thread_continue_t) vm_object_reaper_thread);
+	/*NOTREACHED*/
 }
 
 /*

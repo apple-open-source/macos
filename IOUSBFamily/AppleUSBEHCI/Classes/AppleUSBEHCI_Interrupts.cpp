@@ -119,13 +119,7 @@ AppleUSBEHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 		_remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
 		
 		USBLog(3, "AppleUSBEHCI[%p]::PollInterrupts - port change detect interrupt",  this);
-        if ( _idleSuspend )
-		{
-			USBLog(2, "AppleUSBEHCI[%p]::PollInterrupts - port change detect interrupt while in idlesuspend - restarting bus",  this);
-            setPowerState(kEHCISetPowerLevelRunning, self);
-		}
-	    
-		UIMRootHubStatusChange();
+		thread_call_enter(_portDetectInterruptThread);
     }
     /*
 	 * OwnershipChange Interrupt

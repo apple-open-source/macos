@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Id: os-solaris2.h,v 1.1.1.1 2003/01/10 00:48:04 bbraun Exp $ (LBL)
+ * @(#) $Id: os-solaris2.h,v 1.1 2001/12/21 04:12:05 marka Exp $ (LBL)
  */
 
 /* Prototypes missing in SunOS 5 */

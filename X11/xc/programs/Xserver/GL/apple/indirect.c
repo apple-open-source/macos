@@ -967,6 +967,8 @@ static Bool init_visuals(int *nvisualp, VisualPtr *visualp,
     return TRUE;
 }
 
+Bool enable_stereo=false;
+
 /* based on code in i830_dri.c
    This ends calling glAquaSetVisualConfigs to set the static
    numconfigs, etc. */
@@ -977,21 +979,23 @@ glAquaInitVisualConfigs (void)
     __GLXvisualConfig  *lclVisualConfigs  = NULL;
     void              **lclVisualPrivates = NULL;
 
-    int depth, aux, buffers, stencil, accum;
+    int stereo, depth, aux, buffers, stencil, accum;
     int i;
 
     GLAQUA_DEBUG_MSG ("glAquaInitVisualConfigs ");
 	
     /* count num configs:
+	2 stereo (on, off) (optional)
 	2 Z buffer (0, 24 bit)
 	2 AUX buffer (0, 2)
 	2 buffers (single, double)
 	2 stencil (0, 8 bit)
 	2 accum (0, 64 bit)
-	= 32 configs */
+	= 64 configs with stereo, or 32 without*/
 
-    lclNumConfigs = 2 * 2 * 2 * 2 * 2; /* 32 */
-
+    if (enable_stereo) lclNumConfigs = 2 * 2 * 2 * 2 * 2 * 2; /* 64 */
+    else               lclNumConfigs = 2 * 2 * 2 * 2 * 2; /* 32 */
+	 
     /* alloc */
     lclVisualConfigs = xcalloc(sizeof(__GLXvisualConfig), lclNumConfigs);
     lclVisualPrivates = xcalloc(sizeof(void *), lclNumConfigs);
@@ -999,49 +1003,51 @@ glAquaInitVisualConfigs (void)
     /* fill in configs */
     if (NULL != lclVisualConfigs) {
 	i = 0; /* current buffer */
-	for (depth = 0; depth < 2; depth++) {
-	    for (aux = 0; aux < 2; aux++) {
-		for (buffers = 0; buffers < 2; buffers++) {
-		    for (stencil = 0; stencil < 2; stencil++) {
-			for (accum = 0; accum < 2; accum++) {
-			    lclVisualConfigs[i].vid = -1;
-			    lclVisualConfigs[i].class = -1;
-			    lclVisualConfigs[i].rgba = TRUE;
-			    lclVisualConfigs[i].redSize = -1;
-			    lclVisualConfigs[i].greenSize = -1;
-			    lclVisualConfigs[i].blueSize = -1;
-			    lclVisualConfigs[i].redMask = -1;
-			    lclVisualConfigs[i].greenMask = -1;
-			    lclVisualConfigs[i].blueMask = -1;
-			    lclVisualConfigs[i].alphaMask = 0;
-			    if (accum) {
-				lclVisualConfigs[i].accumRedSize = 16;
-				lclVisualConfigs[i].accumGreenSize = 16;
-				lclVisualConfigs[i].accumBlueSize = 16;
-				lclVisualConfigs[i].accumAlphaSize = 16;
+	for (stereo = 0; stereo < (enable_stereo ? 2 : 1) ; stereo++) {
+	    for (depth = 0; depth < 2; depth++) {
+		for (aux = 0; aux < 2; aux++) {
+		    for (buffers = 0; buffers < 2; buffers++) {
+			for (stencil = 0; stencil < 2; stencil++) {
+			    for (accum = 0; accum < 2; accum++) {
+				lclVisualConfigs[i].vid = -1;
+				lclVisualConfigs[i].class = -1;
+				lclVisualConfigs[i].rgba = TRUE;
+				lclVisualConfigs[i].redSize = -1;
+				lclVisualConfigs[i].greenSize = -1;
+				lclVisualConfigs[i].blueSize = -1;
+				lclVisualConfigs[i].redMask = -1;
+				lclVisualConfigs[i].greenMask = -1;
+				lclVisualConfigs[i].blueMask = -1;
+				lclVisualConfigs[i].alphaMask = 0;
+				if (accum) {
+				    lclVisualConfigs[i].accumRedSize = 16;
+				    lclVisualConfigs[i].accumGreenSize = 16;
+				    lclVisualConfigs[i].accumBlueSize = 16;
+				    lclVisualConfigs[i].accumAlphaSize = 16;
+				}
+				else {
+				    lclVisualConfigs[i].accumRedSize = 0;
+				    lclVisualConfigs[i].accumGreenSize = 0;
+				    lclVisualConfigs[i].accumBlueSize = 0;
+				    lclVisualConfigs[i].accumAlphaSize = 0;
+				}
+				lclVisualConfigs[i].doubleBuffer = buffers ? TRUE : FALSE;
+				lclVisualConfigs[i].stereo = stereo ? TRUE : FALSE;
+				lclVisualConfigs[i].bufferSize = -1;
+				
+				lclVisualConfigs[i].depthSize = depth? 24 : 0;
+				lclVisualConfigs[i].stencilSize = stencil ? 8 : 0;
+				lclVisualConfigs[i].auxBuffers = aux ? 2 : 0;
+				lclVisualConfigs[i].level = 0;
+				lclVisualConfigs[i].visualRating = GLX_NONE_EXT;
+				lclVisualConfigs[i].transparentPixel = 0;
+				lclVisualConfigs[i].transparentRed = 0;
+				lclVisualConfigs[i].transparentGreen = 0;
+				lclVisualConfigs[i].transparentBlue = 0;
+				lclVisualConfigs[i].transparentAlpha = 0;
+				lclVisualConfigs[i].transparentIndex = 0;
+				i++;
 			    }
-			    else {
-				lclVisualConfigs[i].accumRedSize = 0;
-				lclVisualConfigs[i].accumGreenSize = 0;
-				lclVisualConfigs[i].accumBlueSize = 0;
-				lclVisualConfigs[i].accumAlphaSize = 0;
-			    }
-			    lclVisualConfigs[i].doubleBuffer = buffers ? TRUE : FALSE;
-			    lclVisualConfigs[i].stereo = FALSE;
-			    lclVisualConfigs[i].bufferSize = -1;
-			    
-			    lclVisualConfigs[i].depthSize = depth? 24 : 0;
-			    lclVisualConfigs[i].stencilSize = stencil ? 8 : 0;
-			    lclVisualConfigs[i].auxBuffers = aux ? 2 : 0;
-			    lclVisualConfigs[i].level = 0;
-			    lclVisualConfigs[i].visualRating = GLX_NONE_EXT;
-			    lclVisualConfigs[i].transparentPixel = 0;
-			    lclVisualConfigs[i].transparentRed = 0;
-			    lclVisualConfigs[i].transparentGreen = 0;
-			    lclVisualConfigs[i].transparentBlue = 0;
-			    lclVisualConfigs[i].transparentAlpha = 0;
-			    lclVisualConfigs[i].transparentIndex = 0;
-			    i++;
 			}
 		    }
 		}

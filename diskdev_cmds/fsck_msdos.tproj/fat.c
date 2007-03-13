@@ -326,6 +326,12 @@ readfat(fs, boot, no, fp)
             return FSFATAL;
         }
         
+	if ((size_t) boot->NumClusters > SIZE_T_MAX / sizeof(struct fatEntry)) {
+		pfatal("No space for FAT\n");
+		free(buffer);
+		return FSFATAL;
+	}
+
 	fat = calloc(boot->NumClusters, sizeof(struct fatEntry));
 	if (fat == NULL) {
 		perr("No space for FAT");

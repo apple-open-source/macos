@@ -149,31 +149,33 @@ static void intToDER(
 	CSSM_DATA &DER_Data,
 	Allocator &alloc)
 {
-	if(theInt < 0x100) {
-		DER_Data.Length = 1;
-		DER_Data.Data = (uint8 *)alloc.malloc(1);
-		DER_Data.Data[0] = (unsigned char)(theInt);
+	/*
+ 	 * Calculate length in bytes of encoded integer, minimum length of 1. 
+	 */
+	DER_Data.Length = 1;
+	uint32 unsignedInt = theInt;
+	while(unsignedInt > 0xff) {
+		DER_Data.Length++;
+		unsignedInt >>= 8;
 	}
-	else if(theInt < 0x10000) {
-		DER_Data.Length = 2;
-		DER_Data.Data = (uint8 *)alloc.malloc(2);
-		DER_Data.Data[0] = (unsigned char)(theInt >> 8);
-		DER_Data.Data[1] = (unsigned char)(theInt);
+
+	/*
+	 * DER encoding requires top bit to be zero, else it's a negative number. 
+	 * Even though we're passing around integers as CSSM_INTPTR, they really are
+ 	 * always unsigned. 
+	 * unsignedInt contains the m.s. byte of theInt in its l.s. byte. 
+	 */
+	if(unsignedInt & 0x80) {
+		DER_Data.Length++;
 	}
-	else if(theInt < 0x1000000) {
-		DER_Data.Length = 3;
-		DER_Data.Data = (uint8 *)alloc.malloc(3);
-		DER_Data.Data[0] = (unsigned char)(theInt >> 16);
-		DER_Data.Data[1] = (unsigned char)(theInt >> 8);
-		DER_Data.Data[2] = (unsigned char)(theInt);
-	}
-	else  {
-		DER_Data.Length = 4;
-		DER_Data.Data = (uint8 *)alloc.malloc(4);
-		DER_Data.Data[0] = (unsigned char)(theInt >> 24);
-		DER_Data.Data[1] = (unsigned char)(theInt >> 16);
-		DER_Data.Data[2] = (unsigned char)(theInt >> 8);
-		DER_Data.Data[3] = (unsigned char)(theInt);
+	
+	DER_Data.Data = (uint8 *)alloc.malloc(DER_Data.Length);
+	uint8 *dst = DER_Data.Data + DER_Data.Length - 1;
+	unsignedInt = theInt;
+	for(unsigned dex=0; dex<DER_Data.Length; dex++) {
+		*dst-- = unsignedInt & 0xff;
+		/* this shifts off to zero if we're adding a zero at the top */
+		unsignedInt >>= 8;
 	}
 }
 
@@ -641,6 +643,10 @@ void AppleTPSession::SubmitCredRequest(
 						parsedValue = &cdt->extension.subjectAltName;
 						extnId = CSSMOID_SubjectAltName;
 						break;
+					case DT_IssuerAltName:			
+						parsedValue = &cdt->extension.issuerAltName;
+						extnId = CSSMOID_IssuerAltName;
+						break;
 					case DT_ExtendedKeyUsage:		
 						parsedValue = &cdt->extension.extendedKeyUsage;
 						extnId = CSSMOID_ExtendedKeyUsage;
@@ -656,6 +662,14 @@ void AppleTPSession::SubmitCredRequest(
 					case DT_NetscapeCertType:		
 						parsedValue = &cdt->extension.netscapeCertType;
 						extnId = CSSMOID_NetscapeCertType;
+						break;
+					case DT_CrlDistributionPoints:		
+						parsedValue = &cdt->extension.crlDistPoints;
+						extnId = CSSMOID_CrlDistributionPoints;
+						break;
+					case DT_AuthorityInfoAccess:		
+						parsedValue = &cdt->extension.authorityInfoAccess;
+						extnId = CSSMOID_AuthorityInfoAccess;
 						break;
 					case DT_Other:		
 					default:

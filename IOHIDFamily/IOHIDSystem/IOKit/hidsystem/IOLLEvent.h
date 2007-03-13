@@ -487,6 +487,22 @@ typedef	union {
 #define kNXEventDataVersion		2
 
 /* Finally! The event record! */
+#ifndef __ppc__
+typedef struct _NXEvent {
+	int					type;		/* An event type from above */
+    struct {
+        int	x, y;					/* Base coordinates in window, */
+    } 					location;	/* from bottom left */
+    unsigned long long	time;		/* time since launch */
+    int					flags;		/* key state flags */
+    unsigned int		window;		/* window number of assigned window */
+    UInt64              service_id; /* service id */
+    int                 ext_pid;    /* external pid */
+    NXEventData			data;		/* type-dependent data */
+} NXEvent, *NXEventPtr;
+
+#else
+
 typedef struct _NXEvent {
 	int					type;		/* An event type from above */
     struct {
@@ -499,6 +515,7 @@ typedef struct _NXEvent {
     UInt64              service_id; /* service id */
     int                 ext_pid;    /* external pid */
 } NXEvent, *NXEventPtr;
+#endif
 
 /* The current version number of the NXEvent structure. */
 

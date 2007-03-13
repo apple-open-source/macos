@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2003 The PHP Group                                |
+   | Copyright (c) 1997-2006 The PHP Group                                |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 2.02 of the PHP license,      |
+   | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
-   | available at through the world-wide-web at                           |
-   | http://www.php.net/license/2_02.txt.                                 |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
    | If you did not receive a copy of the PHP license and are unable to   |
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
@@ -16,7 +16,11 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: wddx.c,v 1.96.2.6.2.1 2005/08/10 22:39:12 iliaa Exp $ */
+/* $Id: wddx.c,v 1.96.2.6.2.7 2006/05/26 01:55:26 iliaa Exp $ */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "php.h"
 #include "php_wddx.h"
@@ -400,9 +404,9 @@ static void php_wddx_serialize_string(wddx_packet *packet, zval *var)
 					break;
 
 				default:
-					if (iscntrl((int)*(unsigned char *)p)) {
+					if (iscntrl((int)*(unsigned char *)p) || (int)*(unsigned char *)p >= 127) {
 						FLUSH_BUF();
-						sprintf(control_buf, WDDX_CHAR, *p);
+						sprintf(control_buf, WDDX_CHAR, (int)*(unsigned char *)p);
 						php_wddx_add_chunk(packet, control_buf);
 					} else
 						buf[l++] = *p;
@@ -428,7 +432,7 @@ static void php_wddx_serialize_number(wddx_packet *packet, zval *var)
 	tmp = *var;
 	zval_copy_ctor(&tmp);
 	convert_to_string(&tmp);
-	sprintf(tmp_buf, WDDX_NUMBER, Z_STRVAL(tmp));
+	snprintf(tmp_buf, Z_STRLEN(tmp), WDDX_NUMBER, Z_STRVAL(tmp));
 	zval_dtor(&tmp);
 
 	php_wddx_add_chunk(packet, tmp_buf);	
@@ -620,17 +624,19 @@ static void php_wddx_serialize_array(wddx_packet *packet, zval *arr)
  */
 void php_wddx_serialize_var(wddx_packet *packet, zval *var, char *name, int name_len TSRMLS_DC)
 {
-	char tmp_buf[WDDX_BUF_LEN];
+	char *tmp_buf;
 	char *name_esc;
 	int name_esc_len;
 
 	if (name) {
 		name_esc = php_escape_html_entities(name, name_len, &name_esc_len, 0, ENT_QUOTES, NULL TSRMLS_CC);
-		sprintf(tmp_buf, WDDX_VAR_S, name_esc);
+		tmp_buf = emalloc(name_esc_len + 1);
+		snprintf(tmp_buf, name_esc_len, WDDX_VAR_S, name_esc);
 		php_wddx_add_chunk(packet, tmp_buf);
+		efree(tmp_buf);
 		efree(name_esc);
 	}
-	
+
 	switch(Z_TYPE_P(var)) {
 		case IS_STRING:
 			php_wddx_serialize_string(packet, var);
@@ -985,11 +991,15 @@ static void php_wddx_pop_element(void *user_data, const XML_Char *name)
 				
 						switch (is_numeric_string(ent1->varname, strlen(ent1->varname), &l, &d, 0)) {
 							case IS_DOUBLE:
+								if (d > INT_MAX) {
+									goto bigint;
+								}
 								l = (long) d;
 							case IS_LONG:
 								zend_hash_index_update(target_hash, l, &ent1->data, sizeof(zval *), NULL);
 								break;
 							default:
+bigint:
 								zend_hash_update(target_hash,ent1->varname, strlen(ent1->varname)+1, &ent1->data, sizeof(zval *), NULL);
 						}
 					}

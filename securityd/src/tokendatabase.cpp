@@ -40,7 +40,14 @@
 TokenDbCommon::TokenDbCommon(Session &ssn, Token &tk, const char *name)
 	: DbCommon(ssn), mDbName(name ? name : ""), mResetLevel(0)
 {
+	secdebug("tokendb", "creating tokendbcommon %p: with token %p", this, &tk);
 	parent(tk);
+}
+
+TokenDbCommon::~TokenDbCommon()
+{
+	secdebug("tokendb", "destroying tokendbcommon %p", this);
+	token().removeCommon(*this);		// unregister from Token
 }
 
 Token &TokenDbCommon::token() const
@@ -77,8 +84,8 @@ void TokenDbCommon::resetAcls()
 	if (!mAdornments.empty()) {
 		mAdornments.clearAdornments();		// clear ACL state
 		session().removeReference(*this);	// unhook from SSN
-		token().removeCommon(*this);		// unregister from Token
 	}
+	token().removeCommon(*this);			// unregister from Token
 }
 
 
@@ -93,7 +100,6 @@ void TokenDbCommon::lockProcessing()
 	Access access(token());
 	access().authenticate(CSSM_DB_ACCESS_RESET, NULL);
 }
-
 
 //
 // Construct a TokenDatabase given subservice information.

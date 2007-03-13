@@ -1,4 +1,177 @@
-! Sprint PCS Vision 230400!! Copyright:	© 2002 Apple Computer, Inc., All Rights Reserved.!! Use this script with a PCS COnnection card (Qualcomm 3G CDMA).!@ORIGINATE@ANSWER!! ---- Initial modem setup ----!note "setting the port speed to 230K" 3serreset 230400, 0, 8, 1settries 0!@LABEL 1!! Get the modem's attention!matchclrmatchstr 1 2 "OK\13\10"write "ATZ\13"matchread 120inctriesiftries 3 101!! Reset the Modem!note "resetting the modem using DTR" 3DTRClearpause 5DTRSetflushpause 90
+! Sprint PCS Vision 230400
+!
+! Copyright:	© 2002 Apple Computer, Inc., All Rights Reserved.
+!
+! Use this script with a PCS COnnection card (Qualcomm 3G CDMA).
+!
+@ORIGINATE
+@ANSWER
+!
+! ---- Initial modem setup ----
+!
+note "setting the port speed to 230K" 3
+serreset 230400, 0, 8, 1
+settries 0
+!
+@LABEL 1
+!
+! Get the modem's attention
+!
+matchclr
+matchstr 1 2 "OK\13\10"
+write "ATZ\13"
+matchread 120
+inctries
+iftries 3 101
+!
+! Reset the Modem
+!
+note "resetting the modem using DTR" 3
+DTRClear
+pause 5
+DTRSet
+flush
+pause 90
 !
 !This works around an issue with card on older versions of the 16550 driver
-!note "setting the port speed to 56K" 3serreset 57600, 0, 8, 1jump 1!@LABEL 2ifstr 4 3 "1"ifstr 4 3 "2"!! Varstring 4 == 0, turn off reliable link protocol in modem (ARAP)! matchclrmatchstr 1 3 "OK\13\10"write "AT+IFC=2,2\13"matchread 30jump 101!! ---- Originating a call ----!! Modem ready, wait for a call or originate a call!@LABEL 3! ifANSWER 12ifstr 6 6 "1"ifstr 6 4 "2"jump 6!@LABEL 4! ! Display ASK dialog with message.  Goto label 107 if dialog canceled.! ifstr 1 5 ""ASK 2 "Pick up the phone & dial ^1.  Hit OK when the phone rings, then hangup." 107note "Manual dialing initiated" 3jump 12!@LABEL 5ASK 2 "Pick up the phone & dial the number.  Hit OK when the phone rings, then hangup." 107note "Manual dialing initiated" 3jump 12!@LABEL 6note "Dialing without tone" 3! ! if there is no number, reports EMPTY errorifstr 1 109 "" ! ! This is where we break up long dialstrings! ! Display the full dialstring contained in Varstring 1note "Dialing ^1" 3flush!ifstr 8 11 " "ifstr 9  9 " "!!  Write dialstring in varstrings 7, 8 & 9matchclrmatchstr 1 7 "OK\13\10"write "ATD^7;\13"matchread 400jump 101! @LABEL 7matchclrmatchstr 1 8 "OK\13\10"write "ATD^8;\13"matchread 400jump 101! @LABEL 8write "ATD^9\13"jump 12!@LABEL 9!  Write dialstring in varstrings 7 & 8matchclrmatchstr 1 10 "OK\13\10"write "ATD^7;\13"matchread 400jump 101! @LABEL 10write "ATD^8\13"jump 12!@LABEL 11!  Write dialstring in varstring 7!write "ATD^7\13"!!    ---- Connection response ----!! The following section will parse modem responses:!   1) CONNECT!@LABEL 12matchclrmatchstr 1 13  "CONNECT"matchread 700ifANSWER 12jump 101!@LABEL 13note "Communicating at 230400" 3CommunicatingAt 230400exit 0!!@HANGUPnote "Hanging up" 3! ! Try to get control of the modem by toggling DTRDTRClearpause 5DTRSetflushexit 0!! ---- Error messages -----!! Modem Not Responding@LABEL 101exit -6019!! User Cancellation@LABEL 107matchstr 1 108 "OK\13\10"write "AT&F\13"matchread 30@LABEL 108exit -6008!! Empty phone number@LABEL 109matchstr 1 125 "OK\13\10"write "AT&F\13"matchread 30@LABEL 125exit -6027
+!
+note "setting the port speed to 56K" 3
+serreset 57600, 0, 8, 1
+jump 1
+!
+@LABEL 2
+ifstr 4 3 "1"
+ifstr 4 3 "2"
+!
+! Varstring 4 == 0, turn off reliable link protocol in modem (ARAP)
+! 
+matchclr
+matchstr 1 3 "OK\13\10"
+write "AT+IFC=2,2\13"
+matchread 30
+jump 101
+!
+! ---- Originating a call ----
+!
+! Modem ready, wait for a call or originate a call
+!
+@LABEL 3
+! 
+ifANSWER 12
+ifstr 6 6 "1"
+ifstr 6 4 "2"
+jump 6
+!
+@LABEL 4
+! 
+! Display ASK dialog with message.  Goto label 107 if dialog canceled.
+! 
+ifstr 1 5 ""
+ASK 2 "Pick up the phone & dial ^1.  Hit OK when the phone rings, then hangup." 107
+note "Manual dialing initiated" 3
+jump 12
+!
+@LABEL 5
+ASK 2 "Pick up the phone & dial the number.  Hit OK when the phone rings, then hangup." 107
+note "Manual dialing initiated" 3
+jump 12
+!
+@LABEL 6
+note "Dialing without tone" 3
+! 
+! if there is no number, reports EMPTY error
+ifstr 1 109 "" 
+! 
+! This is where we break up long dialstrings
+! 
+! Display the full dialstring contained in Varstring 1
+note "Dialing ^1" 3
+flush
+!
+ifstr 8 11 " "
+ifstr 9  9 " "
+!
+!  Write dialstring in varstrings 7, 8 & 9
+matchclr
+matchstr 1 7 "OK\13\10"
+write "ATD^7;\13"
+matchread 400
+jump 101
+! 
+@LABEL 7
+matchclr
+matchstr 1 8 "OK\13\10"
+write "ATD^8;\13"
+matchread 400
+jump 101
+! 
+@LABEL 8
+write "ATD^9\13"
+jump 12
+!
+@LABEL 9
+!  Write dialstring in varstrings 7 & 8
+matchclr
+matchstr 1 10 "OK\13\10"
+write "ATD^7;\13"
+matchread 400
+jump 101
+! 
+@LABEL 10
+write "ATD^8\13"
+jump 12
+!
+@LABEL 11
+!  Write dialstring in varstring 7
+!
+write "ATD^7\13"
+!
+!    ---- Connection response ----
+!
+! The following section will parse modem responses:
+!   1) CONNECT
+!
+@LABEL 12
+matchclr
+matchstr 1 13  "CONNECT"
+matchread 700
+ifANSWER 12
+jump 101
+!
+@LABEL 13
+note "Communicating at 230400" 3
+CommunicatingAt 230400
+exit 0
+!
+!
+@HANGUP
+note "Hanging up" 3
+! 
+! Try to get control of the modem by toggling DTR
+DTRClear
+pause 5
+DTRSet
+flush
+exit 0
+!
+! ---- Error messages -----
+!
+! Modem Not Responding
+@LABEL 101
+exit -6019
+!
+! User Cancellation
+@LABEL 107
+matchstr 1 108 "OK\13\10"
+write "AT&F\13"
+matchread 30
+@LABEL 108
+exit -6008
+!
+! Empty phone number
+@LABEL 109
+matchstr 1 125 "OK\13\10"
+write "AT&F\13"
+matchread 30
+@LABEL 125
+exit -6027
