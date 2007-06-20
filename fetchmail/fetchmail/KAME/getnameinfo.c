@@ -71,7 +71,9 @@
 #include <stddef.h>
 #include <errno.h>
 
+#ifdef HAVE_INTTYPES_H
 #include <inttypes.h>
+#endif
 #include "fetchmail.h"
 #include "getaddrinfo.h"
 
@@ -284,9 +286,16 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 			}
 #endif
 			default:
+#ifdef HAVE_INET_NTOP
 				if (inet_ntop(afd->a_af, addr, host,
 				    hostlen) == NULL)
 					return EAI_SYSTEM;
+#else
+				if (afd->a_af == AF_INET)
+				    strlcpy(host, inet_ntoa(addr), hostlen);
+				else
+				    return EAI_FAMILY;
+#endif
 				break;
 			}
 		}

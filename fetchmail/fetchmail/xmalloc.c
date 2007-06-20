@@ -63,7 +63,8 @@ char *strdup(const char *s)
 {
     char *p;
     p = (char *) malloc(strlen(s)+1);
-    strcpy(p,s);
+    if (p)
+	    strcpy(p,s);
     return p;
 }
 #endif /* !HAVE_STRDUP */

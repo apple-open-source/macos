@@ -1,7 +1,7 @@
 FTPUSERS(5)               NetBSD File Formats Manual               FTPUSERS(5)
 
 NNAAMMEE
-     ffttppuusseerrss, ffttppcchhrroooott - tnftpd(8) access control file
+     ffttppuusseerrss, ffttppcchhrroooott -- tnftpd(8) access control file
 
 DDEESSCCRRIIPPTTIIOONN
      The ffttppuusseerrss file provides user access control for tnftpd(8) by defining
@@ -76,4 +76,4 @@ FFIILLEESS
 SSEEEE AALLSSOO
      fnmatch(3), inet_net_pton(3), ftpd.conf(5), tnftpd(8)
 
-NetBSD 1.6                     February 28, 2003                    NetBSD 1.6
+NetBSD 3.0.1                   February 28, 2003                  NetBSD 3.0.1

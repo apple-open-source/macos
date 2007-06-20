@@ -150,7 +150,7 @@ byte_swap_cgin(struct cg *cg, struct fs * fs)
 {
 	int32_t * ulptr;
 	int16_t * usptr;
-	int size;
+	size_t size;
 
 	byte_swap_int(cg->cg_firstfield);
 	byte_swap_int(cg->cg_magic);
@@ -172,24 +172,52 @@ byte_swap_cgin(struct cg *cg, struct fs * fs)
 	byte_swap_ints(cg->cg_sparecon, 13);
 
 	byte_swap_int(cg->cg_btotoff);
-	ulptr = ((int32_t *)((u_int8_t *)(cg) + (cg)->cg_btotoff));
-	size = fs->fs_cpg;
-	byte_swap_ints(ulptr, size);	/*cg_btotoff*/
+	if (cg->cg_btotoff < 0 || cg->cg_btotoff > sblock.fs_bsize) {
+		pfatal("CG bad on input:  block total offset out of range (%d)\n",
+			cg->cg_btotoff);
+	} else {
+		ulptr = ((int32_t *)((u_int8_t *)(cg) + (cg)->cg_btotoff));
+		size = fs->fs_cpg;
 
-	byte_swap_int(cg->cg_boff);
-	usptr = ((int16_t *)((u_int8_t *)(cg) + (cg)->cg_boff));
-	size = fs->fs_cpg * fs->fs_nrpos;
-	byte_swap_shorts(usptr,size);	/*cg_boff*/
-
-	byte_swap_int(cg->cg_clustersumoff);
-
-	if ((unsigned int)fs->fs_contigsumsize > 0) {
-
-	ulptr = ((int32_t *)((u_int8_t *)(cg) + (cg)->cg_clustersumoff));
-		size = (fs->fs_contigsumsize + 1);
-		byte_swap_ints(ulptr, size);	/*cg_clustersumoff*/
+		if (size > sblock.fs_bsize ||
+			(u_int8_t*)(ulptr + size) > ((u_int8_t*)cg + sblock.fs_bsize)) {
+			pfatal("CG bad on input:  Block totals array out of range\n");
+		} else {
+			byte_swap_ints(ulptr, size);	/*cg_btotoff*/
+		}
 	}
 
+	byte_swap_int(cg->cg_boff);
+	if (cg->cg_boff < 0 || cg->cg_boff > sblock.fs_bsize) {
+		pfatal("CG bad on input:  free block offset out of range (%d)\n",
+			cg->cg_boff);
+	} else {
+		usptr = ((int16_t *)((u_int8_t *)(cg) + (cg)->cg_boff));
+		size = fs->fs_cpg * fs->fs_nrpos;
+		if (size > sblock.fs_bsize ||
+			(u_int8_t*)(usptr + size) > ((u_int8_t*)cg + sblock.fs_bsize)) {
+			pfatal("CG bad on input:  free block array out of bounds\n");
+		} else {
+			byte_swap_shorts(usptr,size);	/*cg_boff*/
+		}
+	}
+	byte_swap_int(cg->cg_clustersumoff);
+
+	if ((unsigned int)cg->cg_clustersumoff > sblock.fs_bsize) {
+		pfatal("CG bad on input:  sum offset array out of range (%d)\n",
+			cg->cg_clustersumoff);
+	} else {
+		if ((unsigned int)fs->fs_contigsumsize > 0) {
+			ulptr = ((int32_t *)((u_int8_t *)(cg) + (cg)->cg_clustersumoff));
+			size = (fs->fs_contigsumsize + 1);
+			if (size > sblock.fs_bsize ||
+				(u_int8_t*)(ulptr + size) > ((u_int8_t*)cg + sblock.fs_bsize)) {
+				pfatal("CG bad on input:  sum array out of bounds\n");
+			} else {
+				byte_swap_ints(ulptr, size);	/*cg_clustersumoff*/
+			}
+		}
+	}
 }
 
 // This is for the new 4.4 cylinder group block
@@ -226,6 +254,7 @@ byte_swap_cgout(struct cg *cg, struct fs * fs)
 
 	usptr = ((int16_t *)((u_int8_t *)(cg) + (cg)->cg_boff));
 	size = fs->fs_cpg * fs->fs_nrpos;
+
 	byte_swap_shorts(usptr,size);	/*cg_boff*/
 	byte_swap_int(cg->cg_boff);
 

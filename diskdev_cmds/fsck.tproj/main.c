@@ -314,6 +314,9 @@ checkfilesys(filesys, mntpt, auxdata, child)
             if (qflag)				/* Other file system inconsistency */
             return (EEXIT);
             break;
+	case CANTFIXIT:
+	    return (CANTFIXIT);
+	    break;
 #endif /* __APPLE__ */
         }
     

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2006  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: keycreate.c,v 1.7.12.5 2004/06/11 00:30:53 marka Exp $ */
+/* $Id: keycreate.c,v 1.7.12.7 2006/01/04 23:50:20 marka Exp $ */
 
 #include <config.h>
 
@@ -144,7 +144,9 @@ sendquery(isc_task_t *task, isc_event_t *event) {
 
 	isc_event_free(&event);
 
-	inet_pton(AF_INET, "10.53.0.1", &inaddr);
+	result = ISC_R_FAILURE;
+	if (inet_pton(AF_INET, "10.53.0.1", &inaddr) != 1)
+		CHECK("inet_pton", result);
 	isc_sockaddr_fromin(&address, &inaddr, PORT);
 
 	dns_fixedname_init(&keyname);

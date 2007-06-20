@@ -11,7 +11,7 @@ Name_Vers      = $(Name)-$(Version)
 Compress_Type  = bz2
 Tarball        = $(Name_Vers).tar.$(Compress_Type)
 Extract_Dir    = $(Name_Vers)
-Patch_List     = 
+Patch_List     = texindex.patch
 
 ## Don't modify below here ##
 

@@ -50,14 +50,14 @@ file_printf(struct magic_set *ms, const char *fmt, ...)
 
 	if ((len = vsnprintf(ms->o.ptr, ms->o.len, fmt, ap)) >= ms->o.len) {
 		va_end(ap);
-		if ((buf = realloc(ms->o.buf, len + 1024)) == NULL) {
+		if ((buf = realloc(ms->o.buf, ms->o.size + len + 1024)) == NULL) {
 			file_oomem(ms);
 			return -1;
 		}
 		ms->o.ptr = buf + (ms->o.ptr - ms->o.buf);
 		ms->o.buf = buf;
+		ms->o.size += len + 1024;
 		ms->o.len = ms->o.size - (ms->o.ptr - ms->o.buf);
-		ms->o.size = len + 1024;
 
 		va_start(ap, fmt);
 		len = vsnprintf(ms->o.ptr, ms->o.len, fmt, ap);

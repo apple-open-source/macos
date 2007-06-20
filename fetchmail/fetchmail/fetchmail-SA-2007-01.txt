@@ -1,0 +1,93 @@
+fetchmail-SA-2007-01: APOP considered insecure
+
+Topics:		APOP authentication insecure, fetchmail implementation lax
+
+Author:		Matthias Andree
+Version:	1.0
+Announced:	2007-04-06
+Type:		password theft when under MITM attack
+Impact:		password disclosure possible
+Danger:		low
+Credits:	Gaëtan Leurent
+CVE Name:	CVE-2007-1558
+URL:		http://fetchmail.berlios.de/fetchmail-SA-2007-01.txt
+Project URL:	http://fetchmail.berlios.de/
+
+Affects:	fetchmail release < 6.3.8
+
+Not affected:	fetchmail release 6.3.8
+
+Corrected:	2007-03-18 fetchmail SVN
+
+
+0. Release history
+==================
+
+2007-04-06 1.0	first release
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+
+2. Problem description and Impact
+=================================
+
+The POP3 standard, currently RFC-1939, has specified an optional,
+MD5-based authentication scheme called "APOP".
+
+APOP should no longer be considered secure.
+
+Additionally, fetchmail's POP3 client implementation has been validating
+the APOP challenge too lightly and accepted random garbage as a POP3
+server's APOP challenge, rather than insisting that the APOP challenge
+conformed to RFC-822, as required by RFC-1939.
+
+This made it easier than necessary for man-in-the-middle attackers to
+retrieve by several probing and guessing the first three characters of
+the APOP secret, bringing brute forcing the remaining characters well
+within reach.
+
+
+3. Solution
+===========
+
+Either of these is currently considered sufficient.
+
+A. Only use APOP on SSL or TLS secured connections with mandatory and thorough
+   certificate validation, such as fetchmail --sslproto tls1 --sslcertck
+   or --sslproto ssl3 --sslcertck), or equivalent in the run control file.
+
+B. Avoid APOP and use stronger authenticators.
+
+C. If you must continue to use APOP without SSL/TLS, then install
+   fetchmail 6.3.8 or newer, as it is less susceptible to the attack by
+   validating the APOP challenge more strictly to make the attack
+   harder. The fetchmail 6.3.8 source code is available from
+   <http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2007 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+END OF fetchmail-SA-2007-01.txt

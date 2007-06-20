@@ -70,6 +70,41 @@ static struct mntopt mopts[] = {
 
 extern KLStatus __KLSetHomeDirectoryAccess (KLBoolean inAllowHomeDirectoryAccess);
 
+static char *readstring(int fd)
+{
+	uint32_t stringlen;
+	char *string;
+	ssize_t bytes_read;
+	
+	bytes_read = read(fd, &stringlen, sizeof stringlen);
+	if (bytes_read != sizeof stringlen) {
+		if (bytes_read < 0) {
+			errx(EIO, "error reading from authentication pipe: %s", strerror(errno));
+		} else
+			errx(EINVAL, "error reading from authentication pipe: expected %lu bytes, got %ld",
+				 (unsigned long)sizeof stringlen, (long)bytes_read);
+	}
+	
+	if (stringlen == 0xFFFFFFFF)
+		return (NULL);	/* This string isn't present. */
+	
+	stringlen = ntohl(stringlen);
+	string = malloc(stringlen + 1);
+	if (string == NULL)
+		errx(errno, "can't allocate memory for string: %s", strerror(errno));
+	
+	bytes_read = read(fd, string, stringlen);
+	if (bytes_read != (ssize_t)stringlen) {
+		if (bytes_read < 0)
+			errx(EIO, "error reading from authentication pipe: %s", strerror(errno));
+		else
+			errx(EINVAL, "error reading from authentication pipe: expected %u bytes, got %ld",
+				 stringlen, (long)bytes_read);
+	}
+	string[stringlen] = '\0';
+	return (string);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -81,8 +116,8 @@ main(int argc, char *argv[])
 	struct vfsconf vfc;
 	char *next;
 	int opt, error, mntflags, caseopt;
-
-
+	int authpipe = -1;
+	
 	dropsuid();
 	if (argc == 2) {
 		if (strcmp(argv[1], "-h") == 0) {
@@ -123,12 +158,18 @@ main(int argc, char *argv[])
 	if (smb_rc)
 		rc_close(smb_rc);
 
-	while ((opt = getopt(argc, argv, STDPARAM_OPT"c:d:f:g:l:n:o:u:w:x:")) != -1) {
+	while ((opt = getopt(argc, argv, STDPARAM_OPT"p:c:d:f:g:l:n:o:u:w:x:")) != -1) {
 		switch (opt) {
 		    case STDPARAM_ARGS:
 			error = smb_ctx_opt(ctx, opt, optarg);
 			if (error)
 				exit(error);
+			break;
+		    case 'p':
+			errno = 0;
+			authpipe = strtol(optarg, &next, 0);
+			if (errno || (next == optarg) || (*next != 0))
+				errx(EX_USAGE, "invalid value for authentication pipe FD");
 			break;
 		    case 'u': {
 			struct passwd *pwd;
@@ -189,7 +230,7 @@ main(int argc, char *argv[])
 				caseopt |= SMB_CS_UPPER;
 				break;
 			    default:
-		    		errx(EX_DATAERR, "invalid suboption '%c' for -c",
+                                errx(EX_DATAERR, "invalid suboption '%c' for -c",
 				    optarg[0]);
 			}
 			break;
@@ -271,6 +312,30 @@ main(int argc, char *argv[])
 	 */
 	if (mntflags & MNT_AUTOMOUNTED)
 		__KLSetHomeDirectoryAccess(0);
+
+ 	/*
+	 * If "-p" was specified, read the user name and password from the pipe; If 
+	 * present, they override any user nameand password supplied in the "UNC name" 
+	 * (which is really a URL with "smb:" or "cifs:" stripped off).
+	 */
+	if (authpipe != -1) {
+		char *string = readstring(authpipe);
+		
+		if (string != NULL) {
+			error = smb_ctx_setuser(ctx, string);
+			if (error)
+				exit(error);
+			free(string);
+		}
+		string = readstring(authpipe);
+		if (string != NULL) {
+			error = smb_ctx_setpassword(ctx, string);
+			if (error)
+				exit(error);
+			free(string);
+		}
+		close(authpipe);
+	}
 
 	/*
 	 * For now, let connection be private for this mount

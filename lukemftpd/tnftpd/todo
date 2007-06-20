@@ -1,16 +1,24 @@
-$Id: todo,v 1.7 2003/12/16 01:22:09 lukem Exp $
+$Id: todo,v 1.9 2006/12/04 01:32:39 lukem Exp $
 
-email address for feedback
+implement -n and/or an ftpd.conf(5) option to control DNS resolution.
+
+enable LOGIN_CAP (with autoconf portability)
+
+enable USE_PAM (with autoconf portability)
+
+consider updating: ls/* ftpfts.h, fts_open.c  [s-u]*
+
+provide replacement for pidfile
+
+email address for feedback: lukem-tnftpd@netbsd.org ?
 
 autoconf checks:
 	- HAVE_FTP_NAMES if FTP_NAMES et al in <arpa/ftp.h>
 	- replace getopt() if optreset (BSD) or getoptreset() (irix)
 	  is not available?
 	- IF_NAMESIZE not available on darwin
-	- inet_net_pton() ipv6 support
 	- getrusage & <sys/resource.h>
 	- mmap and <sys/mman.h>
-	- fparseln moved to libc
 
 enable utmp stuff (need to make it portable)
 
@@ -18,7 +26,7 @@ enable wtmp stuff (need to make it portable)
 
 enable kerberos support once its fixed?
 
-add getenv(3) to replace putenv(3) cruft?
+add setenv(3) to replace putenv(3) cruft?
 
 barf if neither flock() nor lockf() is available
 

@@ -1,0 +1,22 @@
+This is tnftpd version 20061217.
+
+Changes in tnftpd from 20061204 to 20061217:
+
+	Portability fix: provide a replacement daemon(3) if necessary.
+
+Changes in tnftpd from 20040810 to 20061204:
+
+	Fix buffer overflow in local version of glob(3).
+
+	Implement -D to run as a stand-alone daemon.
+
+	Add ftpd.conf(5) options:
+		hidesymlinks
+		recvbufsize
+
+	Enforce account expiration, and support shadow password aging
+	where appropriate.
+
+	Return 450 instead of 550 upon NLST error.
+
+	Portability fixes and improvements.

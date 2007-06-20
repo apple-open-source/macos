@@ -94,7 +94,7 @@ IOUSBNub::USBCompareProperty( OSDictionary   * matching, const char     * key )
     // the property table.
     //
     OSObject 	*value;
-    bool		matches;
+    bool		matches = false;
 	OSObject	*myProperty = NULL;
 
     value = matching->getObject( key );

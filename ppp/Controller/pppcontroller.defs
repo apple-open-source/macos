@@ -120,3 +120,7 @@ routine pppcontroller_copyprivoptions (	session		: mach_port_t;
 					options_type	: int;
 				 out	options_data	: xmlDataOut, dealloc;
 				 out	result		: int);
+
+routine pppcontroller_iscontrolled (	session		: mach_port_t;
+				 out	result		: int;
+				 AuditToken audit_token: audit_token_t);

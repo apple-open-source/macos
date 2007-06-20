@@ -10,6 +10,9 @@
 /* Fallback MTA to use if defined */
 #undef FALLBACK_MDA
 
+/* define to 1 if you know your getaddrinfo function is async-signal-safe */
+#undef GETADDRINFO_ASYNCSAFE
+
 /* Define if you want GSSAPI authentication */
 #undef GSSAPI
 
@@ -82,6 +85,9 @@
 
 /* Define to 1 if you have the `inet_aton' function. */
 #undef HAVE_INET_ATON
+
+/* Define to 1 if you have the `inet_ntop' function. */
+#undef HAVE_INET_NTOP
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -160,9 +166,6 @@
 
 /* Define to 1 if you have the `sigaction' function. */
 #undef HAVE_SIGACTION
-
-/* Define to 1 if you have the `sigprocmask' function. */
-#undef HAVE_SIGPROCMASK
 
 /* Define to 1 if you have the `snprintf' function. */
 #undef HAVE_SNPRINTF
@@ -278,8 +281,11 @@
 /* Define if you have HEIMDAL kerberos 5 */
 #undef HEIMDAL
 
-/* "Define if you want IMAP support compiled in" */
+/* Define if you want IMAP support compiled in */
 #undef IMAP_ENABLE
+
+/* Define to 1 if your system defines AF_INET6 and PF_INET6. */
+#undef INET6
 
 /* Define if you have Kerberos V4 */
 #undef KERBEROS_V4
@@ -338,13 +344,13 @@
 /* Define if you want SDPS support compiled in */
 #undef SDPS_ENABLE
 
-/* The size of a `int', as computed by sizeof. */
+/* The size of `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
-/* The size of a `long', as computed by sizeof. */
+/* The size of `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
-/* The size of a `short', as computed by sizeof. */
+/* The size of `short', as computed by sizeof. */
 #undef SIZEOF_SHORT
 
 /* Define if you want SSL support compiled in */
@@ -389,7 +395,7 @@
 /* Define to `int' if <sys/types.h> does not define. */
 #undef pid_t
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define to trio_snprintf if your system lacks snprintf */

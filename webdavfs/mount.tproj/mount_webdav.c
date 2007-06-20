@@ -162,12 +162,12 @@ static void webdav_force_unmount(char *mntpt)
 	int pid, terminated_pid;
 	int result = -1;
 	union wait status;
+	char *env[] = {"__CF_USER_TEXT_ENCODING=0x1D29:0:0", "", (char *) 0 };
 
 	pid = fork();
 	if (pid == 0)
 	{
-		result = execl(PRIVATE_UNMOUNT_COMMAND, PRIVATE_UNMOUNT_COMMAND,
-			PRIVATE_UNMOUNT_FLAGS, mntpt, NULL);
+		result = execle(PRIVATE_UNMOUNT_COMMAND, PRIVATE_UNMOUNT_COMMAND, PRIVATE_UNMOUNT_FLAGS, mntpt, (char *) 0, env);
 		/* We can only get here if the exec failed */
 		goto Return;
 	}
@@ -203,11 +203,12 @@ static int attempt_webdav_load(void)
 	int pid, terminated_pid;
 	int result = -1;
 	union wait status;
+	char *env[] = {"__CF_USER_TEXT_ENCODING=0x1D29:0:0", "", (char *) 0 };
 
 	pid = fork();
 	if (pid == 0)
 	{
-		result = execl(PRIVATE_LOAD_COMMAND, PRIVATE_LOAD_COMMAND, NULL);
+		result = execle(PRIVATE_LOAD_COMMAND, PRIVATE_LOAD_COMMAND, (char *) 0, env);
 		
 		/* We can only get here if the exec failed */
 		goto Return;

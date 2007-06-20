@@ -84,6 +84,12 @@ pass1()
 	/*
 	 * Set file system reserved blocks in used block map.
 	 */
+
+	if (sblock.fs_ncg > sblock.fs_size) {
+		pfatal("BAD SUPERBLOCK; SPECIFY ALTERNATE SUPERBLOCK WITH -b");
+		exit(1);
+	}
+
 	for (c = 0; c < sblock.fs_ncg; c++) {
 		cgd = cgdmin(&sblock, c);
 		if (c == 0) {

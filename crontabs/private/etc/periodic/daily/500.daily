@@ -27,8 +27,8 @@ fi
 
 if [ -d /tmp ]; then
     cd /tmp && {
-    find . -fstype local -type f -atime +3 -ctime +3 -exec rm -f -- {} \;
-    find -d . -fstype local ! -name . -type d -mtime +1 -exec rmdir -- {} \; \
+    find -x . -fstype local -type f -atime +3 -ctime +3 -exec rm -f -- {} \;
+    find -x -d . -fstype local ! -name . -type d -mtime +1 -exec rmdir -- {} \; \
 	>/dev/null 2>&1; }
 fi
 

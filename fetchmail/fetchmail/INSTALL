@@ -1,19 +1,40 @@
 INSTALL Instructions for fetchmail
 ==================================
 
-If you are installing from the subversion repository, see README.svn for
-further instructions on how to set up the checked out repository.
+Building from subversion (SVN) repository: see README.svn
+
+Packagers and port/emerge maintainers: see README.packaging.
+
 
 If you have installed binaries (e.g. from a Linux RPM or DPKG, Solaris
-package or FreeBSD port), you can skip to step 5.
+package or FreeBSD port), you can skip to step 5 below.
 
+---------------------------------------------------------------------
 The Frequently Asked Questions list, included as the file FAQ in this
-distributions, answers the most common questions about configuring and
+distribution, answers the most common questions about configuring and
 running fetchmail.
+---------------------------------------------------------------------
 
-1. USEFUL THINGS TO INSTALL FIRST
 
-1.1 OTP/OPIE
+1. PREPARATIONS: USEFUL THINGS TO INSTALL FIRST
+
+1.1 OpenSSL
+
+If you are installing OpenSSL yourself, it is recommended that you build
+shared OpenSSL libraries, it works better and updating OpenSSL does not
+then require you to reinstall all applications that use OpenSSL.
+
+Try after unpacking OpenSSL:
+
+	./config shared && make && make test && make install
+
+1.2 gettext (internationalization)
+
+Internationalization of fetchmail requires GNU gettext (libintl and
+libiconv). Fetchmail, as of version 6.3.0, no longer ships its own
+libintl copy.  Note that some systems include gettext in their libc.
+
+1.3 OTP/OPIE
 
 If you want support for RFC1938-compliant one-time passwords, you'll
 need to install Craig Metz's OPIE libraries first and *make sure
@@ -28,22 +49,6 @@ you should install OPIE.  You need version 2.32 or better.
 
 The OPIE library sources are available at http://www.inner.net/pub/opie/
 You can also find OPIE and IPV6-capable servers there.
-
-1.2 OpenSSL
-
-If you are installing OpenSSL yourself, it is recommended that you build
-shared OpenSSL libraries, it works better and updating OpenSSL does not
-then require you to reinstall all applications that use OpenSSL.
-
-Try after unpacking OpenSSL:
-
-	./config shared && make && make test && make install
-
-1.3 gettext (internationalization)
-
-Internationalization of fetchmail requires GNU gettext (libintl and
-libiconv). Fetchmail, as of version 6.3.0, no longer ships its own
-libintl copy.
 
 1.4 IPv6
 

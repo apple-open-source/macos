@@ -241,8 +241,8 @@ int do_rfc1731(int sock, char *command, char *truename)
     while (authenticator.length & 7) {
 	authenticator.length++;
     }
-    des_pcbc_encrypt((des_cblock *)authenticator.dat,
-	    (des_cblock *)authenticator.dat, authenticator.length, schedule,
+    des_pcbc_encrypt((const unsigned char *)authenticator.dat,
+	    (unsigned char *)authenticator.dat, authenticator.length, schedule,
 	    &session, 1);
 
     to64frombits(buf1, authenticator.dat, authenticator.length);

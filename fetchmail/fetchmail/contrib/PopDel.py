@@ -5,30 +5,42 @@
 # license. See COPYING for specifics.
 #
 # See PopDel.manual for the use of this Python class.
-# (this isn't currently available)
 #
-# created: 01 May 02
+# created: 01 May 2002
+# last modified: 27 Apr 2006
 #
 # change log:
+# Matthias Andree, April 2006:
+#	Bump version to 0.1+jc2 and mark Joshua Crawford
+#	as additional author.
+#	Reformat ESR's change log entry
+#	Note: emptydog.com is currently not registered.
+# Joshua Crawford, April 2006:
+#	Display From: address.
+#	List every email, even if it has no Subject: header.
+#	  this also avoids indexing errors (that caused
+#	  deleting the wrong message)
 # Joshua Crawford, November 2004:
-# 	Out of range error fixed
-#	Allow for all caps SUBJECT:
-#	Display email address
-#	Don't prompt for save if no changes
-#	Don't clear the screen until we're displaying a menu
-#	Check for invalid choice
-#	Check all arguments exist
-#	Check for errors in POP
-#	Return 1 on errors, 0 otherwise
-# Hacked to support message ranges by ESR, January 2003.
+# 	Out of range error fixed.
+#	Allow for all caps "SUBJECT:".
+#	Display user and server name in messages.
+#	Don't prompt for save if no changes.
+#	Don't clear the screen until we're displaying a menu.
+#	Check for invalid choice.
+#	Check all arguments exist.
+#	Check for errors in POP.
+#	Return 1 on errors, 0 otherwise.
+# Eric S. Raymond, January 2003:
+#	Hacked to support message ranges.
 #
-import os, poplib, string, sys
+import os, poplib, re, string, sys
 
 class PopDel:
-	HDR = "\nPopDel - Delete messages from popmail - Ver. 0.1"
-	BYE = "\n  PopDel Ver.0.1 by Richard Harris\n" +\
-		  "     site - http://emptydog.com\n" +\
-		  "     email - rover@emptydog.com\n"
+	HDR = "\nPopDel - Delete messages from popmail - Ver. 0.1+jc2"
+	BYE = "\n  PopDel Ver.0.1+jc2 by Richard Harris and Joshua Crawford\n" +\
+#		  "     site - http://emptydog.com/\n" +\
+		  "     email - Richard Harris <rover@emptydog.com>\n" +\
+		  "     email - Joshua Crawford <jgcrawford@gmail.com>\n"
 	PROMPT1 = "Choose message number to delete or 'q' to quit: "
 	PROMPT2 = "Quit or abort: "
 	CHOICES = ["Save changes and quit.",
@@ -101,6 +113,8 @@ class PopDel:
 		else:
 			for entry in list:
 				tokens = string.split(entry)
+				subject = '(no subject)'
+				address = '(no address)'
 				try:
 					head = M.top(int(tokens[0]), 32)
 				except:
@@ -111,11 +125,14 @@ class PopDel:
 					return 1
 				for line in head[1]:
 					if (string.find(string.upper(line), 'SUBJECT:') == 0):
-						subject = string.replace(line, 'Subject:','')
-						subject = string.replace(subject, 'SUBJECT:','')
-						subject = subject + ' - ' + tokens[1] + ' octets'
-						subjects.append(subject)
-						break
+						subject = line[9:]
+					if (string.find(string.upper(line), 'FROM:') == 0):
+						line = line[6:]
+						result = re.search(r'([^\t <>]*@[^\t <>]*)', line)
+						if (result != None):
+							address = result.expand(r'\1')
+				subj = address[:40] + ' [' + tokens[1] + 'o] ' + subject
+				subjects.append(subj)
 
 			while not self.done:
 				os.system('clear')
@@ -148,10 +165,8 @@ class PopDel:
 					M.rset()
 					M.quit()
 
-
 		print self.BYE
 		return
-
 
 #-----------------main
 obj = PopDel()

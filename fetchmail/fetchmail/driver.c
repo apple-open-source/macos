@@ -55,7 +55,6 @@
 
 /* throw types for runtime errors */
 #define THROW_TIMEOUT	1		/* server timed out */
-#define THROW_SIGPIPE	2		/* SIGPIPE on stream socket */
 
 /* magic values for the message length array */
 #define MSGLEN_UNKNOWN	0		/* length unknown (0 is impossible) */
@@ -70,10 +69,12 @@ int batchcount;		/* count of messages sent in current batch */
 flag peek_capable;	/* can we peek for better error recovery? */
 int mailserver_socket_temp = -1;	/* socket to free if connect timeout */ 
 
+struct addrinfo *ai0, *ai1;	/* clean these up after signal */
+
 static volatile int timeoutcount = 0;	/* count consecutive timeouts */
 static volatile int idletimeout = 0;	/* timeout occured in idle stage? */
 
-static jmp_buf	restart;
+static sigjmp_buf	restart;
 
 int is_idletimeout(void)
 /* last timeout occured in idle stage? */
@@ -108,16 +109,12 @@ static RETSIGTYPE timeout_handler (int signal)
     (void)signal;
     if(stage != STAGE_IDLE) {
 	timeoutcount++;
-	longjmp(restart, THROW_TIMEOUT);
+	/* XXX FIXME: this siglongjmp must die - it's not safe to be
+	 * called from a function handler and breaks, for instance,
+	 * getaddrinfo() */
+	siglongjmp(restart, THROW_TIMEOUT);
     } else
 	idletimeout = 1;
-}
-
-static RETSIGTYPE sigpipe_handler (int signal)
-/* handle SIGPIPE signal indicating a broken stream socket */
-{
-    (void)signal;
-    longjmp(restart, THROW_SIGPIPE);
 }
 
 #define CLEANUP_TIMEOUT 60 /* maximum timeout during cleanup */
@@ -362,11 +359,13 @@ static void send_size_warnings(struct query *ctl)
 	    size = atoi(current->id);
 	    if (ctl->limitflush)
 		stuff_warning(NULL, ctl,
-			GT_("  %d msg %d octets long deleted by fetchmail."),
+			ngettext("  %d message  %d octets long deleted by fetchmail.",
+			         "  %d messages %d octets long deleted by fetchmail.", nbr),
 			nbr, size);
 	    else
 		stuff_warning(NULL, ctl,
-			GT_("  %d msg %d octets long skipped by fetchmail."),
+			ngettext("  %d message  %d octets long skipped by fetchmail.",
+			         "  %d messages %d octets long skipped by fetchmail.", nbr),
 			nbr, size);
 	}
 	current->val.status.num++;
@@ -615,8 +614,6 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 				 : GT_(" (%d header octets)"), len);
 		if (outlevel >= O_VERBOSE)
 		    report_complete(stdout, "\n");
-		else
-		    report_complete(stdout, " ");
 	    }
 
 	    /* 
@@ -634,8 +631,6 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		suppress_delete = suppress_forward = TRUE;
 	    else if (err == PS_REFUSED)
 		suppress_forward = TRUE;
-	    else if (err == PS_TRUNCATED)
-		suppress_readbody = TRUE;
 	    else if (err)
 		return(err);
 
@@ -683,8 +678,8 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 		    if (len == -1)
 			len = msgsize - msgblk.msglen;
 		    if (outlevel > O_SILENT && !wholesize)
-			report_complete(stdout,
-					GT_(" (%d body octets) "), len);
+			report_build(stdout,
+					GT_(" (%d body octets)"), len);
 		}
 
 		/* process the body now */
@@ -737,6 +732,9 @@ static int fetch_messages(int mailserver_socket, struct query *ctl,
 	     * It's unclear what is going on here, as the
 	     * QUALCOMM server (at least) seems to be
 	     * reporting the on-disk size correctly.
+	     *
+	     * qmail-pop3d also goofs up message sizes and does not
+	     * count the line end characters properly.
 	     */
 	    if (msgblk.msglen != msgsize)
 	    {
@@ -773,7 +771,7 @@ flagthemail:
 	if (retained)
 	{
 	    if (outlevel > O_SILENT) 
-		report(stdout, GT_(" retained\n"));
+		report_complete(stdout, GT_(" retained\n"));
 	}
 	else if (ctl->server.base_protocol->delete_msg
 		 && !suppress_delete
@@ -842,7 +840,6 @@ static int do_session(
     int tmperr;
     int deletions = 0, js;
     const char *msg;
-    SIGHANDLERTYPE pipesave;
     SIGHANDLERTYPE alrmsave;
 
     ctl->server.base_protocol = proto;
@@ -856,36 +853,23 @@ static int do_session(
     alrmsave = set_signal_handler(SIGALRM, timeout_handler);
     mytimeout = ctl->server.timeout;
 
-    /* set up the broken-pipe timeout */
-    pipesave = set_signal_handler(SIGPIPE, sigpipe_handler);
-
-    if ((js = setjmp(restart)))
+    if ((js = sigsetjmp(restart,1)))
     {
 	/* exception caught */
-#ifdef HAVE_SIGPROCMASK
-	/*
-	 * Don't rely on setjmp() to restore the blocked-signal mask.
-	 * It does this under BSD but is required not to under POSIX.
-	 *
-	 * If your Unix doesn't have sigprocmask, better hope it has
-	 * BSD-like behavior.  Otherwise you may see fetchmail get
-	 * permanently wedged after a second timeout on a bad read,
-	 * because alarm signals were blocked after the first.
-	 */
 	sigset_t	allsigs;
 
 	sigfillset(&allsigs);
 	sigprocmask(SIG_UNBLOCK, &allsigs, NULL);
-#endif /* HAVE_SIGPROCMASK */
-	
-	if (js == THROW_SIGPIPE)
-	{
-	    set_signal_handler(SIGPIPE, SIG_IGN);
-	    report(stdout,
-		   GT_("SIGPIPE thrown from an MDA or a stream socket error\n"));
-	    wait(0);
+
+	if (ai0) {
+	    fm_freeaddrinfo(ai0); ai0 = NULL;
 	}
-	else if (js == THROW_TIMEOUT)
+
+	if (ai1) {
+	    fm_freeaddrinfo(ai1); ai1 = NULL;
+	}
+	
+	if (js == THROW_TIMEOUT)
 	{
 	    if (phase == OPEN_WAIT)
 		report(stdout,
@@ -939,7 +923,7 @@ static int do_session(
     }
     else
     {
-	/* setjmp returned zero -> normal operation */
+	/* sigsetjmp returned zero -> normal operation */
 	char buf[MSGBUFSIZE+1], *realhost;
 	int count, newm, bytes;
 	int fetches, dispatches, oldphase;
@@ -1014,12 +998,13 @@ static int do_session(
 		hints.ai_family = AF_UNSPEC;
 		hints.ai_flags = AI_CANONNAME;
 
-		error = getaddrinfo(ctl->server.queryname, NULL, &hints, &res);
+		error = fm_getaddrinfo(ctl->server.queryname, NULL, &hints, &res);
 		if (error)
 		{
 		    report(stderr,
-			   GT_("couldn't find canonical DNS name of %s (%s)\n"),
-			   ctl->server.pollname, ctl->server.queryname);
+			   GT_("couldn't find canonical DNS name of %s (%s): %s\n"),
+			   ctl->server.pollname, ctl->server.queryname,
+			   gai_strerror(error));
 		    err = PS_DNS;
 		    set_timeout(0);
 		    phase = oldphase;
@@ -1040,7 +1025,7 @@ static int do_session(
 		    ctl->server.trueaddr = (struct sockaddr *)xmalloc(res->ai_addrlen);
 		    ctl->server.trueaddr_len = res->ai_addrlen;
 		    memcpy(ctl->server.trueaddr, res->ai_addr, res->ai_addrlen);
-		    freeaddrinfo(res);
+		    fm_freeaddrinfo(res);
 		}
 	    }
 	}
@@ -1052,7 +1037,7 @@ static int do_session(
 	    (void)sleep(1);
 	if ((mailserver_socket = SockOpen(realhost, 
 			     ctl->server.service ? ctl->server.service : ( ctl->use_ssl ? ctl->server.base_protocol->sslservice : ctl->server.base_protocol->service ),
-			     ctl->server.plugin)) == -1)
+			     ctl->server.plugin, &ai0)) == -1)
 	{
 	    char	errbuf[BUFSIZ];
 	    int err_no = errno;
@@ -1069,7 +1054,7 @@ static int do_session(
 		    strlcpy(errbuf, strerror(err_no), sizeof(errbuf));
 		report_complete(stderr, ": %s\n", errbuf);
 
-#ifdef __UNUSED
+#ifdef __UNUSED__
 		/* 
 		 * Don't use this.  It was an attempt to address Debian bug
 		 * #47143 (Notify user by mail when pop server nonexistent).
@@ -1106,7 +1091,7 @@ static int do_session(
 	/* Note:  We pass the realhost name over for certificate
 		verification.  We may want to make this configurable */
 	if (ctl->use_ssl && SSLOpen(mailserver_socket,ctl->sslcert,ctl->sslkey,ctl->sslproto,ctl->sslcertck,
-	    ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1) 
+	    ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname,&ctl->remotename) == -1) 
 	{
 	    report(stderr, GT_("SSL connection failed.\n"));
 	    err = PS_SOCKET;
@@ -1454,11 +1439,11 @@ is restored."));
 		    goto no_error;
 	    } while
 		  /*
-		   * Only re-poll if we either had some actual forwards and 
-		   * either allowed deletions and had no errors.
+		   * Only repoll if we either had some actual forwards
+		   * or are idling for new mails and had no errors.
 		   * Otherwise it is far too easy to get into infinite loops.
 		   */
-		  (dispatches && ctl->server.base_protocol->retry && !ctl->keep && !ctl->errcount);
+		  (ctl->server.base_protocol->retry && (dispatches || ctl->idle) && !ctl->errcount);
 	}
 
 	/* XXX: From this point onwards, preserve err unless a new error has occurred */
@@ -1581,7 +1566,6 @@ closeUp:
 
     set_timeout(0); /* cancel any pending alarm */
     set_signal_handler(SIGALRM, alrmsave);
-    set_signal_handler(SIGPIPE, pipesave);
     return(err);
 }
 

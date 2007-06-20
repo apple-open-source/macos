@@ -1,11 +1,12 @@
 TNFTPD(8)               NetBSD System Manager's Manual               TNFTPD(8)
 
 NNAAMMEE
-     ttnnffttppdd - Internet File Transfer Protocol server
+     ttnnffttppdd -- Internet File Transfer Protocol server
 
 SSYYNNOOPPSSIISS
-     ttnnffttppdd [--ddHHllqqQQrrssuuUUwwWWXX] [--aa _a_n_o_n_d_i_r] [--cc _c_o_n_f_d_i_r] [--CC _u_s_e_r] [--ee _e_m_a_i_l_a_d_d_r]
-            [--hh _h_o_s_t_n_a_m_e] [--LL _x_f_e_r_l_o_g_f_i_l_e] [--PP _d_a_t_a_p_o_r_t] [--VV _v_e_r_s_i_o_n]
+     ttnnffttppdd [--4466DDddHHllQQqqrrssUUuuWWwwXX] [--aa _a_n_o_n_d_i_r] [--CC _u_s_e_r] [--cc _c_o_n_f_d_i_r]
+            [--ee _e_m_a_i_l_a_d_d_r] [--hh _h_o_s_t_n_a_m_e] [--LL _x_f_e_r_l_o_g_f_i_l_e] [--PP _d_a_t_a_p_o_r_t]
+            [--VV _v_e_r_s_i_o_n]
 
 DDEESSCCRRIIPPTTIIOONN
      ttnnffttppdd is the Internet File Transfer Protocol server process.  The server
@@ -14,10 +15,20 @@ DDEESSCCRRIIPPTTIIOONN
 
      Available options:
 
+     --44      When --DD is specified, bind to IPv4 addresses only.
+
+     --66      When --DD is specified, bind to IPv6 addresses only.
+
      --aa _a_n_o_n_d_i_r
              Define _a_n_o_n_d_i_r as the directory to chroot(2) into for anonymous
              logins.  Default is the home directory for the ftp user.  This
              can also be specified with the ftpd.conf(5) cchhrroooott directive.
+
+     --CC _u_s_e_r
+             Check whether _u_s_e_r would be granted access under the restrictions
+             given in ftpusers(5) and exit without attempting a connection.
+             ttnnffttppdd exits with an exit code of 0 if access would be granted,
+             or 1 otherwise.  This can be useful for testing configurations.
 
      --cc _c_o_n_f_d_i_r
              Change the root directory of the configuration files from
@@ -26,11 +37,10 @@ DDEESSCCRRIIPPTTIIOONN
              _/_e_t_c_/_m_o_t_d, and the file specified by the ftpd.conf(5) lliimmiitt
              directive.
 
-     --CC _u_s_e_r
-             Check whether _u_s_e_r would be granted access under the restrictions
-             given in ftpusers(5) and exit without attempting a connection.
-             ttnnffttppdd exits with an exit code of 0 if access would be granted,
-             or 1 otherwise.  This can be useful for testing configurations.
+     --DD      Run as daemon.  ttnnffttppdd will listen on the default FTP port for
+             incoming connections and fork a child for each connection.  This
+             is lower overhead than starting ttnnffttppdd from inetd(8) and thus
+             might be useful on busy servers to reduce load.
 
      --dd      Debugging information is written to the syslog using a facility
              of LOG_FTP.
@@ -38,6 +48,8 @@ DDEESSCCRRIIPPTTIIOONN
      --ee _e_m_a_i_l_a_d_d_r
              Use _e_m_a_i_l_a_d_d_r for the ``%E'' escape sequence (see _D_i_s_p_l_a_y _f_i_l_e
              _e_s_c_a_p_e _s_e_q_u_e_n_c_e_s)
+
+     --HH      Equivalent to ``-h `hostname`''.
 
      --hh _h_o_s_t_n_a_m_e
              Explicitly set the hostname to advertise as to _h_o_s_t_n_a_m_e.  The
@@ -48,7 +60,8 @@ DDEESSCCRRIIPPTTIIOONN
              names.  Refer to inetd.conf(5) for more information on starting
              services to listen on specific IP addresses.
 
-     --HH      Equivalent to ``-h `hostname`''.
+     --LL _x_f_e_r_l_o_g_f_i_l_e
+             Log wu-ftpd style `xferlog' entries to _x_f_e_r_l_o_g_f_i_l_e.
 
      --ll      Each successful and failed FTP session is logged using syslog
              with a facility of LOG_FTP.  If this option is specified more
@@ -56,19 +69,16 @@ DDEESSCCRRIIPPTTIIOONN
              directory, remove directory and rename operations and their file
              name arguments are also logged.
 
-     --LL _x_f_e_r_l_o_g_f_i_l_e
-             Log wu-ftpd style `xferlog' entries to _x_f_e_r_l_o_g_f_i_l_e.
-
      --PP _d_a_t_a_p_o_r_t
              Use _d_a_t_a_p_o_r_t as the data port, overriding the default of using
              the port one less that the port ttnnffttppdd is listening on.
 
-     --qq      Enable the use of pid files for keeping track of the number of
-             logged-in users per class.  This is the default.
-
      --QQ      Disable the use of pid files for keeping track of the number of
              logged-in users per class.  This may reduce the load on heavily
              loaded FTP servers.
+
+     --qq      Enable the use of pid files for keeping track of the number of
+             logged-in users per class.  This is the default.
 
      --rr      Permanently drop root privileges once the user is logged in.  The
              use of this option may result in the server using a port other
@@ -80,11 +90,11 @@ DDEESSCCRRIIPPTTIIOONN
      --ss      Require a secure authentication mechanism like Kerberos or S/Key
              to be used.
 
-     --uu      Log each concurrent FTP session to _/_v_a_r_/_r_u_n_/_u_t_m_p, making them
-             visible to commands such as who(1).
-
      --UU      Don't log each concurrent FTP session to _/_v_a_r_/_r_u_n_/_u_t_m_p.  This is
              the default.
+
+     --uu      Log each concurrent FTP session to _/_v_a_r_/_r_u_n_/_u_t_m_p, making them
+             visible to commands such as who(1).
 
      --VV _v_e_r_s_i_o_n
              Use _v_e_r_s_i_o_n as the version to advertise in the login banner and
@@ -92,10 +102,10 @@ DDEESSCCRRIIPPTTIIOONN
              information.  If _v_e_r_s_i_o_n is empty or `-' then don't display any
              version information.
 
+     --WW      Don't log each FTP session to _/_v_a_r_/_l_o_g_/_w_t_m_p.
+
      --ww      Log each FTP session to _/_v_a_r_/_l_o_g_/_w_t_m_p, making them visible to
              commands such as last(1).  This is the default.
-
-     --WW      Don't log each FTP session to _/_v_a_r_/_l_o_g_/_w_t_m_p.
 
      --XX      Log wu-ftpd style `xferlog' entries to the syslog, prefixed with
              ``xferlog: '', using a facility of LOG_FTP.  These syslog entries
@@ -412,4 +422,4 @@ SSEECCUURRIITTYY CCOONNSSIIDDEERRAATTIIOONNSS
      disabled with the ftpd.conf(5) directive uuppllooaadd, then this directory can-
      not be abused by the user in this way, so it should be safe to create.
 
-NetBSD 1.6                     February 28, 2003                    NetBSD 1.6
+NetBSD 3.0.1                    August 4, 2005                    NetBSD 3.0.1

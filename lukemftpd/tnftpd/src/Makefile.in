@@ -17,7 +17,7 @@ mandir8 = ${mandir}/man8
 
 CC	= @CC@
 CFLAGS	= -I${srcdir} -I${srcdir}/.. -I. -I.. @INCLUDES@ -DHAVE_TNFTPD_H=1 @CFLAGS@ -D_DEFAULT_CONFDIR=\"${sysconfdir}\"
-LIBS   = @LIBS@ -lpam
+LIBS	= @LIBS@ -lpam
 LDFLAGS	= @LDFLAGS@
 
 INSTALL	= @INSTALL@

@@ -44,11 +44,21 @@ target_triplet = @target@
 bin_PROGRAMS = fetchmail$(EXEEXT)
 @HAVE_PYTHON_TRUE@am__append_1 = $(pym)
 check_PROGRAMS = $(am__EXEEXT_1) rfc822$(EXEEXT) unmime$(EXEEXT) \
-	netrc$(EXEEXT) rfc2047e$(EXEEXT) mxget$(EXEEXT)
+	netrc$(EXEEXT) rfc2047e$(EXEEXT) mxget$(EXEEXT) \
+	rfc822valid$(EXEEXT)
 @NEED_TRIO_TRUE@am__append_2 = libtrio.a
 @NEED_TRIO_TRUE@am__append_3 = regression
 @NEED_TRIO_TRUE@am__append_4 = libtrio.a -lm
 @NEED_TRIO_TRUE@am__append_5 = regression
+@POP2_ENABLE_TRUE@am__append_6 = pop2.c
+@POP3_ENABLE_TRUE@am__append_7 = pop3.c
+@IMAP_ENABLE_TRUE@am__append_8 = imap.c
+@ETRN_ENABLE_TRUE@am__append_9 = etrn.c
+@ODMR_ENABLE_TRUE@am__append_10 = odmr.c
+@KERBEROS_V4_ENABLE_TRUE@am__append_11 = kerberos.c
+@RPA_ENABLE_TRUE@am__append_12 = rpa.c
+@NEED_GETNAMEINFO_TRUE@am__append_13 = KAME/getnameinfo.c
+@NEED_GETADDRINFO_TRUE@am__append_14 = libesmtp/getaddrinfo.h libesmtp/getaddrinfo.c
 DIST_COMMON = README $(am__configure_deps) $(am__noinst_PYTHON_DIST) \
 	$(am__python_PYTHON_DIST) $(dist_man1_MANS) \
 	$(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
@@ -65,10 +75,10 @@ am__aclocal_m4_deps = $(top_srcdir)/m4-local/ac_ma_search_package.m4 \
 	$(top_srcdir)/m4-local/autobuild.m4 \
 	$(top_srcdir)/m4/gethostbyname_r.m4 \
 	$(top_srcdir)/m4/gettext.m4 $(top_srcdir)/m4/iconv.m4 \
-	$(top_srcdir)/m4/lib-ld.m4 $(top_srcdir)/m4/lib-link.m4 \
-	$(top_srcdir)/m4/lib-prefix.m4 $(top_srcdir)/m4/nls.m4 \
-	$(top_srcdir)/m4/po.m4 $(top_srcdir)/m4/progtest.m4 \
-	$(top_srcdir)/configure.ac
+	$(top_srcdir)/m4/isc-posix.m4 $(top_srcdir)/m4/lib-ld.m4 \
+	$(top_srcdir)/m4/lib-link.m4 $(top_srcdir)/m4/lib-prefix.m4 \
+	$(top_srcdir)/m4/nls.m4 $(top_srcdir)/m4/po.m4 \
+	$(top_srcdir)/m4/progtest.m4 $(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
@@ -84,7 +94,8 @@ am__DEPENDENCIES_1 =
 am_libfm_a_OBJECTS = xmalloc.$(OBJEXT) base64.$(OBJEXT) \
 	rfc822.$(OBJEXT) report.$(OBJEXT) rfc2047e.$(OBJEXT) \
 	servport.$(OBJEXT) smbdes.$(OBJEXT) smbencrypt.$(OBJEXT) \
-	smbmd4.$(OBJEXT) smbutil.$(OBJEXT) gethostbyname.$(OBJEXT)
+	smbmd4.$(OBJEXT) smbutil.$(OBJEXT) gethostbyname.$(OBJEXT) \
+	fm_getaddrinfo.$(OBJEXT) tls.$(OBJEXT) rfc822valid.$(OBJEXT)
 libfm_a_OBJECTS = $(am_libfm_a_OBJECTS)
 libtrio_a_AR = $(AR) $(ARFLAGS)
 libtrio_a_LIBADD =
@@ -99,18 +110,36 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(bindir)" \
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 @NEED_TRIO_TRUE@am__EXEEXT_1 = regression$(EXEEXT)
 PROGRAMS = $(bin_PROGRAMS)
+am__fetchmail_SOURCES_DIST = fetchmail.h getopt.h i18n.h kerberos.h \
+	md5.h mx.h netrc.h smtp.h socket.h tunable.h socket.c \
+	getpass.c fetchmail.c env.c idle.c options.c daemon.c driver.c \
+	transact.c sink.c smtp.c uid.c mxget.c md5ify.c cram.c \
+	gssapi.c opie.c interface.c netrc.c unmime.c conf.c \
+	checkalias.c lock.h lock.c rcfile_l.l rcfile_y.y \
+	ucs/norm_charmap.c pop2.c pop3.c imap.c etrn.c odmr.c \
+	kerberos.c rpa.c KAME/getnameinfo.c libesmtp/getaddrinfo.h \
+	libesmtp/getaddrinfo.c
+@POP2_ENABLE_TRUE@am__objects_1 = pop2.$(OBJEXT)
+@POP3_ENABLE_TRUE@am__objects_2 = pop3.$(OBJEXT)
+@IMAP_ENABLE_TRUE@am__objects_3 = imap.$(OBJEXT)
+@ETRN_ENABLE_TRUE@am__objects_4 = etrn.$(OBJEXT)
+@ODMR_ENABLE_TRUE@am__objects_5 = odmr.$(OBJEXT)
+@KERBEROS_V4_ENABLE_TRUE@am__objects_6 = kerberos.$(OBJEXT)
+@RPA_ENABLE_TRUE@am__objects_7 = rpa.$(OBJEXT)
+@NEED_GETNAMEINFO_TRUE@am__objects_8 = getnameinfo.$(OBJEXT)
+@NEED_GETADDRINFO_TRUE@am__objects_9 = getaddrinfo.$(OBJEXT)
 am_fetchmail_OBJECTS = socket.$(OBJEXT) getpass.$(OBJEXT) \
-	pop2.$(OBJEXT) pop3.$(OBJEXT) imap.$(OBJEXT) etrn.$(OBJEXT) \
-	odmr.$(OBJEXT) fetchmail.$(OBJEXT) env.$(OBJEXT) \
-	idle.$(OBJEXT) options.$(OBJEXT) daemon.$(OBJEXT) \
-	driver.$(OBJEXT) transact.$(OBJEXT) sink.$(OBJEXT) \
-	smtp.$(OBJEXT) uid.$(OBJEXT) mxget.$(OBJEXT) md5ify.$(OBJEXT) \
-	cram.$(OBJEXT) kerberos.$(OBJEXT) gssapi.$(OBJEXT) \
-	opie.$(OBJEXT) rpa.$(OBJEXT) interface.$(OBJEXT) \
+	fetchmail.$(OBJEXT) env.$(OBJEXT) idle.$(OBJEXT) \
+	options.$(OBJEXT) daemon.$(OBJEXT) driver.$(OBJEXT) \
+	transact.$(OBJEXT) sink.$(OBJEXT) smtp.$(OBJEXT) uid.$(OBJEXT) \
+	mxget.$(OBJEXT) md5ify.$(OBJEXT) cram.$(OBJEXT) \
+	gssapi.$(OBJEXT) opie.$(OBJEXT) interface.$(OBJEXT) \
 	netrc.$(OBJEXT) unmime.$(OBJEXT) conf.$(OBJEXT) \
 	checkalias.$(OBJEXT) lock.$(OBJEXT) rcfile_l.$(OBJEXT) \
-	rcfile_y.$(OBJEXT) norm_charmap.$(OBJEXT) \
-	getaddrinfo.$(OBJEXT) getnameinfo.$(OBJEXT)
+	rcfile_y.$(OBJEXT) norm_charmap.$(OBJEXT) $(am__objects_1) \
+	$(am__objects_2) $(am__objects_3) $(am__objects_4) \
+	$(am__objects_5) $(am__objects_6) $(am__objects_7) \
+	$(am__objects_8) $(am__objects_9)
 fetchmail_OBJECTS = $(am_fetchmail_OBJECTS)
 fetchmail_LDADD = $(LDADD)
 am__DEPENDENCIES_2 = @LIBOBJS@
@@ -144,6 +173,11 @@ rfc822_OBJECTS = rfc822-rfc822.$(OBJEXT)
 rfc822_LDADD = $(LDADD)
 rfc822_DEPENDENCIES = libfm.a $(am__DEPENDENCIES_2) \
 	$(am__DEPENDENCIES_3)
+rfc822valid_SOURCES = rfc822valid.c
+rfc822valid_OBJECTS = rfc822valid-rfc822valid.$(OBJEXT)
+rfc822valid_LDADD = $(LDADD)
+rfc822valid_DEPENDENCIES = libfm.a $(am__DEPENDENCIES_2) \
+	$(am__DEPENDENCIES_3)
 am_unmime_OBJECTS = unmime-unmime.$(OBJEXT)
 unmime_OBJECTS = $(am_unmime_OBJECTS)
 unmime_LDADD = $(LDADD)
@@ -162,11 +196,11 @@ LEXCOMPILE = $(LEX) $(LFLAGS) $(AM_LFLAGS)
 YACCCOMPILE = $(YACC) $(YFLAGS) $(AM_YFLAGS)
 SOURCES = $(libfm_a_SOURCES) $(libtrio_a_SOURCES) $(fetchmail_SOURCES) \
 	$(mxget_SOURCES) $(netrc_SOURCES) $(regression_SOURCES) \
-	rfc2047e.c rfc822.c $(unmime_SOURCES)
+	rfc2047e.c rfc822.c rfc822valid.c $(unmime_SOURCES)
 DIST_SOURCES = $(libfm_a_SOURCES) $(am__libtrio_a_SOURCES_DIST) \
-	$(fetchmail_SOURCES) $(mxget_SOURCES) $(netrc_SOURCES) \
-	$(am__regression_SOURCES_DIST) rfc2047e.c rfc822.c \
-	$(unmime_SOURCES)
+	$(am__fetchmail_SOURCES_DIST) $(mxget_SOURCES) \
+	$(netrc_SOURCES) $(am__regression_SOURCES_DIST) rfc2047e.c \
+	rfc822.c rfc822valid.c $(unmime_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -222,17 +256,24 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ETRN_ENABLE_FALSE = @ETRN_ENABLE_FALSE@
+ETRN_ENABLE_TRUE = @ETRN_ENABLE_TRUE@
 EXEEXT = @EXEEXT@
 EXTRAOBJ = @EXTRAOBJ@
 GMSGFMT = @GMSGFMT@
+GREP = @GREP@
 HAVE_PYTHON_FALSE = @HAVE_PYTHON_FALSE@
 HAVE_PYTHON_TRUE = @HAVE_PYTHON_TRUE@
+IMAP_ENABLE_FALSE = @IMAP_ENABLE_FALSE@
+IMAP_ENABLE_TRUE = @IMAP_ENABLE_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 INTLLIBS = @INTLLIBS@
 INTL_MACOSX_LIBS = @INTL_MACOSX_LIBS@
+KERBEROS_V4_ENABLE_FALSE = @KERBEROS_V4_ENABLE_FALSE@
+KERBEROS_V4_ENABLE_TRUE = @KERBEROS_V4_ENABLE_TRUE@
 LDEFLAGS = @LDEFLAGS@
 LDFLAGS = @LDFLAGS@
 LEX = @LEX@
@@ -249,9 +290,15 @@ MAKEINFO = @MAKEINFO@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
 MSGMERGE = @MSGMERGE@
+NEED_GETADDRINFO_FALSE = @NEED_GETADDRINFO_FALSE@
+NEED_GETADDRINFO_TRUE = @NEED_GETADDRINFO_TRUE@
+NEED_GETNAMEINFO_FALSE = @NEED_GETNAMEINFO_FALSE@
+NEED_GETNAMEINFO_TRUE = @NEED_GETNAMEINFO_TRUE@
 NEED_TRIO_FALSE = @NEED_TRIO_FALSE@
 NEED_TRIO_TRUE = @NEED_TRIO_TRUE@
 OBJEXT = @OBJEXT@
+ODMR_ENABLE_FALSE = @ODMR_ENABLE_FALSE@
+ODMR_ENABLE_TRUE = @ODMR_ENABLE_TRUE@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -259,6 +306,10 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+POP2_ENABLE_FALSE = @POP2_ENABLE_FALSE@
+POP2_ENABLE_TRUE = @POP2_ENABLE_TRUE@
+POP3_ENABLE_FALSE = @POP3_ENABLE_FALSE@
+POP3_ENABLE_TRUE = @POP3_ENABLE_TRUE@
 POSUB = @POSUB@
 PYTHON = @PYTHON@
 PYTHON_EXEC_PREFIX = @PYTHON_EXEC_PREFIX@
@@ -266,6 +317,8 @@ PYTHON_PLATFORM = @PYTHON_PLATFORM@
 PYTHON_PREFIX = @PYTHON_PREFIX@
 PYTHON_VERSION = @PYTHON_VERSION@
 RANLIB = @RANLIB@
+RPA_ENABLE_FALSE = @RPA_ENABLE_FALSE@
+RPA_ENABLE_TRUE = @RPA_ENABLE_TRUE@
 SET_MAKE = @SET_MAKE@
 
 # For some losing Unix makes.
@@ -275,9 +328,8 @@ USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 XGETTEXT = @XGETTEXT@
 YACC = @YACC@
+YFLAGS = @YFLAGS@
 ac_ct_CC = @ac_ct_CC@
-ac_ct_RANLIB = @ac_ct_RANLIB@
-ac_ct_STRIP = @ac_ct_STRIP@
 am__fastdepCC_FALSE = @am__fastdepCC_FALSE@
 am__fastdepCC_TRUE = @am__fastdepCC_TRUE@
 am__include = @am__include@
@@ -292,27 +344,36 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 datadir = @datadir@
+datarootdir = @datarootdir@
+docdir = @docdir@
+dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
+htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+
+# for gettext (used by fetchmail.c, NOT by GNU gettext)
+localedir = $(datadir)/locale
 localstatedir = @localstatedir@
 maildrop = @maildrop@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
+pdfdir = @pdfdir@
 pkgpyexecdir = @pkgpyexecdir@
 pkgpythondir = @pkgpythondir@
 prefix = @prefix@
 procmail = @procmail@
 program_transform_name = @program_transform_name@
+psdir = @psdir@
 pyexecdir = @pyexecdir@
 pythondir = @pythondir@
 sbindir = @sbindir@
@@ -344,25 +405,24 @@ pym = fetchmailconf.man
 @HAVE_PYTHON_FALSE@	m4-local/ac-archive-license.txt \
 @HAVE_PYTHON_FALSE@	m4-local/ac_ma_search_package.m4 \
 @HAVE_PYTHON_FALSE@	m4-local/autobuild.m4 t.smoke t.rc \
-@HAVE_PYTHON_FALSE@	dist-tools/html2txt dist-tools/manServer.pl
+@HAVE_PYTHON_FALSE@	dist-tools/html2txt dist-tools/manServer.pl \
+@HAVE_PYTHON_FALSE@	Doxyfile
 @HAVE_PYTHON_TRUE@EXTRA_DIST = $(DISTDOCS) fetchmail.spec $(distdirs) \
 @HAVE_PYTHON_TRUE@	ucs/README.svn trio/CHANGES trio/README \
 @HAVE_PYTHON_TRUE@	strlcpy.3 bighand.png \
 @HAVE_PYTHON_TRUE@	m4-local/ac-archive-license.txt \
 @HAVE_PYTHON_TRUE@	m4-local/ac_ma_search_package.m4 \
 @HAVE_PYTHON_TRUE@	m4-local/autobuild.m4 t.smoke t.rc \
-@HAVE_PYTHON_TRUE@	dist-tools/html2txt dist-tools/manServer.pl
+@HAVE_PYTHON_TRUE@	dist-tools/html2txt dist-tools/manServer.pl \
+@HAVE_PYTHON_TRUE@	Doxyfile
 @HAVE_PYTHON_FALSE@noinst_PYTHON = $(pys)
 CLEANFILES = $(nodist_bin_SCRIPTS)
-
-# for gettext (used by fetchmail.c, NOT by GNU gettext)
-localedir = $(datadir)/locale
 noinst_LIBRARIES = libfm.a $(am__append_2)
 libfm_a_SOURCES = xmalloc.c base64.c rfc822.c report.c rfc2047e.c \
 			servport.c ntlm.h smbbyteorder.h smbdes.h smbmd4.h \
 			smbencrypt.h smbdes.c smbencrypt.c smbmd4.c smbutil.c \
 			libesmtp/gethostbyname.h libesmtp/gethostbyname.c \
-			smbtypes.h
+			smbtypes.h fm_getaddrinfo.c tls.c rfc822valid.c
 
 libfm_a_LIBADD = $(EXTRAOBJ)
 libfm_a_DEPENDENCIES = $(EXTRAOBJ)
@@ -375,21 +435,18 @@ TESTS_ENVIRONMENT = srcdir="@srcdir@" LC_ALL=C TZ=UTC
 @NEED_TRIO_TRUE@			trio/trionan.h trio/triostr.h
 
 @NEED_TRIO_TRUE@regression_SOURCES = trio/regression.c
-fetchmail_SOURCES = fetchmail.h getopt.h \
-		i18n.h kerberos.h md5.h mx.h netrc.h smtp.h \
-		socket.h tunable.h \
-		socket.c getpass.c pop2.c pop3.c imap.c etrn.c \
-		odmr.c fetchmail.c env.c idle.c options.c daemon.c \
-		driver.c transact.c sink.c smtp.c \
-		uid.c mxget.c md5ify.c cram.c kerberos.c gssapi.c \
-		opie.c rpa.c interface.c netrc.c \
-		unmime.c conf.c checkalias.c \
-		lock.h lock.c \
-		rcfile_l.l rcfile_y.y ucs/norm_charmap.c \
-		libesmtp/getaddrinfo.h libesmtp/getaddrinfo.c \
-		KAME/getnameinfo.c
-
+fetchmail_SOURCES = fetchmail.h getopt.h i18n.h kerberos.h md5.h mx.h \
+	netrc.h smtp.h socket.h tunable.h socket.c getpass.c \
+	fetchmail.c env.c idle.c options.c daemon.c driver.c \
+	transact.c sink.c smtp.c uid.c mxget.c md5ify.c cram.c \
+	gssapi.c opie.c interface.c netrc.c unmime.c conf.c \
+	checkalias.c lock.h lock.c rcfile_l.l rcfile_y.y \
+	ucs/norm_charmap.c $(am__append_6) $(am__append_7) \
+	$(am__append_8) $(am__append_9) $(am__append_10) \
+	$(am__append_11) $(am__append_12) $(am__append_13) \
+	$(am__append_14)
 rfc2047e_CFLAGS = -DTEST
+rfc822valid_CFLAGS = -DTEST
 rfc822_CFLAGS = -DMAIN
 unmime_SOURCES = unmime.c
 unmime_CFLAGS = -DSTANDALONE -DHAVE_CONFIG_H -I$(builddir)
@@ -402,6 +459,9 @@ DISTDOCS = FAQ FEATURES NOTES OLDNEWS fetchmail-man.html \
 		fetchmail-features.html README.SSL README.NTLM \
 		README.packaging \
 		fetchmail-FAQ.book fetchmail-FAQ.pdf fetchmail-FAQ.html \
+		fetchmail-SA-2007-01.txt \
+		fetchmail-SA-2006-03.txt \
+		fetchmail-SA-2006-02.txt \
 		fetchmail-SA-2006-01.txt \
 		fetchmail-SA-2005-01.txt \
 		fetchmail-SA-2005-02.txt \
@@ -416,39 +476,13 @@ all: $(BUILT_SOURCES) config.h
 .SUFFIXES:
 .SUFFIXES: .c .l .o .obj .y
 am--refresh:
-	@:
+ 
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
-	@for dep in $?; do \
-	  case '$(am__configure_deps)' in \
-	    *$$dep*) \
-	      echo ' cd $(srcdir) && $(AUTOMAKE) --foreign '; \
-	      cd $(srcdir) && $(AUTOMAKE) --foreign  \
-		&& exit 0; \
-	      exit 1;; \
-	  esac; \
-	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  Makefile'; \
-	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  Makefile
+	  touch Makefile.in
+ 
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
-	@case '$?' in \
-	  *config.status*) \
-	    echo ' $(SHELL) ./config.status'; \
-	    $(SHELL) ./config.status;; \
-	  *) \
-	    echo ' cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe)'; \
-	    cd $(top_builddir) && $(SHELL) ./config.status $@ $(am__depfiles_maybe);; \
-	esac;
-
-$(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
-	$(SHELL) ./config.status --recheck
-
-$(top_srcdir)/configure:  $(am__configure_deps)
-	cd $(srcdir) && $(AUTOCONF)
-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
-	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
-
+	touch Makefile
 config.h: stamp-h1
 	@if test ! -f $@; then \
 	  rm -f stamp-h1; \
@@ -458,10 +492,6 @@ config.h: stamp-h1
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
 	cd $(top_builddir) && $(SHELL) ./config.status config.h
-$(srcdir)/config.h.in:  $(am__configure_deps) 
-	cd $(top_srcdir) && $(AUTOHEADER)
-	rm -f stamp-h1
-	touch $@
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
@@ -527,6 +557,9 @@ rfc2047e$(EXEEXT): $(rfc2047e_OBJECTS) $(rfc2047e_DEPENDENCIES)
 rfc822$(EXEEXT): $(rfc822_OBJECTS) $(rfc822_DEPENDENCIES) 
 	@rm -f rfc822$(EXEEXT)
 	$(LINK) $(rfc822_LDFLAGS) $(rfc822_OBJECTS) $(rfc822_LDADD) $(LIBS)
+rfc822valid$(EXEEXT): $(rfc822valid_OBJECTS) $(rfc822valid_DEPENDENCIES) 
+	@rm -f rfc822valid$(EXEEXT)
+	$(LINK) $(rfc822valid_LDFLAGS) $(rfc822valid_OBJECTS) $(rfc822valid_LDADD) $(LIBS)
 unmime$(EXEEXT): $(unmime_OBJECTS) $(unmime_DEPENDENCIES) 
 	@rm -f unmime$(EXEEXT)
 	$(LINK) $(unmime_LDFLAGS) $(unmime_OBJECTS) $(unmime_LDADD) $(LIBS)
@@ -574,6 +607,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/env.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/etrn.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fetchmail.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fm_getaddrinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getaddrinfo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gethostbyname.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/getnameinfo.Po@am__quote@
@@ -605,6 +639,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rfc2047e.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rfc822-rfc822.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rfc822.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rfc822valid-rfc822valid.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rfc822valid.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rpa.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/servport.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sink.Po@am__quote@
@@ -614,6 +650,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smbutil.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/smtp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/socket.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tls.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/transact.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trio.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trionan.Po@am__quote@
@@ -707,20 +744,6 @@ norm_charmap.obj: ucs/norm_charmap.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o norm_charmap.obj `if test -f 'ucs/norm_charmap.c'; then $(CYGPATH_W) 'ucs/norm_charmap.c'; else $(CYGPATH_W) '$(srcdir)/ucs/norm_charmap.c'; fi`
 
-getaddrinfo.o: libesmtp/getaddrinfo.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT getaddrinfo.o -MD -MP -MF "$(DEPDIR)/getaddrinfo.Tpo" -c -o getaddrinfo.o `test -f 'libesmtp/getaddrinfo.c' || echo '$(srcdir)/'`libesmtp/getaddrinfo.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/getaddrinfo.Tpo" "$(DEPDIR)/getaddrinfo.Po"; else rm -f "$(DEPDIR)/getaddrinfo.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libesmtp/getaddrinfo.c' object='getaddrinfo.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o getaddrinfo.o `test -f 'libesmtp/getaddrinfo.c' || echo '$(srcdir)/'`libesmtp/getaddrinfo.c
-
-getaddrinfo.obj: libesmtp/getaddrinfo.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT getaddrinfo.obj -MD -MP -MF "$(DEPDIR)/getaddrinfo.Tpo" -c -o getaddrinfo.obj `if test -f 'libesmtp/getaddrinfo.c'; then $(CYGPATH_W) 'libesmtp/getaddrinfo.c'; else $(CYGPATH_W) '$(srcdir)/libesmtp/getaddrinfo.c'; fi`; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/getaddrinfo.Tpo" "$(DEPDIR)/getaddrinfo.Po"; else rm -f "$(DEPDIR)/getaddrinfo.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libesmtp/getaddrinfo.c' object='getaddrinfo.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o getaddrinfo.obj `if test -f 'libesmtp/getaddrinfo.c'; then $(CYGPATH_W) 'libesmtp/getaddrinfo.c'; else $(CYGPATH_W) '$(srcdir)/libesmtp/getaddrinfo.c'; fi`
-
 getnameinfo.o: KAME/getnameinfo.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT getnameinfo.o -MD -MP -MF "$(DEPDIR)/getnameinfo.Tpo" -c -o getnameinfo.o `test -f 'KAME/getnameinfo.c' || echo '$(srcdir)/'`KAME/getnameinfo.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/getnameinfo.Tpo" "$(DEPDIR)/getnameinfo.Po"; else rm -f "$(DEPDIR)/getnameinfo.Tpo"; exit 1; fi
@@ -734,6 +757,20 @@ getnameinfo.obj: KAME/getnameinfo.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='KAME/getnameinfo.c' object='getnameinfo.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o getnameinfo.obj `if test -f 'KAME/getnameinfo.c'; then $(CYGPATH_W) 'KAME/getnameinfo.c'; else $(CYGPATH_W) '$(srcdir)/KAME/getnameinfo.c'; fi`
+
+getaddrinfo.o: libesmtp/getaddrinfo.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT getaddrinfo.o -MD -MP -MF "$(DEPDIR)/getaddrinfo.Tpo" -c -o getaddrinfo.o `test -f 'libesmtp/getaddrinfo.c' || echo '$(srcdir)/'`libesmtp/getaddrinfo.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/getaddrinfo.Tpo" "$(DEPDIR)/getaddrinfo.Po"; else rm -f "$(DEPDIR)/getaddrinfo.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libesmtp/getaddrinfo.c' object='getaddrinfo.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o getaddrinfo.o `test -f 'libesmtp/getaddrinfo.c' || echo '$(srcdir)/'`libesmtp/getaddrinfo.c
+
+getaddrinfo.obj: libesmtp/getaddrinfo.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT getaddrinfo.obj -MD -MP -MF "$(DEPDIR)/getaddrinfo.Tpo" -c -o getaddrinfo.obj `if test -f 'libesmtp/getaddrinfo.c'; then $(CYGPATH_W) 'libesmtp/getaddrinfo.c'; else $(CYGPATH_W) '$(srcdir)/libesmtp/getaddrinfo.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/getaddrinfo.Tpo" "$(DEPDIR)/getaddrinfo.Po"; else rm -f "$(DEPDIR)/getaddrinfo.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libesmtp/getaddrinfo.c' object='getaddrinfo.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o getaddrinfo.obj `if test -f 'libesmtp/getaddrinfo.c'; then $(CYGPATH_W) 'libesmtp/getaddrinfo.c'; else $(CYGPATH_W) '$(srcdir)/libesmtp/getaddrinfo.c'; fi`
 
 mxget-mxget.o: mxget.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(mxget_CFLAGS) $(CFLAGS) -MT mxget-mxget.o -MD -MP -MF "$(DEPDIR)/mxget-mxget.Tpo" -c -o mxget-mxget.o `test -f 'mxget.c' || echo '$(srcdir)/'`mxget.c; \
@@ -832,6 +869,20 @@ rfc822-rfc822.obj: rfc822.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='rfc822.c' object='rfc822-rfc822.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(rfc822_CFLAGS) $(CFLAGS) -c -o rfc822-rfc822.obj `if test -f 'rfc822.c'; then $(CYGPATH_W) 'rfc822.c'; else $(CYGPATH_W) '$(srcdir)/rfc822.c'; fi`
+
+rfc822valid-rfc822valid.o: rfc822valid.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(rfc822valid_CFLAGS) $(CFLAGS) -MT rfc822valid-rfc822valid.o -MD -MP -MF "$(DEPDIR)/rfc822valid-rfc822valid.Tpo" -c -o rfc822valid-rfc822valid.o `test -f 'rfc822valid.c' || echo '$(srcdir)/'`rfc822valid.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/rfc822valid-rfc822valid.Tpo" "$(DEPDIR)/rfc822valid-rfc822valid.Po"; else rm -f "$(DEPDIR)/rfc822valid-rfc822valid.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='rfc822valid.c' object='rfc822valid-rfc822valid.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(rfc822valid_CFLAGS) $(CFLAGS) -c -o rfc822valid-rfc822valid.o `test -f 'rfc822valid.c' || echo '$(srcdir)/'`rfc822valid.c
+
+rfc822valid-rfc822valid.obj: rfc822valid.c
+@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(rfc822valid_CFLAGS) $(CFLAGS) -MT rfc822valid-rfc822valid.obj -MD -MP -MF "$(DEPDIR)/rfc822valid-rfc822valid.Tpo" -c -o rfc822valid-rfc822valid.obj `if test -f 'rfc822valid.c'; then $(CYGPATH_W) 'rfc822valid.c'; else $(CYGPATH_W) '$(srcdir)/rfc822valid.c'; fi`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/rfc822valid-rfc822valid.Tpo" "$(DEPDIR)/rfc822valid-rfc822valid.Po"; else rm -f "$(DEPDIR)/rfc822valid-rfc822valid.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='rfc822valid.c' object='rfc822valid-rfc822valid.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(rfc822valid_CFLAGS) $(CFLAGS) -c -o rfc822valid-rfc822valid.obj `if test -f 'rfc822valid.c'; then $(CYGPATH_W) 'rfc822valid.c'; else $(CYGPATH_W) '$(srcdir)/rfc822valid.c'; fi`
 
 unmime-unmime.o: unmime.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(unmime_CFLAGS) $(CFLAGS) -MT unmime-unmime.o -MD -MP -MF "$(DEPDIR)/unmime-unmime.Tpo" -c -o unmime-unmime.o `test -f 'unmime.c' || echo '$(srcdir)/'`unmime.c; \
@@ -1395,7 +1446,7 @@ uninstall-info: uninstall-info-recursive
 
 uninstall-man: uninstall-man1
 
-.PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am am--refresh check \
+.PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am check \
 	check-TESTS check-am clean clean-binPROGRAMS \
 	clean-checkPROGRAMS clean-generic clean-noinstLIBRARIES \
 	clean-recursive ctags ctags-recursive dist dist-all dist-bzip2 \
@@ -1429,7 +1480,7 @@ FAQ: fetchmail-FAQ.html $(srcdir)/dist-tools/html2txt
 
 fetchmail-FAQ.pdf: fetchmail-FAQ.html fetchmail-FAQ.book bighand.png
 	$(AWK) '/^[ \t]*<h1/ {sec++; } {if (sec < 2 || sec > 3) print $0;}' <$(srcdir)/fetchmail-FAQ.html >fetchmail-FAQ-print.html
-	htmldoc --logoimage $(srcdir)/bighand.png --batch $(srcdir)/fetchmail-FAQ.book
+	htmldoc --logoimage $(srcdir)/bighand.png --batch $(srcdir)/fetchmail-FAQ.book || { rm -f $@ ; exit 1 ; }
 	rm -f fetchmail-FAQ-print.html
 
 FEATURES: fetchmail-features.html $(srcdir)/dist-tools/html2txt
@@ -1447,7 +1498,7 @@ TODO: todo.html $(srcdir)/dist-tools/html2txt
 	AWK=$(AWK) $(SHELL) $(srcdir)/dist-tools/html2txt $(srcdir)/todo.html >$@ || { rm -f $@ ; exit 1 ; }
 
 fetchmail-man.html: fetchmail.man $(srcdir)/dist-tools/manServer.pl
-	env - PATH=$$PATH $(srcdir)/dist-tools/manServer.pl $(srcdir)/fetchmail.man >$@ \
+	env - "PATH=$$PATH" $(srcdir)/dist-tools/manServer.pl $(srcdir)/fetchmail.man >$@ \
 	|| { rm -f $@ ; exit 1 ; }
 
 dist-hook:

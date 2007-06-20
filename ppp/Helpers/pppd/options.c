@@ -122,7 +122,6 @@ char	user[MAXNAMELEN];	/* Username for PAP */
 bool	controlled = 0;		/* Is pppd controlled by the PPPController ?  */
 FILE 	*controlfile = NULL;	/* file descriptor for options and control */
 int 	controlfd = -1;		/* file descriptor for options and control */
-uid_t 	controlfd_uid = -1;	/* uid at the other end of the control file descriptor*/
 int 	statusfd = -1;		/* file descriptor status update */
 char	username[MAXNAMELEN];	/* copy original user */
 char	new_passwd[MAXSECRETLEN];	/* new password for protocol supporting changing password */
@@ -1703,7 +1702,7 @@ options_from_controller()
     char cmd[MAXWORDLEN];
 
     oldpriv = privileged_option;
-    privileged_option = (controlfd_uid == 0);
+    privileged_option = controlled;
     option_source = "controller";
     option_priority = OPRIO_CMDLINE;
     ret = 0;
@@ -1749,12 +1748,12 @@ controlled_connection(argv)
     char **argv;
 {
     
-    int				len;
-	struct xucred   xucred;
-
-    /* first pipe STDIN */
-    
-
+	if (!sys_check_controller()) {
+		option_error("Can't verify the controller started the connection");
+		goto err;
+	}
+	
+	/* first pipe STDIN */
     controlfd = dup(STDIN_FILENO);
     if (controlfd == -1) {
 	option_error("Can't duplicate control file descripor: %m");
@@ -1768,15 +1767,6 @@ controlled_connection(argv)
 	goto err;
     }
     
-	len = sizeof(xucred);
-	xucred.cr_uid = 7;
-	if (getsockopt(controlfd, 0, LOCAL_PEERCRED, &xucred, &len) == -1) {
-		option_error("Cannot get LOCAL_PEERCRED on control file descriptor (%m)\n");
-		goto err;
-	}
-
-    controlfd_uid = xucred.cr_uid;
-
     /* then pipe STDOUT */
 
     statusfd = dup(STDOUT_FILENO);

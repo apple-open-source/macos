@@ -19,15 +19,15 @@ post-install:
 		$(STRIP) -x $(DSTROOT)/usr/bin/$${binary}; \
 	done
 	$(RM) $(DSTROOT)/usr/share/man/man1/fetchmailconf.1
-	$(LN) -s $(DSTROOT)/usr/share/man/man1/fetchmail.1.gz $(DSTROOT)/usr/share/man/man1/fetchmailconf.1.gz
+	$(LN) -s fetchmail.1.gz $(DSTROOT)/usr/share/man/man1/fetchmailconf.1.gz
 
 # Automatic Extract & Patch
 AEP_Project    = fetchmail
-AEP_Version    = 6.3.4
+AEP_Version    = 6.3.8
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = python_config_patch
+AEP_Patches    = python_config_patch null_exec_patch bind9_patch manpage_patch krb5_patch autoconf_patch
 
 # Extract the source.
 install_source::

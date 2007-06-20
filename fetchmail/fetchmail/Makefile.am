@@ -39,7 +39,7 @@ libfm_a_SOURCES=	xmalloc.c base64.c rfc822.c report.c rfc2047e.c \
 			servport.c ntlm.h smbbyteorder.h smbdes.h smbmd4.h \
 			smbencrypt.h smbdes.c smbencrypt.c smbmd4.c smbutil.c \
 			libesmtp/gethostbyname.h libesmtp/gethostbyname.c \
-			smbtypes.h
+			smbtypes.h fm_getaddrinfo.c tls.c rfc822valid.c
 libfm_a_LIBADD=		$(EXTRAOBJ)
 libfm_a_DEPENDENCIES=	$(EXTRAOBJ)
 LDADD	=		libfm.a @LIBINTL@ $(LIBOBJS)
@@ -64,22 +64,49 @@ endif
 fetchmail_SOURCES=	fetchmail.h getopt.h \
 		i18n.h kerberos.h md5.h mx.h netrc.h smtp.h \
 		socket.h tunable.h \
-		socket.c getpass.c pop2.c pop3.c imap.c etrn.c \
-		odmr.c fetchmail.c env.c idle.c options.c daemon.c \
+		socket.c getpass.c \
+		fetchmail.c env.c idle.c options.c daemon.c \
 		driver.c transact.c sink.c smtp.c \
-		uid.c mxget.c md5ify.c cram.c kerberos.c gssapi.c \
-		opie.c rpa.c interface.c netrc.c \
+		uid.c mxget.c md5ify.c cram.c gssapi.c \
+		opie.c interface.c netrc.c \
 		unmime.c conf.c checkalias.c \
 		lock.h lock.c \
-		rcfile_l.l rcfile_y.y ucs/norm_charmap.c \
-		libesmtp/getaddrinfo.h libesmtp/getaddrinfo.c \
-		KAME/getnameinfo.c
+		rcfile_l.l rcfile_y.y ucs/norm_charmap.c
+if POP2_ENABLE
+fetchmail_SOURCES += pop2.c
+endif
+if POP3_ENABLE
+fetchmail_SOURCES += pop3.c
+endif
+if IMAP_ENABLE
+fetchmail_SOURCES += imap.c
+endif
+if ETRN_ENABLE
+fetchmail_SOURCES += etrn.c
+endif
+if ODMR_ENABLE
+fetchmail_SOURCES += odmr.c
+endif
+if KERBEROS_V4_ENABLE
+fetchmail_SOURCES += kerberos.c
+endif
+if RPA_ENABLE
+fetchmail_SOURCES += rpa.c
+endif
+if NEED_GETNAMEINFO
+fetchmail_SOURCES += KAME/getnameinfo.c
+endif
+if NEED_GETADDRINFO
+fetchmail_SOURCES += libesmtp/getaddrinfo.h libesmtp/getaddrinfo.c
+endif
 
-check_PROGRAMS +=	rfc822 unmime netrc rfc2047e mxget
+check_PROGRAMS +=	rfc822 unmime netrc rfc2047e mxget rfc822valid
 
 rfc2047e_CFLAGS=	-DTEST
 
-rfc822_CFLAGS=	-DMAIN
+rfc822valid_CFLAGS=	-DTEST
+
+rfc822_CFLAGS=		-DMAIN
 
 unmime_SOURCES=	unmime.c
 unmime_CFLAGS=	-DSTANDALONE -DHAVE_CONFIG_H -I$(builddir)
@@ -102,6 +129,9 @@ DISTDOCS=	FAQ FEATURES NOTES OLDNEWS fetchmail-man.html \
 		fetchmail-features.html README.SSL README.NTLM \
 		README.packaging \
 		fetchmail-FAQ.book fetchmail-FAQ.pdf fetchmail-FAQ.html \
+		fetchmail-SA-2007-01.txt \
+		fetchmail-SA-2006-03.txt \
+		fetchmail-SA-2006-02.txt \
 		fetchmail-SA-2006-01.txt \
 		fetchmail-SA-2005-01.txt \
 		fetchmail-SA-2005-02.txt \
@@ -118,7 +148,8 @@ EXTRA_DIST+=	$(DISTDOCS) fetchmail.spec $(distdirs) ucs/README.svn \
 		m4-local/autobuild.m4 \
 		t.smoke t.rc \
 		dist-tools/html2txt \
-		dist-tools/manServer.pl
+		dist-tools/manServer.pl \
+		Doxyfile
 
 fetchmailconf:
 	( echo '#! /bin/sh' && echo 'exec @PYTHON@ @pythondir@/fetchmailconf.py "$$@"' ) >$@ || { rm -f $@ ; exit 1; }
@@ -128,7 +159,7 @@ FAQ: fetchmail-FAQ.html $(srcdir)/dist-tools/html2txt
 
 fetchmail-FAQ.pdf: fetchmail-FAQ.html fetchmail-FAQ.book bighand.png
 	$(AWK) '/^[ \t]*<h1/ {sec++; } {if (sec < 2 || sec > 3) print $0;}' <$(srcdir)/fetchmail-FAQ.html >fetchmail-FAQ-print.html
-	htmldoc --logoimage $(srcdir)/bighand.png --batch $(srcdir)/fetchmail-FAQ.book
+	htmldoc --logoimage $(srcdir)/bighand.png --batch $(srcdir)/fetchmail-FAQ.book || { rm -f $@ ; exit 1 ; }
 	rm -f fetchmail-FAQ-print.html
 
 FEATURES: fetchmail-features.html $(srcdir)/dist-tools/html2txt
@@ -146,7 +177,7 @@ TODO: todo.html $(srcdir)/dist-tools/html2txt
 	AWK=$(AWK) $(SHELL) $(srcdir)/dist-tools/html2txt $(srcdir)/todo.html >$@ || { rm -f $@ ; exit 1 ; }
 
 fetchmail-man.html: fetchmail.man $(srcdir)/dist-tools/manServer.pl
-	env - PATH=$$PATH $(srcdir)/dist-tools/manServer.pl $(srcdir)/fetchmail.man >$@ \
+	env - "PATH=$$PATH" $(srcdir)/dist-tools/manServer.pl $(srcdir)/fetchmail.man >$@ \
 	|| { rm -f $@ ; exit 1 ; }
 
 dist-hook:

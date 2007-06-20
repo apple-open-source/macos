@@ -48,6 +48,12 @@ void envquery(int argc, char **argv)
 	}
     }
 
+    if (argv[0]==NULL)
+    {
+        fprintf(stderr,"fetchmail: bad program name\n");
+        exit(PS_UNDEFINED);
+    }
+
     if ((program_name = strrchr(argv[0], '/')) != NULL)
 	++program_name;
     else
@@ -108,7 +114,7 @@ void envquery(int argc, char **argv)
     /* compute user's home directory */
     home = getenv("HOME_ETC");
     if (!home && !(home = getenv("HOME")))
-	home = pwp->pw_dir;
+	home = xstrdup(pwp->pw_dir);
 
     /* compute fetchmail's home directory */
     if (!(fmhome = getenv("FETCHMAILHOME")))
@@ -147,10 +153,12 @@ char *host_fqdn(int required)
 	exit(PS_DNS);
     }
 
-    /* if we got a . in the hostname assume it is a FQDN */
+    /* if we got no . in the hostname, try to canonicalize it,
+     * else assume it is a FQDN */
     if (strchr(tmpbuf, '.') == NULL)
     {
-	/* if we got a basename (as we do in Linux) make a FQDN of it */
+	/* if we got a basename without dots, as we often do in Linux,
+	 * look up canonical name (make a FQDN of it) */
 	struct addrinfo hints, *res;
 	int e;
 
@@ -159,7 +167,7 @@ char *host_fqdn(int required)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags=AI_CANONNAME;
 
-	e = getaddrinfo(tmpbuf, NULL, &hints, &res);
+	e = fm_getaddrinfo(tmpbuf, NULL, &hints, &res);
 	if (e) {
 	    /* exit with error message */
 	    fprintf(stderr,
@@ -174,8 +182,8 @@ char *host_fqdn(int required)
 	    }
 	}
 
-	result = xstrdup(res->ai_canonname);
-	freeaddrinfo(res);
+	result = xstrdup(res->ai_canonname ? res->ai_canonname : tmpbuf);
+	fm_freeaddrinfo(res);
     }
     else
 	result = xstrdup(tmpbuf);

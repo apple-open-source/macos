@@ -34,7 +34,8 @@ AEP_Patches    = ltcf-c.sh.diff \
                  src__file.h.diff \
                  src__funcs.c.diff \
                  src__magic.c.diff \
-                 src__readfat.c.diff
+                 src__readfat.c.diff \
+                 PR4649553.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

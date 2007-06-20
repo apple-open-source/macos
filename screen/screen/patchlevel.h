@@ -519,11 +519,14 @@
  * 05.12.2003  4.00.02 fixed a bug in the ansi parser. fixed execs
  *                     on ttys. fixed hardstatus line on blanked screen.
  *                     -- DISTRIBUTED
+ * 23.10.2006  4.00.03 fixed two bug in combining characters handling
+ *                     (cstone & Rich Felker).
+ *                     -- DISTRIBUTED
  */
 
 #define ORIGIN "FAU"
 #define REV 4
 #define VERS 0
-#define PATCHLEVEL 2
-#define DATE "5-Dec-03"
+#define PATCHLEVEL 3
+#define DATE "23-Oct-06"
 #define STATE ""

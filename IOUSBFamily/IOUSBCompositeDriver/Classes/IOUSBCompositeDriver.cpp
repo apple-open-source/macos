@@ -85,6 +85,10 @@ IOUSBCompositeDriver::start(IOService * provider)
     if (!fDevice)
 	return false;
     
+	// retain ourselves  and our provider in case the device drops off the bus
+	fDevice->retain();
+	retain();
+	
     fExpectingClose = false;
     fNotifier = NULL;
     
@@ -103,6 +107,9 @@ IOUSBCompositeDriver::start(IOService * provider)
     
     USBLog(5, "%s[%p]::start returning %d", getName(), this, configured);
     
+	release();
+	fDevice->release();
+	
     return configured;
 }
 
@@ -216,6 +223,16 @@ IOUSBCompositeDriver::ConfigureDevice()
         prefConfigValue = prefConfig->unsigned32BitValue();
         USBLog(3, "%s[%p](%s) found a preferred configuration (%d)", getName(), this, fDevice->getName(), prefConfigValue );
     }
+	else
+	{
+		// Try the IOUSBBDevice
+		prefConfig = (OSNumber *) fDevice->getProperty(kUSBPreferredConfiguration);
+		if ( prefConfig )
+		{
+			prefConfigValue = prefConfig->unsigned32BitValue();
+			USBLog(3, "%s[%p](%s) found a preferred configuration (%d)", getName(), this, fDevice->getName(), prefConfigValue );
+		}
+	}
     
     // No preferred configuration so, find the first config/interface
     //

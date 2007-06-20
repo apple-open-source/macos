@@ -3,75 +3,78 @@ This file contains two articles reformatted from HTML.
 
   (This file was generated from ../design-notes.html)
 
-     _________________________________________________________________
+     __________________________________________________________________
 
                            Design Notes On Fetchmail
 
 Introduction
 
-   This document is supposed to complement Eric S. Raymond's (ESR's) design
-   notes. The new maintainers don't agree with some of the decisions ESR made
-   previously, and the differences and new directions will be laid out in this
-   document. It is therefore a sort of a TODO document, until the necessary
-   code revisions have been made.
+   This document is supposed to complement Eric S. Raymond's (ESR's)
+   design notes. The new maintainers don't agree with some of the
+   decisions ESR made previously, and the differences and new directions
+   will be laid out in this document. It is therefore a sort of a TODO
+   document, until the necessary code revisions have been made.
 
 Security
 
-   Fetchmail was handed over in a pretty poor shape, security-wise. It will
-   happily talk to the network with root privileges, use sscanf() to read
-   remotely received data into fixed-length stack-based buffers without length
-   limitation and so on. A full audit is required and security concepts will
-   have to be applied. Random bits are:
-     * code talking to the network does not require root privileges and needs
-       to run without root permissions
-     * all input must be validated, all strings must be length checked, all
-       integers range checked
-     * all types will need to be reviewed whether they are signed or unsigned
+   Fetchmail was handed over in a pretty poor shape, security-wise. It
+   will happily talk to the network with root privileges, use sscanf() to
+   read remotely received data into fixed-length stack-based buffers
+   without length limitation and so on. A full audit is required and
+   security concepts will have to be applied. Random bits are:
+     * code talking to the network does not require root privileges and
+       needs to run without root permissions
+     * all input must be validated, all strings must be length checked,
+       all integers range checked
+     * all types will need to be reviewed whether they are signed or
+       unsigned
 
 SMTP forwarding
 
-   Fetchmail's multidrop and rewrite options will process addresses received
-   from remote sites. Special care must be taken so these features cannot be
-   abused to relay mail to foreign sites.
+   Fetchmail's multidrop and rewrite options will process addresses
+   received from remote sites. Special care must be taken so these
+   features cannot be abused to relay mail to foreign sites.
 
-   ESR's attempt to make fetchmail use SMTP exclusively failed, fetchmail got
-   LMTP and --mda options – the latter has a lot of flaws unfortunately, is
-   inconsistent with the SMTP forwarder and needs to be reviewed and probably
-   bugfixed. --mda doesn't properly work with multiple recipients, it cannot
-   properly communicate errors and is best avoided for now.
+   ESR's attempt to make fetchmail use SMTP exclusively failed, fetchmail
+   got LMTP and --mda options – the latter has a lot of flaws
+   unfortunately, is inconsistent with the SMTP forwarder and needs to be
+   reviewed and probably bugfixed. --mda doesn't properly work with
+   multiple recipients, it cannot properly communicate errors and is best
+   avoided for now.
 
 Server-side vs. client-side state.
 
   Why we need client-side tracking
 
    ESR asserted that server-side state were essential and those persons
-   repsonsible for removing the LAST command from POP3 deserved to suffer. ESR
-   is right in stating that the POP3 UID tracks which messages have been read
-   by this client – and that is exactly what we need to do.
+   repsonsible for removing the LAST command from POP3 deserved to suffer.
+   ESR is right in stating that the POP3 UID tracks which messages have
+   been read by this client – and that is exactly what we need to do.
 
    If fetchmail is supposed to retrieve all mail from a mailbox reliably,
    without being disturbed by someone occasionally using another client on
-   another host, or a webmailer, or similar, then client-side tracking of the
-   state is indispensable. This is also needed to match behavior to ETRN and
-   ODMR or to support read-only mailboxes in --keep mode.
+   another host, or a webmailer, or similar, then client-side tracking of
+   the state is indispensable. This is also needed to match behavior to
+   ETRN and ODMR or to support read-only mailboxes in --keep mode.
 
   Present and future
 
    Fetchmail supports client-side state in POP3 if the UIDL option is used
-   (which is strongly recommended). Similar effort needs to be made to track
-   IMAP state by means of UIDVALIDITY and UID.
+   (which is strongly recommended). Similar effort needs to be made to
+   track IMAP state by means of UIDVALIDITY and UID.
 
-   This will also mean that the UID handling code be revised an perhaps use one
-   file per account or per folder.
+   This will also mean that the UID handling code be revised an perhaps
+   use one file per account or per folder.
 
 Concurrent queries/concurrent fetchmail instances
 
-   ESR refused to make fetchmail query multiple hosts or accounts concurrently,
-   on the grounds that finer-grained locks would be hard to implement portably.
+   ESR refused to make fetchmail query multiple hosts or accounts
+   concurrently, on the grounds that finer-grained locks would be hard to
+   implement portably.
 
    The idea of using one file per folder or account to track UIDs on the
-   client-side will make solving this locking problem easy – the lock can be
-   placed on the UID file instead.
+   client-side will make solving this locking problem easy – the lock can
+   be placed on the UID file instead.
 
 Multidrop issues
 
@@ -81,154 +84,159 @@ Multidrop issues
    operation for multidrop. This is detailed in my article "Requisites for
    working multidrop mailboxes".
 
-   As Terry Lambert pointed out in the FreeBSD-arch mailing list on 2001-02-17
-   under the subject "UUCP must stay; fetchmail sucks", fetchmail performs DNS
-   MX lookups to determine domains for which multidrop is valid, on the
-   assumption that the receiving SMTP host upstream were the same as the IMAP
-   or POP3 server.
-     _________________________________________________________________
+   As Terry Lambert pointed out in the FreeBSD-arch mailing list on
+   2001-02-17 under the subject "UUCP must stay; fetchmail sucks",
+   fetchmail performs DNS MX lookups to determine domains for which
+   multidrop is valid, on the assumption that the receiving SMTP host
+   upstream were the same as the IMAP or POP3 server.
+     __________________________________________________________________
 
 
     Matthias Andree <matthias.andree@gmx.de>
   (This file was generated from ../esrs-design-notes.html)
 
-     _________________________________________________________________
+     __________________________________________________________________
 
-              Eric S. Raymond's former Design Notes On Fetchmail
+               Eric S. Raymond's former Design Notes On Fetchmail
 
    These notes are for the benefit of future hackers and maintainers. The
-   following sections are both functional and narrative, read from beginning to
-   end.
+   following sections are both functional and narrative, read from
+   beginning to end.
 
                                     History
 
-   A direct ancestor of the fetchmail program was originally authored (under
-   the name popclient) by Carl Harris <ceharris@mal.com>. I took over
-   development in June 1996 and subsequently renamed the program `fetchmail' to
-   reflect the addition of IMAP support and SMTP delivery. In early November
-   1996 Carl officially ended support for the last popclient versions.
+   A direct ancestor of the fetchmail program was originally authored
+   (under the name popclient) by Carl Harris <ceharris@mal.com>. I took
+   over development in June 1996 and subsequently renamed the program
+   `fetchmail' to reflect the addition of IMAP support and SMTP delivery.
+   In early November 1996 Carl officially ended support for the last
+   popclient versions.
 
-   Before accepting responsibility for the popclient sources from Carl, I had
-   investigated and used and tinkered with every other UNIX remote-mail
-   forwarder I could find, including fetchpop1.9, PopTart-0.9.3, get-mail,
-   gwpop, pimp-1.0, pop-perl5-1.2, popc, popmail-1.6 and upop. My major goal
-   was to get a header-rewrite feature like fetchmail's working so I wouldn't
-   have reply problems anymore.
+   Before accepting responsibility for the popclient sources from Carl, I
+   had investigated and used and tinkered with every other UNIX
+   remote-mail forwarder I could find, including fetchpop1.9,
+   PopTart-0.9.3, get-mail, gwpop, pimp-1.0, pop-perl5-1.2, popc,
+   popmail-1.6 and upop. My major goal was to get a header-rewrite feature
+   like fetchmail's working so I wouldn't have reply problems anymore.
 
    Despite having done a good bit of work on fetchpop1.9, when I found
-   popclient I quickly concluded that it offered the solidest base for future
-   development. I was convinced of this primarily by the presence of
-   multiple-protocol support. The competition didn't do POP2/RPOP/APOP, and I
-   was already having vague thoughts of maybe adding IMAP. (This would advance
-   two other goals: learn IMAP and get comfortable writing TCP/IP client
-   software.)
+   popclient I quickly concluded that it offered the solidest base for
+   future development. I was convinced of this primarily by the presence
+   of multiple-protocol support. The competition didn't do POP2/RPOP/APOP,
+   and I was already having vague thoughts of maybe adding IMAP. (This
+   would advance two other goals: learn IMAP and get comfortable writing
+   TCP/IP client software.)
 
-   Until popclient 3.05 I was simply following out the implications of Carl's
-   basic design. He already had daemon.c in the distribution, and I wanted
-   daemon mode almost as badly as I wanted the header rewrite feature. The
-   other things I added were bug fixes or minor extensions.
+   Until popclient 3.05 I was simply following out the implications of
+   Carl's basic design. He already had daemon.c in the distribution, and I
+   wanted daemon mode almost as badly as I wanted the header rewrite
+   feature. The other things I added were bug fixes or minor extensions.
 
-   After 3.1, when I put in SMTP-forwarding support (more about this below) the
-   nature of the project changed -- it became a carefully-thought-out attempt
-   to render obsolete every other program in its class. The name change quickly
-   followed.
+   After 3.1, when I put in SMTP-forwarding support (more about this
+   below) the nature of the project changed -- it became a
+   carefully-thought-out attempt to render obsolete every other program in
+   its class. The name change quickly followed.
 
-                              The rewrite option
+                               The rewrite option
 
-   MTAs ought to canonicalize the addresses of outgoing non-local mail so that
-   From:, To:, Cc:, Bcc: and other address headers contain only fully qualified
-   domain names. Failure to do so can break the reply function on many mailers.
-   (Sendmail has an option to do this.)
+   MTAs ought to canonicalize the addresses of outgoing non-local mail so
+   that From:, To:, Cc:, Bcc: and other address headers contain only fully
+   qualified domain names. Failure to do so can break the reply function
+   on many mailers. (Sendmail has an option to do this.)
 
-   This problem only becomes obvious when a reply is generated on a machine
-   different from where the message was delivered. The two machines will have
-   different local username spaces, potentially leading to misrouted mail.
+   This problem only becomes obvious when a reply is generated on a
+   machine different from where the message was delivered. The two
+   machines will have different local username spaces, potentially leading
+   to misrouted mail.
 
-   Most MTAs (and sendmail in particular) do not canonicalize address headers
-   in this way (violating RFC 1123). Fetchmail therefore has to do it. This is
-   the first feature I added to the ancestral popclient.
+   Most MTAs (and sendmail in particular) do not canonicalize address
+   headers in this way (violating RFC 1123). Fetchmail therefore has to do
+   it. This is the first feature I added to the ancestral popclient.
 
-                                Reorganization
+                                 Reorganization
 
    The second thing I did reorganize and simplify popclient a lot. Carl
-   Harris's implementation was very sound, but exhibited a kind of unnecessary
-   complexity common to many C programmers. He treated the code as central and
-   the data structures as support for the code. As a result, the code was
-   beautiful but the data structure design ad-hoc and rather ugly (at least to
-   this old LISP hacker).
+   Harris's implementation was very sound, but exhibited a kind of
+   unnecessary complexity common to many C programmers. He treated the
+   code as central and the data structures as support for the code. As a
+   result, the code was beautiful but the data structure design ad-hoc and
+   rather ugly (at least to this old LISP hacker).
 
    I was able to improve matters significantly by reorganizing most of the
-   program around the `query' data structure and eliminating a bunch of global
-   context. This especially simplified the main sequence in fetchmail.c and was
-   critical in enabling the daemon mode changes.
+   program around the `query' data structure and eliminating a bunch of
+   global context. This especially simplified the main sequence in
+   fetchmail.c and was critical in enabling the daemon mode changes.
 
                        IMAP support and the method table
 
-   The next step was IMAP support. I initially wrote the IMAP code as a generic
-   query driver and a method table. The idea was to have all the
-   protocol-independent setup logic and flow of control in the driver, and the
-   protocol-specific stuff in the method table.
+   The next step was IMAP support. I initially wrote the IMAP code as a
+   generic query driver and a method table. The idea was to have all the
+   protocol-independent setup logic and flow of control in the driver, and
+   the protocol-specific stuff in the method table.
 
-   Once this worked, I rewrote the POP3 code to use the same organization. The
-   POP2 code kept its own driver for a couple more releases, until I found
-   sources of a POP2 server to test against (the breed seems to be nearly
-   extinct).
+   Once this worked, I rewrote the POP3 code to use the same organization.
+   The POP2 code kept its own driver for a couple more releases, until I
+   found sources of a POP2 server to test against (the breed seems to be
+   nearly extinct).
 
    The purpose of this reorganization, of course, is to trivialize the
    development of support for future protocols as much as possible. All
-   mail-retrieval protocols have to have pretty similar logical design by the
-   nature of the task. By abstracting out that common logic and its interface
-   to the rest of the program, both the common and protocol-specific parts
-   become easier to understand.
+   mail-retrieval protocols have to have pretty similar logical design by
+   the nature of the task. By abstracting out that common logic and its
+   interface to the rest of the program, both the common and
+   protocol-specific parts become easier to understand.
 
-   Furthermore, many kinds of new features can instantly be supported across
-   all protocols by modifying the one driver module.
+   Furthermore, many kinds of new features can instantly be supported
+   across all protocols by modifying the one driver module.
 
                         Implications of smtp forwarding
 
-   The direction of the project changed radically when Harry Hochheiser sent me
-   his scratch code for forwarding fetched mail to the SMTP port. I realized
-   almost immediately that a reliable implementation of this feature would make
-   all the other delivery modes obsolete.
+   The direction of the project changed radically when Harry Hochheiser
+   sent me his scratch code for forwarding fetched mail to the SMTP port.
+   I realized almost immediately that a reliable implementation of this
+   feature would make all the other delivery modes obsolete.
 
    Why mess with all the complexity of configuring an MDA or setting up
-   lock-and-append on a mailbox when port 25 is guaranteed to be there on any
-   platform with TCP/IP support in the first place? Especially when this means
-   retrieved mail is guaranteed to look like normal sender- initiated SMTP
-   mail, which is really what we want anyway.
+   lock-and-append on a mailbox when port 25 is guaranteed to be there on
+   any platform with TCP/IP support in the first place? Especially when
+   this means retrieved mail is guaranteed to look like normal sender-
+   initiated SMTP mail, which is really what we want anyway.
 
-   Clearly, the right thing to do was (1) hack SMTP forwarding support into the
-   generic driver, (2) make it the default mode, and (3) eventually throw out
-   all the other delivery modes.
+   Clearly, the right thing to do was (1) hack SMTP forwarding support
+   into the generic driver, (2) make it the default mode, and (3)
+   eventually throw out all the other delivery modes.
 
-   I hesitated over step 3 for some time, fearing to upset long-time popclient
-   users dependent on the alternate delivery mechanisms. In theory, they could
-   immediately switch to .forward files or their non-sendmail equivalents to
-   get the same effects. In practice the transition might have been messy.
+   I hesitated over step 3 for some time, fearing to upset long-time
+   popclient users dependent on the alternate delivery mechanisms. In
+   theory, they could immediately switch to .forward files or their
+   non-sendmail equivalents to get the same effects. In practice the
+   transition might have been messy.
 
    But when I did it (see the NEWS note on the great options massacre) the
    benefits proved huge. The cruftiest parts of the driver code vanished.
-   Configuration got radically simpler -- no more grovelling around for the
-   system MDA and user's mailbox, no more worries about whether the underlying
-   OS supports file locking.
+   Configuration got radically simpler -- no more grovelling around for
+   the system MDA and user's mailbox, no more worries about whether the
+   underlying OS supports file locking.
 
-   Also, the only way to lose mail vanished. If you specified localfolder and
-   the disk got full, your mail got lost. This can't happen with SMTP
-   forwarding because your SMTP listener won't return OK unless the message can
-   be spooled or processed.
+   Also, the only way to lose mail vanished. If you specified localfolder
+   and the disk got full, your mail got lost. This can't happen with SMTP
+   forwarding because your SMTP listener won't return OK unless the
+   message can be spooled or processed.
 
-   Also, performance improved (though not so you'd notice it in a single run).
-   Another not insignificant benefit of this change was that the manual page
-   got a lot simpler.
+   Also, performance improved (though not so you'd notice it in a single
+   run). Another not insignificant benefit of this change was that the
+   manual page got a lot simpler.
 
-   Later, I had to bring --mda back in order to allow handling of some obscure
-   situations involving dynamic SLIP. But I found a much simpler way to do it.
+   Later, I had to bring --mda back in order to allow handling of some
+   obscure situations involving dynamic SLIP. But I found a much simpler
+   way to do it.
 
-   The moral? Don't hesitate to throw away superannuated features when you can
-   do it without loss of effectiveness. I tanked a couple I'd added myself and
-   have no regrets at all. As Saint-Exupery said, "Perfection [in design] is
-   achieved not when there is nothing more to add, but rather when there is
-   nothing more to take away." This program isn't perfect, but it's trying.
+   The moral? Don't hesitate to throw away superannuated features when you
+   can do it without loss of effectiveness. I tanked a couple I'd added
+   myself and have no regrets at all. As Saint-Exupery said, "Perfection
+   [in design] is achieved not when there is nothing more to add, but
+   rather when there is nothing more to take away." This program isn't
+   perfect, but it's trying.
 
         The most-requested features that I will never add, and why not:
 
@@ -237,250 +245,266 @@ Password encryption in .fetchmailrc
    The reason there's no facility to store passwords encrypted in the
    .fetchmailrc file is because this doesn't actually add protection.
 
-   Anyone who's acquired the 0600 permissions needed to read your .fetchmailrc
-   file will be able to run fetchmail as you anyway -- and if it's your
-   password they're after, they'd be able to rip the necessary decoder out of
-   the fetchmail code itself to get it.
+   Anyone who's acquired the 0600 permissions needed to read your
+   .fetchmailrc file will be able to run fetchmail as you anyway -- and if
+   it's your password they're after, they'd be able to rip the necessary
+   decoder out of the fetchmail code itself to get it.
 
-   All .fetchmailrc encryption would do is give a false sense of security to
-   people who don't think very hard.
+   All .fetchmailrc encryption would do is give a false sense of security
+   to people who don't think very hard.
 
 Truly concurrent queries to multiple hosts
 
-   Occasionally I get a request for this on "efficiency" grounds. These people
-   aren't thinking either. True concurrency would do nothing to lessen
-   fetchmail's total IP volume. The best it could possibly do is change the
-   usage profile to shorten the duration of the active part of a poll cycle at
-   the cost of increasing its demand on IP volume per unit time.
+   Occasionally I get a request for this on "efficiency" grounds. These
+   people aren't thinking either. True concurrency would do nothing to
+   lessen fetchmail's total IP volume. The best it could possibly do is
+   change the usage profile to shorten the duration of the active part of
+   a poll cycle at the cost of increasing its demand on IP volume per unit
+   time.
 
    If one could thread the protocol code so that fetchmail didn't block on
-   waiting for a protocol response, but rather switched to trying to process
-   another host query, one might get an efficiency gain (close to constant
-   loading at the single-host level).
+   waiting for a protocol response, but rather switched to trying to
+   process another host query, one might get an efficiency gain (close to
+   constant loading at the single-host level).
 
-   Fortunately, I've only seldom seen a server that incurred significant wait
-   time on an individual response. I judge the gain from this not worth the
-   hideous complexity increase it would require in the code.
+   Fortunately, I've only seldom seen a server that incurred significant
+   wait time on an individual response. I judge the gain from this not
+   worth the hideous complexity increase it would require in the code.
 
 Multiple concurrent instances of fetchmail
 
    Fetchmail locking is on a per-invoking-user because finer-grained locks
-   would be really hard to implement in a portable way. The problem is that you
-   don't want two fetchmails querying the same site for the same remote user at
-   the same time.
+   would be really hard to implement in a portable way. The problem is
+   that you don't want two fetchmails querying the same site for the same
+   remote user at the same time.
 
    To handle this optimally, multiple fetchmails would have to associate a
    system-wide semaphore with each active pair of a remote user and host
    canonical address. A fetchmail would have to block until getting this
-   semaphore at the start of a query, and release it at the end of a query.
+   semaphore at the start of a query, and release it at the end of a
+   query.
 
    This would be way too complicated to do just for an "it might be nice"
-   feature. Instead, you can run a single root fetchmail polling for multiple
-   users in either single-drop or multidrop mode.
+   feature. Instead, you can run a single root fetchmail polling for
+   multiple users in either single-drop or multidrop mode.
 
-   The fundamental problem here is how an instance of fetchmail polling host
-   foo can assert that it's doing so in a way visible to all other fetchmails.
-   System V semaphores would be ideal for this purpose, but they're not
-   portable.
+   The fundamental problem here is how an instance of fetchmail polling
+   host foo can assert that it's doing so in a way visible to all other
+   fetchmails. System V semaphores would be ideal for this purpose, but
+   they're not portable.
 
    I've thought about this a lot and roughed up several designs. All are
-   complicated and fragile, with a bunch of the standard problems (what happens
-   if a fetchmail aborts before clearing its semaphore, and how do we recover
-   reliably?).
+   complicated and fragile, with a bunch of the standard problems (what
+   happens if a fetchmail aborts before clearing its semaphore, and how do
+   we recover reliably?).
 
-   I'm just not satisfied that there's enough functional gain here to pay for
-   the large increase in complexity that adding these semaphores would entail.
+   I'm just not satisfied that there's enough functional gain here to pay
+   for the large increase in complexity that adding these semaphores would
+   entail.
 
-                         Multidrop and alias handling
+                          Multidrop and alias handling
 
    I decided to add the multidrop support partly because some users were
-   clamoring for it, but mostly because I thought it would shake bugs out of
-   the single-drop code by forcing me to deal with addressing in full
+   clamoring for it, but mostly because I thought it would shake bugs out
+   of the single-drop code by forcing me to deal with addressing in full
    generality. And so it proved.
 
-   There are two important aspects of the features for handling multiple-drop
-   aliases and mailing lists which future hackers should be careful to
-   preserve.
-    1. The logic path for single-recipient mailboxes doesn't involve header
-       parsing or DNS lookups at all. This is important -- it means the code
-       for the most common case can be much simpler and more robust.
-    2. The multidrop handing does not rely on doing the equivalent of passing
-       the message to sendmail -t. Instead, it explicitly mines members of a
-       specified set of local usernames out of the header.
-    3. We do not attempt delivery to multidrop mailboxes in the presence of DNS
-       errors. Before each multidrop poll we probe DNS to see if we have a
-       nameserver handy. If not, the poll is skipped. If DNS crashes during a
-       poll, the error return from the next nameserver lookup aborts message
-       delivery and ends the poll. The daemon mode will then quietly spin until
-       DNS comes up again, at which point it will resume delivering mail.
+   There are two important aspects of the features for handling
+   multiple-drop aliases and mailing lists which future hackers should be
+   careful to preserve.
+    1. The logic path for single-recipient mailboxes doesn't involve
+       header parsing or DNS lookups at all. This is important -- it means
+       the code for the most common case can be much simpler and more
+       robust.
+    2. The multidrop handing does not rely on doing the equivalent of
+       passing the message to sendmail -t. Instead, it explicitly mines
+       members of a specified set of local usernames out of the header.
+    3. We do not attempt delivery to multidrop mailboxes in the presence
+       of DNS errors. Before each multidrop poll we probe DNS to see if we
+       have a nameserver handy. If not, the poll is skipped. If DNS
+       crashes during a poll, the error return from the next nameserver
+       lookup aborts message delivery and ends the poll. The daemon mode
+       will then quietly spin until DNS comes up again, at which point it
+       will resume delivering mail.
 
-   When I designed this support, I was terrified of doing anything that could
-   conceivably cause a mail loop (you should be too). That's why the code as
-   written can only append local names (never @-addresses) to the recipients
-   list.
+   When I designed this support, I was terrified of doing anything that
+   could conceivably cause a mail loop (you should be too). That's why the
+   code as written can only append local names (never @-addresses) to the
+   recipients list.
 
    The code in mxget.c is nasty, no two ways about it. But it's utterly
-   necessary, there are a lot of MX pointers out there. It really ought to be a
-   (documented!) entry point in the bind library.
+   necessary, there are a lot of MX pointers out there. It really ought to
+   be a (documented!) entry point in the bind library.
 
-                              DNS error handling
+                               DNS error handling
 
-   Fetchmail's behavior on DNS errors is to suppress forwarding and deletion of
-   the individual message that each occurs in, leaving it queued on the server
-   for retrieval on a subsequent poll. The assumption is that DNS errors are
-   transient, due to temporary server outages.
+   Fetchmail's behavior on DNS errors is to suppress forwarding and
+   deletion of the individual message that each occurs in, leaving it
+   queued on the server for retrieval on a subsequent poll. The assumption
+   is that DNS errors are transient, due to temporary server outages.
 
-   Unfortunately this means that if a DNS error is permanent a message can be
-   perpetually stuck in the server mailbox. We've had a couple bug reports of
-   this kind due to subtle RFC822 parsing errors in the fetchmail code that
-   resulted in impossible things getting passed to the DNS lookup routines.
+   Unfortunately this means that if a DNS error is permanent a message can
+   be perpetually stuck in the server mailbox. We've had a couple bug
+   reports of this kind due to subtle RFC822 parsing errors in the
+   fetchmail code that resulted in impossible things getting passed to the
+   DNS lookup routines.
 
-   Alternative ways to handle the problem: ignore DNS errors (treating them as
-   a non-match on the mailserver domain), or forward messages with errors to
-   fetchmail's invoking user in addition to any other recipients. These would
-   fit an assumption that DNS lookup errors are likely to be permanent problems
-   associated with an address.
+   Alternative ways to handle the problem: ignore DNS errors (treating
+   them as a non-match on the mailserver domain), or forward messages with
+   errors to fetchmail's invoking user in addition to any other
+   recipients. These would fit an assumption that DNS lookup errors are
+   likely to be permanent problems associated with an address.
 
-                                IPv6 and IPSEC
+                                 IPv6 and IPSEC
 
    The IPv6 support patches are really more protocol-family independence
    patches. Because of this, in most places, "ports" (numbers) have been
-   replaced with "services" (strings, that may be digits). This allows us to
-   run with certain protocols that use strings as "service names" where we in
-   the IP world think of port numbers. Someday we'll plumb strings all over and
-   then, if inet6 is not enabled, do a getservbyname() down in SocketOpen. The
-   IPv6 support patches use getaddrinfo(), which is a POSIX p1003.1g mandated
-   function. So, in the not too distant future, we'll zap the ifdefs and just
-   let autoconf check for getaddrinfo. IPv6 support comes pretty much
-   automatically once you have protocol family independence.
+   replaced with "services" (strings, that may be digits). This allows us
+   to run with certain protocols that use strings as "service names" where
+   we in the IP world think of port numbers. Someday we'll plumb strings
+   all over and then, if inet6 is not enabled, do a getservbyname() down
+   in SocketOpen. The IPv6 support patches use getaddrinfo(), which is a
+   POSIX p1003.1g mandated function. So, in the not too distant future,
+   we'll zap the ifdefs and just let autoconf check for getaddrinfo. IPv6
+   support comes pretty much automatically once you have protocol family
+   independence.
 
-                             Internationalization
+                              Internationalization
 
-   Internationalization is handled using GNU gettext (see the file ABOUT_NLS in
-   the source distribution). This places some minor constraints on the code.
+   Internationalization is handled using GNU gettext (see the file
+   ABOUT_NLS in the source distribution). This places some minor
+   constraints on the code.
 
-   Strings that must be subject to translation should be wrapped with GT_() or
-   N_() -- the former in function arguments, the latter in static initializers
-   and other non-function-argument contexts.
+   Strings that must be subject to translation should be wrapped with
+   GT_() or N_() -- the former in function arguments, the latter in static
+   initializers and other non-function-argument contexts.
 
-                         Checklist for Adding Options
+                          Checklist for Adding Options
 
-   Adding a control option is not complicated in principle, but there are a lot
-   of fiddly details in the process. You'll need to do the following minimum
-   steps.
-     * Add a field to represent the control in struct run, struct query, or
-       struct hostdata.
-     * Go to rcfile_y.y. Add the token to the grammar. Don't forget the %token
-       declaration.
-     * Pick an actual string to declare the option in the .fetchmailrc file.
-       Add the token to rcfile_l.
-     * Pick a long-form option name, and a one-letter short option if any are
-       left. Go to options.c. Pick a new LA_ value. Hack the longoptions table
-       to set up the association. Hack the big switch statement to set the
-       option. Hack the `?' message to describe it.
+   Adding a control option is not complicated in principle, but there are
+   a lot of fiddly details in the process. You'll need to do the following
+   minimum steps.
+     * Add a field to represent the control in struct run, struct query,
+       or struct hostdata.
+     * Go to rcfile_y.y. Add the token to the grammar. Don't forget the
+       %token declaration.
+     * Pick an actual string to declare the option in the .fetchmailrc
+       file. Add the token to rcfile_l.
+     * Pick a long-form option name, and a one-letter short option if any
+       are left. Go to options.c. Pick a new LA_ value. Hack the
+       longoptions table to set up the association. Hack the big switch
+       statement to set the option. Hack the `?' message to describe it.
      * If the default is nonzero, set it in def_opts near the top of
        load_params in fetchmail.c.
      * Add code to dump the option value in fetchmail.c:dump_params.
      * For a per-site or per-user option, add proper FLAG_MERGE actions in
-       fetchmail.c's optmerge() function. For a global option, add an override
-       at the end of load_params; this will involve copying a "cmd_run." field
-       to a corresponding "run." field, see the existing code for models.
-     * Document the option in fetchmail.man. This will require at least two
-       changes; one to the collected table of options, and one full text
-       description of the option.
+       fetchmail.c's optmerge() function. For a global option, add an
+       override at the end of load_params; this will involve copying a
+       "cmd_run." field to a corresponding "run." field, see the existing
+       code for models.
+     * Document the option in fetchmail.man. This will require at least
+       two changes; one to the collected table of options, and one full
+       text description of the option.
      * Hack fetchmailconf to configure it. Bump the fetchmailconf version.
-     * Hack conf.c to dump the option so we won't have a version-skew problem.
+     * Hack conf.c to dump the option so we won't have a version-skew
+       problem.
      * Add an entry to NEWS.
-     * If the option implements a new feature, add a note to the feature list.
+     * If the option implements a new feature, add a note to the feature
+       list.
 
-   There may be other things you have to do in the way of logic, of course.
+   There may be other things you have to do in the way of logic, of
+   course.
 
-   Before you implement an option, though, think hard. Is there any way to make
-   fetchmail automatically detect the circumstances under which it should
-   change its behavior? If so, don't write an option. Just do the check!
+   Before you implement an option, though, think hard. Is there any way to
+   make fetchmail automatically detect the circumstances under which it
+   should change its behavior? If so, don't write an option. Just do the
+   check!
 
                                 Lessons learned
 
   1. Server-side state is essential
 
-   The person(s) responsible for removing LAST from POP3 deserve to suffer.
-   Without it, a client has no way to know which messages in a box have been
-   read by other means, such as an MUA running on the server.
+   The person(s) responsible for removing LAST from POP3 deserve to
+   suffer. Without it, a client has no way to know which messages in a box
+   have been read by other means, such as an MUA running on the server.
 
-   The POP3 UID feature described in RFC1725 to replace LAST is insufficient.
-   The only problem it solves is tracking which messages have been read by this
-   client -- and even that requires tricky, fragile implementation.
+   The POP3 UID feature described in RFC1725 to replace LAST is
+   insufficient. The only problem it solves is tracking which messages
+   have been read by this client -- and even that requires tricky, fragile
+   implementation.
 
    The underlying lesson is that maintaining accessible server-side `seen'
-   state bits associated with Status headers is indispensible in a Unix/RFC822
-   mail server protocol. IMAP gets this right.
+   state bits associated with Status headers is indispensible in a
+   Unix/RFC822 mail server protocol. IMAP gets this right.
 
   2. Readable text protocol transactions are a Good Thing
 
    A nice thing about the general class of text-based protocols that SMTP,
-   POP2, POP3, and IMAP belongs to is that client/server transactions are easy
-   to watch and transaction code correspondingly easy to debug. Given a decent
-   layer of socket utility functions (which Carl provided) it's easy to write
-   protocol engines and not hard to show that they're working correctly.
+   POP2, POP3, and IMAP belongs to is that client/server transactions are
+   easy to watch and transaction code correspondingly easy to debug. Given
+   a decent layer of socket utility functions (which Carl provided) it's
+   easy to write protocol engines and not hard to show that they're
+   working correctly.
 
-   This is an advantage not to be despised! Because of it, this project has
-   been interesting and fun -- no serious or persistent bugs, no long hours
-   spent looking for subtle pathologies.
+   This is an advantage not to be despised! Because of it, this project
+   has been interesting and fun -- no serious or persistent bugs, no long
+   hours spent looking for subtle pathologies.
 
   3. IMAP is a Good Thing.
 
-   Now that there is a standard IMAP equivalent of the POP3 APOP validation in
-   CRAM-MD5, POP3 is completely obsolete.
+   Now that there is a standard IMAP equivalent of the POP3 APOP
+   validation in CRAM-MD5, POP3 is completely obsolete.
 
   4. SMTP is the Right Thing
 
-   In retrospect it seems clear that this program (and others like it) should
-   have been designed to forward via SMTP from the beginning. This lesson may
-   be applicable to other Unix programs that now call the local MDA/MTA as a
-   program.
+   In retrospect it seems clear that this program (and others like it)
+   should have been designed to forward via SMTP from the beginning. This
+   lesson may be applicable to other Unix programs that now call the local
+   MDA/MTA as a program.
 
   5. Syntactic noise can be your friend
 
    The optional `noise' keywords in the rc file syntax started out as a
-   late-night experiment. The English-like syntax they allow is considerably
-   more readable than the traditional terse keyword-value pairs you get when
-   you strip them all out. I think there may be a wider lesson here.
+   late-night experiment. The English-like syntax they allow is
+   considerably more readable than the traditional terse keyword-value
+   pairs you get when you strip them all out. I think there may be a wider
+   lesson here.
 
                            Motivation and validation
 
-   It is truly written: the best hacks start out as personal solutions to the
-   author's everyday problems, and spread because the problem turns out to be
-   typical for a large class of users. So it was with Carl Harris and the
-   ancestral popclient, and so with me and fetchmail.
+   It is truly written: the best hacks start out as personal solutions to
+   the author's everyday problems, and spread because the problem turns
+   out to be typical for a large class of users. So it was with Carl
+   Harris and the ancestral popclient, and so with me and fetchmail.
 
-   It's gratifying that fetchmail has become so popular. Until just before 1.9
-   I was designing strictly to my own taste. The multi-drop mailbox support and
-   the new --limit option were the first features to go in that I didn't need
-   myself.
+   It's gratifying that fetchmail has become so popular. Until just before
+   1.9 I was designing strictly to my own taste. The multi-drop mailbox
+   support and the new --limit option were the first features to go in
+   that I didn't need myself.
 
-   By 1.9, four months after I started hacking on popclient and a month after
-   the first fetchmail release, there were literally a hundred people on the
-   fetchmail-friends contact list. That's pretty powerful motivation. And they
-   were a good crowd, too, sending fixes and intelligent bug reports in volume.
-   A user population like that is a gift from the gods, and this is my
-   expression of gratitude.
+   By 1.9, four months after I started hacking on popclient and a month
+   after the first fetchmail release, there were literally a hundred
+   people on the fetchmail-friends contact list. That's pretty powerful
+   motivation. And they were a good crowd, too, sending fixes and
+   intelligent bug reports in volume. A user population like that is a
+   gift from the gods, and this is my expression of gratitude.
 
-   The beta testers didn't know it at the time, but they were also the subjects
-   of a sociological experiment. The results are described in my paper, The
-   Cathedral And The Bazaar.
+   The beta testers didn't know it at the time, but they were also the
+   subjects of a sociological experiment. The results are described in my
+   paper, The Cathedral And The Bazaar.
 
                                     Credits
 
-   Special thanks go to Carl Harris, who built a good solid code base and then
-   tolerated me hacking it out of recognition. And to Harry Hochheiser, who
-   gave me the idea of the SMTP-forwarding delivery mode.
+   Special thanks go to Carl Harris, who built a good solid code base and
+   then tolerated me hacking it out of recognition. And to Harry
+   Hochheiser, who gave me the idea of the SMTP-forwarding delivery mode.
 
    Other significant contributors to the code have included Dave Bodenstab
-   (error.c code and --syslog), George Sipe (--monitor and --interface), Gordon
-   Matzigkeit (netrc.c), Al Longyear (UIDL support), Chris Hanson (Kerberos V4
-   support), and Craig Metz (OPIE, IPv6, IPSEC).
+   (error.c code and --syslog), George Sipe (--monitor and --interface),
+   Gordon Matzigkeit (netrc.c), Al Longyear (UIDL support), Chris Hanson
+   (Kerberos V4 support), and Craig Metz (OPIE, IPv6, IPSEC).
 
-                                  Conclusion
+                                   Conclusion
 
    At this point, the fetchmail code appears to be pretty stable. It will
    probably undergo substantial change only if and when support for a new
@@ -488,8 +512,8 @@ Multiple concurrent instances of fetchmail
 
                                  Relevant RFCS
 
-   Not all of these describe standards explicitly used in fetchmail, but they
-   all shaped the design in one way or another.
+   Not all of these describe standards explicitly used in fetchmail, but
+   they all shaped the design in one way or another.
 
    RFC821
           SMTP protocol
@@ -567,8 +591,8 @@ Multiple concurrent instances of fetchmail
           SMTP Service Extension for Delivery Status Notifications
 
    RFC1892
-          The Multipart/Report Content Type for the Reporting of Mail System
-          Administrative Messages
+          The Multipart/Report Content Type for the Reporting of Mail
+          System Administrative Messages
 
    RFC1894
           An Extensible Message Format for Delivery Status Notifications
@@ -631,11 +655,11 @@ Multiple concurrent instances of fetchmail
    RFC2822
           Internet Message Format
 
-                            Other useful documents
+                             Other useful documents
 
    http://www.faqs.org/faqs/LANs/mail-protocols/
           LAN Mail Protocols Summary
-     _________________________________________________________________
+     __________________________________________________________________
 
 
     Eric S. Raymond <esr@snark.thyrsus.com>

@@ -36,6 +36,7 @@
 #include "IOHIDKeyboard.h"
 #include "IOHIDConsumer.h"
 #include "IOHIDFamilyPrivate.h"
+#include "ev_private.h"
 
 enum {
     kBootProtocolNone   = 0,
@@ -1017,6 +1018,8 @@ void IOHIDEventService::ejectTimerCallback(IOTimerEventSource *sender)
         
         dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Eject, 1, _ejectOptions | kEjectDelayedOption);
         dispatchKeyboardEvent(timeStamp, kHIDPage_Consumer, kHIDUsage_Csmr_Eject, 0, _ejectOptions | kEjectDelayedOption);
+        
+        _ejectState = 0;
     }
     NUB_UNLOCK;
 }
@@ -1052,27 +1055,27 @@ void IOHIDEventService::dispatchKeyboardEvent(
     }
     else    
     {
-    
-        if ( (usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Eject) && ((options & kEjectDelayedOption) == 0) ) 
-        {
-            if ( _ejectState != value ) {
-                if ( value ) {
-                    _ejectOptions       = options;
-                    
-                    _ejectTimerEventSource->setTimeoutMS( kEjectDelayMS );
-                } else
-                    _ejectTimerEventSource->cancelTimeout();
-                    
-                _ejectState = value;
-            }
-        }
-        else 
-        {
-            if ( !_consumerNub )
-                _consumerNub = newConsumerShim();
+        if ( !_consumerNub )
+            _consumerNub = newConsumerShim();
 
-            if ( _consumerNub )
+        if ( _consumerNub ) {
+            if ( (usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Eject) && ((options & kEjectDelayedOption) == 0) && _keyboardNub && ((_keyboardNub->eventFlags() & SPECIALKEYS_MODIFIER_MASK) == 0)) 
+            {
+                if ( _ejectState != value ) {
+                    if ( value ) {
+                        _ejectOptions       = options;
+                        
+                        _ejectTimerEventSource->setTimeoutMS( kEjectDelayMS );
+                    } else
+                        _ejectTimerEventSource->cancelTimeout();
+                        
+                    _ejectState = value;
+                }
+            }
+            else  if (!(((options & kEjectDelayedOption) == 0) && _ejectState && (usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Eject))) 
+            {
                 _consumerNub->dispatchConsumerEvent(_keyboardNub, timeStamp, usagePage, usage, value, options);
+            }
         }
     }
     

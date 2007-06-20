@@ -362,6 +362,8 @@ int parsecmdline (int argc /** argument count */,
 		ctl->server.authenticate = A_KERBEROS_V4;
 	    else if (strcmp(optarg, "ssh") == 0)
 		ctl->server.authenticate = A_SSH;
+	    else if (strcasecmp(optarg, "external") == 0)
+		ctl->server.authenticate = A_EXTERNAL;
 	    else if (strcmp(optarg, "otp") == 0)
 		ctl->server.authenticate = A_OTP;
 	    else if (strcmp(optarg, "opie") == 0)
@@ -610,7 +612,7 @@ int parsecmdline (int argc /** argument count */,
 	P(GT_("      --sslcertck   do strict server certificate check (recommended)\n"));
 	P(GT_("      --sslcertpath path to ssl certificates\n"));
 	P(GT_("      --sslfingerprint fingerprint that must match that of the server's cert.\n"));
-	P(GT_("      --sslproto    force ssl protocol (ssl2/ssl3/tls1)\n"));
+	P(GT_("      --sslproto    force ssl protocol (SSL2/SSL3/TLS1)\n"));
 #endif
 	P(GT_("      --plugin      specify external command to open connection\n"));
 	P(GT_("      --plugout     specify external command to open smtp connection\n"));

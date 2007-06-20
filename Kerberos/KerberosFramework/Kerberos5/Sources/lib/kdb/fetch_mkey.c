@@ -55,6 +55,7 @@
  */
 
 #include "k5-int.h"
+#include <arpa/inet.h>
 
 /* these are available to other funcs, and the pointers may be reassigned */
 
@@ -145,6 +146,7 @@ krb5_db_fetch_mkey(context, mname, etype, fromkeyboard, twice, keyfile,
 	    retval = KRB5_KDB_CANTREAD_STORED;
 	    goto errout;
 	}
+	enctype = ntohs(enctype);
 	if (key->enctype == ENCTYPE_UNKNOWN)
 	    key->enctype = enctype;
 	else if (enctype != key->enctype) {
@@ -156,6 +158,7 @@ krb5_db_fetch_mkey(context, mname, etype, fromkeyboard, twice, keyfile,
 	    retval = KRB5_KDB_CANTREAD_STORED;
 	    goto errout;
 	}
+	key->length = ntohl(key->length);
 	if (!key->length || ((int) key->length) < 0) {
 	    retval = KRB5_KDB_BADSTORED_MKEY;
 	    goto errout;

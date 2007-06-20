@@ -260,6 +260,7 @@ extern struct	dinode zino;
 #ifdef __APPLE__			/* define qflag exit codes */
 #define CLEANEXIT  0		/* Filesystem Clean, no checks */
 #define DIRTYEXIT  3		/* Filesystem Dirty, no checks */
+#define	CANTFIXIT  5		/* Filesystem can't be fixed */
 #endif /* __APPLE__ */
 
 struct fstab;

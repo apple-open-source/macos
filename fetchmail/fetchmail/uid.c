@@ -177,6 +177,9 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 	     * the lotus notes case.
 	     * So we start looking for the '@' after which the
 	     * host will follow with the ' ' seperator finaly id.
+	     *
+	     * XXX FIXME: There is a case this code cannot handle:
+	     * the user name cannot have blanks after a '@'.
 	     */
 	    if ((delimp1 = strchr(user, '@')) != NULL &&
 		(id = strchr(delimp1,' ')) != NULL)
@@ -193,44 +196,43 @@ void initialize_saved_lists(struct query *hostlist, const char *idfile)
 		id = id + strspn(id, " ");
 
 		delimp1++; /* but what if there is only white space ?!? */
-	  	saveddelim1 = *delimp1;	/* save char after token */
+		/* we have at least one @, else we are not in this branch */
+		saveddelim1 = *delimp1;		/* save char after token */
 		*delimp1 = '\0';		/* delimit token with \0 */
-		if (id != NULL) 
-		{
-		    /* now remove trailing white space chars from id */
-		    if ((delimp2 = strpbrk(id, " \t\n")) != NULL ) {
-			saveddelim2 = *delimp2;
-			*delimp2 = '\0';
-		    }
-		    atsign = strrchr(user, '@');
-		    if (atsign) {
-			*atsign = '\0';
-			host = atsign + 1;
 
-		    }
-		    for (ctl = hostlist; ctl; ctl = ctl->next) {
-			if (strcasecmp(host, ctl->server.queryname) == 0
+		/* now remove trailing white space chars from id */
+		if ((delimp2 = strpbrk(id, " \t\n")) != NULL ) {
+		    saveddelim2 = *delimp2;
+		    *delimp2 = '\0';
+		}
+
+		atsign = strrchr(user, '@');
+		/* we have at least one @, else we are not in this branch */
+		*atsign = '\0';
+		host = atsign + 1;
+
+		/* find proper list and save it */
+		for (ctl = hostlist; ctl; ctl = ctl->next) {
+		    if (strcasecmp(host, ctl->server.queryname) == 0
 			    && strcasecmp(user, ctl->remotename) == 0) {
-	
-			    save_str(&ctl->oldsaved, id, UID_SEEN);
-			    break;
-			}
+			save_str(&ctl->oldsaved, id, UID_SEEN);
+			break;
 		    }
-		    /* 
-		     * If it's not in a host we're querying,
-		     * save it anyway.  Otherwise we'd lose UIDL
-		     * information any time we queried an explicit
-		     * subset of hosts.
-		     */
-		    if (ctl == (struct query *)NULL) {
-				/* restore string */
-			*delimp1 = saveddelim1;
-			*atsign = '@';
-			if (delimp2 != NULL) {
-			    *delimp2 = saveddelim2;
-			}
-			save_str(&scratchlist, buf, UID_SEEN);
+		}
+		/* 
+		 * If it's not in a host we're querying,
+		 * save it anyway.  Otherwise we'd lose UIDL
+		 * information any time we queried an explicit
+		 * subset of hosts.
+		 */
+		if (ctl == (struct query *)NULL) {
+		    /* restore string */
+		    *delimp1 = saveddelim1;
+		    *atsign = '@';
+		    if (delimp2 != NULL) {
+			*delimp2 = saveddelim2;
 		    }
+		    save_str(&scratchlist, buf, UID_SEEN);
 		}
 	    }
 	}

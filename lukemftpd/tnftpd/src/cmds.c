@@ -1,4 +1,4 @@
-/*	$NetBSD: cmds.c,v 1.6 2004/08/10 00:00:36 lukem Exp $	*/
+/*	$NetBSD: cmds.c,v 1.7 2006/09/26 06:38:38 lukem Exp $	*/
 
 /*
  * Copyright (c) 1999-2004 The NetBSD Foundation, Inc.
@@ -101,7 +101,7 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__RCSID("$NetBSD: cmds.c,v 1.6 2004/08/10 00:00:36 lukem Exp $");
+__RCSID("$NetBSD: cmds.c,v 1.7 2006/09/26 06:38:38 lukem Exp $");
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -397,7 +397,7 @@ opts(const char *command)
 
 			/* default cases */
 	if (ep != NULL && *ep != '\0')
-		REASSIGN(c->options, xstrdup(ep));
+		REASSIGN(c->options, ftpd_strdup(ep));
 	if (c->options != NULL)
 		reply(200, "Options for %s are '%s'.", c->name,
 		    c->options);
@@ -444,7 +444,7 @@ renamefrom(const char *name)
 		return (NULL);
 	}
 	reply(350, "File exists, ready for destination name");
-	return (xstrdup(name));
+	return (ftpd_strdup(name));
 }
 
 void

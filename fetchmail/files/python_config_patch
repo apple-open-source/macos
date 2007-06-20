@@ -1,13 +1,13 @@
 --- configure~	Fri Apr 14 08:42:57 2006
 +++ configure	Wed Jun  7 17:20:32 2006
-@@ -2058,7 +2058,7 @@
+@@ -2606,7 +2606,7 @@
  if test "${am_cv_python_pythondir+set}" = set; then
    echo $ECHO_N "(cached) $ECHO_C" >&6
  else
 -  am_cv_python_pythondir=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_lib(0,0,prefix='$PYTHON_PREFIX')" 2>/dev/null ||
-+  am_cv_python_pythondir=`$PYTHON -c "import sys, os; print os.path.join(sys.prefix,'lib/python' + sys.version[:3])" 2>/dev/null ||
++  am_cv_python_pythondir=`$PYTHON -c "import sys, os; print os.path.join(sys.prefix,'Extras/lib/python')" 2>/dev/null ||
       echo "$PYTHON_PREFIX/lib/python$PYTHON_VERSION/site-packages"`
  fi
- echo "$as_me:$LINENO: result: $am_cv_python_pythondir" >&5
+ { echo "$as_me:$LINENO: result: $am_cv_python_pythondir" >&5
 
 Diff finished.  Wed Jun  7 17:21:29 2006

@@ -184,6 +184,9 @@ void dump_config(struct runctl *runp, struct query *querylist)
 #ifdef OPIE_ENABLE
     "'opie',"
 #endif /* OPIE_ENABLE */
+#ifdef HAVE_SOCKS
+    "'socks',"
+#endif /* HAVE_SOCKS */
     ")\n";
     fputs(features, stdout);
 

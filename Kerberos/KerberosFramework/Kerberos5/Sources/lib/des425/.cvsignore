@@ -1,0 +1,4 @@
+verify
+t_quad
+t_pcbc
+lib*.so.*

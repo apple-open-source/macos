@@ -53,9 +53,9 @@ AEP_Patches    = patch-configure \
                  patch-ext__socket__extconf.rb \
                  patch-ext__socket__socket.c \
                  patch-ext__zlib__extconf.rb \
+                 patch-lib__cgi.rb \
                  patch-lib__mkmf.rb \
-                 PR3917782.diff \
-                 CAN-2005-2337.diff
+                 PR3917782.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

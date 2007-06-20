@@ -1,94 +1,75 @@
-#
-# xbs-compatible Makefile for lukemftpd.
-#
+##
+# Makefile for lukemftpd (tnftpd)
+##
 
-SHELL := /bin/sh
 
-# Sane defaults, which are typically overridden on the command line.
-TAR ?= /usr/bin/gnutar
-MV ?= /bin/mv
+ETCDIR		    = /private/etc
 
-SRCROOT=
-OBJROOT=$(SRCROOT)
-SYMROOT=$(OBJROOT)
-DSTROOT=/usr/local
-ETCDIR=/private/etc
-RC_ARCHS=
+# Project Info
+Project             = tnftpd
+Extra_CC_Flags      = -no-cpp-precomp -Os -mdynamic-no-pic
+GnuNoBuild          = YES
+GnuAfterInstall     = post-install install-pam-item install-plist 
+Extra_Configure_Flags     += --prefix=/usr --sysconfdir="$(ETCDIR)" --enable-ipv6 --sbindir=$(DSTROOT)/usr/libexec --mandir=$(DSTROOT)/usr/share/man
 
-Project=tnftpd
+
+# It's a GNU Source project
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+Install_Target      = install
+Install_Flags       = DESTDIR=$(DSTROOT)
+
+build:: configure
+	$(_v) $(MAKE) -C $(BuildDirectory)
+
+post-install:
+	$(STRIP) -x $(DSTROOT)/usr/libexec/tnftpd
+	$(MV) $(DSTROOT)/usr/libexec/tnftpd $(DSTROOT)/usr/libexec/ftpd
+	$(LN) $(DSTROOT)/usr/share/man/man5/ftpusers.5 $(DSTROOT)/usr/share/man/man5/ftpchroot.5
+	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/ftpd/examples
+	$(INSTALL_FILE) -c -m 0644  $(SRCROOT)/$(Project)/examples/ftpd.conf $(DSTROOT)/usr/share/ftpd/examples
+	$(INSTALL_FILE) -c -m 0644  $(SRCROOT)/$(Project)/examples/ftpusers $(DSTROOT)/usr/share/ftpd/examples
+
+OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
+OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) $(DSTROOT)/System/Library/LaunchDaemons
+	$(INSTALL_FILE) $(SRCROOT)/ftp.plist $(DSTROOT)/System/Library/LaunchDaemons
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/lukemftpd.plist $(OSV)/lukemftpd.plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/lukemftpd.txt
 
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 20040810
+AEP_Version    = 20061217
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = PR-2571387-pw.db.patch PR-3285536.pamify.patch PR-3795936.long-username.patch \
-                 PR-3886477.Makefile.in.patch PR-3886477.ftpd.c.patch NLS_PR-3955757.patch
+AEP_Patches    = PR-2571387-pw.db.patch \
+		PR-3285536.pamify.patch \
+		PR-3795936.long-username.patch \
+	        PR-3886477.Makefile.in.patch PR-3886477.ftpd.c.patch \
+		PR-3186515.ftpd.conf.5.patch PR-3186515.ftpusers.5.patch \
+		PR-4570983.ftpd.conf.5.patch \
+		PR-4608716.ls.c.patch \
+		PR-4581099.ftpd.c.patch \
+		PR-4616924.ftpd.c.patch
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -Os -mdynamic-no-pic"
 
-.PHONY : copysrc installsrc installhdrs install clean
-
-installhdrs :
-
-copysrc :
-	tar cf - . | (cd $(SRCROOT) ; tar xfp -)
-	for i in `find $(SRCROOT) | grep "CVS$$"` ; do \
-		if test -d $$i ; then \
-			rm -rf $$i; \
-		fi; \
-	done
-
-install :
-	$(SHELL) -ec \
-	'mkdir -p $(OBJROOT)/$(Project); \
-	cd $(OBJROOT)/$(Project); \
-	$(ENV) $(SRCROOT)/$(Project)/configure --prefix=/usr --sysconfdir="$(ETCDIR)" --enable-ipv6; \
-	$(MAKE); \
-	$(MAKE) sbindir=$(DSTROOT)/usr/libexec mandir=$(DSTROOT)/usr/share/man install; \
-	strip -x $(DSTROOT)/usr/libexec/tnftpd'
-	mv $(DSTROOT)/usr/libexec/tnftpd $(DSTROOT)/usr/libexec/ftpd
-	mkdir -p $(DSTROOT)/private/etc/pam.d/
-	cp ftpd $(DSTROOT)/private/etc/pam.d/
-	mkdir -p $(DSTROOT)/System/Library/LaunchDaemons
-	install -c -m 0644 $(SRCROOT)/ftp.plist $(DSTROOT)/System/Library/LaunchDaemons
-
-clean:
-#
-# xbs-compatible Makefile for lukemftpd.
-#
-
-install-pam-item :
-	strip -x $(DSTROOT)/usr/libexec/ftpd'
-	mkdir -p $(DSTROOT)/private/etc/pam.d/
+install-pam-item:
+	$(STRIP) -x $(DSTROOT)/usr/libexec/ftpd
+	$(MKDIR) $(DSTROOT)/private/etc/pam.d/
 	cp ftpd $(DSTROOT)/private/etc/pam.d/
 
-# It's a GNU Source project
-#include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
-
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-    AEP_ExtractOption = j
-else
-    AEP_ExtractOption = z
-endif
-
-installsrc:: copysrc
+# Extract the source.
+install_source::
 ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(AEP_Filename)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
 	for patchfile in $(AEP_Patches); do \
-	    cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile; \
+	    (cd $(SRCROOT)/$(Project) && patch -lp0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 endif
-
-SV	= $(DSTROOT)/usr/local/OpenSourceVersions
-OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
-
-#install-plist:
-#	$(MKDIR) $(OSV)
-#	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
-#	$(MKDIR) $(OSL)
-#	$(INSTALL_FILE) $(Sources)/LICENCE $(OSL)/$(Project).txt

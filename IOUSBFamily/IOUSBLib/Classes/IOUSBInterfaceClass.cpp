@@ -47,19 +47,19 @@ __END_DECLS
     #define DEBUGPRINT(x,...)   
 #endif
 
-#define connectCheck() do {	    \
-    if (!fConnection)		    \
+#define ATTACHEDCHECK() do {	    \
+    if (!fInterfaceIsAttached)		    \
 	return kIOReturnNoDevice;   \
 } while (0)
 
-#define openCheck() do {	    \
+#define OPENCHECK() do {	    \
     if (!fIsOpen)		    \
         return kIOReturnNotOpen;    \
 } while (0)
 
-#define allChecks() do {	    \
-    connectCheck();		    \
-    openCheck();		    \
+#define ALLCHECKS() do {	    \
+    ATTACHEDCHECK();		    \
+    OPENCHECK();		    \
 } while (0)
 
 IOCFPlugInInterface ** IOUSBInterfaceClass::alloc()
@@ -80,7 +80,8 @@ IOUSBInterfaceClass::IOUSBInterfaceClass()
   fConnection(MACH_PORT_NULL),
   fAsyncPort(MACH_PORT_NULL),
   fCFSource(0),
-  fIsOpen(false)
+  fIsOpen(false),
+  fInterfaceIsAttached(false)
 {
 	  DEBUGPRINT("+IOUSBInterfaceClass::IOUSBInterfaceClass\n");
     fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV220;
@@ -96,6 +97,7 @@ IOUSBInterfaceClass::~IOUSBInterfaceClass()
 	{
         IOServiceClose(fConnection);
         fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
     }
         
     if (fService) 
@@ -110,6 +112,9 @@ IOUSBInterfaceClass::~IOUSBInterfaceClass()
 			IOObjectRelease(fDevice);
         fDevice = MACH_PORT_NULL;
     }
+
+	if ( fAsyncPort)
+		mach_port_destroy( mach_task_self(), fAsyncPort);
 
 	if ( fConfigPtr )
 		free(fConfigPtr);
@@ -205,7 +210,10 @@ IOUSBInterfaceClass::start(CFDictionaryRef propertyTable, io_service_t inService
     if (res != kIOReturnSuccess)
         return res;
 
-    connectCheck();    
+    if ( fConnection == MACH_PORT_NULL)
+		return kIOReturnNoDevice;
+	
+	fInterfaceIsAttached = true;
 
    // Make sure that we retain our service so that we can use it later on
     //
@@ -237,7 +245,7 @@ IOUSBInterfaceClass::stop()
 	IOReturn ret = kIOReturnSuccess;
 	
     DEBUGPRINT("+IOUSBInterfaceClass::stop\n");
-	connectCheck();
+	ATTACHEDCHECK();
 	if (fIsOpen)
 		ret = USBInterfaceClose();
 	
@@ -311,7 +319,7 @@ IOUSBInterfaceClass::GetPropertyInfo(void)
     // Look at the device's properties
     //
     kr = IORegistryEntryCreateCFProperties(fDevice, &entryProperties, NULL, 0);
-	if ( kr )
+	if (kr)
 		return kr;
 	
     if ( entryProperties )
@@ -412,7 +420,7 @@ IOUSBInterfaceClass::CreateInterfaceAsyncPort(mach_port_t *port)
 	    if (ret == MACH_SEND_INVALID_DEST)
 	    {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
 	    }
         }
@@ -437,7 +445,7 @@ IOUSBInterfaceClass::USBInterfaceOpen(bool seize)
     IOReturn 		ret;
     int			t = seize;
 
-    connectCheck();
+    ATTACHEDCHECK();
 
     DEBUGPRINT("+IOUSBInterfaceClass::USBInterfaceOpen\n");
 
@@ -468,7 +476,7 @@ IOUSBInterfaceClass::USBInterfaceOpen(bool seize)
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -488,14 +496,14 @@ IOUSBInterfaceClass::USBInterfaceClose()
     mach_msg_type_number_t len = 0;
     fIsOpen = false;
 
-    if ( fConnection )
+    if ( fInterfaceIsAttached )
     {
         // kIOCDBUserClientClose,	kIOUCScalarIScalarO,	 0,  0
         ret = io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientClose, NULL, 0, NULL, &len);
         if (ret == MACH_SEND_INVALID_DEST)
         {
             fIsOpen = false;
-            fConnection = MACH_PORT_NULL;
+            fInterfaceIsAttached = false;
             ret = kIOReturnNoDevice;
         }
     }
@@ -534,7 +542,7 @@ IOUSBInterfaceClass::USBInterfaceClose()
 IOReturn 
 IOUSBInterfaceClass::GetInterfaceClass(UInt8 *intfClass)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceClass\n");
     *intfClass = fClass;
     return kIOReturnSuccess;
@@ -544,7 +552,7 @@ IOUSBInterfaceClass::GetInterfaceClass(UInt8 *intfClass)
 IOReturn 
 IOUSBInterfaceClass::GetInterfaceSubClass(UInt8 *intfSubClass)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceSubClass\n");
     *intfSubClass = fSubClass;
     return kIOReturnSuccess;
@@ -554,7 +562,7 @@ IOUSBInterfaceClass::GetInterfaceSubClass(UInt8 *intfSubClass)
 IOReturn 
 IOUSBInterfaceClass::GetInterfaceProtocol(UInt8 *intfProtocol)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceProtocol\n");
     *intfProtocol = fProtocol;
     return kIOReturnSuccess;
@@ -564,7 +572,7 @@ IOUSBInterfaceClass::GetInterfaceProtocol(UInt8 *intfProtocol)
 IOReturn 
 IOUSBInterfaceClass::GetInterfaceStringIndex(UInt8 *intfSI)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceStringIndex\n");
     *intfSI = fStringIndex;
     return kIOReturnSuccess;
@@ -574,7 +582,7 @@ IOUSBInterfaceClass::GetInterfaceStringIndex(UInt8 *intfSI)
 IOReturn 
 IOUSBInterfaceClass::GetDeviceVendor(UInt16 *devVendor)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetDeviceVendor\n");
     *devVendor = fVendor;
     return kIOReturnSuccess;
@@ -584,7 +592,7 @@ IOUSBInterfaceClass::GetDeviceVendor(UInt16 *devVendor)
 IOReturn 
 IOUSBInterfaceClass::GetDeviceProduct(UInt16 *devProduct)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetDeviceProduct\n");
     *devProduct = fProduct;
     return kIOReturnSuccess;
@@ -594,7 +602,7 @@ IOUSBInterfaceClass::GetDeviceProduct(UInt16 *devProduct)
 IOReturn 
 IOUSBInterfaceClass::GetDeviceReleaseNumber(UInt16 *devRelNum)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetDeviceReleaseNumber\n");
     *devRelNum = fDeviceReleaseNumber;
     return kIOReturnSuccess;
@@ -604,7 +612,7 @@ IOUSBInterfaceClass::GetDeviceReleaseNumber(UInt16 *devRelNum)
 IOReturn 
 IOUSBInterfaceClass::GetConfigurationValue(UInt8 *configVal)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetConfigurationValue\n");
     *configVal = fConfigValue;
     return kIOReturnSuccess;
@@ -614,7 +622,7 @@ IOUSBInterfaceClass::GetConfigurationValue(UInt8 *configVal)
 IOReturn 
 IOUSBInterfaceClass::GetInterfaceNumber(UInt8 *intfNumber)
 {
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceNumber\n");
     *intfNumber = fInterfaceNumber;
     return kIOReturnSuccess;
@@ -624,7 +632,7 @@ IOUSBInterfaceClass::GetInterfaceNumber(UInt8 *intfNumber)
 IOReturn
 IOUSBInterfaceClass::GetAlternateSetting(UInt8 *intfAlternateSetting)
 { 
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetAlternateSetting\n");
     *intfAlternateSetting = fAlternateSetting;
     return kIOReturnSuccess;
@@ -634,7 +642,7 @@ IOUSBInterfaceClass::GetAlternateSetting(UInt8 *intfAlternateSetting)
 IOReturn
 IOUSBInterfaceClass::GetNumEndpoints(UInt8 *intfNumEndpoints)
 { 
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetNumEndpoints\n");
     *intfNumEndpoints = fNumEndpoints;
     return kIOReturnSuccess;
@@ -644,7 +652,7 @@ IOUSBInterfaceClass::GetNumEndpoints(UInt8 *intfNumEndpoints)
 IOReturn
 IOUSBInterfaceClass::GetLocationID(UInt32 *locationID)
 { 
-    connectCheck();
+    ATTACHEDCHECK();
     DEBUGPRINT("IOUSBInterfaceClass::GetLocationID\n");
     *locationID = fLocationID;
     return kIOReturnSuccess;
@@ -654,7 +662,7 @@ IOUSBInterfaceClass::GetLocationID(UInt32 *locationID)
 IOReturn 
 IOUSBInterfaceClass::GetDevice(io_service_t *device)
 {    
-    connectCheck();
+    ATTACHEDCHECK();
     *device = fDevice;
     return kIOReturnSuccess;
 }
@@ -668,7 +676,7 @@ IOUSBInterfaceClass::SetAlternateInterface(UInt8 alternateSetting)
     mach_msg_type_number_t 	len = 0;
     IOReturn			ret;
 	
-    allChecks();
+    ALLCHECKS();
     DEBUGPRINT("IOUSBInterfaceClass::SetAlternateInterface to %d\n", alternateSetting);
    ret = io_connect_method_scalarI_scalarO( fConnection, kUSBInterfaceUserClientSetAlternateInterface, &t, 1, NULL, &len);
     if (ret == kIOReturnSuccess)
@@ -677,7 +685,7 @@ IOUSBInterfaceClass::SetAlternateInterface(UInt8 alternateSetting)
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     return ret;
@@ -692,7 +700,7 @@ IOUSBInterfaceClass::GetBusFrameNumber(UInt64 *frame, AbsoluteTime *atTime)
     mach_msg_type_number_t 	outSize = sizeof(stuff);
     IOReturn 			ret;
 	
-    connectCheck();
+    ATTACHEDCHECK();
 	
     DEBUGPRINT("IOUSBInterfaceClass::GetBusFrameNumber\n");
     ret = io_connect_method_scalarI_structureO(fConnection, kUSBInterfaceUserClientGetFrameNumber, NULL, 0, (char *)&stuff, &outSize);
@@ -706,7 +714,7 @@ IOUSBInterfaceClass::GetBusFrameNumber(UInt64 *frame, AbsoluteTime *atTime)
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     return ret;
@@ -720,14 +728,14 @@ IOUSBInterfaceClass::GetBandwidthAvailable(UInt32 *bandwidth)
     mach_msg_type_number_t 	outSize = 1;
     IOReturn 			ret;
 	
-    connectCheck();
+    ATTACHEDCHECK();
 	
     DEBUGPRINT("+IOUSBInterfaceClass::GetBandwidthAvailable\n");
     ret = io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientGetBandwidthAvailable, NULL, 0, (int*)bandwidth, &outSize);
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
 
@@ -745,7 +753,7 @@ IOUSBInterfaceClass::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpoin
     mach_msg_type_number_t 	fromUCsize = 3;
     IOReturn			ret;
 	
-    connectCheck();
+    ATTACHEDCHECK();
 	
     DEBUGPRINT("+IOUSBInterfaceClass::GetEndpointProperties\n");
 
@@ -763,7 +771,7 @@ IOUSBInterfaceClass::GetEndpointProperties(UInt8 alternateSetting, UInt8 endpoin
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     DEBUGPRINT("IOUSBInterfaceClass::GetEndpointProperties 0x%x, altSetting: %d, endpointNumber: %d, direction %d, transferType: %d, mps: 0x%x, interval %d\n",
@@ -778,7 +786,7 @@ IOUSBInterfaceClass::ControlRequest(UInt8 pipeRef, IOUSBDevRequestTO *req)
 {
     IOReturn 		ret = kIOReturnSuccess;
     
-    connectCheck();
+    ATTACHEDCHECK();
 	
     DEBUGPRINT("IOUSBInterfaceClass::ControlRequest\n");
     if (req->wLength <= sizeof(io_struct_inband_t))
@@ -853,7 +861,7 @@ IOUSBInterfaceClass::ControlRequest(UInt8 pipeRef, IOUSBDevRequestTO *req)
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     return ret;
@@ -870,7 +878,7 @@ IOUSBInterfaceClass::ControlRequestAsync(UInt8 pipeRef, IOUSBDevRequestTO *req, 
     IOUSBDevReqOOLTO		outReq;
     IOReturn			ret;
         
-    connectCheck();
+    ATTACHEDCHECK();
 
     DEBUGPRINT("IOUSBInterfaceClass::ControlRequestAsync\n");
 
@@ -905,7 +913,7 @@ IOUSBInterfaceClass::ControlRequestAsync(UInt8 pipeRef, IOUSBDevRequestTO *req, 
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -922,7 +930,7 @@ IOUSBInterfaceClass::GetPipeProperties(UInt8 pipeRef, UInt8 *direction, UInt8 *n
     mach_msg_type_number_t 	fromUCsize = 5;
     IOReturn			ret;
     
-    allChecks();
+    ALLCHECKS();
     DEBUGPRINT("IOUSBInterfaceClass::GetPipeProperties\n");
     ret =  io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientGetPipeProperties,  &toUserClient, 1, fromUserClient, &fromUCsize);
     if (ret == kIOReturnSuccess)
@@ -937,7 +945,7 @@ IOUSBInterfaceClass::GetPipeProperties(UInt8 pipeRef, UInt8 *direction, UInt8 *n
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     DEBUGPRINT("IOUSBInterfaceClass::GetEndpointProperties 0x%x, pipeRef: %d, direction %d, number: %d, transferType: %d, mps: 0x%x, interval %d\n",
@@ -953,14 +961,14 @@ IOUSBInterfaceClass::GetPipeStatus(UInt8 pipeRef)
     int				toUserClient = pipeRef;
     IOReturn			ret;
     
-    allChecks();
+    ALLCHECKS();
 
     DEBUGPRINT("IOUSBInterfaceClass::GetPipeStatus\n");
     ret = io_connect_method_scalarI_scalarO( fConnection, kUSBInterfaceUserClientGetPipeStatus, &toUserClient, 1, NULL, &len);
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -975,14 +983,14 @@ IOUSBInterfaceClass::AbortPipe(UInt8 pipeRef)
     int				toUserClient = pipeRef;
     IOReturn			ret;
     
-    allChecks();
+    ALLCHECKS();
 
     DEBUGPRINT("IOUSBInterfaceClass::AbortPipe\n");
     ret = io_connect_method_scalarI_scalarO( fConnection, kUSBInterfaceUserClientAbortPipe, &toUserClient, 1, NULL, &len);
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -997,14 +1005,14 @@ IOUSBInterfaceClass::ResetPipe(UInt8 pipeRef)
     int				toUserClient = pipeRef;
     IOReturn			ret;
 
-    allChecks();
+    ALLCHECKS();
 
     DEBUGPRINT("IOUSBInterfaceClass::ResetPipe\n");
     ret = io_connect_method_scalarI_scalarO( fConnection, kUSBInterfaceUserClientResetPipe, &toUserClient, 1, NULL, &len);
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1019,7 +1027,7 @@ IOUSBInterfaceClass::ClearPipeStall(UInt8 pipeRef, bool bothEnds)
     int				toUserClient[2];
     IOReturn			ret;
     
-    allChecks();
+    ALLCHECKS();
 
     DEBUGPRINT("IOUSBInterfaceClass::ClearPipeStall\n");
     toUserClient[0] = pipeRef;
@@ -1028,7 +1036,7 @@ IOUSBInterfaceClass::ClearPipeStall(UInt8 pipeRef, bool bothEnds)
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1043,7 +1051,7 @@ IOUSBInterfaceClass::SetPipePolicy(UInt8 pipeRef, UInt16 maxPacketSize, UInt8 ma
     int				toUserClient[3];
     IOReturn			ret;
     
-    allChecks();
+    ALLCHECKS();
 
     DEBUGPRINT("IOUSBInterfaceClass::GetPipeProperties\n");
     toUserClient[0] = pipeRef;
@@ -1053,7 +1061,7 @@ IOUSBInterfaceClass::SetPipePolicy(UInt8 pipeRef, UInt16 maxPacketSize, UInt8 ma
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1066,7 +1074,7 @@ IOUSBInterfaceClass::ReadPipe(UInt8 pipeRef, void *buf, UInt32 *size, UInt32 noD
 {
     IOReturn		ret;
 	
-    allChecks();
+    ALLCHECKS();
 	
     if(*size < sizeof(io_struct_inband_t)) 
     {
@@ -1100,7 +1108,7 @@ IOUSBInterfaceClass::ReadPipe(UInt8 pipeRef, void *buf, UInt32 *size, UInt32 noD
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
 
@@ -1116,7 +1124,7 @@ IOUSBInterfaceClass::WritePipe(UInt8 pipeRef, void *buf, UInt32 size, UInt32 noD
 {
     IOReturn		ret;
 	
-    allChecks();
+    ALLCHECKS();
 	
     if(size < sizeof(io_struct_inband_t)) 
     {
@@ -1149,7 +1157,7 @@ IOUSBInterfaceClass::WritePipe(UInt8 pipeRef, void *buf, UInt32 size, UInt32 noD
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
 
@@ -1166,7 +1174,7 @@ IOUSBInterfaceClass::ReadPipeAsync(UInt8 pipeRef, void *buf, UInt32 size, UInt32
     mach_msg_type_number_t	len = 0;
     IOReturn			ret;
 	
-    allChecks();
+    ALLCHECKS();
 	
     if (!fAsyncPort)
         return kIOUSBNoAsyncPortErr;
@@ -1186,7 +1194,7 @@ IOUSBInterfaceClass::ReadPipeAsync(UInt8 pipeRef, void *buf, UInt32 size, UInt32
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1202,7 +1210,7 @@ IOUSBInterfaceClass::WritePipeAsync(UInt8 pipeRef, void *buf, UInt32 size, UInt3
     mach_msg_type_number_t	len = 0;
     IOReturn			ret;
     
-    allChecks();
+    ALLCHECKS();
 
     if (!fAsyncPort)
         return kIOUSBNoAsyncPortErr;
@@ -1222,7 +1230,7 @@ IOUSBInterfaceClass::WritePipeAsync(UInt8 pipeRef, void *buf, UInt32 size, UInt3
     if (ret == MACH_SEND_INVALID_DEST)
     {
 	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
+	fInterfaceIsAttached = false;
 	ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1240,7 +1248,7 @@ IOUSBInterfaceClass::ReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameSt
     UInt32			i, total;
     IOReturn			ret;
 	
-    allChecks();
+    ALLCHECKS();
 	
     if (!fAsyncPort)
         return kIOUSBNoAsyncPortErr;
@@ -1268,7 +1276,7 @@ IOUSBInterfaceClass::ReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameSt
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1287,7 +1295,7 @@ IOUSBInterfaceClass::WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameS
     UInt32			i, total;
     IOReturn			ret;
 	
-    allChecks();
+    ALLCHECKS();
 	
     if (!fAsyncPort)
         return kIOUSBNoAsyncPortErr;
@@ -1314,7 +1322,7 @@ IOUSBInterfaceClass::WriteIsochPipeAsync(UInt8 pipeRef, void *buf, UInt64 frameS
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1334,7 +1342,7 @@ IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt
     LowLatencyUserBufferInfoV2 *		dataBufferInfo;
     LowLatencyUserBufferInfoV2 *		frameListData;
 	
-    allChecks();
+    ALLCHECKS();
 	
     if (!fAsyncPort)
         return kIOUSBNoAsyncPortErr;
@@ -1393,7 +1401,7 @@ IOUSBInterfaceClass::LowLatencyReadIsochPipeAsync(UInt8 pipeRef, void *buf, UInt
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
 
@@ -1417,7 +1425,7 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     LowLatencyUserBufferInfoV2 *		dataBufferInfo;
     LowLatencyUserBufferInfoV2 *		frameListData;
 	
-    allChecks();
+    ALLCHECKS();
 	
     if (!fAsyncPort)
         return kIOUSBNoAsyncPortErr;
@@ -1473,7 +1481,7 @@ IOUSBInterfaceClass::LowLatencyWriteIsochPipeAsync(UInt8 pipeRef, void *buf, UIn
     if (ret == MACH_SEND_INVALID_DEST)
     {
 		fIsOpen = false;
-		fConnection = MACH_PORT_NULL;
+		fInterfaceIsAttached = false;
 		ret = kIOReturnNoDevice;
     }
 	if ( ret )
@@ -1493,7 +1501,7 @@ IOUSBInterfaceClass::LowLatencyCreateBuffer( void ** buffer, IOByteCount bufferS
     UInt32				uhciMappedAddress = 0;
 	bool				useKernelBuffer = false;
 
-    allChecks();
+    ALLCHECKS();
 
     DEBUGPRINT("IOUSBLib::LowLatencyCreateBuffer size: %d, type, %d\n", (int)bufferSize, (int)bufferType);
     
@@ -1867,7 +1875,7 @@ IOUSBInterfaceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *at
     mach_msg_type_number_t 	outSize = sizeof(stuff);
     IOReturn 			ret;
 
-    connectCheck();
+    ATTACHEDCHECK();
 
     ret = io_connect_method_scalarI_structureO(fConnection, kUSBInterfaceUserClientGetMicroFrameNumber, NULL, 0, (char *)&stuff, &outSize);
     if(kIOReturnSuccess == ret)
@@ -1880,7 +1888,7 @@ IOUSBInterfaceClass::GetBusMicroFrameNumber(UInt64 *microFrame, AbsoluteTime *at
     if (ret == MACH_SEND_INVALID_DEST)
     {
         fIsOpen = false;
-        fConnection = MACH_PORT_NULL;
+        fInterfaceIsAttached = false;
         ret = kIOReturnNoDevice;
     }
     return ret;
@@ -1893,13 +1901,13 @@ IOUSBInterfaceClass::GetFrameListTime(UInt32 *microsecondsInFrame)
     mach_msg_type_number_t 	outSize = 1;
     IOReturn 			ret;
 
-    connectCheck();
+    ATTACHEDCHECK();
 
     ret = io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientGetFrameListTime, NULL, 0, (int*)microsecondsInFrame, &outSize);
     if (ret == MACH_SEND_INVALID_DEST)
     {
         fIsOpen = false;
-        fConnection = MACH_PORT_NULL;
+        fInterfaceIsAttached = false;
         ret = kIOReturnNoDevice;
     }
 	
@@ -1916,7 +1924,7 @@ IOUSBInterfaceClass::GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion 
     UInt32  	usbLibBundleVersion;
     UInt32 * 	tmp;
     
-    connectCheck();
+    ATTACHEDCHECK();
 
     // Make a CFURLRef from the CFString representation of the
     // bundle's path. See the Core Foundation URL Services chapter
@@ -2000,14 +2008,34 @@ IOUSBInterfaceClass::CacheConfigDescriptor()
         err = ControlRequest(0, &request);
         if ( kIOReturnSuccess != err )
         {
-            DEBUGPRINT("IOUSBInterfaceClass::CacheConfigDescriptor #1 error: 0x%x\n", err);
-            return err;
-        }
-        
+			IOUSBConfigurationDescriptor	confDesc;
+			
+			bzero(&confDesc, sizeof(IOUSBConfigurationDescriptor));
+			
+            DEBUGPRINT("IOUSBInterfaceClass[%p]::CacheConfigDescriptor #1 error: 0x%x trying to get the first 4 bytes, now trying to get the first 9 bytes \n", this, err);
+			
+			request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+			request.bRequest = kUSBRqGetDescriptor;
+			request.wValue = (kUSBConfDesc << 8) + i;
+			request.wIndex = 0;
+			request.wLength = 9; /// sizeof(IOUSBConfigurationDescriptor) is actually 10, which is a bummer
+			request.pData = &confDesc;
+			
+			err = ControlRequest(0, &request);
+			if ( kIOReturnSuccess != err )
+			{
+				DEBUGPRINT("IOUSBInterfaceClass[%p]::CacheConfigDescriptor #1a error: 0x%x trying to get the first 9 bytes \n", this, err);
+				return err;
+			}
+			size = USBToHostWord(confDesc.wTotalLength);
+		}
+		else
+		{
         size = USBToHostWord(configHdr.wTotalLength);
+		}
         fConfigLength = size+2;
         fConfigPtr = (IOUSBConfigurationDescriptorPtr) malloc(size+2);
-        DEBUGPRINT("IOUSBInterfaceClass::CacheConfigDescriptor fConfigPtr: 0x%lx, size: %ld\n", (UInt32)fConfigPtr, size+2);
+        DEBUGPRINT("IOUSBInterfaceClass[%p]::CacheConfigDescriptor fConfigPtr: 0x%lx, size: %ld\n", this, (UInt32)fConfigPtr, size+2);
         
         request.wLength = size;
         request.pData = fConfigPtr;
@@ -2015,7 +2043,7 @@ IOUSBInterfaceClass::CacheConfigDescriptor()
         err = ControlRequest(0, &request);
         if ( kIOReturnSuccess != err )
         {
-            DEBUGPRINT("IOUSBInterfaceClass::CacheConfigDescriptor full error: 0x%x\n", err);
+            DEBUGPRINT("IOUSBInterfaceClass[%p]::CacheConfigDescriptor full error: 0x%x\n", this, err);
             return err;
         }
         

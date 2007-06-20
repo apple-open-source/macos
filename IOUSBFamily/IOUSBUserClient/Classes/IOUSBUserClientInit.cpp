@@ -45,6 +45,7 @@
 //
 #define super IOService
 
+static	int		gInstances = 0;
 
 //================================================================================================
 //
@@ -81,6 +82,10 @@ IOUSBUserClientInit::start(IOService* provider)
 
     USBLog(6,"+%s[%p]::start(%p) - provider = %s", getName(), this, provider, provider->getName());
 
+	gInstances++;
+	if ( gInstances == 1 )
+		retain();
+	
     // Get our dictionary to merge
     //
     providerMergeProperties = OSDynamicCast(OSDictionary, getProperty("IOProviderMergeProperties"));
@@ -100,7 +105,8 @@ IOUSBUserClientInit::start(IOService* provider)
     
     USBLog(6,"-%s[%p]::start", getName(), this);
     
-    return result ;
+	// We will always return false so that other drivers can match to this device
+    return false;
 }
 
 //================================================================================================

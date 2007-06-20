@@ -41,6 +41,7 @@ static char lastok[POPBUFSIZE+1];
 #endif /* OPIE_ENABLE */
 
 /* session variables initialized in capa_probe() or pop3_getauth() */
+flag done_capa = FALSE;
 #if defined(GSSAPI)
 flag has_gssapi = FALSE;
 #endif /* defined(GSSAPI) */
@@ -52,7 +53,7 @@ static flag has_cram = FALSE;
 flag has_otp = FALSE;
 #endif /* OPIE_ENABLE */
 #ifdef SSL_ENABLE
-static flag has_ssl = FALSE;
+static flag has_stls = FALSE;
 #endif /* SSL_ENABLE */
 
 /* mailbox variables initialized in pop3_getrange() */
@@ -238,6 +239,9 @@ static int capa_probe(int sock)
 {
     int	ok;
 
+    if (done_capa) {
+	return PS_SUCCESS;
+    }
 #if defined(GSSAPI)
     has_gssapi = FALSE;
 #endif /* defined(GSSAPI) */
@@ -261,7 +265,7 @@ static int capa_probe(int sock)
 		break;
 #ifdef SSL_ENABLE
 	    if (strstr(buffer, "STLS"))
-		has_ssl = TRUE;
+		has_stls = TRUE;
 #endif /* SSL_ENABLE */
 #if defined(GSSAPI)
 	    if (strstr(buffer, "GSSAPI"))
@@ -279,6 +283,7 @@ static int capa_probe(int sock)
 		has_cram = TRUE;
 	}
     }
+    done_capa = TRUE;
     return(ok);
 }
 
@@ -302,9 +307,12 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
     char *challenge;
 #endif /* OPIE_ENABLE */
 #ifdef SSL_ENABLE
-    flag did_stls = FALSE;
+    char *realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
+    flag connection_may_have_tls_errors = FALSE;
+    flag got_tls = FALSE;
 #endif /* SSL_ENABLE */
 
+    done_capa = FALSE;
 #if defined(GSSAPI)
     has_gssapi = FALSE;
 #endif /* defined(GSSAPI) */
@@ -316,7 +324,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
     has_otp = FALSE;
 #endif /* OPIE_ENABLE */
 #ifdef SSL_ENABLE
-    has_ssl = FALSE;
+    has_stls = FALSE;
 #endif /* SSL_ENABLE */
 
     /* Set this up before authentication quits early. */
@@ -404,25 +412,29 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 
 	/*
 	 * CAPA command may return a list including available
-	 * authentication mechanisms.  if it doesn't, no harm done, we
-	 * just fall back to a plain login.  Note that this code 
-	 * latches the server's authentication type, so that in daemon mode
-	 * the CAPA check only needs to be done once at start of run.
+	 * authentication mechanisms and STLS capability.
 	 *
-	 * If CAPA fails, then force the authentication method to PASSORD
-	 * and repoll immediately.
+	 * If it doesn't, no harm done, we just fall back to a plain
+	 * login -- if the user allows it.
 	 *
-	 * These authentication methods are blessed by RFC1734,
-	 * describing the POP3 AUTHentication command.
+	 * Note that this code latches the server's authentication type,
+	 * so that in daemon mode the CAPA check only needs to be done
+	 * once at start of run.
+	 *
+	 * If CAPA fails, then force the authentication method to
+	 * PASSWORD, switch off opportunistic and repoll immediately.
+	 * If TLS is mandatory, fail up front.
 	 */
 	if ((ctl->server.authenticate == A_ANY) ||
-	    (ctl->server.authenticate == A_GSSAPI) ||
-	    (ctl->server.authenticate == A_KERBEROS_V4) ||
-	    (ctl->server.authenticate == A_OTP) ||
-	    (ctl->server.authenticate == A_CRAM_MD5))
+		(ctl->server.authenticate == A_GSSAPI) ||
+		(ctl->server.authenticate == A_KERBEROS_V4) ||
+		(ctl->server.authenticate == A_KERBEROS_V5) ||
+		(ctl->server.authenticate == A_OTP) ||
+		(ctl->server.authenticate == A_CRAM_MD5) ||
+		maybe_tls(ctl))
 	{
 	    if ((ok = capa_probe(sock)) != PS_SUCCESS)
-	    /* we are in STAGE_GETAUTH! */
+		/* we are in STAGE_GETAUTH => failure is PS_AUTHFAIL! */
 		if (ok == PS_AUTHFAIL ||
 		    /* Some servers directly close the socket. However, if we
 		     * have already authenticated before, then a previous CAPA
@@ -431,52 +443,89 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 		     */
 		    (ok == PS_SOCKET && !ctl->wehaveauthed))
 		{
-		    ctl->server.authenticate = A_PASSWORD;
-		    /* repoll immediately */
-		    ok = PS_REPOLL;
-		    break;
+#ifdef SSL_ENABLE
+		    if (must_tls(ctl)) {
+			/* fail with mandatory STLS without repoll */
+			report(stderr, GT_("TLS is mandatory for this session, but server refused CAPA command.\n"));
+			report(stderr, GT_("The CAPA command is however necessary for TLS.\n"));
+			return ok;
+		    } else {
+			/* defeat opportunistic STLS */
+			xfree(ctl->sslproto);
+			ctl->sslproto = xstrdup("");
+		    }
+#endif
+		    /* If strong authentication was opportunistic, retry without, else fail. */
+		    switch (ctl->server.authenticate) {
+			case A_ANY:
+			    ctl->server.authenticate = A_PASSWORD;
+			    /* FALLTHROUGH */
+			case A_PASSWORD: /* this should only happen with TLS enabled */
+			    return PS_REPOLL;
+			default:
+			    return PS_AUTHFAIL;
+		    }
 		}
 	}
 
 #ifdef SSL_ENABLE
-	if (has_ssl
-	    && !ctl->use_ssl
-	    && (!ctl->sslproto || !strcmp(ctl->sslproto,"tls1")))
-	{
-	    char *realhost;
-
-	   realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
-           ok = gen_transact(sock, "STLS");
-
-           /* We use "tls1" instead of ctl->sslproto, as we want STLS,
-            * not other SSL protocols
-            */
-	   if (ok == PS_SUCCESS &&
-	       SSLOpen(sock,ctl->sslcert,ctl->sslkey,"tls1",ctl->sslcertck, ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1)
+	if (maybe_tls(ctl)) {
+	   if (has_stls)
 	   {
-	       if (!ctl->sslproto && !ctl->wehaveauthed)
+	       /* Use "tls1" rather than ctl->sslproto because tls1 is the only
+		* protocol that will work with STARTTLS.  Don't need to worry
+		* whether TLS is mandatory or opportunistic unless SSLOpen() fails
+		* (see below). */
+	       if (gen_transact(sock, "STLS") == PS_SUCCESS
+		       && SSLOpen(sock, ctl->sslcert, ctl->sslkey, "tls1", ctl->sslcertck,
+			   ctl->sslcertpath, ctl->sslfingerprint, realhost,
+			   ctl->server.pollname, &ctl->remotename) != -1)
 	       {
-		   ctl->sslproto = xstrdup("");
-		   /* repoll immediately */
-		   return(PS_REPOLL);
+		   /*
+		    * RFC 2595 says this:
+		    *
+		    * "Once TLS has been started, the client MUST discard cached
+		    * information about server capabilities and SHOULD re-issue the
+		    * CAPABILITY command.  This is necessary to protect against
+		    * man-in-the-middle attacks which alter the capabilities list prior
+		    * to STARTTLS.  The server MAY advertise different capabilities
+		    * after STARTTLS."
+		    *
+		    * Now that we're confident in our TLS connection we can
+		    * guarantee a secure capability re-probe.
+		    */
+		   got_tls = TRUE;
+		   done_capa = FALSE;
+		   ok = capa_probe(sock);
+		   if (ok != PS_SUCCESS) {
+		       return ok;
+		   }
+		   if (outlevel >= O_VERBOSE)
+		   {
+		       report(stdout, GT_("%s: upgrade to TLS succeeded.\n"), realhost);
+		   }
 	       }
-	       report(stderr,
-		       GT_("SSL connection failed.\n"));
-		return PS_SOCKET;
-	    }
-	   did_stls = TRUE;
+	   }
 
-	   /*
-	    * RFC 2595 says this:
-	    *
-	    * "Once TLS has been started, the client MUST discard cached
-	    * information about server capabilities and SHOULD re-issue the
-	    * CAPABILITY command.  This is necessary to protect against
-	    * man-in-the-middle attacks which alter the capabilities list prior
-	    * to STARTTLS.  The server MAY advertise different capabilities
-	    * after STARTTLS."
-	    */
-	   capa_probe(sock);
+	   if (!got_tls) {
+	       if (must_tls(ctl)) {
+		   /* Config required TLS but we couldn't guarantee it, so we must
+		    * stop. */
+		   report(stderr, GT_("%s: upgrade to TLS failed.\n"), realhost);
+		   return PS_SOCKET;
+	       } else {
+		   /* We don't know whether the connection is usable, and there's
+		    * no command we can reasonably issue to test it (NOOP isn't
+		    * allowed til post-authentication), so leave it in an unknown
+		    * state, mark it as such, and check more carefully if things
+		    * go wrong when we try to authenticate. */
+		   connection_may_have_tls_errors = TRUE;
+		   if (outlevel >= O_VERBOSE)
+		   {
+		       report(stdout, GT_("%s: opportunistic upgrade to TLS failed, trying to continue.\n"), realhost);
+		   }
+	       }
+	   }
 	}
 #endif /* SSL_ENABLE */
 
@@ -561,19 +610,31 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	}
 #endif /* OPIE_ENABLE */
 
-	strlcpy(shroud, ctl->password, sizeof(shroud));
-	ok = gen_transact(sock, "PASS %s", ctl->password);
-	shroud[0] = '\0';
-#ifdef SSL_ENABLE
-	/* this is for servers which claim to support TLS, but actually
-	 * don't! */
-	if (did_stls && ok == PS_SOCKET && !ctl->sslproto && !ctl->wehaveauthed)
+	/* KPOP uses out-of-band authentication and does not check what
+	 * we send here, so send some random fixed string, to avoid
+	 * users switching *to* KPOP accidentally revealing their
+	 * password */
+	if ((ctl->server.authenticate == A_ANY
+		    || ctl->server.authenticate == A_KERBEROS_V4
+		    || ctl->server.authenticate == A_KERBEROS_V5)
+		&& (ctl->server.service != NULL
+		    && strcmp(ctl->server.service, KPOP_PORT) == 0))
 	{
-	    ctl->sslproto = xstrdup("");
-	    /* repoll immediately */
-	    ok = PS_REPOLL;
+	    ok = gen_transact(sock, "PASS krb_ticket");
+	    break;
 	}
-#endif
+
+	/* check if we are actually allowed to send the password */
+	if (ctl->server.authenticate == A_ANY
+		|| ctl->server.authenticate == A_PASSWORD) {
+	    strlcpy(shroud, ctl->password, sizeof(shroud));
+	    ok = gen_transact(sock, "PASS %s", ctl->password);
+	} else {
+	    report(stderr, GT_("We've run out of allowed authenticators and cannot continue.\n"));
+	    ok = PS_AUTHFAIL;
+	}
+	memset(shroud, 0x55, sizeof(shroud));
+	shroud[0] = '\0';
 	break;
 
     case P_APOP:
@@ -598,6 +659,20 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	else
 	    *++end = '\0';
 
+	/* SECURITY: 2007-03-17
+	 * Strictly validating the presented challenge for RFC-822
+	 * conformity (it must be a msg-id in terms of that standard) is
+	 * supposed to make attacks against the MD5 implementation
+	 * harder[1]
+	 *
+	 * [1] "Security vulnerability in APOP authentication",
+	 *     Gaëtan Leurent, fetchmail-devel, 2007-03-17 */
+	if (!rfc822_valid_msgid((unsigned char *)start)) {
+	    report(stderr,
+		    GT_("Invalid APOP timestamp.\n"));
+	    return PS_AUTHFAIL;
+	}
+
 	/* copy timestamp and password into digestion buffer */
 	msg = xmalloc((end-start+1) + strlen(ctl->password) + 1);
 	strcpy(msg,start);
@@ -609,14 +684,31 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	break;
 
     case P_RPOP:
-	if ((ok = gen_transact(sock,"USER %s", ctl->remotename)) == 0)
+	if ((ok = gen_transact(sock,"USER %s", ctl->remotename)) == 0) {
+	    strlcpy(shroud, ctl->password, sizeof(shroud));
 	    ok = gen_transact(sock, "RPOP %s", ctl->password);
+	    memset(shroud, 0x55, sizeof(shroud));
+	    shroud[0] = '\0';
+	}
 	break;
 
     default:
 	report(stderr, GT_("Undefined protocol request in POP3_auth\n"));
 	ok = PS_ERROR;
     }
+
+#ifdef SSL_ENABLE
+    /* this is for servers which claim to support TLS, but actually
+     * don't! */
+    if (connection_may_have_tls_errors
+		    && (ok == PS_SOCKET || ok == PS_PROTOCOL))
+    {
+	xfree(ctl->sslproto);
+	ctl->sslproto = xstrdup("");
+	/* repoll immediately without TLS */
+	ok = PS_REPOLL;
+    }
+#endif
 
     if (ok != 0)
     {
@@ -1019,8 +1111,9 @@ static int pop3_getrange(int sock,
 			     * the same mail will not be downloaded again.
 			     */
 			    old = save_str(&ctl->oldsaved, id, UID_UNSEEN);
-			    old->val.status.num = unum;
 			}
+			/* save the number */
+			old->val.status.num = unum;
 		    } else
 			return PS_ERROR;
 		} /* multi-line loop for UIDL reply */
@@ -1309,8 +1402,8 @@ static int pop3_logout(int sock, struct query *ctl)
 static const struct method pop3 =
 {
     "POP3",		/* Post Office Protocol v3 */
-    "pop3",		/* standard POP3 port */
-    "pop3s",		/* ssl POP3 port */
+    "pop3",		/* port for plain and TLS POP3 */
+    "pop3s",		/* port for SSL POP3 */
     FALSE,		/* this is not a tagged protocol */
     TRUE,		/* this uses a message delimiter */
     pop3_ok,		/* parse command response */

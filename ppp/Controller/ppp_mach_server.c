@@ -38,6 +38,7 @@ includes
 #include <CoreFoundation/CFMachPort.h>
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
 #include <SystemConfiguration/SCValidation.h>
+#include "bsm/libbsm.h"
 
 #include "ppp_client.h"
 #include "ppp_manager.h"
@@ -589,6 +590,35 @@ failed:
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
+__private_extern__
+kern_return_t
+_pppcontroller_iscontrolled(mach_port_t server,
+				int * result,
+				audit_token_t *audit_token)
+{
+    pid_t                pid = 0;
+	struct ppp			*ppp;
+
+	audit_token_to_au32(*audit_token,
+			    NULL,			// auidp
+			    NULL,			// euid
+			    NULL,			// egid
+			    NULL,			// ruid
+			    NULL,			// rgid
+			    &pid,			// pid
+			    NULL,			// asid
+			    NULL);			// tid
+
+	if ((ppp = ppp_findbypid(pid)) == 0)
+		*result = kSCStatusInvalidArgument;
+	else 
+		*result = kSCStatusOK;
+
+    return (KERN_SUCCESS);
+}
+
+/* -----------------------------------------------------------------------------
++----------------------------------------------------------------------------- */
 void mach_client_notify (mach_port_t port, CFStringRef serviceID, u_long event, u_long error)
 {
 	mach_msg_empty_send_t	msg;

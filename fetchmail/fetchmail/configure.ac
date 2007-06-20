@@ -1,11 +1,14 @@
 dnl Autoconfigure input file for fetchmail
-dnl Eric S. Raymond <esr@thyrsus.com>
-dnl Matthias Andree <matthias.andree@gmx.de>
-dnl
+#
+# Fetchmail automatic configuration support
+#
+# Eric S. Raymond <esr@thyrsus.com>
+# 2004 - 2007 Matthias Andree <matthias.andree@gmx.de>
+#
 dnl Process this file with autoconf to produce a configure script.
 dnl
 
-AC_INIT([fetchmail],[6.3.4],[fetchmail-users@lists.berlios.de])
+AC_INIT([fetchmail],[6.3.8],[fetchmail-users@lists.berlios.de])
 AC_CONFIG_SRCDIR([fetchmail.h])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_LIBOBJ_DIR([.])
@@ -24,6 +27,11 @@ dnl autobuild support, see <http://josefsson.org/autobuild/>
 )
 
 dnl python is optional
+#
+# you can pass PYTHON=: in environment or on the command line
+# to disable python detection and continue without building/installing
+# fetchmail.conf -- be sure to check README.packaging, too!
+#
 AM_PATH_PYTHON(2.0,,AC_MSG_WARN([Disabling fetchmailconf: python 2.0 or greater not found]))
 AM_CONDITIONAL([HAVE_PYTHON], [test "$PYTHON" != :])
 
@@ -91,7 +99,7 @@ esac
 
 dnl i18n
 AM_GNU_GETTEXT([external], [need-ngettext])
-AM_GNU_GETTEXT_VERSION(0.14.3)
+AM_GNU_GETTEXT_VERSION([0.14.6])
 dnl end i18n
 
 # Under sysV68, socket and friends are provided by the C library.
@@ -138,10 +146,30 @@ AC_SUBST(EXTRAOBJ)
 
 AC_CHECK_FUNCS(tcsetattr stty setsid geteuid seteuid dnl
   strerror syslog snprintf vprintf vsnprintf vsyslog dnl
-  atexit inet_aton strftime setrlimit socketpair sigprocmask dnl
+  atexit inet_aton strftime setrlimit socketpair dnl
   sigaction strdup setlocale)
 
 AC_CHECK_DECLS(strerror)
+dnl INET6 is used by KAME/getnameinfo
+AC_CACHE_CHECK(for AF_INET6/PF_INET6,ac_cv_inet6,
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([[
+    #ifdef HAVE_SYS_TYPES_H
+    #include <sys/types.h>
+    #endif
+    #ifdef HAVE_SYS_SOCKET_H
+    #include <sys/socket.h>
+    #endif
+  ]],[[
+    int foo = AF_INET6;
+    int bar = PF_INET6;
+  ]])],
+  ac_cv_inet6=yes , ac_cv_inet6=no
+))
+if test "x$ac_cv_inet6" = xyes
+then
+    AC_DEFINE(INET6,1,Define to 1 if your system defines AF_INET6 and PF_INET6.)
+fi
 
 # Under Red Hat 4.0 (and many other Linuxes) -lresolv is seriously flaky
 # and breaks gethostbyname(2).  It's better to use the bind stuff in the C
@@ -327,6 +355,7 @@ AC_ARG_ENABLE(POP2,
 	[with_POP2=$enableval],
 	[with_POP2=no])
 test "$with_POP2" = "yes" && AC_DEFINE(POP2_ENABLE,1,Define if you want POP2 support compiled in)
+AM_CONDITIONAL(POP2_ENABLE, test "$with_POP2" = yes)
 
 ###	use option --disable-POP3 to omit the POP3 support
 AC_ARG_ENABLE(POP3,
@@ -334,13 +363,15 @@ AC_ARG_ENABLE(POP3,
 	[with_POP3=$enableval],
 	[with_POP3=yes])
 test "$with_POP3" = "yes" && AC_DEFINE(POP3_ENABLE,1,Define if you want POP3 support compiled in)
+AM_CONDITIONAL(POP3_ENABLE, test "$with_POP3" = yes)
 
 ###	use option --disable-IMAP to omit the IMAP support
 AC_ARG_ENABLE(IMAP,
 	[  --disable-IMAP          don't compile in IMAP protocol support],
 	[with_IMAP=$enableval],
 	[with_IMAP=yes])
-test "$with_IMAP" = "yes" && AC_DEFINE(IMAP_ENABLE,1,"Define if you want IMAP support compiled in")
+test "$with_IMAP" = "yes" && AC_DEFINE(IMAP_ENABLE,1,Define if you want IMAP support compiled in)
+AM_CONDITIONAL(IMAP_ENABLE, test "$with_IMAP" = yes)
 
 ###	use option --disable-ETRN to omit the ETRN support
 AC_ARG_ENABLE(ETRN,
@@ -348,6 +379,7 @@ AC_ARG_ENABLE(ETRN,
 	[with_ETRN=$enableval],
 	[with_ETRN=yes])
 test "$with_ETRN" = "yes" && AC_DEFINE(ETRN_ENABLE,1,Define if you want ETRN support compiled in.)
+AM_CONDITIONAL(ETRN_ENABLE, test "$with_ETRN" = yes)
 
 ###	use option --disable-ODMR to omit the ODMR support
 AC_ARG_ENABLE(ODMR,
@@ -355,6 +387,7 @@ AC_ARG_ENABLE(ODMR,
 	[with_ODMR=$enableval],
 	[with_ODMR=yes])
 test "$with_ODMR" = "yes" && AC_DEFINE(ODMR_ENABLE,1,Define if you want ODMR support compiled in)
+AM_CONDITIONAL(ODMR_ENABLE, test "$with_ODMR" = yes)
 
 ###	use option --enable-RPA to compile in the RPA support
 AC_ARG_ENABLE(RPA,
@@ -362,6 +395,7 @@ AC_ARG_ENABLE(RPA,
 	[with_RPA=$enableval],
 	[with_RPA=no])
 test "$with_RPA" = "yes" && AC_DEFINE(RPA_ENABLE,1,Define if you want RPA support compiled in)
+AM_CONDITIONAL(RPA_ENABLE, test "$with_RPA" = yes)
 
 ###	use option --enable-NTLM to compile in the NTLM support
 AC_ARG_ENABLE(NTLM,
@@ -383,6 +417,10 @@ if test "$with_SDPS" = yes ; then
        AC_DEFINE(SDPS_ENABLE,1,Define if you want SDPS support compiled in)
    fi
 fi
+if test "$with_POP3" != yes && test "$with_POP2" != yes \
+    && test "$with_IMAP"  != yes ; then
+    AC_MSG_ERROR([You must enable at least one of POP2, POP3 and IMAP.])
+fi
 
 ###	use option --enable-opie to compile in the OPIE support
 AC_ARG_ENABLE(opie,
@@ -394,7 +432,26 @@ AC_ARG_ENABLE(opie,
 test "$with_opie" = "yes" && AC_DEFINE(OPIE_ENABLE,1,Define if you want OPIE support compiled in)
 
 AC_SEARCH_LIBS(getaddrinfo, inet6, [AC_DEFINE(HAVE_GETADDRINFO,1,[define to 1 if you have the getaddrinfo function])])
-AC_CHECK_FUNCS(getnameinfo)
+AC_CHECK_FUNCS(getnameinfo inet_ntop)
+AM_CONDITIONAL(NEED_GETADDRINFO, test "$ac_cv_search_getaddrinfo" != "none required")
+AM_CONDITIONAL(NEED_GETNAMEINFO, test "$ac_cv_func_getnameinfo"   != yes)
+
+dnl Check if getaddrinfo is async-signal-safe - most implementations aren't
+if test "$ac_cv_search_getaddrinfo" = "none required" ; then
+    AC_MSG_CHECKING(if your getaddrinfo is async-signal-safe)
+    gai_ts=no
+    dnl we have getaddrinfo() - check if the OS is known to have a async-signal-safe implementation
+    case $target_os in
+	darwin9*)				gai_ts=yes ;;
+	linux*)					gai_ts=yes ;;
+	freebsd5.5|freebsd6*|freebsd7*)		gai_ts=yes ;;
+	solaris2.8|solaris2.9|solaris2.10)	gai_ts=yes ;;
+    esac
+    AC_MSG_RESULT($gai_ts)
+    if test $gai_ts = yes ; then
+	AC_DEFINE(GETADDRINFO_ASYNCSAFE, 1, [define to 1 if you know your getaddrinfo function is async-signal-safe])
+    fi
+fi
 
 # This version of the Kerberos 4 and 5 options addresses the follwing issues:
 # 
@@ -448,10 +505,11 @@ else
   with_kerberos5=
   for dir in $searchdirs
   do AC_MSG_CHECKING([for Kerberos V in $dir])
-     if test -f "$dir/include/krb5.h"
+     if test -f "$dir/include/krb5.h" || test -f "$dir/include/krb5/krb5.h"
      then
+	if test -d "$dir/include/krb5" ; then CPFLAGS="$CPFLAGS -I$dir/include/krb5" ; fi
         ac_krblibs=
-        if test -f "$dir/include/roken.h"
+        if test -f "$dir/include/roken.h" || test -f "$dir/include/krb5/roken.h"
         then
            ac_krblibs="-lasn1 -lroken -lcom_err"
            AC_MSG_RESULT([Heimdal found])
@@ -499,25 +557,30 @@ fi
 ]) dnl --with-kerberos5=DIR
 
 ###    use option --with-kerberos=DIR to point at a Kerberos 4 directory
+KERBEROS_V4=0
 AC_ARG_WITH(kerberos,
        [  --with-kerberos=DIR     point fetchmail compilation at a Kerberos 4 directory],
 [
 if test "$with_kerberos" != "no"
 then
+    AC_MSG_WARN([Kerberos IV support is obsolete. Use --with-kerberos5 if possible.])
 # Check for a NetBSD/OpenBSD special case
 if test "$with_kerberos" = "yes" && ( test `uname` = "NetBSD" || test `uname` = "OpenBSD" )
 then
   AS_MESSAGE(checking kerberosIV for `uname`...)
-  AC_DEFINE(KERBEROS_V4,1,Define if you have Kerberos V4)
+  KERBEROS_V4=1
   CEFLAGS="$CEFLAGS -I/usr/include/kerberosIV"
-  LIBS="$LIBS -lkrb -ldes"
+  case `uname` in
+      NetBSD)  LIBS="$LIBS -lkrb -ldes -lroken -lcom_err" ;;
+      OpenBSD) LIBS="$LIBS -lkrb -ldes" ;;
+  esac
 elif krb4-config 2> /dev/null >/dev/null ; then
   krb4_prefix=`krb4-config --prefix`
   AC_MSG_RESULT([krb4-config points to kerberosIV under $krb4_prefix])
   unset krb4_prefix
   CEFLAGS="$CEFLAGS `krb4-config --cflags`"
   LIBS="$LIBS `krb4-config --libs`"
-  AC_DEFINE(KERBEROS_V4)
+  KERBEROS_V4=1
 elif krb5-config 2> /dev/null >/dev/null ; then
   krb4_prefix=`krb5-config --prefix krb4`
   AC_MSG_RESULT([krb5-config points to kerberosIV under $krb4_prefix])
@@ -527,7 +590,7 @@ elif krb5-config 2> /dev/null >/dev/null ; then
   unset krb4_prefix
   CEFLAGS="$CEFLAGS `krb5-config --cflags krb4`"
   LIBS="$LIBS `krb5-config --libs krb4`"
-  AC_DEFINE(KERBEROS_V4)
+  KERBEROS_V4=1
 else
   #we need to detect when we're building under a kerberosV compatibility
   #layer, btw...
@@ -566,7 +629,7 @@ else
      else
        dir="$dir/include"
      fi
-     AC_DEFINE(KERBEROS_V4)
+     KERBEROS_V4=1
      test -f "$with_kerberos5/roken.h" && AC_DEFINE(HEIMDAL)
      test "$dir" != "/usr/include" && CEFLAGS="$CEFLAGS -I$dir"
      LDEFLAGS="$LDEFLAGS -L$with_kerberos/lib"
@@ -579,6 +642,10 @@ else
 fi
 fi
 ]) dnl --with-kerberos=DIR
+if test "$KERBEROS_V4" = 1 ; then
+    AC_DEFINE(KERBEROS_V4,1,Define if you have Kerberos V4)
+fi
+AM_CONDITIONAL(KERBEROS_V4_ENABLE, test "$KERBEROS_V4" = 1)
 
 ###	use option --with-ssl to compile in the SSL support
 AC_ARG_WITH(ssl,
@@ -589,7 +656,7 @@ test "$with_ssl" != "no" && AC_DEFINE(SSL_ENABLE,1,Define if you want SSL suppor
 
 if test "$with_ssl" = "yes"
 then
-    #	He didn't specify an SSL location.  Let's look at some common
+    #	User didn't specify an SSL location.  Let's look at some common
     #	directories where SSL has been found in the past and try and auto
     #	configure for SSL.  OpenSSL determination will be made later.
     #	This will screw up if an OpenSSL install is located in a later
@@ -712,29 +779,45 @@ then
   then
     with_gssapi=$with_kerberos5
   fi
+
   if test "$with_gssapi" != "yes" -a -n "$with_gssapi"
   then
     CFLAGS="$CFLAGS -I$with_gssapi/include"
     LDFLAGS="$LDFLAGS -L$with_gssapi/lib"
   fi
 
-  AC_CHECK_LIB(gss, gss_check_version, LIBS="$LIBS -lgss", nogss=t)
-  if test -n "$nogss"
-  then
-  if test -f "$with_gssapi/include/roken.h"
-  then
-     LIBS="$LIBS -lkrb5 -lasn1 -ldes -lroken -ldb -ldl"
-     AC_CHECK_LIB(gssapi, gss_init_sec_context,LIBS="$LIBS -lgssapi",
-                  AC_MSG_ERROR([could not find libgssapi which is needed for GSSAPI support]), )
-     AC_DEFINE(HEIMDAL)
+  dnl obtain gssapi default libs
+  if krb5-config --libs gssapi 2>/dev/null >/dev/null ; then
+      LIBS="$LIBS `krb5-config --libs gssapi`"
   else
-     AC_CHECK_LIB(gssapi_krb5, gss_init_sec_context,LIBS="$LIBS -lgssapi_krb5",
-                  AC_MSG_ERROR([could not find libgssapi_krb5 which is needed for GSSAPI support]), -lkrb5)
-  fi
+    AC_CHECK_LIB(gss, gss_check_version, LIBS="$LIBS -lgss", nogss=t)
+    if test -n "$nogss"
+    then
+      # -lgss not found
+      if test "$with_gssapi" = yes ; then
+	  with_gssapi=/usr
+      fi
+      if test -f "$with_gssapi/include/roken.h" -o -f "$with_gssapi/include/krb5/roken.h"
+      then
+         # have roken.h, assume Heimdal
+	 case `uname` in
+	     NetBSD) LIBS="$LIBS -lkrb5" ;;
+	     *)      LIBS="$LIBS -lkrb5 -lasn1 -ldes -lroken -ldb -ldl" ;;
+	 esac
+         AC_CHECK_LIB(gssapi, gss_init_sec_context,LIBS="$LIBS -lgssapi",
+                      AC_MSG_ERROR([could not find libgssapi which is needed for GSSAPI support]), )
+         AC_DEFINE(HEIMDAL)
+      else
+         # no roken.h, assume MIT
+         AC_CHECK_LIB(gssapi_krb5, gss_init_sec_context,LIBS="$LIBS -lgssapi_krb5",
+                      AC_MSG_ERROR([could not find libgssapi_krb5 which is needed for GSSAPI support]), -lkrb5)
+      fi
+    fi
   fi
   AC_DEFINE(GSSAPI,1,Define if you want GSSAPI authentication)
-  save_CPPFLAGS=$CPPFLAGS
-  CPPFLAGS="-I$with_gssapi/include"
+  if test "$with_gssapi" != yes ; then
+    CPPFLAGS="-I$with_gssapi/include"
+  fi
   AC_CHECK_HEADERS(gss.h gssapi.h gssapi/gssapi.h gssapi/gssapi_generic.h)
   if test "$ac_cv_header_gssapi_h" = "yes"; then
     AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi.h, AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,1,Define if you have MIT kerberos))

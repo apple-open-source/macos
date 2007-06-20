@@ -370,7 +370,7 @@ main(argc, argv)
     privileged = uid == 0;
 #ifdef __APPLE__
 	if (!privileged)
-		privileged = fd_local_uid(STDIN_FILENO) == 0;
+		privileged = sys_check_controller();
 #endif
     slprintf(numbuf, sizeof(numbuf), "%d", uid);
     script_setenv("ORIG_UID", numbuf, 0);

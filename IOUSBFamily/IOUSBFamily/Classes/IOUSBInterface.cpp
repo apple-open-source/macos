@@ -225,7 +225,7 @@ IOUSBInterface::SetProperties(void)
 						guid[j+12] = serial[length-12+j];
 					
 					guid[24] = '\0';
-					USBLog(5,"IOUSBInterface: uid %s", guid);
+					USBLog(6,"%s[%p]: uid %s", getName(), this, guid);
 					_device->setProperty("uid", guid);
 				}
 			}
@@ -351,18 +351,17 @@ IOUSBInterface::free()
     //
     if (_expansionData)
     {
-        if (_gate)
-        {
+		if ( _gate)
+		{
+			_gate->release();
+			_gate = NULL;
+		}
+		
             if (_workLoop)
             {
-                ret = _workLoop->removeEventSource(_gate);
-                _workLoop->release();
-                _workLoop = NULL;
-            }
-
-            _gate->release();
-            _gate = NULL;
-        }
+			_workLoop->release();
+			_workLoop = NULL;
+		}
 
         IOFree(_expansionData, sizeof(ExpansionData));
         _expansionData = NULL;
@@ -492,10 +491,7 @@ IOUSBInterface::open( IOService *forClient, IOOptionBits options, void *arg )
     bool			res = true;
     IOReturn		error = kIOReturnSuccess;
 	
-    // Check to see if we need to open the driver while holding the gate.  The USB Device Nub should
-    // have the kCallInterfaceOpenWithGate property set.
-    //
-    if ( _gate )
+    if ( _expansionData && _gate )
     {
         USBLog(6,"%s[%p]::open calling super::open with gate", getName(), this);
         error = _gate->runAction( CallSuperOpen, (void *)forClient, (void *)options, (void *)arg );
@@ -542,14 +538,18 @@ IOUSBInterface::handleOpen( IOService *forClient, IOOptionBits options, void *ar
         USBLog(5, "%s[%p]::handleOpen calling SetAlternateInterface(%d)", getName(), this, altInterface);
         err =  SetAlternateInterface(forClient, altInterface);
         if ( err != kIOReturnSuccess) 
-            USBError(1, "%s[%p]::handleOpen: SetAlternateInterface failed (0x%x)", getName(), this, err);
+		{
+            USBLog(1, "%s[%p]::handleOpen: SetAlternateInterface failed (0x%x)", getName(), this, err);
+		}
         
     }
     else
     {
         err = CreatePipes();
         if ( err != kIOReturnSuccess) 
+		{
             USBError(1, "%s[%p]::handleOpen: CreatePipes failed (0x%x)", getName(), this, err);
+    }
     }
     
     if (err != kIOReturnSuccess)
@@ -567,7 +567,7 @@ IOUSBInterface::close( IOService *forClient, IOOptionBits options)
 {
     IOReturn		error = kIOReturnSuccess;
     
-    if ( _gate )
+    if ( _expansionData && _gate )
     {
         USBLog(6,"%s[%p]::close calling super::close with gate", getName(), this);
         (void) _gate->runAction( CallSuperClose, (void *)forClient, (void *)options);
@@ -598,7 +598,7 @@ IOUSBInterface::handleClose(IOService *	forClient, IOOptionBits	options )
     
     super::handleClose(forClient, options);
 
-	if (_needToClose)
+	if ( _expansionData && _needToClose)
 	{
 		USBLog(3,"IOUSBInterface[%p]::handleClose - now closing our provider from deferred close", this);
 		_device->close(this);
@@ -956,19 +956,8 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     // property table against the supplied matching dictionary,
     // it should do so in this method and return truth on success.
     //
-    if (!super::matchPropertyTable(table))  return false;
-    
-    // something of a hack. We need the IOUSBUserClientInit "driver" to match in order
-    // for us to be able to find the user mode plugin. However, that driver can't
-    // effectively match using the USB Common Class Spec, so we special case it as a
-    // short circuit
-    userClientInitMatchKey = OSDynamicCast(OSString, table->getObject(kIOMatchCategoryKey));
-    if (userClientInitMatchKey && !strcmp(userClientInitMatchKey->getCStringNoCopy(), "IOUSBUserClientInit"))
-    {
-        USBLog(6, "%s[%p]: matching IOUSBUserClientInit", getName(), this);
-        *score = 9000;
-        return true;
-    }
+    if (!super::matchPropertyTable(table))  
+		return false;
     
     // If the property score is > 10000, then clamp it to 9000.  We will then add this score
     // to the matching criteria score.  This will allow drivers
@@ -1062,7 +1051,7 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     
     //  Only execute the debug code if we are logging at higher than level 4
     //
-    if ( gKernelDebugLevel > 4 )
+    if ( (*score > 0) && (gKernelDebugLevel > 4) )
     {
 	OSString * 	identifier = OSDynamicCast(OSString, table->getObject("CFBundleIdentifier"));
 	OSNumber *	vendor = (OSNumber *) getProperty(kUSBVendorID);
@@ -1215,7 +1204,7 @@ IOUSBInterface::didTerminate( IOService * provider, IOOptionBits options, bool *
 		USBLog(6, "IOUSBInterface[%p]::didTerminate - closing _device", this);
 		if (isOpen())
 		{
-			USBLog(3, "IOUSBInterface[%p]::didTerminate - deferring close because someone still has us open", this);
+			USBLog(5, "%s[%p]::terminate - deferring close because someone still has us open", getName(), this);
 			_needToClose = true;
 		}
 		else
@@ -1237,10 +1226,16 @@ IOUSBInterface::stop( IOService * provider )
 {
 
     USBLog(7,"+%s[%p]::stop (provider = %p)", getName(), this, provider);
-
+	
     ClosePipes();
-    super::stop(provider);
 
+	if (_expansionData && _gate && _workLoop)
+	{
+		_workLoop->removeEventSource(_gate);
+	}
+    
+	super::stop(provider);
+	
     USBLog(7,"-%s[%p]::stop (provider = %p)", getName(), this, provider);
 
 }

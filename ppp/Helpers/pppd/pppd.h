@@ -276,7 +276,6 @@ extern volatile int status;	/* exit status for pppd */
 extern bool	controlled ;	/* Is pppd controlled by the PPPController ?  */
 extern FILE 	*controlfile;	/* file descriptor for options and control */
 extern int 	controlfd;	/* file descriptor for options and control */
-extern uid_t 	controlfd_uid;	/* uid at the other end of the control file descriptor */
 extern int 	statusfd ;	/* file descriptor status update */
 extern volatile int devstatus;	/* exit device status for pppd */
 extern char	username[MAXNAMELEN];/* Our name for authenticating ourselves */
@@ -742,10 +741,10 @@ void wait_input __P((struct timeval *));
 void add_fd __P((int));		/* Add fd to set to wait for */
 void remove_fd __P((int));	/* Remove fd from set to wait for */
 #ifdef __APPLE__
-uid_t fd_local_uid(int fd); /* uid of the local socket file descriptor */
 void sys_statusnotify(); /* send status notification to the controller */
 void sys_reinit();			/* reinit after pid has changed */
 void sys_install_options(void);		/* install system specific options, before sys_init */
+int sys_check_controller(void);
 int sys_loadplugin(char *arg);
 int sys_getconsoleuser(uid_t *uid);	/* get the current console user */
 void sys_new_event(u_long m);

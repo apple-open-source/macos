@@ -237,7 +237,6 @@ smb_ctx_parseunc(struct smb_ctx *ctx, const char *unc, int sharetype,
 			error = smb_ctx_setpassword(ctx, unpercent(p1));
 			if (error)
 				return error;
-			ctx->ct_flags |= SMBCF_EXPLICITPWD;
 			if (p - colon > 2)
 				memset(colon+1, '*', p - colon - 2);
 		}
@@ -505,6 +504,7 @@ smb_ctx_setpassword(struct smb_ctx *ctx, const char *passwd)
 	else
 		strcpy(ctx->ct_ssn.ioc_password, passwd);
 	strcpy(ctx->ct_sh.ioc_password, ctx->ct_ssn.ioc_password);
+	ctx->ct_flags |= SMBCF_EXPLICITPWD;
 	return 0;
 }
 
@@ -804,7 +804,6 @@ reauth:
 		error = smb_ctx_setpassword(ctx, cp);
 		if (error)
 			return error;
-		ctx->ct_flags |= SMBCF_EXPLICITPWD;
 	}
 	/*
 	 * if we have a session it is either anonymous
@@ -1594,8 +1593,6 @@ smb_ctx_readrcsection(struct smb_ctx *ctx, const char *sname, int level)
 			error = smb_ctx_setpassword(ctx, p);
 			if (error)
 				smb_error("password specification in the section '%s' ignored", error, sname);
-			else
-				ctx->ct_flags |= SMBCF_EXPLICITPWD;
 		}
 	}
 	rc_getstringptr(smb_rc, sname, "workgroup", &p);

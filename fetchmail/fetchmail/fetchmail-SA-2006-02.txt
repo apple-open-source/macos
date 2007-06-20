@@ -1,0 +1,125 @@
+fetchmail-SA-2006-02: TLS enforcement problem/MITM attack/password exposure
+
+Topics:		fetchmail cannot enforce TLS
+
+Author:		Matthias Andree
+Version:	1.1
+Announced:	2007-01-04
+Type:		secret information disclosure
+Impact:		fetchmail can expose cleartext password over unsecure link
+		fetchmail may not detect man in the middle attacks
+Danger:		medium
+Credits:	Isaac Wilcox (bug report, testing, collaboration on fix)
+CVE Name:	CVE-2006-5867
+URL:		http://fetchmail.berlios.de/fetchmail-SA-2006-02.txt
+Project URL:	http://fetchmail.berlios.de/
+
+Affects:	fetchmail releases <= 6.3.5
+		fetchmail release candidates 6.3.6-rc1, -rc2, -rc3
+
+Not affected:	fetchmail release candidates 6.3.6-rc4, -rc5
+		fetchmail release 6.3.6
+		fetchmail release 6.3.7
+
+Corrected:	2006-11-26 fetchmail 6.3.6-rc4
+
+
+0. Release history
+==================
+
+2006-11-16	v0.01 internal review draft
+2006-11-26	v0.02 revise failure cases, workaround, add acknowledgments
+2006-11-27	v0.03 add more vulnerabilities
+2007-01-04	v1.0  ready for release
+2007-02-18	v1.1  mention 6.3.7 that fixes two regressions
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+
+2. Problem description and Impact
+=================================
+
+Fetchmail has had several nasty password disclosure vulnerabilities for
+a long time. It was only recently that these have been found.
+
+V1. sslcertck/sslfingerprint options should have implied "sslproto tls1"
+    in order to enforce TLS negotiation, but did not.
+
+V2. Even with "sslproto tls1" in the config, fetches would go ahead
+    in plain text if STLS/STARTTLS wasn't available (not advertised,
+    or advertised but rejected).
+
+V3. POP3 fetches could completely ignore all TLS options whether
+    available or not because it didn't reliably issue CAPA before
+    checking for STLS support - but CAPA is a requisite for STLS.
+    Whether or not CAPAbilities were probed, depended on the "auth"
+    option. (Fetchmail only tried CAPA if the auth option was not set at
+    all, was set to gssapi, kerberos, kerberos_v4, otp, or cram-md5.)
+
+V4. POP3 could fall back to using plain text passwords, even if strong
+    authentication had been configured.
+
+V5. POP2 would not complain if strong authentication or TLS had been
+    requested.
+
+This can cause eavesdroppers to obtain the password, depending on the
+authentication scheme that is configured or auto-selected, and
+subsequently impersonate somebody else when logging into the upstream
+server.
+
+
+3. Workaround
+=============
+
+If your upstream offers SSLv3-wrapped service on a dedicated port,
+use   fetchmail --ssl --sslcertck --sslproto ssl3   on the command line,
+or equivalent in the run control file.  This encrypts the whole session.
+
+
+4. Solution
+===========
+
+  The earlier recommendation to install 6.3.6 is hereby updated, since
+  version 6.3.6 introduced two new regressions fixed in 6.3.7: one broke
+  KPOP altogether and one broke the automatic POP3 retries without TLS
+  if a server advertised TLS but then closed the connection and TLS
+  wasn't enforced.
+
+Download and install fetchmail 6.3.7 or a newer stable release from
+fetchmail's project site at
+<http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+5. Acknowledgments
+==================
+
+Isaac Wilcox has been a great help with testing the fixes and getting
+them right.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2007 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+END OF fetchmail-SA-2006-02.txt

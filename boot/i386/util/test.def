@@ -1,2 +1,0 @@
-char *malloc(int len) len ;
-int gets(char *buf) buf ;

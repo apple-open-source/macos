@@ -1,20 +1,28 @@
-These are scripts to help you running fetchmail in special situations. 
-Note: you're on your own using these -- I don't really understand them,
-I'm just passing them along.
-								--esr
+These are scripts or configuration snippets to help you running
+fetchmail in special situations.
 
-maildaemon:
+Note: you're on your own using these -- the fetchmail team undertakes no
+efforts in understanding them, they are just passing them along.
+								--esr, ma
 
+This file is currently unsorted. Use your pager's search function when
+looking for the description of a particular file in this directory.  --ma
+
+### 0*.html:
+Messages from the archives of the old fetchmail-friends mailing list,
+for off-line reading.
+
+### maildaemon:
 Larry Fahnoe wrote this for driving fetchmail from cron.  It may be useful if
 you want to force a PPP link up and then poll for mail at specified times.
 I have rearranged it slightly to make it easier to configure.
 
-novell:
+### novell:
 
 Some mail from Dan Newcombe describing how to write a procmail rule that
 will domainify Novell server names.
 
-login & logout:
+### login & logout:
 
 These are intended to help if you typically have multiple logins active.
 Here's the script composer's original README:
@@ -47,18 +55,18 @@ if [ $LOGINS = 1 ]; then
     /usr/bin/fetchmail -q > /dev/null 2>&1
 fi
 
-ip-up:
+### ip-up:
 
 A note from James Stevens about using fetchmail in an ip-up script without
 disabling timeouts.
 
-runfetchmail:
+### runfetchmail:
 
 A shellscript front end for fetchmail that mails you various statistics on
 the downloaded mail and the state of your folders.  A good example of what
 you can do with your own front end.
 
-fetchspool:
+### fetchspool:
 
 If you find that the speed of forwarding to port 25 is limited by the
 SMTP listener's speed, it may make sense to locally spool all the mail
@@ -66,14 +74,14 @@ first and feed it to sendmail after you hang up the network link.
 This shellscript aims to do exactly that.  It would be smarter to
 figure out why sendmail is slow, however.
 
-fetchsetup:
+### fetchsetup:
 
 This is a shell script for creating a $HOME/.fetchmailrc file, it will ask
 you some questions and based on your answers it will create a .fetchmailrc
 file, fetchsetup is linux specific so it may not work on another operating
 system.
 
-mailqueue.pl:
+### mailqueue.pl:
 
 This script will connect to your isp (if not already connected),
 send any outgoing mail and retrieve any incoming mail.  If this
@@ -81,35 +89,38 @@ program made the connection, it will also break the connection
 when it is done.  By Bill Adams, <bill@evil.inetarena.com>.  The
 latest version is carried at <http://evil.inetarena.com/>.
 
-redhat_rc:
+### redhat_rc:
 
 A fetchmail boot-time init file compatible with RedHat 5.1.  It leaves
 fetchmail in background to get messages when you connect to your ISP.
 The invoked fetchmail expects to find its configuration in
 /etc/fetchmailrc, and must include the proper "interface" directive.
 
-debian_rc:
+### debian_rc:
 
 A fetchmail boot-time init file compatible with Debian.  It leaves
 fetchmail in background to get messages when you connect to your ISP.
 The invoked fetchmail expects to find its configuration in
 /root/.fetchmailrc, and must include the proper "interface" directive.
 
-start_dynamic_ppp:
+Matthias Andree adds: note that current Debian packages (as of January
+2007) ship with their own init files.
+
+### start_dynamic_ppp:
 
 An admittedly scratchy ip-up script that Ryan Murray wrote to cope with
 dynamic PPP addressing.  Will need some customizing.
 
 	http://www.inetarena.com/~badams/linux/programs/mailqueue.pl
 
-getfetchmail:
+### getfetchmail:
 
 Here's a script that gets Eric's most recent fetchmail source rpm,
 downloads it and (if the rpm's not broken) rebuilds it.
 
 With fairly simple changes it can be used to download the latest i386 rpm
 or tar.gz.
- 
+
 Those who are addicted to having the latest of everything could filter mail
 from fetchmail announce through it and get new versions as they're
 announced. However, if we all did that, Eric's ftp server might feel a
@@ -118,18 +129,18 @@ little stressed.
 The script as written works on bash 2.  By John Summerfield
 <summer@os2.ami.com.au>.
 
-zsh-completion:
+### zsh-completion:
 
 These commands set up command completion for fetchmail under zsh.
 Jay Kominek <jay.kominek@colorado.edu>.
 
-getmail/gotmail:
+### getmail/gotmail:
 
 These scripts are front ends for fetchmail in daemon mode that can gather
 log statistics and generate text or HTML reports.  See README.getmail for
 details.  Scripts by Thomas Nesges <ThomaNesges@TNT-Computer.de>.
 
-fetchmaildistrib:
+### fetchmaildistrib:
 
 This script resolves the issue where the sysadmin polls for mail with fetchmail
 only at set intervals, but where a user wishes to see his email right
@@ -138,42 +149,57 @@ automated with this script; whenever /etc/fetchmailrc is changed, this
 script is run to distribute the stuff into all user's ~/.fetchmailrc
 files.
 
-multidrop:
+### multidrop:
 
 Martijn Lievaart's sendmail hacks to make multidrop reliable.
 
-domino:
+### domino:
 
 Gustavo Chaves <gustavo@cpqd.com.br> wrote this script to deal with 
 the boundary-mismatch bug in Domino (see FAQ item X5).  If you use
 this with --mda, the broken boundaries will be fixed and the result
 passed to procmail.
 
-toprocmail:
+### toprocmail:
 
 John Lim Eng Hooi <jleh@mail.com> wrote this script, yet another 
 mda plugin, to be used with fetchmail in foreground mode.  It displays
 some header lines to stdout in color, passing them (and the rest of the
 message content) to procmail.
 
-preauth-harness:
+### preauth-harness:
 
 Emmanuel Dreyfus's Perl test script for exercising IMAP PREAUTH
 connections.  You'll have to patch in your username and password.
 
-sm-hybrid:
+### sm-hybrid:
 
 Peter 'Rattacresh' Backes sent this patch to improve the behavior of 
 sendmail 8.11.0 with multidrop.
 
-fetchmailnochda.pl
+### fetchmailnochda.pl
 
 Watchdog script to check whether fetchmail is working in daemon mode.
 
-mold-remover.py
+### mold-remover.py
 
 A short python script to remove old read mail from a pop3 mailserver.
 Dovetails with fetchmail with keep option.
 Run it as a cron job...
 
+### PopDel.py
 
+PopDel stands for Pop Delete; this program deletes selected email from a
+pop mail server. (By Richard Harris, improved by Joshua Crawford.)
+
+### fetchmail.logrotate (added 2007-01-14, --ma)
+
+A logrotate configuration file developped by Daniel Leidert for Debian,
+when he wanted to use /var/log/fetchmail instead of the usual syslog.
+It probably needs to be adjusted for use on other systems.
+
+### delete-later (added 2007-03-17, --ma)
+
+A MySQL/Tcl/Expect-based client-side script to remove messages at a
+certain age.  See delete-later.README for details.
+(By Carsten Ralle, Yoo GmbH, Germany.)

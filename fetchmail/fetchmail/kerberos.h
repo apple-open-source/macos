@@ -11,7 +11,7 @@
 
 #ifdef KERBEROS_V5
 #include <krb5.h>
-#include <com_err.h>
+/* #include <com_err.h> */
 #endif
 
 #ifdef KERBEROS_V4

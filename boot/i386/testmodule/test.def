@@ -1,3 +1,0 @@
-void test_init(char *string) string;
-void test_start(char *string) string;
-void test_end(char *string) string;

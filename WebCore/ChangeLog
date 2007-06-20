@@ -1,3 +1,21 @@
+=== WebCore-418.22 ===
+
+2007-05-23  Timothy Hatcher  <timothy@apple.com>
+
+        Merged fix from TOT to Safari-2-0-branch
+
+    2005-10-05  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Eric.
+
+        <rdar://problem/4150976> Safari crashes in HTMLImageLoader::dispatchLoadEvent() on particular page (archive attached)
+
+        I couldn't figure out how tor this; even once I got DumpRenderTree
+        to mouse in and out it did not crash.
+        
+        * khtml/html/html_imageimpl.cpp:
+        (HTMLImageLoader::dispatchLoadEvent): Check if CachedImage is null before using it.
+
 === WebCore-418.21 ===
 
 2006-08-15  Geoffrey Garen  <ggaren@apple.com>

@@ -267,6 +267,13 @@ void IOHIDLibUserClient::cleanupGated()
         fResourceNotification->remove();
         fResourceNotification = 0;
     }
+    
+    if (fResourceES) {
+        if ( fWL )
+            fWL->removeEventSource(fResourceES);
+        fResourceES->release();
+        fResourceES = 0;
+    }
 }
 
 bool IOHIDLibUserClient::start(IOService *provider)
@@ -492,9 +499,9 @@ IOReturn IOHIDLibUserClient::closeGated()
 {
     fNub->close(this, fCachedOptionBits);
 
+    setValid(false);
+
 	fCachedOptionBits = 0;
-	fCachedConsoleUsersSeed = 0;
-	resourceNotificationGated();
 
     // @@@ gvdl: release fWakePort leak them for the time being
 

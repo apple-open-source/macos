@@ -1,7 +1,7 @@
 FTPD.CONF(5)              NetBSD File Formats Manual              FTPD.CONF(5)
 
 NNAAMMEE
-     ffttppdd..ccoonnff - tnftpd(8) configuration file
+     ffttppdd..ccoonnff -- tnftpd(8) configuration file
 
 DDEESSCCRRIIPPTTIIOONN
      The ffttppdd..ccoonnff file specifies various configuration options for tnftpd(8)
@@ -44,8 +44,6 @@ DDEESSCCRRIIPPTTIIOONN
      class.
 
      Each configuration line may be one of:
-
-     aaddvveerrttiissee _c_l_a_s_s [_h_o_s_t]
 
      aaddvveerrttiizzee _c_l_a_s_s [_h_o_s_t]
            Set the address to advertise in the response to the PPAASSVV and LLPPSSVV
@@ -127,6 +125,14 @@ DDEESSCCRRIIPPTTIIOONN
            exists, and if so, display its contents to the user.  Escape
            sequences are supported; refer to _D_i_s_p_l_a_y _f_i_l_e _e_s_c_a_p_e _s_e_q_u_e_n_c_e_s in
            tnftpd(8) for more information.
+
+     hhiiddeessyymmlliinnkkss _c_l_a_s_s [ooffff]
+           If _c_l_a_s_s is ``none'' or ooffff is specified, disable this feature.
+           Otherwise, the LLIISSTT command lists symbolic links as the file or
+           directory the link references (``ls -LlA'').  Servers which run an
+           anonymous service may wish to enable this feature for GGUUEESSTT users,
+           so that symbolic links do not leak names in directories that are
+           not searchable by GGUUEESSTT users.
 
      hhoommeeddiirr _c_l_a_s_s [ppaatthhffoorrmmaatt]
            If _p_a_t_h_f_o_r_m_a_t is not specified or _c_l_a_s_s is ``none'', use the
@@ -221,6 +227,13 @@ DDEESSCCRRIIPPTTIIOONN
            per rraatteeggeett.  This option affects only binary transfers.  If _c_l_a_s_s
            is ``none'' or _s_i_z_e is not specified, use the default.
 
+     rreeccvvbbuuffssiizzee _c_l_a_s_s [_s_i_z_e]
+           Set the size of the socket receive buffer.  An optional suffix may
+           be provided as per rraatteeggeett.  The default is zero and the system
+           default value will be used.  This option affects only passive
+           transfers.  If _c_l_a_s_s is ``none'' or _s_i_z_e is not specified, use the
+           default.
+
      ssaanneennaammeess _c_l_a_s_s [ooffff]
            If _c_l_a_s_s is ``none'' or ooffff is specified, allow uploaded file names
            to contain any characters valid for a file name.  Otherwise, only
@@ -303,4 +316,4 @@ HHIISSTTOORRYY
      The ffttppdd..ccoonnff functionality was implemented in NetBSD 1.3 and later
      releases by Luke Mewburn, based on work by Simon Burge.
 
-NetBSD 1.6                     February 28, 2003                    NetBSD 1.6
+NetBSD 3.0.1                    August 24, 2005                   NetBSD 3.0.1

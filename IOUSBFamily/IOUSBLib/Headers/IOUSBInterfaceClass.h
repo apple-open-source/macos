@@ -73,6 +73,7 @@ protected:
     bool								fConfigDescCacheValid;
 	bool								fNeedContiguousMemoryForLowLatencyIsoch;
 	bool								fNeedsToReleasefDevice;
+	bool								fInterfaceIsAttached;
     
 public:
     static IOCFPlugInInterface			**alloc();

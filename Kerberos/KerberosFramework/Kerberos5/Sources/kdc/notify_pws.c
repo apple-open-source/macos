@@ -142,8 +142,8 @@ int kdc_contact_pws(void)
 	
 	addr.sin_family = AF_INET;
 	addr.sin_len = sizeof(struct sockaddr_in);
-	addr.sin_port = kPWSPort;
-	addr.sin_addr.s_addr = INADDR_LOOPBACK;
+	addr.sin_port = htons(kPWSPort);
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
 	pws_socket = socket(AF_INET, SOCK_STREAM, 0);
 	

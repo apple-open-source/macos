@@ -610,7 +610,7 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-bundle";
+				OTHER_LDFLAGS = "-bundle -lbsm";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
 				SECTORDER_FLAGS = "";
@@ -2456,6 +2456,7 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lbsm";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;

@@ -119,6 +119,7 @@
    Initial version:  May, 2000 (eds)  
 */
 
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
@@ -174,166 +175,205 @@ alias_rtsp_out(struct ip *pip,
     int     links_created = 0, pkt_updated = 0;
     struct alias_link *rtsp_link = NULL;
     struct in_addr null_addr; 
-
+	
     /* Calculate data length of TCP packet */
     tc = (struct tcphdr *) ((char *) pip + (pip->ip_hl << 2));
     hlen = (pip->ip_hl + tc->th_off) << 2;
     tlen = ntohs(pip->ip_len);
     dlen = tlen - hlen;
-
+	
+	if (dlen > sizeof(newdata)) {
+#if DEBUG
+		fprintf(stderr, "alias_rtsp_out: data len too big");
+#endif
+		return -1;
+	}
     /* Find keyword, "Transport: " */
     pos = search_string(data, dlen, transport_str);
     if (pos < 0) {
-	return -1;
+#if DEBUG
+		fprintf(stderr, "alias_rtsp_out: Transport not found");
+#endif
+		return -1;
     }
+	if (pos >= sizeof(newdata)) {
+#if DEBUG
+		fprintf(stderr, "alias_rtsp_out: Transport too far");
+#endif
+		return -1;
+	}
     port_data = data + pos;
     port_dlen = dlen - pos;
-
+	
     memcpy(newdata, data, pos);
     port_newdata = newdata + pos;
-
+	
     while (port_dlen > strlen(port_str)) {
-	/* Find keyword, appropriate port string */
-	pos = search_string(port_data, port_dlen, port_str);
-	if (pos < 0) {
-	    break;
-	}
-
-	memcpy (port_newdata, port_data, pos + 1);
-	port_newdata += (pos + 1);
-
-	p[0] = p[1] = 0;
-	sport = eport = 0;
-	state = 0;
-	for (i = pos; i < port_dlen; i++) {
-	    switch(state) {
-	    case 0:
-		if (port_data[i] == '=') {
-		    state++;
-		}
-		break;
-	    case 1:
-		if (ISDIGIT(port_data[i])) {
-		    p[0] = p[0] * 10 + port_data[i] - '0';
-		} else {
-		    if (port_data[i] == ';') {
-			state = 3;
-		    }
-		    if (port_data[i] == '-') {
-			state++;
-		    }
-		}
-		break;
-	    case 2:
-		if (ISDIGIT(port_data[i])) {
-		    p[1] = p[1] * 10 + port_data[i] - '0';
-		} else {
-		    state++;
-		}
-		break;
-	    case 3:
-		base_port = p[0];
-		sport = htons(p[0]);
-		eport = htons(p[1]);
-
-		if (!links_created) {
-
-	  	  links_created = 1; 
-		  /* Find an even numbered port number base that
-		     satisfies the contiguous number of ports we need  */
-		  null_addr.s_addr = 0;
-		  if (0 == (salias = FindNewPortGroup(null_addr,
-	       			    FindAliasAddress(pip->ip_src),
-				    sport, 0, 
-				    RTSP_PORT_GROUP, 
-				    IPPROTO_UDP, 1))) {  
-#ifdef DEBUG
-		    fprintf(stderr,
-		    "PacketAlias/RTSP: Cannot find contiguous RTSP data ports\n");
+		/* Find keyword, appropriate port string */
+		pos = search_string(port_data, port_dlen, port_str);
+		if (pos < 0 || port_data + pos + 1 > newdata + sizeof(newdata)) {
+#if DEBUG
+			fprintf(stderr, "alias_rtsp_out: port_str too far\n");
 #endif
-		  } else {
-
-  		    base_alias = ntohs(salias);
-		    for (j = 0; j < RTSP_PORT_GROUP; j++) {
-		      /* Establish link to port found in RTSP packet */
-		      rtsp_link = FindRtspOut(GetOriginalAddress(link), null_addr,
-                                htons(base_port + j), htons(base_alias + j),
-                                IPPROTO_UDP);
-		      if (rtsp_link != NULL) {
+			break;
+		}
+		
+		memcpy (port_newdata, port_data, pos + 1);
+		port_newdata += (pos + 1);
+		
+		p[0] = p[1] = 0;
+		sport = eport = 0;
+		state = 0;
+		for (i = pos; i < port_dlen; i++) {
+			switch(state) {
+			case 0:
+				if (port_data[i] == '=') {
+					state++;
+				}
+				break;
+			case 1:
+				if (ISDIGIT(port_data[i])) {
+					p[0] = p[0] * 10 + port_data[i] - '0';
+				} else {
+					if (port_data[i] == ';') {
+						state = 3;
+					}
+					if (port_data[i] == '-') {
+						state++;
+					}
+				}
+				break;
+			case 2:
+				if (ISDIGIT(port_data[i])) {
+					p[1] = p[1] * 10 + port_data[i] - '0';
+				} else {
+					state++;
+				}
+				break;
+			case 3:
+				base_port = p[0];
+				sport = htons(p[0]);
+				eport = htons(p[1]);
+				
+				if (!links_created) {
+					
+					links_created = 1; 
+					/* Find an even numbered port number base that
+					 satisfies the contiguous number of ports we need  */
+					null_addr.s_addr = 0;
+					if (0 == (salias = FindNewPortGroup(null_addr,
+														FindAliasAddress(pip->ip_src),
+														sport, 0, 
+														RTSP_PORT_GROUP, 
+														IPPROTO_UDP, 1))) {  
+#ifdef DEBUG
+						fprintf(stderr,
+								"PacketAlias/RTSP: Cannot find contiguous RTSP data ports\n");
+#endif
+					} else {
+						
+						base_alias = ntohs(salias);
+						for (j = 0; j < RTSP_PORT_GROUP; j++) {
+							/* Establish link to port found in RTSP packet */
+							rtsp_link = FindRtspOut(GetOriginalAddress(link), null_addr,
+													htons(base_port + j), htons(base_alias + j),
+													IPPROTO_UDP);
+							if (rtsp_link != NULL) {
 #ifndef NO_FW_PUNCH
-		        /* Punch hole in firewall */
-		        PunchFWHole(rtsp_link);
+								/* Punch hole in firewall */
+								PunchFWHole(rtsp_link);
 #endif
-		      } else {
+							} else {
 #ifdef DEBUG
-		        fprintf(stderr,
-		        "PacketAlias/RTSP: Cannot allocate RTSP data ports\n");
+								fprintf(stderr,
+										"PacketAlias/RTSP: Cannot allocate RTSP data ports\n");
 #endif
-		        break;
-		      }
-		    }
-		  }
-                  ealias = htons(base_alias + (RTSP_PORT_GROUP - 1));
+								break;
+							}
+						}
+					}
+					ealias = htons(base_alias + (RTSP_PORT_GROUP - 1));
+				}
+				
+				if (salias && rtsp_link) {
+					size_t lentmp;
+					
+					/* Copy into IP packet */
+					sprintf(stemp, "%d", ntohs(salias));
+					lentmp = strlen(stemp);
+					/* account for ending ';' */
+					if (port_newdata + lentmp + 1 > newdata + sizeof(newdata)) {
+#if DEBUG
+						fprintf(stderr, "PacketAlias/RTSP: salias too far\n");
+#endif
+						break;
+					}
+					memcpy(port_newdata, stemp, lentmp);
+					port_newdata += lentmp;
+					
+					if (eport != 0) {
+						sprintf(stemp, "%d", ntohs(ealias));
+						lentmp = strlen(stemp);
+
+						/* account for middle '-' and for ending ';' */
+						if (port_newdata + lentmp + 2 > newdata + sizeof(newdata)) {
+#if DEBUG
+							fprintf(stderr, "PacketAlias/RTSP: ealias too far\n");
+#endif
+							break;
+						}
+						*port_newdata = '-';
+						port_newdata++;
+						
+						/* Copy into IP packet */
+						memcpy(port_newdata, stemp, lentmp);
+						port_newdata += lentmp;
+					}
+					pkt_updated = 1;
+					
+					*port_newdata = ';';
+					port_newdata++;
+				}
+				state++;
+				break;
+			}
+			if (state > 3) {
+				break;
+			}
 		}
-
-		if (salias && rtsp_link) {
-
-		  pkt_updated = 1;
-
-	          /* Copy into IP packet */
-		  sprintf(stemp, "%d", ntohs(salias));
-		  memcpy(port_newdata, stemp, strlen(stemp));
-		  port_newdata += strlen(stemp);
-
-		  if (eport != 0) {
-		    *port_newdata = '-';
-		    port_newdata++;
-
-		    /* Copy into IP packet */
-		    sprintf(stemp, "%d", ntohs(ealias));
-		    memcpy(port_newdata, stemp, strlen(stemp));
-		    port_newdata += strlen(stemp);
-		  }
-
-	          *port_newdata = ';';
-		  port_newdata++;
-		}
-		state++;
-		break;
-	    }
-	    if (state > 3) {
-		break;
-	    }
-	}
-	port_data += i;
-	port_dlen -= i;
+		port_data += i;
+		port_dlen -= i;
     }
-
-    if (!pkt_updated)
-      return -1;
-
+	
+    if (!pkt_updated) {
+#if DEBUG
+		fprintf(stderr, "PacketAlias/RTSP: Packet not updated\n");
+#endif
+		return -1;
+	}
+	
     memcpy (port_newdata, port_data, port_dlen);
     port_newdata += port_dlen;
     *port_newdata = '\0';
-
+	
     /* Create new packet */
     new_dlen = port_newdata - newdata;
     memcpy (data, newdata, new_dlen);
-
+	
     SetAckModified(link);
     delta = GetDeltaSeqOut(pip, link);
     AddSeq(pip, link, delta + new_dlen - dlen);
-
+	
     new_len = htons(hlen + new_dlen);
     DifferentialChecksum(&pip->ip_sum,
-			 &new_len,
-			 &pip->ip_len,
-			 1);
+						 &new_len,
+						 &pip->ip_len,
+						 1);
     pip->ip_len = new_len;
-
+	
     tc->th_sum = 0;
     tc->th_sum = TcpChecksum(pip);
-
+	
     return 0;
 }
 

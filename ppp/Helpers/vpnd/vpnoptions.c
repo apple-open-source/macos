@@ -219,7 +219,7 @@ int process_prefs(struct vpn_params *params)
     return 0;
 
 fail:
-    vpnlog(LOG_ERR, text[0] ? text : "Error while reading preferences\n");
+    vpnlog(LOG_ERR, "%s", text[0] ? text : "Error while reading preferences\n");
     if (params->serverIDRef) {
         CFRelease(params->serverIDRef);
         params->serverIDRef = 0;

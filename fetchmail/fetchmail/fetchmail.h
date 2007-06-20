@@ -8,6 +8,8 @@
 /* We need this for HAVE_STDARG_H, etc */
 #include "config.h"
 
+struct addrinfo;
+
 /* We need this for size_t */
 #include <sys/types.h>
 
@@ -23,6 +25,13 @@
 # endif
 #endif
 
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NET_SOCKET_H
+#include <net/socket.h>
+#endif
+#include <netdb.h>
 #include <stdio.h>
 
 /* Import Trio if needed */
@@ -72,6 +81,7 @@ char *strstr(const char *, const char *);
 #define 	A_GSSAPI	7	/* authenticate with GSSAPI */
 #define		A_SSH		8	/* authentication at session level */
 #define		A_MSN		9	/* same as NTLM with keyword MSN */
+#define		A_EXTERNAL	10	/* external authentication (client cert) */
 
 /* some protocols or authentication types (KERBEROS, GSSAPI, SSH) don't
  * require a password */
@@ -81,6 +91,7 @@ char *strstr(const char *, const char *);
      || (ctl)->server.authenticate == A_KERBEROS_V5 \
      || (ctl)->server.authenticate == A_GSSAPI \
      || (ctl)->server.authenticate == A_SSH \
+     || (ctl)->server.authenticate == A_EXTERNAL \
      || (ctl)->server.protocol == P_ETRN)
 
 /*
@@ -110,6 +121,8 @@ char *strstr(const char *, const char *);
 #define		DIGESTLEN	33	/* length of MD5 digest */
 
 /* exit code values */
+/* NOTE THAT PS_SUCCESS MUST ALWAYS BE 0 - SOME PARTS OF THE CODE
+ * RELY ON THIS VALUE! */
 #define		PS_SUCCESS	0	/* successful receipt of messages */
 #define		PS_NOMAIL       1	/* no mail available */
 #define		PS_SOCKET	2	/* socket I/O woes */
@@ -130,7 +143,6 @@ char *strstr(const char *, const char *);
 #define		PS_TRANSIENT	24	/* transient failure (internal use) */
 #define		PS_REFUSED	25	/* mail refused (internal use) */
 #define		PS_RETAINED	26	/* message retained (internal use) */
-#define		PS_TRUNCATED	27	/* headers incomplete (internal use) */
 #define		PS_REPOLL	28	/* repoll immediately with changed parameters (internal use) */
 #define		PS_IDLETIMEOUT	29	/* timeout on imap IDLE (internal use) */
 
@@ -165,7 +177,7 @@ struct runctl
     char	*pidfile;	/** where to record the PID of daemon mode processes */
     char	*postmaster;
     char	*properties;
-    int		poll_interval;
+    int		poll_interval;	/** poll interval in seconds (daemon mode, 0 == off) */
     flag	bouncemail;
     flag	spambounce;
     flag	use_syslog;
@@ -184,8 +196,8 @@ struct idlist
 	    flag	mark;		/* UID-index information */
 #define UID_UNSEEN	0		/* hasn't been seen */
 #define UID_SEEN	1		/* seen, but not deleted */
-#define UID_DELETED	2		/* this message has been deleted */
-#define UID_EXPUNGED	3		/* this message has been expunged */ 
+#define UID_DELETED	2		/* this message has been marked deleted */
+#define UID_EXPUNGED	3		/* this message has been expunged */
         }
 	status;
 	char *id2;
@@ -215,7 +227,7 @@ struct method		/* describe methods for protocol state machine */
     int (*is_old)(int, struct query *, int);
 				/* check for old message */
     int (*fetch_headers)(int, struct query *, int, int *);
-				/* fetch FROM headera given message */
+				/* fetch header from a given message */
     int (*fetch_body)(int, struct query *, int, int *);
 				/* fetch a given message */
     int (*trail)(int, struct query *, const char *);
@@ -339,7 +351,8 @@ struct query
     flag use_ssl;		/* use SSL encrypted session */
     char *sslkey;		/* optional SSL private key file */
     char *sslcert;		/* optional SSL certificate file */
-	char *sslproto;		/* force usage of protocol (ssl2|ssl3|tls1) - defaults to ssl23 */
+    char *sslproto;		/** force transport protocol (ssl2|ssl3|ssl23|tls1) - if NULL,
+				  use ssl23 for SSL and opportunistic tls1 for non-SSL connections. */
     char *sslcertpath;		/* Trusted certificate directory for checking the server cert */
     flag sslcertck;		/* Strictly check the server cert. */
     char *sslfingerprint;	/* Fingerprint to check against */
@@ -651,7 +664,9 @@ void escapes(const char *, char *);
 char *visbuf(const char *);
 const char *showproto(int);
 void dump_config(struct runctl *runp, struct query *querylist);
-int is_host_alias(const char *, struct query *);
+int is_host_alias(const char *, struct query *, struct addrinfo **);
+
+extern struct addrinfo *ai0, *ai1;
 
 /** Try to obtain fully qualified hostname of current host. Exit with
  * PS_DNS if \a required is true and there is a DNS error. Exit with
@@ -747,6 +762,16 @@ int servport(const char *service);
 # define NI_NAMEREQD	8
 # define NI_DGRAM	16
 #endif
+
+int fm_getaddrinfo(const char *node, const char *serv, const struct addrinfo *hints, struct addrinfo **res);
+void fm_freeaddrinfo(struct addrinfo *ai);
+
+/* prototypes from tls.c */
+int maybe_tls(struct query *ctl);
+int must_tls(struct query *ctl);
+
+/* prototype from rfc822valid.c */
+int rfc822_valid_msgid(const unsigned char *);
 
 #endif
 /* fetchmail.h ends here */

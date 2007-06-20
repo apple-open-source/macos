@@ -67,6 +67,7 @@ protected:
     UInt32								fLocationID;
     IOUSBConfigurationDescriptorPtr		*fConfigurations;
     bool								fConfigDescCacheValid;
+	bool								fDeviceIsAttached;
     
 public:
     static IOCFPlugInInterface		**alloc();

@@ -89,6 +89,53 @@ static int readsb __P((int listerr));
 int dkdisklabel __P((int fd, struct disklabel * lp));
 #endif
 
+static int
+check_cg_offsets(struct cg *cg) {
+	char *base = (char*)cg,
+		*end = ((char*)cg) + sblock.fs_bsize;;
+
+#define CHECKSIZE(x) (((x) < 0) || \
+		((x) > sblock.fs_bsize) || \
+		(base + (x) > end))
+	if (CHECKSIZE(cg->cg_btotoff)) {
+		pfatal("CG:  block total offset out of range (%d)\n", cg->cg_btotoff);
+		return 0;
+	}
+
+	if ((unsigned int)sblock.fs_cpg > INT_MAX / sizeof(int32_t)) {
+		pfatal("CG:  block total array size overflows\n");
+		return 0;
+	}
+
+	if (CHECKSIZE(sblock.fs_cpg * sizeof(int32_t))) {
+		pfatal("CG:  block total arrays out of bounds\n");
+		return 0;
+	}
+
+	if (CHECKSIZE(cg->cg_boff)) {
+		pfatal("CG:  free block positions out of range (%d)\n", cg->cg_boff);
+		return 0;
+	}
+
+	if ((unsigned int)sblock.fs_nrpos > INT_MAX / sizeof(int16_t)) {
+		pfatal("CG:  free block array size overflows\n");
+		return 0;
+	}
+
+	if (CHECKSIZE(sblock.fs_nrpos * sizeof(int16_t))) {
+		pfatal("CG:  free block array out of bounds\n");
+		return 0;
+	}
+
+	if (CHECKSIZE(cg->cg_clustersumoff)) {
+		pfatal("CG:  cluster sum array offset out of range (%d)\n", cg->cg_clustersumoff);
+		return 0;
+	}
+#undef CHECKSIZE
+
+	return 1;
+}
+
 /*
  * Read in a superblock finding an alternate if necessary.
  * Return 1 if successful, 0 if unsuccessful, -1 if filesystem
@@ -202,8 +249,13 @@ setup(dev)
 #endif	/* REV_ENDIAN_FS */
 	if (!cg_chkmagic(cg0)) {
 	  pfatal("CG %d: BAD MAGIC NUMBER\n", 0);
-	  return(EEXIT);
+	  return(CANTFIXIT);
 	}
+	if (check_cg_offsets(cg0) == 0) {
+		pfatal("CG %d:  OFFSETS OUT OF RANGE", 0);
+		return(CANTFIXIT);
+	}
+
 	if (cg0->cg_clustersumoff != 0) {
 	  /* Check for overlap */
 	  clustersumoff = cg0->cg_freeoff +
@@ -374,7 +426,7 @@ setup(dev)
 	lncntp = (short *)calloc((unsigned)(maxino + 1), sizeof(short));
 	if (lncntp == NULL) {
 		printf("cannot alloc %u bytes for lncntp\n", 
-		    (unsigned)(maxino + 1) * sizeof(short));
+		    (unsigned int)(maxino + 1) * sizeof(short));
 		goto badsb;
 	}
 	numdirs = sblock.fs_cstotal.cs_ndir;
@@ -386,7 +438,7 @@ setup(dev)
 	    sizeof(struct inoinfo *));
 	if (inpsort == NULL || inphead == NULL) {
 		printf("cannot alloc %u bytes for inphead\n", 
-		    (unsigned)numdirs * sizeof(struct inoinfo *));
+		    (unsigned int)numdirs * sizeof(struct inoinfo *));
 		goto badsb;
 	}
 
@@ -512,7 +564,7 @@ readsb(listerr)
 			for ( ; olp < endlp; olp++, nlp++) {
 				if (*olp == *nlp)
 					continue;
-				printf("offset %d, original %d, alternate %d\n",
+				printf("offset %ld, original %ld, alternate %ld\n",
 				    olp - (long *)&sblock, *olp, *nlp);
 			}
 		}

@@ -8,38 +8,317 @@ All dates are in Universal Time unless otherwise noted.
 Abbreviations in parentheses are the maintainers who committed the respective
 change.  MA = Matthias Andree, ESR = Eric S. Raymond, RF = Rob Funk.)
 
-# DEPRECATED FEATURES AND MAJOR INCOMPATIBLE CHANGE ADVANCE WARNINGS
+# ADVANCE WARNING OF FEATURES TO BE REMOVED OR CHANGED IN FUTURE VERSIONS
+(There are no plans to remove these features from a 6.3.X release, but they may
+be removed from a 6.4.0 or newer release.)
 * The MX and host alias DNS lookups that fetchmail performs in multidrop mode
-  are obsolete, deprecated and may be removed from a future fetchmail version.
-  They have never supported IPv6 (including IPv6-mapped IPv4) anyhow.
+  are based on assumptions that are rarely met in practice, somewhat defective,
+  deprecated and may be removed from a future fetchmail version.  They have
+  never supported IPv6 (including IPv6-mapped IPv4).
+  Non-DNS based alias keywords such as "aka" will remain in fetchmail.
 * The monitor and interface options may be removed from a future fetchmail
-  version as they are not sufficiently portable.
-* POP2 is obsolete.
-  Support for POP2 may be removed from a future fetchmail version.
-* RPOP is obsolete, support may be removed from a future fetchmail release.
-* --sslcertck may become a default setting in a future fetchmail version.
+  version as they are not reasonably portable.
+* POP2 is obsolete, support will be removed from a future fetchmail version.
+* RPOP is obsolete, support will be removed from a future fetchmail release.
+* --sslcertck will become a default setting in a future fetchmail version.
 * The multidrop To/Cc guessing code along with the fragile duplicate suppressor
   is deprecated and may be removed from a future release.
-* The --enable-fallback (fall back to MDA if MTA unavailable) may be removed
-  from a future fetchmail release.
+* The "envelope Received" option may be removed from a future release, because
+  the Received header was never meant to be machine-readable, the format varies
+  widely, and various other differences in behavior make parsing Received an
+  unreliable undertaking. The envelope option as such will remain though, in
+  order to support Delivered-To, X-Envelope-To, X-Original-To and similar.
+  See also <http://home.pages.de/~mandree/mail/multidrop>.
+* The --enable-fallback (fall back to MDA if MTA unavailable) will be removed
+  from a future fetchmail release, because it makes fetchmail's behavior
+  inconsistent and confusing.
 * The "protocol auto" default inside fetchmail may be removed from a future
   fetchmail release. Explicit configuration of the protocol is recommended.
+* Kerberos IV support may be removed from a future fetchmail release.
+* SIGHUP wakeup support may be removed from a future fetchmail release and
+  cause fetchmail to terminate - it was broken for many years.
+* Support for operating systems that are not sufficiently POSIX compliant may be
+  removed or operation on such systems may be suboptimal for future releases.
 
 --------------------------------------------------------------------------------
 
-fetchmail 6.3.4 (released 2006-04-14):
+fetchmail 6.3.8 (released 2007-04-06):
+
+# SECURITY STRENGTHENING:
+* Make the APOP challenge parser more distrustful and have it reject challenges
+  that do not conform to RFC-822 msg-id format, in the hope to make mounting
+  man-in-the-middle attacks (MITM) against APOP a bit more difficult.
+  (CVE-2007-1558, reported by Gaëtan Leurent, published 2007-04-02 on Bugtraq)
+
+  APOP is claimed insecure by Gaëtan Leurent for MITM scenarios for typical
+  setups: based on MD5 collisions, it is purportedly possible to recover the
+  first three characters of the shared secret (password), which would then make
+  recovery of the shared secret a matter of hours or minutes; this would then
+  enable the attacker to impersonate the client vis-à-vis the server.
+
+  For further details, check
+  * Gaëtan Leurent, "Message Freedom in MD4 and MD5 Collisions: Application
+  to APOP", Fast Software Encryption 2007, Luxembourg. (Proceedings to appear in
+  Springer's Lecture Notes on Computer Science.)
+  * The mailing list discussion thread at
+  <http://lists.berlios.de/pipermail/fetchmail-devel/2007-March/000887.html>
+
+# BUG FIXES:
+* Fix pluralization of oversized-message warning mails.
+* Fix manual page: --sslcheck -> --sslcertck, and do not set trailing 
+  "recommended:" in bold. Fixes Debian Bug #413059, reported by Rafal Czlonka.
+* Repoll immediately if a protocol error happens during the authentication 
+  attempt after a failed opportunistic TLS upgrade.
+  Fixes comment #9 in Gentoo Bug #163782, reported by Takuto Matsuu.
+* Fix rendering of the "24 - 26, 28, 29" paragraph in the exit codes section. 
+  Reported by Nico Golde.
+* If SOCKS support was compiled in, add 'socks' to the feature_options Python
+  list emitted in --configdump. Reported by Rob MacGregor.
+* Do not crash with a null pointer dereference when opening the BSMTP file 
+  fails. Improve error checking and reporting. Reported by Reto Schüttel,
+  Debian Bug#416625. Fix based on a patch by Nico Golde.
+* Make BSMTP output actually work, it would persistently fail with SOCKET error
+  after writing the first header. Bug independently found and reported in
+  excellent detail by Reto Schüttel, Debian Bug#416812.
+
+# DOCUMENTATION:
+* Add fetchmail-SA-2007-01.txt
+* Extend --mda documentation, discourage use of qmail-inject.
+  Based on a patch by Rob MacGregor.
+* Document SOCKS configuration facility (SOCKS_CONF environment variable).
+  Thanks to Jochen Hayek, Michael Shuldman and Rob MacGregor.
+* Use envelope option in multidrop example. Patch by Rob MacGregor.
+* Document expected Received: line format when parsing for envelope addressees.
+* Stripped option documentation from sample.rcfile, since this is bound to go
+  out of synch with the manual page, which is the only reference on options.
+* Mention that --limit default is 0 bytes, which is special for "no limit".
+* Corrected Robert M. Funk's name that I misspelled. My sincere apologies
+  -- Matthias Andree.
+
+# CONTRIB:
+* Add delete-later and delete-later.README, a script and documentation for
+  a MySQL/Tcl-based client-side "delete-after" feature.
+  Kindly donated by Yoo GmbH, Großvoigtsberg, Germany (Carsten Ralle).
 
 # KNOWN BUGS AND WORKAROUNDS:
-  (this section floats upwards through the NEWS to be on top of the list)
+  (this section floats upwards through the NEWS file so it stays with the
+  current release information)
 * fetchmail does not handle messages without Message-ID header well
   (See sourceforge.net bug #780933)
-* Sun Workshop 6 (SPARC) is known to miscompile the lexer in 64-bit mode.
-  Either compile 32-bit code or use GCC to compile 64-bit fetchmail.
-  Note that fetchmail doesn't take advantage of 64-bit code anyways,
-  so compiling 32-bit SPARC code should be fine.
-* The code still isn't 100% ISO-C compliant, some configurations attempt to
-  compile files that are empty after preprocessing, which can cause compiler
-  diagnostics and perhaps jam the compilation on strict compilers.
+* BSMTP is mostly untested and errors can cause corrupt output.
+* Sun Workshop 6 (SPARC) is known to miscompile the configuration file lexer in
+  64-bit mode.  Either compile 32-bit code or use GCC to compile 64-bit
+  fetchmail.  Note that fetchmail doesn't take advantage of 64-bit code,
+  so compiling 32-bit SPARC code should not cause any difficulties.
+* fetchmail does not track pending deletes over crashes
+* the command line interface is a bit narrow-minded sometimes, for instance,
+  fetchmail -s doesn't work with a running daemon
+* some of the logging output is not very helpful
+* some of the documentation is still not up to date
+
+
+
+fetchmail 6.3.7 (released 2007-02-18):
+
+# FIXES FOR REGRESSIONS IN 6.3.6
+* Fix KPOP. Patch by Miloslav Trmac.
+* Fix repoll when server disconnects after opportunistic TLS failed for POP3.
+  Berlios Bug #10133 = Gentoo Bug #163782 reported by Andrej Kacian.
+
+# TRANSLATION UPDATES
+* Japanese (Takeshi Hamasaki), Polish (Jakub Bogusz)
+
+# CHANGES
+* Consider getaddrinfo() on Darwin 9 (Mac OS X 10.5 "Leopard") thread-safe.
+  Reported by Uli Zappe.
+
+
+fetchmail 6.3.6 (released 2007-01-04):
+
+# SECURITY FIXES:
+* CVE-2006-5867, fetchmail-SA-2006-02.txt:
+  Password disclosure vulnerability fixed. This has several aspects:
+
+  - Fetchmail now implies sslproto 'tls1' if the sslfingerprint or sslcertck
+    options are used and the ssl option is not used, in order to be sure that
+    fetchmail gets a certificate from the mail server.
+
+  - Fetchmail breaks the connection if the TLS negotiation (or verification, if
+    requested) fails with sslproto 'tls1', sslfingerprint or sslcheck enabled.
+
+  - POP3 connections now use STLS reliably. They used to ignore STLS altogether
+    for serveral values of the "auth" option, when fetchmail forget to probe
+    server capabilities - see fetchmail-SA-2006-02.txt for details.
+
+  - POP3 connections will no longer fall back USER/PASS authentication if
+    strong challenge-response authenticators such as CRAM-MD5 are configured
+    but the server does not advertise these in its CAPA response.
+
+  - POP2 is obsolete and does not support STLS or anything beyond password-based
+    authentication. The attempt to use STLS or strong authenticators now causes
+    connection abort.
+
+  Configurations using both ssl and sslcertck however have been semi-safe in
+  that they would send the password in the clear. The USER/PASS fallback
+  problem however applies to these too, so that the password was only safe on
+  trustworthy servers.
+
+* CVE-2006-5974, fetchmail-SA-2006-03.txt:
+  Repairs a regression in 6.3.5 that crashes fetchmail when a message with
+  invalid headers is found while fetchmail's mda option is in use. BerliOS bugs
+  #9364, #9412, #9449. Stack backtrace provided by Neil Hoggarth - thanks.
+
+# REGRESSION FIXES (recently introduced bugs)
+* Repair --logfile, broken in 6.3.5. BerliOS Bug #9059,
+  reported by Brian Harring.
+* Repair --user, broken in 6.3.5 (as a side effect of the authenticate external
+  patch): using SSL certificate/key authentication overrode the --user option.
+  Now the latter takes precedence, and only defaults to the certificate's common
+  name.  Debian Bug #400950, reported by Jorgen Schaefer <forcer@debian.org>.
+
+# BUG FIXES (long-standing bugs):
+* RPOP: used to log the password locally rather than an asterisk as the other
+  protocols do. The password is now shrouded in the local logs.
+* POP3: Probes capabilities now when Kerberos V5 is enabled, so that we can
+  actually detect if the server supports it.
+* Robustness: If a stale lockfile cannot be deleted, truncate it so that
+  fetchmail doesn't later believe itself to be running if the PID is recycled
+  by a non-fetchmail process.
+* DNS: Detect /etc/resolv.conf changes: On systems that have res_search(),
+  assume we also have res_init() and call it (suggested by Ulrich Drepper,
+  glibc bug #3675) in order to make libc or libresolv reread the resolver
+  configuration at the beginning of a poll cycle.  This is important when
+  fetchmail is in daemon mode and /etc/resolv.conf is changed later by dhcpcd,
+  dhclient, pppd, openvpn or other ip-up/ipchange scripts.  Should fix Debian
+  Bug#389270, Bug#391698.
+* Robustness: Fix crash on systems that do not provide strdup(), the crash
+  happens only in out-of-memory conditions when fetchmail cannot proceed
+  anyways.  Patch by Andreas Krennmair.
+* Robustness: When HOME and FETCHMAILHOME are unset, be sure to copy user
+  database information, so it is not trashed later. Patch by Jim Correia.
+
+# CHANGES:
+* Workaround: Improve handling of IMAP IDLE, some servers do not reset their
+  time counters after sending information asynchronously. Patch by Sunil
+  Shetye, after report from Andrew Baumann.
+* Usability: When requesting Kerberos or GSSAPI, complain and exit with syntax
+  error if any of these requested features has not been compiled in.  This is
+  to fail early and with precise error message. Reported by Isaac Wilcox.
+* --version will now add +KRB4 or +KRB5 if Kerberos v4 or v5, respectively, have
+  been compiled in. Reported missing by Isaac Wilcox.
+
+# TRANSLATIONS:
+* New en_GB (British English) translation by David Lodge.
+* Update Japanese (Takeshi Hamasaki), Polish (Jakub Bogusz), Russian (Pavel
+  Maryanov) and Vietnamese (Clytie Siddall) translations.
+! Note that not all these translations are complete -- this isn't the
+  translators' fault though, but due to delays at the BerliOS hosting site and
+  the translation project handlers. You may see a few untranslated messages.
+
+# DOCUMENTATION:
+* Dropped exit status 15 from manual page, it's not used by fetchmail.
+  Reported by Isaac Wilcox.
+* Documented exit codes 24 - 29 as internal.
+
+fetchmail 6.3.5 (released 2006-10-09):
+
+# BUG FIXES:
+* For protocols such as IMAP that are not delimited by "." lines, truncate the
+  input buffer when the message has been completely read, to avoid taking
+  trailing garbage into the message if the terminal CRLF is missing. Fixes
+  Debian Bug#312415. (Patch suggested by Mike Jones, Manchester Univ.).
+* When using NTLM authentication, use regular IMAP response code handler after
+  completing NTLM handshake, for robustness and consistency.
+  (Taken from the NetBSD portable packages collection, patch-ac.)
+* Support Kerberos installations where krb5.h and perhaps roken.h are in
+  .../include/krb5.  Taken from NetBSD portable packages collection patch-ae.
+* On NetBSD, link against -lroken -lcom_err if --with-kerberos is enabled.
+* Drop #include <com_err.h> from Kerberos 5 header file, fixes compile error on
+  SUSE Linux 10.0.
+* Fix des_pcbc_encrypt compile warnings in kerberos.c line 246.
+* If krb5-config provides gssapi library information, use that rather than
+  guessing.
+* Improve --with-gssapi auto detection for /usr-based GSSAPI installs.
+* Fix --with-gssapi builds for NetBSD 3.0.
+* Improve KAME/getnameinfo.c portability to Linux libc5 systems.
+  Based on a patch by Dan Fandrich.
+* Provide INET6 to KAME/getnameinfo.c (only useful on IPv6-enabled systems that
+  lack getnameinfo, and there only visible in some Received: headers).
+  Found by Dan Fandrich.
+* POP3: some UID flags may not be set properly on UIDL lists. (Sunil Shetye)
+* Make IMAP4 IDLE work on servers that do not update RECENT counts.
+  Reported by Lars Tewes.
+* IMAP4 patch by Sunil Shetye:
+  - do not depend on server updating RECENT counts at all
+  - also enter IDLE loop when messages are present on the server.
+* Fix --flush description in the manual page, fetchmail does not mark messages
+  seen unless it has successfully delivered them. Suggested by Frederic Marchal.
+* Fetchmail no longer attempts to stat the "-" file in daemon mode -- this is a
+  special name to read the RC file from stdin, and cannot always be re-read
+  anyways. BerliOS bug #7858.
+* When looking up ports for a service, the lookup succeeds and the returned
+  address family isn't IPv4 or IPv6, properly free the allocated memory from the
+  service lookup. Found by Uli Zappe.
+* When looking up ports for a service, only look up TCP ports.
+* Avoid compiling empty files, to avoid diagnostics from strict compilers.
+* If the lockfile ends before the process ID, treat it as stale and unlink it.
+  Reported by Justin Pryzby, Debian Bug #376603.
+* SIGHUP wake-up behavior was broken since 5.9.13's Cygwin changes, in that for
+  non-root users, SIGHUP would abort the first poll and subsequently interfere
+  with new polls, and SIGHUP would be ignored for root users. SIGHUP now matches
+  documented behavior. SIGUSR1 has always been a wakeup signal for both root
+  (undocumented) and non-root users. See also the deprecation warning above.
+* Track getaddrinfo() results to properly free them after timeouts and make sure
+  that getaddrinfo() isn't interrupted by a timeout (which breaks on MacOS X),
+  reported by Uli Zappe.  This should fix Debian Bug#294547 and Bug#377135.
+* --logfile is now handled more carefully, errors opening the logfile are
+  now reported to the TTY where fetchmail was started from.
+* fetchmail now complains and aborts when it cannot properly daemonize itself.
+* fix compilation on systems that don't know struct addrinfo (Solaris 2.6).
+* ignore SIGPIPE signals and rely on functions to return EPIPE instead. This is
+  necessary because the former longjmp() from the signal handler is unsafe and
+  makes the whole fetchmail behavior undefined after the event.
+* Avoid crash in env.c/host_fqdn if we cannot canonicalize our own hostname.
+  Reported by Alexander Holler.
+* SSL fix by Miloslav Trmac (Red Hat): free the SSL contexts after the
+  connection, to avoid from growing SSL certpaths without bounds, avoid using
+  SSL contexts for unrelated connections, and to fix Red Hat Bug #206346.
+
+# CHANGES:
+* Rename all fetchmail-internal lock_* functions to fm_lock_*. Obsoletes
+  NetBSD portable packages collection patch-ah, patch-ai and patch-aj.
+* Configure prints a warning (but proceeds) if Kerberos IV support is enabled.
+* In verbose mode, log every IP fetchmail tries to connect to, to avoid
+  misleading the user. Suppress EAFNOSUPPORT errors from socket() call, too.
+  Fixes Debian Bug #361825, reported by Daniel Baur.
+* In idle mode, fetchmail complains about the fetchall option.
+* When a connection fails, log not only the IP address, but also host and
+  service name and the port number. Log the latter when trying to connect in
+  verbose mode, too.
+* Keep syslog output at one line per message (this works if no errors occur).
+* Fetchmail in verbose mode now logs if it opportunistically upgrades a POP3
+  or IMAP connection to TLS security with STLS/STARTTLS.
+* fetchmail now supports foo@example.org=bar user mappings for multidrop boxes.
+* switch setjmp/longjmp to sigsetjmp/siglongjmp
+* IMAP now supports the EXTERNAL authentication method, courtesy of
+  Götz 'nimrill' Babin-Ebell, BerliOS patch #1095 with minor changes.
+  Note that this change causes --sslcert to override --user.
+* The sslproto keywords are now case insensitive, courtesy of
+  Götz 'nimrill' Babin-Ebell, BerliOS patch #1095.
+* When going to sleep, log for how long.  Suggested by Claudia Ludwig.
+* When the server name cannot be canonicalized, log the gai_strerror value.
+
+# TRANSLATION UPDATES:
+* Catalan/ca (Ernest Adrogué Calveras), Japanese/ja (Takeshi Hamasaki) - also
+  made gettext 0.15 ready, Polish/pl (Jakub Bogusz), Russian/ru (Pavel
+  Maryanov), Spanish/es (Héctor García Álvarez), Vietnamese/vi (Clytie Siddall)
+
+# CONTRIBUTED SCRIPTS:
+* PopDel.py was revised by Joshua Crawford to display the From: address and
+  list every email, even if it has no Subject: header; and not delete the wrong
+  message in the presence of mail without Subject: headers.
+
+fetchmail 6.3.4 (released 2006-04-14):
 
 # BUG FIXES:
 * configure: detect res_* functions properly with newer glibc ABIs.

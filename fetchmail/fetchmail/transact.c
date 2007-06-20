@@ -55,18 +55,33 @@ int mytimeout;		/* value of nonreponse timeout */
 struct msgblk msgblk;
 static int accept_count, reject_count;
 
+/** add given address to xmit_names if it exactly matches a full address
+ * \returns nonzero if matched */
+static int map_address(const char *addr, struct query *ctl, struct idlist **xmit_names)
+{
+    const char	*lname;
+
+    lname = idpair_find(&ctl->localnames, addr);
+    if (lname) {
+	if (outlevel >= O_DEBUG)
+	    report(stdout, GT_("mapped address %s to local %s\n"), addr, lname);
+	save_str(xmit_names, lname, XMIT_ACCEPT);
+	accept_count++;
+    }
+    return lname != NULL;
+}
+
+/** add given name to xmit_names if it matches declared localnames */
 static void map_name(const char *name, struct query *ctl, struct idlist **xmit_names)
-/* add given name to xmit_names if it matches declared localnames */
 /*   name:	 name to map */
 /*   ctl:	 list of permissible aliases */
 /*   xmit_names: list of recipient names parsed out */
 {
     const char	*lname;
-    int off = 0;
-    
-    lname = idpair_find(&ctl->localnames, name+off);
+
+    lname = idpair_find(&ctl->localnames, name);
     if (!lname && ctl->wildcard)
-	lname = name+off;
+	lname = name;
 
     if (lname != (char *)NULL)
     {
@@ -119,6 +134,11 @@ static void find_server_names(const char *hdr,
 	    if ((atsign = strchr((char *)cp, '@'))) {
 		struct idlist	*idp;
 
+		/* try to match full address first, this takes
+		 * precedence over localdomains and alias mappings */
+		if (map_address(cp, ctl, xmit_names))
+		    goto nomap;
+
 		/*
 		 * Does a trailing segment of the hostname match something
 		 * on the localdomains list?  If so, save the whole name
@@ -150,7 +170,7 @@ static void find_server_names(const char *hdr,
 		     * not, skip this name.  If it is, we'll keep
 		     * going and try to find a mapping to a client name.
 		     */
-		    if (!is_host_alias(atsign+1, ctl))
+		    if (!is_host_alias(atsign+1, ctl, &ai0))
 		    {
 			save_str(xmit_names, cp, XMIT_REJECT);
 			reject_count++;
@@ -190,6 +210,7 @@ static char *parse_received(struct query *ctl, char *bufp)
 {
     char *base, *ok = (char *)NULL;
     static char rbuf[HOSTLEN + USERNAMELEN + 4]; 
+    struct addrinfo *ai0;
 
 #define RBUF_WRITE(value) if (tp < rbuf+sizeof(rbuf)-1) *tp++=value
 
@@ -237,7 +258,7 @@ static char *parse_received(struct query *ctl, char *bufp)
 	 * recipient name after a following "for".  Otherwise
 	 * punt.
 	 */
-	if (is_host_alias(rbuf, ctl))
+	if (is_host_alias(rbuf, ctl, &ai0))
 	{
 	    if (outlevel >= O_DEBUG)
 		report(stdout, 
@@ -1176,8 +1197,8 @@ int readheaders(int sock,
 	if (n != -1)
 	{
 	    /*
-	     * This header is technically invalid under RFC822.
-	     * POP3, IMAP, etc. are not legal mail-parameter values.
+	     * We SHOULD (RFC-2821 sec. 4.4/p. 53) make sure to only use
+	     * IANA registered protocol names here.
 	     */
 	    snprintf(buf, sizeof(buf),
 		    "\tby %s with %s (fetchmail-%s",
@@ -1305,9 +1326,12 @@ int readheaders(int sock,
     *cp++ = '\r';
     *cp++ = '\n';
     *cp++ = '\0';
-    stuffline(ctl, buf);
+    n = stuffline(ctl, buf);
 
-    return(PS_SUCCESS);
+    if (n == strlen(buf))
+	return PS_SUCCESS;
+    else
+	return PS_SOCKET;
 }
 
 int readbody(int sock, struct query *ctl, flag forward, int len)
@@ -1335,6 +1359,9 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
     while (protocol->delimited || len > 0)
     {
 	set_timeout(mytimeout);
+	/* XXX FIXME: for undelimited protocols that ship the size, such
+	 * as IMAP, we might want to use the count of remaining characters
+	 * instead of the buffer size -- not for fetchmail 6.3.X though */
 	if ((linelen = SockRead(sock, inbufp, sizeof(buf)-4-(inbufp-buf)))==-1)
 	{
 	    set_timeout(0);
@@ -1357,6 +1384,20 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 		sizeticker -= SIZETICKER;
 	    }
 	}
+
+	/* Mike Jones, Manchester University, 2006:
+	 * "To fix IMAP MIME Messages in which fetchmail adds the remainder of
+	 * the IMAP packet including the ')' character (part of the IMAP)
+	 * Protocol causing the addition of an extra MIME boundary locally."
+	 *
+	 * However, we shouldn't do this for delimited protocols:
+	 * many POP3 servers (Microsoft, qmail) goof up message sizes
+	 * so we might end truncating messages prematurely.
+	 */
+	if (!protocol->delimited && linelen > len) {
+	    inbufp[len] = '\0';
+	}
+
 	len -= linelen;
 
 	/* check for end of message */
@@ -1401,7 +1442,7 @@ int readbody(int sock, struct query *ctl, flag forward, int len)
 
 	    if (n < 0)
 	    {
-		report(stdout, GT_("writing message text\n"));
+		report(stdout, GT_("error writing message text\n"));
 		release_sink(ctl);
 		return(PS_IOERR);
 	    }

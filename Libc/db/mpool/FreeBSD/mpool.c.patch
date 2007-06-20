@@ -1,0 +1,23 @@
+--- mpool.c.orig	2006-12-13 22:19:43.000000000 -0800
++++ mpool.c	2006-12-13 22:27:26.000000000 -0800
+@@ -294,10 +294,16 @@
+ 	BKT *bp;
+ 
+ 	/* Walk the lru chain, flushing any dirty pages to disk. */
+-	TAILQ_FOREACH(bp, &mp->lqh, q)
+-		if (bp->flags & MPOOL_DIRTY &&
+-		    mpool_write(mp, bp) == RET_ERROR)
+-			return (RET_ERROR);
++	TAILQ_FOREACH(bp, &mp->lqh, q) {
++		if (bp->flags & MPOOL_DIRTY)
++			if (mpool_write(mp, bp) == RET_ERROR) {
++				return (RET_ERROR);
++			} else {
++				/* 4892134: Re-run through the user's pgin filter. */
++				if (mp->pgin != NULL)
++					(mp->pgin)(mp->pgcookie, bp->pgno, bp->page);
++			}
++	}
+ 
+ 	/* Sync the file descriptor. */
+ 	return (_fsync(mp->fd) ? RET_ERROR : RET_SUCCESS);

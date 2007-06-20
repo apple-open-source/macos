@@ -717,7 +717,7 @@
 				MODULE_NAME = com.apple.filesystems.webdav;
 				MODULE_START = webdav_fs_module_start;
 				MODULE_STOP = webdav_fs_module_stop;
-				MODULE_VERSION = 1.4.1;
+				MODULE_VERSION = 1.4.3;
 				OTHER_CFLAGS = "-no-cpp-precomp -fno-builtin";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -754,11 +754,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.4.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1</string>
+	<string>1.4.3</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kpi.bsd</key>
@@ -996,11 +996,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.4.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1</string>
+	<string>1.4.3</string>
 	<key>FSPersonalities</key>
 	<dict>
 		<key>WebDAV</key>

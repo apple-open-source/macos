@@ -17,7 +17,7 @@
  * License for the specific language governing rights and limitations
  * under the License.
  * 
- * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <machine/spl.h>

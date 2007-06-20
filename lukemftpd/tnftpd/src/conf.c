@@ -1,7 +1,7 @@
-/*	$NetBSD: conf.c,v 1.4 2004/08/10 00:00:36 lukem Exp $	*/
+/*	$NetBSD: conf.c,v 1.5 2006/09/26 06:38:38 lukem Exp $	*/
 
 /*-
- * Copyright (c) 1997-2004 The NetBSD Foundation, Inc.
+ * Copyright (c) 1997-2005 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
  * This code is derived from software contributed to The NetBSD Foundation
@@ -42,7 +42,7 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__RCSID("$NetBSD: conf.c,v 1.4 2004/08/10 00:00:36 lukem Exp $");
+__RCSID("$NetBSD: conf.c,v 1.5 2006/09/26 06:38:38 lukem Exp $");
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -83,7 +83,7 @@ static int filetypematch(char *, int);
 #define DEFAULT_MAXFILESIZE	-1		/* unlimited file size */
 #define DEFAULT_MAXTIMEOUT	7200		/* 2 hours */
 #define DEFAULT_TIMEOUT		900		/* 15 minutes */
-#define DEFAULT_UMASK		027		/* 15 minutes */
+#define DEFAULT_UMASK		027		/* rw-r----- */
 
 /*
  * Initialise curclass to an `empty' state
@@ -115,7 +115,7 @@ init_curclass(void)
 	curclass.maxrateget =	0;
 	curclass.maxrateput =	0;
 	curclass.maxtimeout =	DEFAULT_MAXTIMEOUT;
-	REASSIGN(curclass.motd, xstrdup(_PATH_FTPLOGINMESG));
+	REASSIGN(curclass.motd, ftpd_strdup(_NAME_FTPLOGINMESG));
 	REASSIGN(curclass.notify, NULL);
 	curclass.portmin =	0;
 	curclass.portmax =	0;
@@ -132,6 +132,7 @@ init_curclass(void)
 
 	CURCLASS_FLAGS_SET(checkportcmd);
 	CURCLASS_FLAGS_CLR(denyquick);
+	CURCLASS_FLAGS_CLR(hidesymlinks);
 	CURCLASS_FLAGS_SET(modify);
 	CURCLASS_FLAGS_SET(passive);
 	CURCLASS_FLAGS_CLR(private);
@@ -158,14 +159,14 @@ parse_conf(const char *findclass)
 	struct ftpconv	*conv, *cnext;
 
 	init_curclass();
-	REASSIGN(curclass.classname, xstrdup(findclass));
+	REASSIGN(curclass.classname, ftpd_strdup(findclass));
 			/* set more guest defaults */
 	if (strcasecmp(findclass, "guest") == 0) {
 		CURCLASS_FLAGS_CLR(modify);
 		curclass.umask = 0707;
 	}
 
-	infile = conffilename(_PATH_FTPDCONF);
+	infile = conffilename(_NAME_FTPDCONF);
 	if ((f = fopen(infile, "r")) == NULL)
 		return;
 
@@ -211,7 +212,7 @@ parse_conf(const char *findclass)
 		if (none || EMPTYSTR(arg))				\
 			arg = NULL;					\
 		else							\
-			arg = xstrdup(arg);				\
+			arg = ftpd_strdup(arg);				\
 		REASSIGN(curclass.Field, arg);				\
 	} while (0)
 
@@ -316,16 +317,16 @@ parse_conf(const char *findclass)
 			convcmd = p;
 			if (convcmd)
 				convcmd += strspn(convcmd, " \t");
-			suffix = xstrdup(arg);
+			suffix = ftpd_strdup(arg);
 			if (none || EMPTYSTR(types) ||
 			    EMPTYSTR(disable) || EMPTYSTR(convcmd)) {
 				types = NULL;
 				disable = NULL;
 				convcmd = NULL;
 			} else {
-				types = xstrdup(types);
-				disable = xstrdup(disable);
-				convcmd = xstrdup(convcmd);
+				types = ftpd_strdup(types);
+				disable = ftpd_strdup(disable);
+				convcmd = ftpd_strdup(convcmd);
 			}
 			for (conv = curclass.conversions; conv != NULL;
 			    conv = conv->next) {
@@ -360,6 +361,9 @@ parse_conf(const char *findclass)
 		} else if (strcasecmp(word, "display") == 0) {
 			CONF_STRING(display);
 
+		} else if (strcasecmp(word, "hidesymlinks") == 0) {
+			CONF_FLAG(hidesymlinks);
+
 		} else if (strcasecmp(word, "homedir") == 0) {
 			CONF_STRING(homedir);
 
@@ -368,7 +372,7 @@ parse_conf(const char *findclass)
 			REASSIGN(curclass.limitfile, NULL);
 			CONF_LL(limit, arg, -1, LLTMAX);
 			REASSIGN(curclass.limitfile,
-			    EMPTYSTR(p) ? NULL : xstrdup(p));
+			    EMPTYSTR(p) ? NULL : ftpd_strdup(p));
 
 		} else if (strcasecmp(word, "maxfilesize") == 0) {
 			curclass.maxfilesize = DEFAULT_MAXFILESIZE;
@@ -390,6 +394,10 @@ parse_conf(const char *findclass)
 		} else if (strcasecmp(word, "writesize") == 0) {
 			curclass.writesize = 0;
 			CONF_LL(writesize, arg, 0, LLTMAX);
+
+		} else if (strcasecmp(word, "recvbufsize") == 0) {
+			curclass.recvbufsize = 0;
+			CONF_LL(recvbufsize, arg, 0, LLTMAX);
 
 		} else if (strcasecmp(word, "sendbufsize") == 0) {
 			curclass.sendbufsize = 0;
@@ -470,7 +478,7 @@ parse_conf(const char *findclass)
 		} else if (strcasecmp(word, "template") == 0) {
 			if (none)
 				continue;
-			REASSIGN(template, EMPTYSTR(arg) ? NULL : xstrdup(arg));
+			REASSIGN(template, EMPTYSTR(arg) ? NULL : ftpd_strdup(arg));
 
 		} else if (strcasecmp(word, "umask") == 0) {
 			u_long fumask;
@@ -553,7 +561,7 @@ show_chdir_messages(int code)
 	if (sl_find(slist, curwd) != NULL)
 		return;	
 
-	cp = xstrdup(curwd);
+	cp = ftpd_strdup(curwd);
 	if (sl_add(slist, cp) == -1)
 		syslog(LOG_WARNING, "can't add `%s' to stringlist", cp);
 
@@ -852,13 +860,13 @@ do_conversion(const char *fname)
 	/* Split up command into an argv */
 	if ((sl = sl_init()) == NULL)
 		goto cleanup_do_conv;
-	cmd = xstrdup(cp->command);
+	cmd = ftpd_strdup(cp->command);
 	p = cmd;
 	while (p) {
 		NEXTWORD(p, lp);
 		if (strcmp(lp, "%s") == 0)
 			lp = base;
-		if (sl_add(sl, xstrdup(lp)) == -1)
+		if (sl_add(sl, ftpd_strdup(lp)) == -1)
 			goto cleanup_do_conv;
 	}
 

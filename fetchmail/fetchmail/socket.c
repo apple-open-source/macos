@@ -264,19 +264,20 @@ int UnixOpen(const char *path)
 }
 
 int SockOpen(const char *host, const char *service,
-	     const char *plugin)
+	     const char *plugin, struct addrinfo **ai0)
 {
-    struct addrinfo *ai, *ai0, req;
-    int i;
+    struct addrinfo *ai, req;
+    int i, acterr = 0;
 
 #ifdef HAVE_SOCKETPAIR
     if (plugin)
 	return handle_plugin(host,service,plugin);
 #endif /* HAVE_SOCKETPAIR */
+
     memset(&req, 0, sizeof(struct addrinfo));
     req.ai_socktype = SOCK_STREAM;
 
-    i = getaddrinfo(host, service, &req, &ai0);
+    i = fm_getaddrinfo(host, service, &req, ai0);
     if (i) {
 	report(stderr, GT_("getaddrinfo(\"%s\",\"%s\") error: %s\n"),
 		host, service, gai_strerror(i));
@@ -286,29 +287,64 @@ int SockOpen(const char *host, const char *service,
     }
 
     i = -1;
-    for (ai = ai0; ai; ai = ai->ai_next) {
-	i = socket(ai->ai_family, ai->ai_socktype, 0);
-	if (i < 0)
-	    continue;
+    for (ai = *ai0; ai; ai = ai->ai_next) {
+	char buf[80],pb[80];
+	int gnie;
 
-	/* Socket opened saved. Usefull if connect timeout 
-	 * because it can be closed.
-	 */
+	gnie = getnameinfo(ai->ai_addr, ai->ai_addrlen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
+	if (gnie)
+	    snprintf(buf, sizeof(buf), GT_("unknown (%s)"), gai_strerror(gnie));
+	gnie = getnameinfo(ai->ai_addr, ai->ai_addrlen, NULL, 0, pb, sizeof(pb), NI_NUMERICSERV);
+	if (gnie)
+	    snprintf(pb, sizeof(pb), GT_("unknown (%s)"), gai_strerror(gnie));
+
+	if (outlevel >= O_VERBOSE)
+	    report_build(stdout, GT_("Trying to connect to %s/%s..."), buf, pb);
+	i = socket(ai->ai_family, ai->ai_socktype, 0);
+	if (i < 0) {
+	    /* mask EAFNOSUPPORT errors, they confuse users for
+	     * multihomed hosts */
+	    if (errno != EAFNOSUPPORT)
+		acterr = errno;
+	    if (outlevel >= O_VERBOSE)
+		report_complete(stdout, GT_("cannot create socket: %s\n"), strerror(errno));
+	    continue;
+	}
+
+	/* Save socket descriptor.
+	 * Used to close the socket after connect timeout. */
 	mailserver_socket_temp = i;
 
 	if (connect(i, (struct sockaddr *) ai->ai_addr, ai->ai_addrlen) < 0) {
+	    int e = errno;
+
+	    /* additionally, suppress IPv4 network unreach errors */
+	    if (e != EAFNOSUPPORT)
+		acterr = errno;
+
+	    if (outlevel >= O_VERBOSE)
+		report_complete(stdout, GT_("connection failed.\n"));
+	    if (outlevel > O_SILENT)
+		report(stderr, GT_("connection to %s:%s [%s/%s] failed: %s.\n"), host, service, buf, pb, strerror(e));
 	    fm_close(i);
 	    i = -1;
 	    continue;
+	} else {
+	    if (outlevel >= O_VERBOSE)
+		report_complete(stdout, GT_("connected.\n"));
 	}
-	
+
 	/* No connect timeout, then no need to set mailserver_socket_temp */
 	mailserver_socket_temp = -1;
-	
+
 	break;
     }
 
-    freeaddrinfo(ai0);
+    fm_freeaddrinfo(*ai0);
+    *ai0 = NULL;
+
+    if (i == -1)
+	errno = acterr;
 
     return i;
 }
@@ -345,7 +381,7 @@ va_dcl {
 #include <openssl/x509v3.h>
 #include <openssl/rand.h>
 
-static	SSL_CTX *_ctx = NULL;
+static	SSL_CTX *_ctx[FD_SETSIZE];
 static	SSL *_ssl_context[FD_SETSIZE];
 
 static SSL	*SSLGetContext( int );
@@ -587,11 +623,9 @@ static	int _prev_err;
 
 SSL *SSLGetContext( int sock )
 {
-	/* If SSLOpen has never initialized - just return NULL */
-	if( NULL == _ctx )
-		return NULL;
-
 	if( sock < 0 || (unsigned)sock > FD_SETSIZE )
+		return NULL;
+	if( _ctx[sock] == NULL )
 		return NULL;
 	return _ssl_context[sock];
 }
@@ -774,12 +808,43 @@ static int SSL_ck_verify_callback( int ok_return, X509_STORE_CTX *ctx )
 	return SSL_verify_callback(ok_return, ctx, 1);
 }
 
+
+/* get commonName from certificate set in file.
+ * commonName is stored in buffer namebuffer, limited with namebufferlen
+ */
+static const char *SSLCertGetCN(const char *mycert,
+                                char *namebuffer, size_t namebufferlen)
+{
+	const char *ret       = NULL;
+	BIO        *certBio   = NULL;
+	X509       *x509_cert = NULL;
+	X509_NAME  *certname  = NULL;
+
+	if (namebuffer && namebufferlen > 0) {
+		namebuffer[0] = 0x00;
+		certBio = BIO_new_file(mycert,"r");
+		if (certBio) {
+			x509_cert = PEM_read_bio_X509(certBio,NULL,NULL,NULL);
+			BIO_free(certBio);
+		}
+		if (x509_cert) {
+			certname = X509_get_subject_name(x509_cert);
+			if (certname &&
+			    X509_NAME_get_text_by_NID(certname, NID_commonName,
+						      namebuffer, namebufferlen) > 0)
+				ret = namebuffer;
+			X509_free(x509_cert);
+		}
+	}
+	return ret;
+}
+
 /* performs initial SSL handshake over the connected socket
  * uses SSL *ssl global variable, which is currently defined
  * in this file
  */
 int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char *certpath,
-    char *fingerprint, char *servercname, char *label)
+    char *fingerprint, char *servercname, char *label, char **remotename)
 {
         struct stat randstat;
         int i;
@@ -811,48 +876,48 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 		return( -1 );
 	}
 
-	if( ! _ctx ) {
-		/* Be picky and make sure the memory is cleared */
-		memset( _ssl_context, 0, sizeof( _ssl_context ) );
-		if(myproto) {
-			if(!strcmp("ssl2",myproto)) {
-				_ctx = SSL_CTX_new(SSLv2_client_method());
-			} else if(!strcmp("ssl3",myproto)) {
-				_ctx = SSL_CTX_new(SSLv3_client_method());
-			} else if(!strcmp("tls1",myproto)) {
-				_ctx = SSL_CTX_new(TLSv1_client_method());
-			} else if (!strcmp("ssl23",myproto)) {
-				myproto = NULL;
-			} else {
-				fprintf(stderr,GT_("Invalid SSL protocol '%s' specified, using default (SSLv23).\n"), myproto);
-				myproto = NULL;
-			}
+	/* Make sure a connection referring to an older context is not left */
+	_ssl_context[sock] = NULL;
+	if(myproto) {
+		if(!strcasecmp("ssl2",myproto)) {
+			_ctx[sock] = SSL_CTX_new(SSLv2_client_method());
+		} else if(!strcasecmp("ssl3",myproto)) {
+			_ctx[sock] = SSL_CTX_new(SSLv3_client_method());
+		} else if(!strcasecmp("tls1",myproto)) {
+			_ctx[sock] = SSL_CTX_new(TLSv1_client_method());
+		} else if (!strcasecmp("ssl23",myproto)) {
+			myproto = NULL;
+		} else {
+			fprintf(stderr,GT_("Invalid SSL protocol '%s' specified, using default (SSLv23).\n"), myproto);
+			myproto = NULL;
 		}
-		if(!myproto) {
-			_ctx = SSL_CTX_new(SSLv23_client_method());
-		}
-		if(_ctx == NULL) {
-			ERR_print_errors_fp(stderr);
-			return(-1);
-		}
+	}
+	if(!myproto) {
+		_ctx[sock] = SSL_CTX_new(SSLv23_client_method());
+	}
+	if(_ctx[sock] == NULL) {
+		ERR_print_errors_fp(stderr);
+		return(-1);
 	}
 
 	if (certck) {
-		SSL_CTX_set_verify(_ctx, SSL_VERIFY_PEER, SSL_ck_verify_callback);
+		SSL_CTX_set_verify(_ctx[sock], SSL_VERIFY_PEER, SSL_ck_verify_callback);
 	} else {
 		/* In this case, we do not fail if verification fails. However,
 		 *  we provide the callback for output and possible fingerprint checks. */
-		SSL_CTX_set_verify(_ctx, SSL_VERIFY_PEER, SSL_nock_verify_callback);
+		SSL_CTX_set_verify(_ctx[sock], SSL_VERIFY_PEER, SSL_nock_verify_callback);
 	}
 	if (certpath)
-		SSL_CTX_load_verify_locations(_ctx, NULL, certpath);
+		SSL_CTX_load_verify_locations(_ctx[sock], NULL, certpath);
 	else
-		SSL_CTX_set_default_verify_paths(_ctx);
+		SSL_CTX_set_default_verify_paths(_ctx[sock]);
 	
-	_ssl_context[sock] = SSL_new(_ctx);
+	_ssl_context[sock] = SSL_new(_ctx[sock]);
 	
 	if(_ssl_context[sock] == NULL) {
 		ERR_print_errors_fp(stderr);
+		SSL_CTX_free(_ctx[sock]);
+		_ctx[sock] = NULL;
 		return(-1);
 	}
 	
@@ -870,10 +935,17 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 	 * he does NOT have a separate certificate and private key file then
 	 * assume that it's a combined key and certificate file.
 	 */
+		char buffer[256];
+		
 		if( !mykey )
 			mykey = mycert;
 		if( !mycert )
 			mycert = mykey;
+
+		if ((!*remotename || !**remotename) && SSLCertGetCN(mycert, buffer, sizeof(buffer))) {
+			free(*remotename);
+			*remotename = xstrdup(buffer);
+		}
         	SSL_use_certificate_file(_ssl_context[sock], mycert, SSL_FILETYPE_PEM);
         	SSL_use_RSAPrivateKey_file(_ssl_context[sock], mykey, SSL_FILETYPE_PEM);
 	}
@@ -882,6 +954,8 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 	
 	if(SSL_connect(_ssl_context[sock]) < 1) {
 		ERR_print_errors_fp(stderr);
+		SSL_CTX_free(_ctx[sock]);
+		_ctx[sock] = NULL;
 		return(-1);
 	}
 
@@ -895,6 +969,8 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 				SSL_shutdown( _ssl_context[sock] );
 				SSL_free( _ssl_context[sock] );
 				_ssl_context[sock] = NULL;
+				SSL_CTX_free(_ctx[sock]);
+				_ctx[sock] = NULL;
 			}
 			return(-1);
 		}
@@ -913,6 +989,8 @@ int SockClose(int sock)
         SSL_shutdown( _ssl_context[sock] );
         SSL_free( _ssl_context[sock] );
         _ssl_context[sock] = NULL;
+	SSL_CTX_free(_ctx[sock]);
+	_ctx[sock] = NULL;
     }
 #endif
 

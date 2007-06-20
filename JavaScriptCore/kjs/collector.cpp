@@ -94,7 +94,9 @@ void* Collector::allocate(size_t s)
 
   // collect if needed
   int numLiveObjects = heap.numLiveObjects;
-  if (numLiveObjects - heap.numLiveObjectsAtLastCollect >= ALLOCATIONS_PER_COLLECTION) {
+  size_t numLiveObjectsAtLastCollect = heap.numLiveObjectsAtLastCollect;
+  size_t numNewObjects = numLiveObjects - numLiveObjectsAtLastCollect;
+  if (numNewObjects >= (size_t)ALLOCATIONS_PER_COLLECTION && numNewObjects >= numLiveObjectsAtLastCollect) {
     collect();
     numLiveObjects = heap.numLiveObjects;
   }

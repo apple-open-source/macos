@@ -99,6 +99,7 @@ kerberos(_v)?4	{ SETSTATE(0); yylval.proto = A_KERBEROS_V4; return AUTHTYPE;}
 kerberos(_v)?5	{ SETSTATE(0); yylval.proto = A_KERBEROS_V5; return AUTHTYPE;}
 kerberos	{ SETSTATE(0); yylval.proto = A_KERBEROS_V4; return AUTHTYPE;}
 ssh		{ SETSTATE(0); yylval.proto = A_SSH; return AUTHTYPE;}
+external	{ SETSTATE(0); yylval.proto = A_EXTERNAL; return AUTHTYPE;}
 (otp|opie)	{ SETSTATE(0); yylval.proto = A_OTP; return AUTHTYPE;}
 cram(-md5)?	{ SETSTATE(0); yylval.proto = A_CRAM_MD5; return AUTHTYPE;}
 msn		{ SETSTATE(0); yylval.proto = A_MSN; return AUTHTYPE;}

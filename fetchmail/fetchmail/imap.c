@@ -37,7 +37,7 @@ static flag do_idle = FALSE, has_idle = FALSE;
 static int expunge_period = 1;
 
 /* mailbox variables initialized in imap_getrange() */
-static int count = 0, recentcount = 0, unseen = 0, deletions = 0;
+static int count = 0, oldcount = 0, recentcount = 0, unseen = 0, deletions = 0;
 static unsigned int startcount = 1;
 static int expunged = 0;
 static unsigned int *unseen_messages;
@@ -46,7 +46,8 @@ static unsigned int *unseen_messages;
 static int actual_deletions = 0;
 
 /* for "IMAP> IDLE" */
-static int saved_timeout = 0;
+static int saved_timeout = 0, idle_timeout = 0;
+static time_t idle_start_time = 0;
 
 static int imap_ok(int sock, char *argbuf)
 /* parse command response */
@@ -89,6 +90,8 @@ static int imap_ok(int sock, char *argbuf)
 		    report(stderr, GT_("bogus message count!"));
 		    return(PS_PROTOCOL);
 		}
+		if ((recentcount = count - oldcount) < 0)
+		    recentcount = 0;
 
 		/*
 		 * Nasty kluge to handle RFC2177 IDLE.  If we know we're idling
@@ -112,10 +115,14 @@ static int imap_ok(int sock, char *argbuf)
 		    stage = STAGE_FETCH;
 		}
 	    }
+	    /* we now compute recentcount as a difference between
+	     * new and old EXISTS, hence disable RECENT check */
+# if 0
 	    else if (strstr(buf, " RECENT"))
 	    {
 		recentcount = atoi(buf+2);
 	    }
+# endif
 	    else if (strstr(buf, " EXPUNGE"))
 	    {
 		/* the response "* 10 EXPUNGE" means that the currently
@@ -124,11 +131,11 @@ static int imap_ok(int sock, char *argbuf)
 		{
 		    if (count > 0)
 			count--;
-		    /* Some servers do not report RECENT after an EXPUNGE.
-		     * For such servers, assume that the mail being
-		     * expunged is a recent one. For other servers, we
-		     * should get an updated RECENT report later and this
-		     * assumption will have no effect. */
+		    if (oldcount > 0)
+			oldcount--;
+		    /* We do expect an EXISTS response immediately
+		     * after this, so this updation of recentcount is
+		     * just a precaution! */
 		    if (recentcount > 0)
 			recentcount--;
 		    actual_deletions++;
@@ -156,6 +163,15 @@ static int imap_ok(int sock, char *argbuf)
 	    {
 		return(PS_LOCKBUSY);
 	    }
+	}
+
+	if (stage == STAGE_IDLE)
+	{
+	    /* reduce the timeout: servers may not reset their timeout
+	     * when they send some information asynchronously */
+	    mytimeout = idle_timeout - (time((time_t *) NULL) - idle_start_time);
+	    if (mytimeout <= 0)
+		return(PS_IDLETIMEOUT);
 	}
     } while
 	(tag[0] != '\0' && strncmp(buf, tag, strlen(tag)));
@@ -263,10 +279,8 @@ static int do_imap_ntlm(int sock, struct query *ctl)
     strcat(msgbuf,"\r\n");
     SockWrite (sock, msgbuf, strlen (msgbuf));
   
-    if ((result = gen_recv (sock, msgbuf, sizeof msgbuf)))
-	return result;
-  
-    if (strstr (msgbuf, "OK"))
+    result = imap_ok (sock, NULL);
+    if (result == PS_SUCCESS)
 	return PS_SUCCESS;
     else
 	return PS_AUTHFAIL;
@@ -343,15 +357,34 @@ static void capa_probe(int sock, struct query *ctl)
     peek_capable = (imap_version >= IMAP4);
 }
 
+static int do_authcert (int sock, char *command, const char *name)
+/* do authentication "external" (authentication provided by client cert) */
+{
+    char buf[256];
+
+    if (name && name[0])
+    {
+        size_t len = strlen(name);
+        if ((len / 3) + ((len % 3) ? 4 : 0)  < sizeof(buf))
+            to64frombits (buf, name, strlen(name));
+        else
+            return PS_AUTHFAIL; /* buffer too small. */
+    }
+    else
+        buf[0]=0;
+    return gen_transact(sock, "%s EXTERNAL %s",command,buf);
+}
+
 static int imap_getauth(int sock, struct query *ctl, char *greeting)
 /* apply for connection authorization */
 {
     int ok = 0;
 #ifdef SSL_ENABLE
-    flag did_stls = FALSE;
-#endif /* SSL_ENABLE */
-
+    int got_tls = 0;
+    char *realhost;
+#endif
     (void)greeting;
+
     /*
      * Assumption: expunges are cheap, so we want to do them
      * after every message unless user said otherwise.
@@ -374,44 +407,63 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     }
 
 #ifdef SSL_ENABLE
-    if ((!ctl->sslproto || !strcmp(ctl->sslproto,"tls1"))
-        && !ctl->use_ssl
-        && strstr(capabilities, "STARTTLS"))
-    {
-           char *realhost;
+    realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
 
-           realhost = ctl->server.via ? ctl->server.via : ctl->server.pollname;
-           ok = gen_transact(sock, "STARTTLS");
+    if (maybe_tls(ctl)) {
+	if (strstr(capabilities, "STARTTLS"))
+	{
+	    /* Use "tls1" rather than ctl->sslproto because tls1 is the only
+	     * protocol that will work with STARTTLS.  Don't need to worry
+	     * whether TLS is mandatory or opportunistic unless SSLOpen() fails
+	     * (see below). */
+	    if (gen_transact(sock, "STARTTLS") == PS_SUCCESS
+		    && SSLOpen(sock, ctl->sslcert, ctl->sslkey, "tls1", ctl->sslcertck,
+			ctl->sslcertpath, ctl->sslfingerprint, realhost,
+			ctl->server.pollname, &ctl->remotename) != -1)
+	    {
+		/*
+		 * RFC 2595 says this:
+		 *
+		 * "Once TLS has been started, the client MUST discard cached
+		 * information about server capabilities and SHOULD re-issue the
+		 * CAPABILITY command.  This is necessary to protect against
+		 * man-in-the-middle attacks which alter the capabilities list prior
+		 * to STARTTLS.  The server MAY advertise different capabilities
+		 * after STARTTLS."
+		 *
+		 * Now that we're confident in our TLS connection we can
+		 * guarantee a secure capability re-probe.
+		 */
+		got_tls = 1;
+		capa_probe(sock, ctl);
+		if (outlevel >= O_VERBOSE)
+		{
+		    report(stdout, GT_("%s: upgrade to TLS succeeded.\n"), realhost);
+		}
+	    }
+	}
 
-           /* We use "tls1" instead of ctl->sslproto, as we want STARTTLS,
-            * not other SSL protocols
-            */
-           if (ok == PS_SUCCESS &&
-	       SSLOpen(sock,ctl->sslcert,ctl->sslkey,"tls1",ctl->sslcertck, ctl->sslcertpath,ctl->sslfingerprint,realhost,ctl->server.pollname) == -1)
-           {
-	       if (!ctl->sslproto && !ctl->wehaveauthed)
-	       {
-		   ctl->sslproto = xstrdup("");
-		   /* repoll immediately */
-		   return(PS_REPOLL);
-	       }
-               report(stderr,
-                      GT_("SSL connection failed.\n"));
-               return PS_SOCKET;
-           }
-	   did_stls = TRUE;
-
-	   /*
-	    * RFC 2595 says this:
-	    *
-	    * "Once TLS has been started, the client MUST discard cached
-	    * information about server capabilities and SHOULD re-issue the
-	    * CAPABILITY command.  This is necessary to protect against
-	    * man-in-the-middle attacks which alter the capabilities list prior
-	    * to STARTTLS.  The server MAY advertise different capabilities
-	    * after STARTTLS."
-	    */
-	   capa_probe(sock, ctl);
+	if (!got_tls) {
+	    if (must_tls(ctl)) {
+		/* Config required TLS but we couldn't guarantee it, so we must
+		 * stop. */
+		report(stderr, GT_("%s: upgrade to TLS failed.\n"), realhost);
+		return PS_SOCKET;
+	    } else {
+		if (outlevel >= O_VERBOSE) {
+		    report(stdout, GT_("%s: opportunistic upgrade to TLS failed, trying to continue\n"), realhost);
+		}
+		/* We don't know whether the connection is in a working state, so
+		 * test by issuing a NOOP. */
+		if (gen_transact(sock, "NOOP") != PS_SUCCESS) {
+		    /* Not usable.  Empty sslproto to force an unencrypted
+		     * connection on the next attempt, and repoll. */
+		    ctl->sslproto = xstrdup("");
+		    return PS_REPOLL;
+		}
+		/* Usable.  Proceed with authenticating insecurely. */
+	    }
+	}
     }
 #endif /* SSL_ENABLE */
 
@@ -420,6 +472,22 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
      * Try the protocol variants that don't require passwords first.
      */
     ok = PS_AUTHFAIL;
+
+    if ((ctl->server.authenticate == A_ANY 
+         || ctl->server.authenticate == A_EXTERNAL)
+	&& strstr(capabilities, "AUTH=EXTERNAL"))
+    {
+        ok = do_authcert(sock, "AUTHENTICATE", ctl->remotename);
+	if (ok)
+        {
+            /* SASL cancellation of authentication */
+            gen_send(sock, "*");
+            if (ctl->server.authenticate != A_ANY)
+                return ok;
+        } else {
+            return ok;
+	}
+    }
 
 #ifdef GSSAPI
     if ((ctl->server.authenticate == A_ANY 
@@ -552,19 +620,11 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 
 	snprintf(shroud, sizeof (shroud), "\"%s\"", password);
 	ok = gen_transact(sock, "LOGIN \"%s\" \"%s\"", remotename, password);
+	memset(shroud, 0x55, sizeof(shroud));
 	shroud[0] = '\0';
+	memset(password, 0x55, strlen(password));
 	free(password);
 	free(remotename);
-#ifdef SSL_ENABLE
-	/* this is for servers which claim to support TLS, but actually
-	 * don't! */
-	if (did_stls && ok == PS_SOCKET && !ctl->sslproto && !ctl->wehaveauthed)
-	{
-	    ctl->sslproto = xstrdup("");
-	    /* repoll immediately */
-	    ok = PS_REPOLL;
-	}
-#endif
 	if (ok)
 	{
 	    /* SASL cancellation of authentication */
@@ -626,7 +686,8 @@ static int imap_idle(int sock)
 	/* special timeout to terminate the IDLE and re-issue it
 	 * at least every 28 minutes:
 	 * (the server may have an inactivity timeout) */
-	mytimeout = 1680; /* 28 min */
+	mytimeout = idle_timeout = 1680; /* 28 min */
+	time(&idle_start_time);
 	stage = STAGE_IDLE;
 	/* enter IDLE mode */
 	ok = gen_transact(sock, "IDLE");
@@ -654,7 +715,8 @@ static int imap_idle(int sock)
 	     * notification out of the blue. This is in compliance
 	     * with RFC 2060 section 5.3. Wait for that with a low
 	     * timeout */
-	    mytimeout = 28;
+	    mytimeout = idle_timeout = 28;
+	    time(&idle_start_time);
 	    stage = STAGE_IDLE;
 	    /* We are waiting for notification; no tag needed */
 	    tag[0] = '\0';
@@ -693,7 +755,7 @@ static int imap_getrange(int sock,
 	 * end_mailbox_poll().
 	 *
 	 * recentcount is already set here by the last imap command which
-	 * returned RECENT on detecting new mail. if recentcount is 0, wait
+	 * returned EXISTS on detecting new mail. if recentcount is 0, wait
 	 * for new mail.
 	 *
 	 * this is a while loop because imap_idle() might return on other
@@ -717,7 +779,7 @@ static int imap_getrange(int sock,
     }
     else
     {
-	count = 0;
+	oldcount = count = 0;
 	ok = gen_transact(sock, 
 			  check_only ? "EXAMINE \"%s\"" : "SELECT \"%s\"",
 			  folder ? folder : "INBOX");
@@ -773,7 +835,7 @@ static int imap_getrange(int sock,
 	}
     }
 
-    *countp = count;
+    *countp = oldcount = count;
     recentcount = 0;
     startcount = 1;
 
@@ -1214,8 +1276,8 @@ static int imap_logout(int sock, struct query *ctl)
 static const struct method imap =
 {
     "IMAP",		/* Internet Message Access Protocol */
-    "imap",
-    "imaps",
+    "imap",		/* service (plain and TLS) */
+    "imaps",		/* service (SSL) */
     TRUE,		/* this is a tagged protocol */
     FALSE,		/* no message delimiter */
     imap_ok,		/* parse command response */

@@ -230,42 +230,6 @@ smb_simpledecrypt(char *dst, const char *src)
 	return 0;
 }
 
-
-static int
-safe_execv(char *args[])
-{       
-	int	     pid;   
-	union wait      status;
-	
-	pid = fork();  
-	if (pid == 0) {
-		(void)execv(args[0], args);
-		errx(EX_OSERR, "%s: execv %s failed, %s\n", __progname,
-		     args[0], strerror(errno));
-	}
-	if (pid == -1) {
-		fprintf(stderr, "%s: fork failed, %s\n", __progname,
-			strerror(errno));
-		return (1);
-	}
-	if (wait4(pid, (int *)&status, 0, NULL) != pid) {
-		fprintf(stderr, "%s: BUG executing %s command\n", __progname,
-			args[0]);  
-		return (1);
-	} else if (!WIFEXITED(status)) {
-		fprintf(stderr, "%s: %s command aborted by signal %d\n",
-			__progname, args[0], WTERMSIG(status));
-		return (1);
-	} else if (WEXITSTATUS(status)) {
-		fprintf(stderr, "%s: %s command failed, exit status %d: %s\n",
-			__progname, args[0], WEXITSTATUS(status),
-			strerror(WEXITSTATUS(status)));
-		return (1);
-	}       
-	return (0);
-}       
-
-
 void
 dropsuid()
 {
@@ -282,17 +246,54 @@ dropsuid()
 #define FULL_KEXTNAME		"com.apple.filesystems.smbfs"
 
 
+/*
+ * We need to create a new enviroment to pass to kextload. We wanted to pass
+ * a NULL enviroment, but seems kextload calls CFInitialize which tries to
+ * get the system encoding. If automount called us, then kextload could end
+ * up calling automounter which can cause a hang. So by adding the enviroment
+ * variable __CF_USER_TEXT_ENCODING we can protect ourself having this 
+ * happening.
+ */ 
+static int LoadKext(char *inKextPath)
+{
+	pid_t   childPID;
+	int     status = 0;
+	char *env[] = {"__CF_USER_TEXT_ENCODING=0x1D29:0:0", "", (char *) 0 };
+	
+	if ((childPID = vfork()) < 0) {
+		fprintf(stderr, "%s: vfork failed, %s\n", __progname, strerror(errno));
+		return errno;
+	}
+	
+	if (childPID == 0) {
+		if (execle(KEXTLOAD_COMMAND, KEXTLOAD_COMMAND, "-q", inKextPath, NULL, env) == -1)
+			errx(EX_OSERR, "%s: execle %s failed, %s\n", __progname, KEXTLOAD_COMMAND, strerror(errno));
+		else
+		    _exit(0);
+	} 
+	else
+		waitpid(childPID, &status, 0);
+	
+	if(WIFEXITED(status))      /* normal exit */
+		return WEXITSTATUS(status);
+	else if(WIFSIGNALED(status)) {
+		fprintf(stderr, "%s command aborted: %s\n", KEXTLOAD_COMMAND, strsignal(WTERMSIG(status)));
+		return EIO;
+	}
+	else
+		return EIO;
+}
+
 int
 loadsmbvfs()
 {       
-	char *kextargs[] = {KEXTLOAD_COMMAND, FS_KEXT_DIR, NULL};
 	int error = 0;
 
 	/*
 	 * temporarily revert to root (required for kextload)
 	 */
 	seteuid(eff_uid);
-	error = safe_execv(kextargs);
+	error = LoadKext(FS_KEXT_DIR);
 	seteuid(real_uid); /* and back to real user */
 	return (error);
 }       

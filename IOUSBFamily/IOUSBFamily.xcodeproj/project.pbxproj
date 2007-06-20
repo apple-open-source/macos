@@ -17,22 +17,6 @@
 				F5366A7102E8C77501000164 /* Frameworks */,
 				3E03402504F5DA5F00AA223D /* CopyFiles */,
 			);
-			buildSettings = {
-				CURRENT_PROJECT_VERSION = 2.5;
-				GCC_VERSION = 3.3;
-				INSTALL_PATH = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = "USB Prober";
-				SECTORDER_FLAGS = "";
-				USE_GCC3_PFE_SUPPORT = NO;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = app;
-			};
 			dependencies = (
 				3E03402D04F5DACF00AA223D /* PBXTargetDependency */,
 			);
@@ -132,7 +116,6 @@
 		023C1AC6008267027F000001 /* IOUSBRootHubDevice.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0179BA3DFFBA18947F000001 /* IOUSBRootHubDevice.h */; };
 		0264FBB1009621D87F000001 /* IOUSBHub.h in Headers */ = {isa = PBXBuildFile; fileRef = 0264FBB0009621D87F000001 /* IOUSBHub.h */; };
 		029D485EFFC9866C7F000001 /* IOUSBDeviceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 029D485DFFC9866C7F000001 /* IOUSBDeviceUserClient.h */; };
-		029D4860FFC987587F000001 /* IOUSBDeviceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 029D485FFFC987587F000001 /* IOUSBDeviceUserClient.cpp */; settings = {ATTRIBUTES = (); }; };
 		0319826CFFB38CAB7F000001 /* IOUSBIUnknown.h in Headers */ = {isa = PBXBuildFile; fileRef = 0319826BFFB38CAB7F000001 /* IOUSBIUnknown.h */; settings = {ATTRIBUTES = (); }; };
 		0319826FFFB390817F000001 /* IOUSBDeviceClass.h in Headers */ = {isa = PBXBuildFile; fileRef = 0319826EFFB390817F000001 /* IOUSBDeviceClass.h */; };
 		03198271FFB391BC7F000001 /* IOUSBInterfaceClass.h in Headers */ = {isa = PBXBuildFile; fileRef = 03198270FFB391BC7F000001 /* IOUSBInterfaceClass.h */; };
@@ -145,7 +128,6 @@
 		19580DCAFFBCA3ED7F000001 /* IOUSBHIDDriver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 19580DC3FFBCA3ED7F000001 /* IOUSBHIDDriver.cpp */; settings = {ATTRIBUTES = (); }; };
 		19580DE6FFBCAF317F000001 /* AppleUSBMergeNub.h in Headers */ = {isa = PBXBuildFile; fileRef = 19580DDEFFBCAF317F000001 /* AppleUSBMergeNub.h */; };
 		19580DE7FFBCAF317F000001 /* AppleUSBMergeNub.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 19580DE0FFBCAF317F000001 /* AppleUSBMergeNub.cpp */; settings = {ATTRIBUTES = (); }; };
-		3A29FAF1FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A29FAF0FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp */; settings = {ATTRIBUTES = (); }; };
 		3A29FAF2FFD21AF97F000001 /* IOUSBInterfaceUserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A29FAEEFFD204217F000001 /* IOUSBInterfaceUserClient.h */; };
 		3E03401F04F5D97A00AA223D /* KLog.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3E03401704F5D97A00AA223D /* KLog.cpp */; };
 		3E03402004F5D97A00AA223D /* KLog.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E03401804F5D97A00AA223D /* KLog.h */; };
@@ -163,6 +145,8 @@
 		3E1BE400064C1FC50051240E /* IOUSBDeviceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 029D485DFFC9866C7F000001 /* IOUSBDeviceUserClient.h */; };
 		3E1BE52D064C2F800051240E /* IOUSBInterfaceUserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3A29FAEEFFD204217F000001 /* IOUSBInterfaceUserClient.h */; };
 		3E3A39C7065940A500C8D91E /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3E3A39C5065940A500C8D91E /* InfoPlist.strings */; };
+		3E3DCD8C0BBD50E200B227B4 /* IOUSBDeviceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 029D485FFFC987587F000001 /* IOUSBDeviceUserClient.cpp */; };
+		3E3DCD8F0BBD50EF00B227B4 /* IOUSBInterfaceUserClient.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3A29FAF0FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp */; };
 		3E43121504587E2900000164 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 3E43121404587E2900000164 /* InfoPlist.strings */; };
 		3E652E5904F5261F00C1BD6F /* clean.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 3E652E5504F5261F00C1BD6F /* clean.tiff */; };
 		3E652E5A04F5261F00C1BD6F /* reload.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 3E652E5604F5261F00C1BD6F /* reload.tiff */; };
@@ -321,26 +305,17 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXBuildStyle section */
-		03198266FFB384C57F000001 /* Development */ = {
+		3E5F64C80C17166900270119 /* Development */ = {
 			isa = PBXBuildStyle;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
 			};
 			name = Development;
 		};
-		03198267FFB384C57F000001 /* Deployment */ = {
+		3E5F64C90C17166900270119 /* Deployment */ = {
 			isa = PBXBuildStyle;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				OPTIMIZATION_CFLAGS = "-O3";
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
 		};
@@ -357,32 +332,6 @@
 				0179BA71FFBA2B817F000001 /* Frameworks */,
 				0179BA72FFBA2B817F000001 /* Rez */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBOHCI;
-				MODULE_VERSION = 2.2.5;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = AppleUSBOHCI;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleUSBOHCI;
@@ -458,34 +407,6 @@
 				F5E6DE2301206E6801000001 /* CopyFiles */,
 				F5E6DE2D0120712801000001 /* CopyFiles */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBFamily;
-				MODULE_VERSION = 2.2.5;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-					"-fno-default-inline",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 				01AE5997FBC3293E7F000001 /* PBXTargetDependency */,
 				018252B0FFB9EC537F000001 /* PBXTargetDependency */,
@@ -514,7 +435,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.5.9, Copyright © 2000-2006 Apple Computer Inc., All Rights Reserved</string>
+	<string>2.8.1, Copyright © 2000-2007 Apple Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -526,11 +447,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.5.9</string>
+	<string>2.8.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.5.9</string>
+	<string>2.8.1</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -559,32 +480,6 @@
 				01CBCF81007BC49C7F000001 /* Resources */,
 				01CBCF82007BC49C7F000001 /* Frameworks */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBHub;
-				MODULE_VERSION = 2.2.5;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = AppleUSBHub;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleUSBHub;
@@ -743,32 +638,6 @@
 				01E71ED8FFB871577F000001 /* Frameworks */,
 				029C1675FE841209C02AAC07 /* Resources */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 2.2.5;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = " ";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBUserClient;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOUSBUserClient;
@@ -783,7 +652,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.5.0, Copyright © 2000-2006 Apple Computer Inc., All Rights Reserved</string>
+	<string>2.8.1, Copyright © 2000-2007 Apple Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -795,11 +664,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.5.0</string>
+	<string>2.8.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.5.0</string>
+	<string>2.8.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOUSBDeviceUserClientInit</key>
@@ -808,8 +677,8 @@
 			<string>com.apple.iokit.IOUSBUserClient</string>
 			<key>IOClass</key>
 			<string>IOUSBUserClientInit</string>
-			<key>IOMatchCategory</key>
-			<string>IOUSBUserClientInit</string>
+			<key>IOProbeScore</key>
+			<integer>9999</integer>
 			<key>IOProviderClass</key>
 			<string>IOUSBDevice</string>
 			<key>IOProviderMergeProperties</key>
@@ -822,6 +691,12 @@
 				<key>IOUserClientClass</key>
 				<string>IOUSBDeviceUserClient</string>
 			</dict>
+			<key>bcdDevice</key>
+			<string>*</string>
+			<key>idProduct</key>
+			<string>*</string>
+			<key>idVendor</key>
+			<string>*</string>
 		</dict>
 		<key>IOUSBInterfaceUserClientInit</key>
 		<dict>
@@ -829,8 +704,8 @@
 			<string>com.apple.iokit.IOUSBUserClient</string>
 			<key>IOClass</key>
 			<string>IOUSBUserClientInit</string>
-			<key>IOMatchCategory</key>
-			<string>IOUSBUserClientInit</string>
+			<key>IOProbeScore</key>
+			<integer>9999</integer>
 			<key>IOProviderClass</key>
 			<string>IOUSBInterface</string>
 			<key>IOProviderMergeProperties</key>
@@ -843,6 +718,16 @@
 				<key>IOUserClientClass</key>
 				<string>IOUSBInterfaceUserClient</string>
 			</dict>
+			<key>bConfigurationValue</key>
+			<string>*</string>
+			<key>bInterfaceNumber</key>
+			<string>*</string>
+			<key>bcdDevice</key>
+			<string>*</string>
+			<key>idProduct</key>
+			<string>*</string>
+			<key>idVendor</key>
+			<string>*</string>
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
@@ -854,6 +739,8 @@
 		<key>com.apple.kernel.libkern</key>
 		<string>6.0</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
 </dict>
 </plist>
 ";
@@ -868,27 +755,6 @@
 				089C1677FE841209C02AAC07 /* Frameworks */,
 				089C1679FE841209C02AAC07 /* Rez */,
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBLib;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = bundle;
-			};
 			dependencies = (
 			);
 			name = IOUSBLib;
@@ -903,7 +769,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.5.9, Copyright © 2000-2006 Apple Computer Inc., All Rights Reserved</string>
+	<string>2.8.1, Copyright © 2000-2007 Apple Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -915,11 +781,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.5.9</string>
+	<string>2.8.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.5.9</string>
+	<string>2.8.1</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -955,32 +821,6 @@
 				19580DB9FFBCA3597F000001 /* Frameworks */,
 				19580DBAFFBCA3597F000001 /* Resources */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOUSBHIDDriver;
-				MODULE_VERSION = 2.2.0;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBHIDDriver;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOUSBHIDDriver;
@@ -1058,32 +898,6 @@
 				19580DD4FFBCABB17F000001 /* Frameworks */,
 				19580DD5FFBCABB17F000001 /* Resources */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBMergeNub;
-				MODULE_VERSION = 2.2.0;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = AppleUSBMergeNub;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleUSBMergeNub;
@@ -1647,31 +1461,6 @@
 				3E09D38005F7EB5A0034E661 /* Frameworks */,
 				3E09D38105F7EB5A0034E661 /* ShellScript */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBUHCI;
-				MODULE_VERSION = 2.2.0;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = AppleUSBUHCI;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleUSBUHCI;
@@ -1743,32 +1532,6 @@
 				3E1BE24F064C08E90051240E /* Frameworks */,
 				3E1BE250064C08E90051240E /* Resources */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBComposite;
-				MODULE_VERSION = 2.2.0;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = IOUSBCompositeDriver;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOUSBCompositeDriver;
@@ -1783,7 +1546,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBCompositeDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.5.9, Copyright © 2000-2006 Apple Computer Inc., All Rights Reserved</string>
+	<string>2.8.1, Copyright © 2000-2007 Apple Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1795,11 +1558,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.5.9</string>
+	<string>2.8.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.5.9</string>
+	<string>2.8.1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBPrinterDevice0</key>
@@ -1883,26 +1646,6 @@
 				3ECD209104F5D7E300E8EEF7 /* Frameworks */,
 				3ECD209204F5D7E300E8EEF7 /* ShellScript */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.KLog;
-				MODULE_VERSION = 1.0.6;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = KLog;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = KLog;
@@ -1976,32 +1719,6 @@
 				F5430C6E0210919001573190 /* Frameworks */,
 				F5430C6F0210919001573190 /* ShellScript */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBOpticalMouse;
-				MODULE_VERSION = 2.2.0;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = AppleUSBOpticalMouse;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleUSBOpticalMouse;
@@ -2181,29 +1898,6 @@
 				F58140740457633501000109 /* Frameworks */,
 				F58140750457633501000109 /* Rez */,
 			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBEHCI;
-				MODULE_VERSION = 2.2.5;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
-				PRODUCT_NAME = AppleUSBEHCI;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = AppleUSBEHCI;
@@ -2292,25 +1986,6 @@
 				F5B09AB203CD27AE01000164 /* Resources */,
 				F5B09AB403CD27AE01000164 /* ShellScript */,
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.IOUSBHIDDriver;
-				MODULE_VERSION = 2.2.0;
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOUSBHIDDriverSafeBoot;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOUSBHIDDriverSafeBoot;
@@ -3934,8 +3609,8 @@
 			buildSettings = {
 			};
 			buildStyles = (
-				03198266FFB384C57F000001 /* Development */,
-				03198267FFB384C57F000001 /* Deployment */,
+				3E5F64C80C17166900270119 /* Development */,
+				3E5F64C90C17166900270119 /* Deployment */,
 			);
 			hasScannedForEncodings = 1;
 			knownRegions = (
@@ -4245,6 +3920,8 @@
 				F5538BFF0173BA7A01573190 /* IOUSBLog.cpp in Sources */,
 				F549761C0275E06B010162FA /* IOUSBControllerV2.cpp in Sources */,
 				DD37A4B2090859420074AE5D /* IOUSBControllerListElement.cpp in Sources */,
+				3E3DCD8C0BBD50E200B227B4 /* IOUSBDeviceUserClient.cpp in Sources */,
+				3E3DCD8F0BBD50EF00B227B4 /* IOUSBInterfaceUserClient.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4270,8 +3947,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				015935ACFFB89EA67F000001 /* IOUSBUserClientInit.cpp in Sources */,
-				029D4860FFC987587F000001 /* IOUSBDeviceUserClient.cpp in Sources */,
-				3A29FAF1FFD21A737F000001 /* IOUSBInterfaceUserClient.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4499,21 +4174,6 @@
 				01AE599BFBC3293E7F000001 /* Frameworks */,
 				01AE599CFBC3293E7F000001 /* Rez */,
 			);
-			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = installhdrs;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = installhdrs;
@@ -4530,22 +4190,6 @@
 				F50D2CA70278877A010162FA /* Frameworks */,
 				F50D2CA80278877A010162FA /* Rez */,
 			);
-			buildSettings = {
-				INSTALL_PATH = "";
-				OTHER_CFLAGS = "-DSTAND_ALONE_TEST_TOOL=1 ";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = UPSTestTool;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = "UPS Test Tool";

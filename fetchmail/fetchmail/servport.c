@@ -1,6 +1,6 @@
 /** \file servport.c Resolve service name to port number.
  * \author Matthias Andree
- * \date 2005
+ * \date 2005 - 2006
  *
  * Copyright (C) 2005 by Matthias Andree
  * For license terms, see the file COPYING in this directory.
@@ -47,7 +47,8 @@ int servport(const char *service) {
 	memset(&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
-	e = getaddrinfo(NULL, service, &hints, &res);
+	hints.ai_protocol = IPPROTO_TCP;
+	e = fm_getaddrinfo(NULL, service, &hints, &res);
 	if (e) {
 	    report(stderr, GT_("getaddrinfo(NULL, \"%s\") error: %s\n"),
 		    service, gai_strerror(e));
@@ -63,9 +64,10 @@ int servport(const char *service) {
 		break;
 #endif
 		default:
+		    fm_freeaddrinfo(res);
 		    goto err;
 	    }
-	    freeaddrinfo(res);
+	    fm_freeaddrinfo(res);
 	}
     } else {
 	if (u == 0 || u > 65535)

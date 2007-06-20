@@ -1,5 +1,5 @@
 /* config.h.in.  Generated automatically from configure.in by autoheader.  */
-/* $Id: config.h.in,v 1.6 2004/08/10 00:40:22 lukem Exp $ */
+/* $Id: config.h.in,v 1.10 2006/12/18 04:06:37 lukem Exp $ */
 
 
 /* Define if the closedir function returns void instead of int.  */
@@ -37,6 +37,9 @@
 
 /* The number of bytes in a off_t.  */
 #undef SIZEOF_OFF_T
+
+/* Define if you have the daemon function.  */
+#undef HAVE_DAEMON
 
 /* Define if you have the err function.  */
 #undef HAVE_ERR
@@ -82,6 +85,12 @@
 
 /* Define if you have the mkstemp function.  */
 #undef HAVE_MKSTEMP
+
+/* Define if you have the pidfile function.  */
+#undef HAVE_PIDFILE
+
+/* Define if you have the select function.  */
+#undef HAVE_SELECT
 
 /* Define if you have the setegid function.  */
 #undef HAVE_SETEGID
@@ -161,20 +170,23 @@
 /* Define if you have the <paths.h> header file.  */
 #undef HAVE_PATHS_H
 
+/* Define if you have the <poll.h> header file.  */
+#undef HAVE_POLL_H
+
 /* Define if you have the <sys/dir.h> header file.  */
 #undef HAVE_SYS_DIR_H
 
 /* Define if you have the <sys/ndir.h> header file.  */
 #undef HAVE_SYS_NDIR_H
 
+/* Define if you have the <sys/poll.h> header file.  */
+#undef HAVE_SYS_POLL_H
+
 /* Define if you have the <sys/sysmacros.h> header file.  */
 #undef HAVE_SYS_SYSMACROS_H
 
 /* Define if you have the <util.h> header file.  */
 #undef HAVE_UTIL_H
-
-/* Define if you have the crypt library (-lcrypt).  */
-#undef HAVE_LIBCRYPT
 
 /* Define if you have the nsl library (-lnsl).  */
 #undef HAVE_LIBNSL
@@ -184,9 +196,6 @@
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
-
-/* Define if you have the util library (-lutil).  */
-#undef HAVE_LIBUTIL
 
 /* Define if your compiler supports `long long' */
 #undef HAVE_LONG_LONG
@@ -212,6 +221,12 @@
 /* Define if `struct addrinfo' exists in <netdb.h> */
 #undef HAVE_ADDRINFO
 
+/* Define if we have poll() and it is not emulated */
+#undef HAVE_POLL
+
+/* Define if we have struct pollfd in <poll.h> or <sys/poll.h> */
+#undef HAVE_STRUCT_POLLFD
+
 /*
  * Define if <netdb.h> contains AI_NUMERICHOST et al.
  * Systems which only implement RFC2133 will need this.
@@ -220,6 +235,9 @@
 
 /* Define if `struct direct' has a d_namlen element */
 #undef HAVE_D_NAMLEN
+
+/* Define if struct passwd.pw_change exists. */
+#undef HAVE_PW_CHANGE
 
 /* Define if struct passwd.pw_expire exists. */
 #undef HAVE_PW_EXPIRE

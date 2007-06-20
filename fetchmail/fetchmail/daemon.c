@@ -135,7 +135,7 @@ int
 daemonize (const char *logfile)
 /* detach from control TTY, become process group leader, catch SIGCHLD */
 {
-  int fd;
+  int fd, logfd;
   pid_t childpid;
 
   /* if we are started by init (process 1) via /etc/inittab we needn't 
@@ -205,41 +205,41 @@ daemonize (const char *logfile)
 
 nottyDetach:
 
-  /* Close any/all open file descriptors */
-#if 	defined(HAVE_GETDTABLESIZE)
-  for (fd = getdtablesize()-1;  fd >= 0;  fd--)
-#elif	defined(NOFILE)
-  for (fd = NOFILE-1;  fd >= 0;  fd--)
-#else		/* make an educated guess */
-  for (fd = 19;  fd >= 0;  fd--)
-#endif
-  {
-    close(fd);	/* not checking this should be safe, no writes */
-  }
+  (void)close(0);
 
   /* Reopen stdin descriptor on /dev/null */
   if ((fd = open("/dev/null", O_RDWR)) < 0) {   /* stdin */
-    report(stderr, "open: /dev/null (%s)\n", strerror(errno));
+    report(stderr, "cannot open /dev/null: %s\n", strerror(errno));
     return(PS_IOERR);
   }
 
   if (logfile)
   {
-    if ((fd = open(logfile, O_CREAT|O_WRONLY|O_APPEND, 0666)) < 0) {	/* stdout */
-      report(stderr, "open %s (%s)\n", logfile, strerror(errno));
-      return(PS_IOERR);
-    }
+      if ((logfd = open(logfile, O_CREAT|O_WRONLY|O_APPEND, 0666)) < 0) {	/* stdout */
+	  report(stderr, "cannot open %s: %s\n", logfile, strerror(errno));
+	  return PS_IOERR;
+      }
+  } else
+      logfd = 0;    /* else use /dev/null */
+
+  /* Close any/all open file descriptors */
+#if 	defined(HAVE_GETDTABLESIZE)
+  fd = getdtablesize() - 1;
+#elif	defined(NOFILE)
+  fd = NOFILE - 1;
+#else		/* make an educated guess */
+  fd = 1023;
+#endif
+  while (fd >= 1) {
+      if (fd != logfd)
+	  close(fd);	/* not checking this should be safe, no writes */
+      -- fd;
   }
-  else
-  {
-    if (dup(fd) < 0) {				/* stdout */
+
+  if (dup(logfd) < 0						/* stdout */
+	  || ((logfd == 0 || logfd >= 3) && dup(logfd) < 0)) {	/* stderr */
       report(stderr, "dup (%s)\n", strerror(errno));
       return(PS_IOERR);
-    }
-  }
-  if (dup(fd) < 0) {				/* stderr */
-    report(stderr, "dup (%s)\n", strerror(errno));
-    return(PS_IOERR);
   }
 
 #ifdef HAVE_GETCWD

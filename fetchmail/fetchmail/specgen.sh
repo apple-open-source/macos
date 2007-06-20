@@ -181,7 +181,7 @@ Ein interaktiver GUI-Konfigurator für fetchmail in Python.
 GUI konfigurator do fetchmaila napisany w pythonie.
 
 %description -n fetchmailconf -l fr
-Une interface de configuration pour créer les fichiers de
+Une interface graphique de configuration pour créer les fichiers de
 configuration de fetchmail écrite en python.
 
 %endif
@@ -229,7 +229,7 @@ rm -rf \$RPM_BUILD_ROOT %{_builddir}/%name-%version
 %attr(644,root,root) /etc/X11/wmconfig/fetchmailconf
 %attr(755,root,root) %{_bindir}/fetchmailconf
 %attr(644, root, man) %{_mandir}/man1/fetchmailconf.1*
-%attr(755,root,root) %{_prefix}/lib/python*/site-packages/fetchmailconf.py*
+%attr(755,root,root) %{py_libdir}/site-packages/fetchmailconf.py*
 /usr/lib/rhs/control-panel/fetchmailconf.xpm
 /usr/lib/rhs/control-panel/fetchmailconf.init
 %endif

@@ -1131,6 +1131,7 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 	int fd[2];
 	int pid, terminated_pid;
 	union wait status;
+	char *env[] = {"__CF_USER_TEXT_ENCODING=0x1D29:0:0", "", (char *) 0 };
 
 	result = FALSE;
 	fd[0] = fd[1] = -1;
@@ -1224,7 +1225,7 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 			fd[0] = -1;
 		}
 		
-		require(execl(PRIVATE_CERT_UI_COMMAND, PRIVATE_CERT_UI_COMMAND, NULL) >= 0, execl);
+		require(execle(PRIVATE_CERT_UI_COMMAND, PRIVATE_CERT_UI_COMMAND, (char *) 0, env) >= 0, execl);
 	}
 
 	return ( result );

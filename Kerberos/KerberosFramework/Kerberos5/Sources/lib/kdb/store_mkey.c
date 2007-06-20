@@ -31,6 +31,7 @@
 
 #include <errno.h>
 #include "k5-int.h"
+#include <arpa/inet.h>
 
 /* Just in case sysincl.h didn't get it */
 
@@ -57,6 +58,7 @@ krb5_db_store_mkey(context, keyfile, mname, key)
     FILE *kf;
     krb5_error_code retval = 0;
     krb5_ui_2 enctype;
+    unsigned long nl_length;
     char defkeyfile[MAXPATHLEN+1];
     krb5_data *realm = krb5_princ_realm(context, mname);
 #if HAVE_UMASK
@@ -86,11 +88,12 @@ krb5_db_store_mkey(context, keyfile, mname, key)
 #endif
 	return errno;
     }
-    enctype = key->enctype;
+    enctype = htons(key->enctype);
+    nl_length = htonl(key->length);
     if ((fwrite((krb5_pointer) &enctype,
 		2, 1, kf) != 1) ||
-	(fwrite((krb5_pointer) &key->length,
-		sizeof(key->length), 1, kf) != 1) ||
+	(fwrite((krb5_pointer) &nl_length,
+		sizeof(nl_length), 1, kf) != 1) ||
 	(fwrite((krb5_pointer) key->contents,
 		sizeof(key->contents[0]), (unsigned) key->length, 
 		kf) != key->length)) {

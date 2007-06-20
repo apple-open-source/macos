@@ -1,4 +1,4 @@
-/* $Id: acconfig.h,v 1.2 2003/12/16 01:18:19 lukem Exp $ */
+/* $Id: acconfig.h,v 1.4 2006/09/27 04:38:35 lukem Exp $ */
 
 @TOP@
 @BOTTOM@
@@ -27,6 +27,12 @@
 /* Define if `struct addrinfo' exists in <netdb.h> */
 #undef HAVE_ADDRINFO
 
+/* Define if we have poll() and it is not emulated */
+#undef HAVE_POLL
+
+/* Define if we have struct pollfd in <poll.h> or <sys/poll.h> */
+#undef HAVE_STRUCT_POLLFD
+
 /*
  * Define if <netdb.h> contains AI_NUMERICHOST et al.
  * Systems which only implement RFC2133 will need this.
@@ -35,6 +41,9 @@
 
 /* Define if `struct direct' has a d_namlen element */
 #undef HAVE_D_NAMLEN
+
+/* Define if struct passwd.pw_change exists. */
+#undef HAVE_PW_CHANGE
 
 /* Define if struct passwd.pw_expire exists. */
 #undef HAVE_PW_EXPIRE

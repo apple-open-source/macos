@@ -79,7 +79,7 @@
 
 /* Flags which can modify meaning of special volume/brightness keys */
 #define SPECIALKEYS_MODIFIER_MASK \
-			(NX_COMMANDMASK|NX_ALTERNATEMASK|NX_CONTROLMASK)
+			(NX_SHIFTMASK|NX_COMMANDMASK|NX_ALTERNATEMASK|NX_CONTROLMASK)
 
 /* Bits in evg->eventFlags owned by keyboard devices */
 #define KEYBOARD_FLAGSMASK \

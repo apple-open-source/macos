@@ -26,6 +26,7 @@
  
 #include "unicode/utypes.h"
 #include "unicode/uobject.h"
+#include "unicode/decimfmt.h"
 #include <float.h>
 
 // Decimal digits in a 64-bit int
@@ -222,6 +223,7 @@ public:
     int32_t     fCount;
     UBool       fIsPositive;
     char        *fDigits;
+    DecimalFormat::ERoundingMode    fRoundingMode;
 
 private:
 

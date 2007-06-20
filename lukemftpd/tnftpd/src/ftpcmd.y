@@ -1,7 +1,7 @@
-/*	$NetBSD: ftpcmd.y,v 1.8 2004/08/10 00:00:36 lukem Exp $	*/
+/*	$NetBSD: ftpcmd.y,v 1.10 2006/09/26 06:38:38 lukem Exp $	*/
 
 /*-
- * Copyright (c) 1997-2004 The NetBSD Foundation, Inc.
+ * Copyright (c) 1997-2005 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
  * This code is derived from software contributed to The NetBSD Foundation
@@ -84,7 +84,7 @@
 #if 0
 static char sccsid[] = "@(#)ftpcmd.y	8.3 (Berkeley) 4/6/94";
 #else
-__RCSID("$NetBSD: ftpcmd.y,v 1.8 2004/08/10 00:00:36 lukem Exp $");
+__RCSID("$NetBSD: ftpcmd.y,v 1.10 2006/09/26 06:38:38 lukem Exp $");
 #endif
 #endif /* not lint */
 
@@ -124,6 +124,14 @@ static	int cmd_bytesz;
 char	cbuf[FTP_BUFLEN];
 char	*cmdp;
 char	*fromname;
+
+extern int	epsvall;
+struct tab	sitetab[];
+
+static	int	check_write(const char *, int);
+static	void	help(struct tab *, const char *);
+static	void	port_check(const char *, int);
+	int	yylex(void);
 
 %}
 
@@ -510,6 +518,8 @@ cmd
 		{
 			char *argv[] = { INTERNAL_LS, "-lgA", NULL };
 			
+			if (CURCLASS_FLAGS_ISSET(hidesymlinks))
+				argv[1] = "-LlgA";
 			if ($2)
 				retrieve(argv, "");
 		}
@@ -518,6 +528,8 @@ cmd
 		{
 			char *argv[] = { INTERNAL_LS, "-lgA", NULL, NULL };
 
+			if (CURCLASS_FLAGS_ISSET(hidesymlinks))
+				argv[1] = "-LlgA";
 			if ($2 && $4 != NULL) {
 				argv[2] = $4;
 				retrieve(argv, $4);
@@ -1300,13 +1312,6 @@ struct tab sitetab[] = {
 	{ NULL,		0,	0,	0,	NULL }
 };
 
-static	int	check_write(const char *, int);
-static	void	help(struct tab *, const char *);
-static	void	port_check(const char *, int);
-	int	yylex(void);
-
-extern int epsvall;
-
 /*
  * Check if a filename is allowed to be modified (isupload == 0) or
  * uploaded (isupload == 1), and if necessary, check the filename is `sane'.
@@ -1340,7 +1345,7 @@ check_write(const char *file, int isupload)
 		if (file[0] == '.')
 			goto insane_name;
 		for (p = file; *p; p++) {
-			if (isalnum(*p) || *p == '-' || *p == '+' ||
+			if (isalnum((unsigned char)*p) || *p == '-' || *p == '+' ||
 			    *p == ',' || *p == '.' || *p == '_')
 				continue;
  insane_name:
@@ -1378,7 +1383,7 @@ getline(char *s, int n, FILE *iop)
 		*cs++ = tmpline[c];
 		if (tmpline[c] == '\n') {
 			*cs++ = '\0';
-			if (debug)
+			if (ftpd_debug)
 				syslog(LOG_DEBUG, "command: %s", s);
 			tmpline[0] = '\0';
 			return(s);
@@ -1426,7 +1431,7 @@ getline(char *s, int n, FILE *iop)
 	if (c == EOF && cs == s)
 		return (NULL);
 	*cs++ = '\0';
-	if (debug) {
+	if (ftpd_debug) {
 		if ((curclass.type != CLASS_GUEST &&
 		    strncasecmp(s, "PASS ", 5) == 0) ||
 		    strncasecmp(s, "ACCT ", 5) == 0) {
@@ -1578,7 +1583,7 @@ yylex(void)
 		 */
 		if (n > 1 && cmdp[cpos] == '\n') {
 			cmdp[cpos] = '\0';
-			yylval.s = xstrdup(cp);
+			yylval.s = ftpd_strdup(cp);
 			cmdp[cpos] = '\n';
 			state = ARGS;
 			return (STRING);
@@ -1590,9 +1595,9 @@ yylex(void)
 			cpos++;
 			return (SP);
 		}
-		if (isdigit(cmdp[cpos])) {
+		if (isdigit((unsigned char)cmdp[cpos])) {
 			cp = &cmdp[cpos];
-			while (isdigit(cmdp[++cpos]))
+			while (isdigit((unsigned char)cmdp[++cpos]))
 				;
 			c = cmdp[cpos];
 			cmdp[cpos] = '\0';
@@ -1605,9 +1610,9 @@ yylex(void)
 		goto dostr1;
 
 	case ARGS:
-		if (isdigit(cmdp[cpos])) {
+		if (isdigit((unsigned char)cmdp[cpos])) {
 			cp = &cmdp[cpos];
-			while (isdigit(cmdp[++cpos]))
+			while (isdigit((unsigned char)cmdp[++cpos]))
 				;
 			c = cmdp[cpos];
 			cmdp[cpos] = '\0';
@@ -1617,7 +1622,7 @@ yylex(void)
 			return (NUMBER);
 		}
 		if (strncasecmp(&cmdp[cpos], "ALL", 3) == 0
-		    && !isalnum(cmdp[cpos + 3])) {
+		    && !isalnum((unsigned char)cmdp[cpos + 3])) {
 			cpos += 3;
 			return (ALL);
 		}

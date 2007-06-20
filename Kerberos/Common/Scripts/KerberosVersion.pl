@@ -6,7 +6,7 @@ use Encode;
 Encode::perlio_ok ("utf16") or die ("can't read utf16");
 
 my $kfm = "KfM";
-my $buildVersion = "5.5.23";
+my $buildVersion = "5.5.24";
 my $marketingVersion = "5.5.3";
 my $copyright = "Copyright 2006 Massachusetts Institute of Technology";
 my $shortCopyright = "Copyright 2006 MIT";

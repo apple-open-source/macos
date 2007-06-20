@@ -1,0 +1,82 @@
+fetchmail-SA-2006-03: crash when refusing message delivered through MDA
+
+Topics:		fetchmail crashes when refusing a message bound for an MDA
+
+Author:		Matthias Andree
+Version:	1.0
+Announced:	2007-01-04
+Type:		denial of service
+Impact:		fetchmail aborts prematurely
+Danger:		low
+Credits:	Neil Hoggarth (bug report and analysis)
+CVE Name:	CVE-2006-5974
+URL:		http://fetchmail.berlios.de/fetchmail-SA-2006-03.txt
+Project URL:	http://fetchmail.berlios.de/
+
+Affects:	fetchmail release = 6.3.5
+		fetchmail release candidates 6.3.6-rc1, -rc2
+
+Not affected:	fetchmail release 6.3.6
+
+Corrected:	2006-11-14 fetchmail SVN
+
+
+0. Release history
+==================
+
+2006-11-19 -	internal review draft
+2007-01-04 1.0	 ready for release
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents.
+
+fetchmail ships with a graphical, Python/Tkinter based configuration
+utility named "fetchmailconf" to help the user create configuration (run
+control) files for fetchmail.
+
+
+2. Problem description and Impact
+=================================
+
+Fetchmail 6.3.5 and early 6.3.6 release candidates, when delivering
+messages to a message delivery agent by means of the "mda" option, can
+crash (by passing a NULL pointer to ferror() and fflush()) when refusing
+a message. SMTP and LMTP delivery modes aren't affected.
+
+
+3. Workaround
+=============
+
+Avoid the mda option and ship to a local SMTP or LMTP server instead.
+
+
+4. Solution
+===========
+
+Download and install fetchmail 6.3.6 or a newer stable release from
+fetchmail's project site at
+<http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2007 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivs German License. To view a copy of
+this license, visit http://creativecommons.org/licenses/by-nc-nd/2.0/de/
+or send a letter to Creative Commons; 559 Nathan Abbott Way;
+Stanford, California 94305; USA.
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+END OF fetchmail-SA-2006-03.txt

@@ -205,31 +205,6 @@
 		F7EDA6D3064C347300B512BD /* IOHIDInterface.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = F7B97B520647058E00C8D434 /* IOHIDInterface.h */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		06AA1265FFB2107B11CA28AA /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		06AA1266FFB2107B11CA28AA /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXBundleTarget section */
 		089C1673FE841209C02AAC07 /* IOHIDFamily */ = {
 			isa = PBXBundleTarget;
@@ -245,27 +220,6 @@
 				06AA1264FFB2107B11CA28AA /* ShellScript */,
 				F7447E0B073C0A1900FB85E8 /* Resources */,
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.4.10;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOHIDFamily;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 				019D7CB2FFE829CD11CA2CF6 /* PBXTargetDependency */,
 				F59AD16902ADDC1B0193FF54 /* PBXTargetDependency */,
@@ -285,7 +239,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOHIDFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.4.10, Copyright Apple Computer, Inc. 2000-2006</string>
+	<string>1.4.11, Copyright Apple Inc. 2000-2007</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -297,11 +251,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOBSDConsole</key>
@@ -363,27 +317,6 @@
 				09CF03ADFFC4B24911CA285C /* Frameworks */,
 				09CF03AEFFC4B24911CA285C /* Rez */,
 			);
-			buildSettings = {
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/IOHIDFamily\"";
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = (
-					"-bundle",
-					"-twolevel_namespace",
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOHIDLib;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = plugin;
-			};
 			dependencies = (
 				0391B0BAFFE983AE11CA2CF6 /* PBXTargetDependency */,
 			);
@@ -412,11 +345,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>
@@ -450,23 +383,6 @@
 			buildPhases = (
 				84002F4C06B0A21D00A38E03 /* Resources */,
 			);
-			buildSettings = {
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOHIDEventDriverSafeBoot;
-				MODULE_VERSION = 1.4.10;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOHIDEventDriverSafeBoot;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOHIDEventDriverSafeBoot;
@@ -492,11 +408,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>HID Pointing/Consumer/System Control Driver</key>
@@ -651,23 +567,6 @@
 			buildPhases = (
 				84AAE98D0826DBC1009125BC /* Resources */,
 			);
-			buildSettings = {
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOHIDUserClient;
-				MODULE_VERSION = 1.4.10;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOHIDUserClient;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOHIDUserClient;
@@ -683,7 +582,7 @@
 	<key>CFBundleExecutable</key>
 	<string></string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.4.10, Copyright Apple Computer, Inc. 2000-2006</string>
+	<string>1.4.11, Copyright Apple Inc. 2000-2007</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -695,11 +594,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOHIDLibUPSUserClient</key>
@@ -773,26 +672,6 @@
 			buildPhases = (
 				F72E795B067A4783009A8625 /* Resources */,
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOHIDSystem;
-				MODULE_VERSION = 1.4.10;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOHIDSystem;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOHIDSystem;
@@ -805,7 +684,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.4.10, Copyright Apple Computer, Inc. 2000-2006</string>
+	<string>1.4.11, Copyright Apple Inc. 2000-2007</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -817,11 +696,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
@@ -851,23 +730,6 @@
 			buildPhases = (
 				F72E7950067A4736009A8625 /* Resources */,
 			);
-			buildSettings = {
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOHIDEventDriver;
-				MODULE_VERSION = 1.4.10;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOHIDEventDriver;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOHIDEventDriver;
@@ -893,11 +755,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.10</string>
+	<string>1.4.11</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>HID Keyboard Driver</key>
@@ -948,23 +810,6 @@
 				F7E9C4E706F653BC0056A9ED /* Frameworks */,
 				F7E9C4E806F653BC0056A9ED /* Rez */,
 			);
-			buildSettings = {
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOHIDTestDriver;
-				MODULE_VERSION = 1.0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOHIDTestDriver;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = IOHIDTestDriver;
@@ -1757,12 +1602,6 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 845F27ED09B7A15800045E94 /* Build configuration list for PBXProject "IOHIDFamily" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				06AA1265FFB2107B11CA28AA /* Development */,
-				06AA1266FFB2107B11CA28AA /* Deployment */,
-			);
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* IOHIDFamily */;
 			projectDirPath = "";
@@ -2059,21 +1898,6 @@
 				84218A2D06B0A928009DEEDE /* CopyFiles */,
 				019D7CB7FFE829CD11CA2CF6 /* Rez */,
 			);
-			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/hid";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = InstallHeaders;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = InstallHeaders;
@@ -2165,7 +1989,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDSystem;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2193,7 +2017,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDSystem;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2218,7 +2042,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDSystem;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2244,7 +2068,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDUserClient;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2269,7 +2093,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDUserClient;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2291,7 +2115,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDUserClient;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2402,7 +2226,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriver;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2427,7 +2251,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriver;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2449,7 +2273,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriver;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2475,7 +2299,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriverSafeBoot;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2500,7 +2324,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriverSafeBoot;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2522,7 +2346,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDEventDriverSafeBoot;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2552,7 +2376,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -2581,7 +2405,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -2607,7 +2431,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOHIDFamily;
-				MODULE_VERSION = 1.4.10;
+				MODULE_VERSION = 1.4.11;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

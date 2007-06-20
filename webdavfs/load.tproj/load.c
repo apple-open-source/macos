@@ -41,11 +41,12 @@ int main(int argc, const char *argv[])
 	int pid;
 	int result = -1;
 	union wait status;
+	char *env[] = {"__CF_USER_TEXT_ENCODING=0x1D29:0:0", "", (char*) 0};
 	
 	pid = fork();
 	if (pid == 0)
 	{
-		result = execl(LOAD_COMMAND, LOAD_COMMAND, WEBDAV_MODULE_PATH, NULL);
+		result = execle(LOAD_COMMAND, LOAD_COMMAND, WEBDAV_MODULE_PATH, (char *) 0, env);
 		/* We can only get here if the exec failed */
 		goto Return;
 	}

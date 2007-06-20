@@ -1,6 +1,6 @@
-/* $Id: tnftpd.h,v 1.16 2004/08/10 01:00:10 lukem Exp $ */
+/* $Id: tnftpd.h,v 1.21 2006/12/18 04:15:01 lukem Exp $ */
 
-#define	FTPD_VERSION	"tnftpd 20040810"
+#define	FTPD_VERSION	"tnftpd 20061217"
 
 #include "config.h"
 
@@ -138,6 +138,45 @@ char	*sl_find(StringList *, char *);
 # include "ftpfts.h"
 #endif
 
+#if HAVE_POLL
+/* we use poll */
+#elif HAVE_SELECT
+/* we use select to implement poll() */
+#else /* ! HAVE_POLL && ! HAVE_SELECT */
+# error "no poll() or select() found"
+#endif
+
+#if HAVE_POLL_H
+# include <poll.h>
+#elif HAVE_SYS_POLL_H
+# include <sys/poll.h>
+#endif
+#ifndef POLLIN
+# define POLLIN		0x0001
+#endif
+#ifndef POLLOUT
+# define POLLOUT	0x0004
+#endif
+#ifndef POLLRDNORM
+# define POLLRDNORM	0x0040
+#endif
+#ifndef POLLWRNORM
+# define POLLWRNORM	POLLOUT
+#endif
+#ifndef POLLRDBAND
+# define POLLRDBAND	0x0080
+#endif
+#ifndef INFTIM
+# define INFTIM -1
+#endif
+#if ! HAVE_STRUCT_POLLFD
+struct pollfd {
+	int	fd;
+	short	events;
+	short	revents;
+};
+#endif
+
 #if HAVE_UTIL_H
 # include <util.h>
 #endif
@@ -156,6 +195,20 @@ typedef unsigned int socklen_t;
 
 #if HAVE_AF_INET6 && HAVE_SOCKADDR_IN6
 # define INET6
+#endif
+
+
+#if HAVE_ARPA_NAMESER_H
+# include <arpa/nameser.h>
+#endif
+#ifndef NS_INADDRSZ
+#define NS_INADDRSZ	4
+#endif
+#ifndef NS_IN6ADDRSZ
+#define NS_IN6ADDRSZ	16
+#endif
+#ifndef NS_INT16SZ
+#define NS_INT16SZ	2
 #endif
 
 
@@ -282,6 +335,10 @@ extern int	optind;
 int	pclose(FILE *);
 #endif
 
+#if ! HAVE_DAEMON
+int	daemon(int, int);
+#endif
+
 #if ! HAVE_ERR
 void	err(int, const char *, ...);
 void	errx(int, const char *, ...);
@@ -309,7 +366,7 @@ void	endusershell(void);
 #endif
 
 #if ! HAVE_INET_NTOP
-const char *inet_ntop(int, const void *, char *, size_t);
+const char *inet_ntop(int, const void *, char *, socklen_t);
 #endif
 
 #if ! HAVE_INET_PTON

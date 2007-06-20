@@ -89,8 +89,7 @@ _svcauth_unix(rqst, msg)
 		char area_machname[MAX_MACHINE_NAME+1];
 		int area_gids[NGROUPS];
 	} *area;
-	u_int auth_len;
-	int str_len, gid_len;
+	u_int auth_len, str_len, gid_len;
 	register int i;
 
 	area = (struct area *) rqst->rq_clntcred;
@@ -107,7 +106,7 @@ _svcauth_unix(rqst, msg)
 			stat = AUTH_BADCRED;
 			goto done;
 		}
-		bcopy((caddr_t)buf, aup->aup_machname, (u_int)str_len);
+		bcopy((caddr_t)buf, aup->aup_machname, str_len);
 		aup->aup_machname[str_len] = 0;
 		str_len = RNDUP(str_len);
 		buf += str_len / sizeof (long);
@@ -127,8 +126,9 @@ _svcauth_unix(rqst, msg)
 		 * timestamp, hostname len (0), uid, gid, and gids len (0).
 		 */
 		if ((5 + gid_len) * BYTES_PER_XDR_UNIT + str_len > auth_len) {
-			(void) printf("bad auth_len gid %d str %d auth %d\n",
-			    gid_len, str_len, auth_len);
+			/* LIBRARY CODE SHOULD NOT PRINT
+			(void) printf("bad auth_len gid %d str %d auth %d\n", gid_len, str_len, auth_len);
+			*/
 			stat = AUTH_BADCRED;
 			goto done;
 		}

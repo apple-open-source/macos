@@ -17,6 +17,7 @@
 #endif
 #include  "fetchmail.h"
 #include  "socket.h"
+#include  "i18n.h"
 
 static int pound_arg, equal_arg;
 
@@ -60,10 +61,24 @@ static int pop2_getauth(int sock, struct query *ctl, char *buf)
     int status;
 
     (void)buf;
+
+    if (ctl->sslproto && !strcasecmp(ctl->sslproto, "tls1") && !ctl->use_ssl)
+    {
+	report(stderr, GT_("POP2 does not support STLS. Giving up.\n"));
+	return PS_SOCKET;
+    }
+
+    if (ctl->server.authenticate != A_ANY && ctl->server.authenticate != A_PASSWORD)
+    {
+	report(stderr, GT_("POP2 only supports password authentication. Giving up.\n"));
+	return PS_AUTHFAIL;
+    }
+
     strlcpy(shroud, ctl->password, sizeof(shroud));
     status = gen_transact(sock,
 		  "HELO %s %s",
 		  ctl->remotename, ctl->password);
+    memset(shroud, 0x55, sizeof(shroud));
     shroud[0] = '\0';
     return status;
 }

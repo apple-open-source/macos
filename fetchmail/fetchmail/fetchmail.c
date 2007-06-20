@@ -45,6 +45,11 @@
 #include "i18n.h"
 #include "lock.h"
 
+/* need these (and sys/types.h) for res_init() */
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+
 #ifndef ENETUNREACH
 #define ENETUNREACH   128       /* Interactive doesn't know this */
 #endif /* ENETUNREACH */
@@ -130,8 +135,9 @@ static RETSIGTYPE donothing(int sig)
 
 static void printcopyright(FILE *fp) {
 	fprintf(fp, GT_("Copyright (C) 2002, 2003 Eric S. Raymond\n"
-		   "Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Rob F. Funk, Graham Wilson\n"
-		   "Copyright (C) 2005-2006 Matthias Andree, Sunil Shetye\n"
+		   "Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham Wilson\n"
+		   "Copyright (C) 2005-2006 Sunil Shetye\n"
+		   "Copyright (C) 2005-2007 Matthias Andree\n"
 		   ));
 	fprintf(fp, GT_("Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
 		   "are welcome to redistribute it under certain conditions. For details,\n"
@@ -198,7 +204,7 @@ int main(int argc, char **argv)
      * call near the beginning of the polling loop for details).  We want
      * to be sure the lock gets nuked on any error exit, basically.
      */
-    lock_dispose();
+    fm_lock_dispose();
 
 #ifdef HAVE_GETCWD
     /* save the current directory */
@@ -232,7 +238,7 @@ int main(int argc, char **argv)
 	"-IMAP"
 #endif /* IMAP_ENABLE */
 #ifdef GSSAPI
-	"+IMAP-GSS"
+	"+GSS"
 #endif /* GSSAPI */
 #ifdef RPA_ENABLE
 	"+RPA"
@@ -264,6 +270,12 @@ int main(int argc, char **argv)
 #ifdef ENABLE_NLS
 	"+NLS"
 #endif /* ENABLE_NLS */
+#ifdef KERBEROS_V4
+	"+KRB4"
+#endif /* KERBEROS_V4 */
+#ifdef KERBEROS_V5
+	"+KRB5"
+#endif /* KERBEROS_V5 */
 	".\n";
 	printf(GT_("This is fetchmail release %s"), VERSION);
 	fputs(features, stdout);
@@ -316,7 +328,7 @@ int main(int argc, char **argv)
 #endif /* POP3_ENABLE */
 
     /* construct the lockfile */
-    lock_setup(&run);
+    fm_lock_setup(&run);
 
 #ifdef HAVE_SETRLIMIT
     /*
@@ -401,7 +413,7 @@ int main(int argc, char **argv)
     }
 
     /* check for another fetchmail running concurrently */
-    pid = lock_state();
+    pid = fm_lock_state();
     bkgd = (pid < 0);
     pid = bkgd ? -pid : pid;
 
@@ -476,7 +488,7 @@ int main(int argc, char **argv)
 	}
 	else if (getpid() == pid)
 	    /* this test enables re-execing on a changed rcfile */
-	    lock_assert();
+	    fm_lock_assert();
 	else if (argc > 1)
 	{
 	    fprintf(stderr,
@@ -541,13 +553,23 @@ int main(int argc, char **argv)
     /* avoid zombies from plugins */
     deal_with_sigchld();
 
+    if (run.logfile && run.use_syslog)
+	fprintf(stderr, GT_("fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"));
+
     /*
      * Maybe time to go to demon mode...
      */
     if (run.poll_interval)
     {
-	if (!nodetach)
-	    daemonize(run.logfile);
+	if (!nodetach) {
+	    int rc;
+
+	    rc = daemonize(run.logfile);
+	    if (rc) {
+		report(stderr, GT_("fetchmail: Cannot detach into background. Aborting.\n"));
+		exit(rc);
+	    }
+	}
 	report(stdout, GT_("starting fetchmail %s daemon \n"), VERSION);
 
 	/*
@@ -560,12 +582,15 @@ int main(int argc, char **argv)
     }
     else
     {
+	/* not in daemon mode */
 	if (run.logfile && !nodetach && access(run.logfile, F_OK) == 0)
     	{
 	    if (!freopen(run.logfile, "a", stdout))
 		    report(stderr, GT_("could not open %s to append logs to \n"), run.logfile);
 	    if (!freopen(run.logfile, "a", stderr))
 		    report(stdout, GT_("could not open %s to append logs to \n"), run.logfile);
+	    if (run.use_syslog)
+		report(stdout, GT_("fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"));
     	}
     }
 
@@ -577,11 +602,11 @@ int main(int argc, char **argv)
     set_signal_handler(SIGINT, terminate_run);
     set_signal_handler(SIGTERM, terminate_run);
     set_signal_handler(SIGALRM, terminate_run);
-    set_signal_handler(SIGPIPE, terminate_run);
+    set_signal_handler(SIGPIPE, SIG_IGN);
     set_signal_handler(SIGQUIT, terminate_run);
 
     /* here's the exclusion lock */
-    lock_or_die();
+    fm_lock_or_die();
 
     /*
      * Query all hosts. If there's only one, the error return will
@@ -597,8 +622,9 @@ int main(int argc, char **argv)
 	 */
 	struct stat	rcstat;
 
-	if (stat(rcfile, &rcstat) == -1)
-	{
+	if (strcmp(rcfile, "-") == 0) {
+	    /* do nothing */
+	} else if (stat(rcfile, &rcstat) == -1) {
 	    if (errno != ENOENT)
 		report(stderr, 
 		       GT_("couldn't time-check %s (error %d)\n"),
@@ -654,6 +680,22 @@ int main(int argc, char **argv)
 	 */
 	sethostent(TRUE);	/* use TCP/IP for mailserver queries */
 #endif /* HAVE_RES_SEARCH */
+
+#ifdef HAVE_RES_SEARCH
+	/* Boldly assume that we also have res_init() if we have
+	 * res_search(), and call res_init() to re-read the resolv.conf
+	 * file, so that we can pick up changes to that file that are
+	 * written by dhpccd, dhclient, pppd, openvpn and similar. */
+
+	/* NOTE: This assumes that /etc/resolv.conf is written
+	 * atomically (i. e. a temporary file is written, flushed and
+	 * then renamed into place). To fix Debian Bug#389270. */
+
+	/* NOTE: If this leaks memory or doesn't re-read
+	 * /etc/resolv.conf, we're in trouble. The res_init() interface
+	 * is only lightly documented :-( */
+	res_init();
+#endif
 
 	activecount = 0;
 	batchcount = 0;
@@ -796,8 +838,8 @@ int main(int argc, char **argv)
 	    }
 
 	    if (outlevel > O_SILENT)
-		report(stdout, 
-		       GT_("sleeping at %s\n"), timestamp());
+		report(stdout,
+		       GT_("sleeping at %s for %d seconds\n"), timestamp(), run.poll_interval);
 
 	    /*
 	     * With this simple hack, we make it possible for a foreground 
@@ -807,7 +849,7 @@ int main(int argc, char **argv)
 	     * for people who think all system daemons wake up on SIGHUP.
 	     */
 	    set_signal_handler(SIGUSR1, donothing);
-	    if (getuid() != ROOT_UID)
+	    if (getuid() == ROOT_UID)
 		set_signal_handler(SIGHUP, donothing);
 
 	    /*
@@ -986,7 +1028,7 @@ static int load_params(int argc, char **argv, int optind)
 
     /* note the parse time, so we can pick up on modifications */
     parsetime = 0;	/* foil compiler warnings */
-    if (stat(rcfile, &rcstat) != -1)
+    if (strcmp(rcfile, "-") == 0 || stat(rcfile, &rcstat) != -1)
 	parsetime = rcstat.st_mtime;
     else if (errno != ENOENT)
 	report(stderr, GT_("couldn't time-check the run-control file\n"));
@@ -1182,6 +1224,24 @@ static int load_params(int argc, char **argv, int optind)
 	    }
 #endif /* SSL_ENABLE */
 #undef DEFAULT
+#ifndef KERBEROS_V4
+	    if (ctl->server.authenticate == A_KERBEROS_V4) {
+		report(stderr, GT_("KERBEROS v4 support is configured, but not compiled in.\n"));
+		exit(PS_SYNTAX);
+	    }
+#endif
+#ifndef KERBEROS_V5
+	    if (ctl->server.authenticate == A_KERBEROS_V5) {
+		report(stderr, GT_("KERBEROS v5 support is configured, but not compiled in.\n"));
+		exit(PS_SYNTAX);
+	    }
+#endif
+#ifndef GSSAPI
+	    if (ctl->server.authenticate == A_GSSAPI) {
+		report(stderr, GT_("GSSAPI support is configured, but not compiled in.\n"));
+		exit(PS_SYNTAX);
+	    }
+#endif
 
 	    /*
 	     * Make sure we have a nonempty host list to forward to.
@@ -1273,10 +1333,10 @@ static int load_params(int argc, char **argv, int optind)
 	     * "I beg to you, have mercy on the we[a]k minds like myself."
 	     * wrote Pehr Anderson.  Your petition is granted.
 	     */
-	    if (ctl->fetchall && ctl->keep && run.poll_interval && !nodetach && !configdump)
+	    if (ctl->fetchall && ctl->keep && (run.poll_interval || ctl->idle) && !nodetach && !configdump)
 	    {
 		(void) fprintf(stderr,
-			       GT_("Both fetchall and keep on in daemon mode is a mistake!\n"));
+			       GT_("Both fetchall and keep on in daemon or idle mode is a mistake!\n"));
 	    }
 	}
     }

@@ -350,15 +350,17 @@ traverse(int argc, char *argv[], int options)
 {
 	FTS *ftsp;
 	FTSENT *p, *chp;
-	int ch_options;
+	int ch_options, save_errno;
 
 	if ((ftsp =
 	    fts_open(argv, options, f_nosort ? NULL : mastercmp)) == NULL)
 		err(EXIT_FAILURE, NULL);
 
 	display(NULL, fts_children(ftsp, 0));
-	if (f_listdir)
-		return;
+	if (f_listdir) {
+	    (void)fts_close(ftsp);
+	    return;
+	}
 
 	/*
 	 * If not recursing down this tree and don't need stat info, just get
@@ -400,6 +402,12 @@ traverse(int argc, char *argv[], int options)
 				(void)fts_set(ftsp, p, FTS_SKIP);
 			break;
 		}
+
+	/* Only care about errno set by fts_read() */
+	save_errno = errno;
+	(void)fts_close(ftsp);
+	errno = save_errno;
+	
 	if (errno)
 		err(EXIT_FAILURE, "fts_read");
 }
